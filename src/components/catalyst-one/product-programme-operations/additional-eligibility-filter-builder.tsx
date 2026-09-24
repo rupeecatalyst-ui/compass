@@ -91,8 +91,8 @@ function FieldRow({
               <SelectItem value="OR">ANY / OR</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="button" variant="outline" size="sm" onClick={onAddFilter}>+ Add Filter</Button>
-          <Button type="button" variant="outline" size="sm" onClick={onAddGroup} disabled={depth >= ADDITIONAL_FILTER_MAX_DEPTH}>
+          <Button type="button" variant="default" size="sm" onClick={onAddFilter}>+ Add Filter</Button>
+          <Button type="button" variant="secondary" size="sm" onClick={onAddGroup} disabled={depth >= ADDITIONAL_FILTER_MAX_DEPTH}>
             + Add Group
           </Button>
           {depth > 1 ? (
@@ -211,12 +211,19 @@ export function AdditionalEligibilityFilterBuilder({
   });
 
   return (
-    <div className="space-y-3" data-section="additional-eligibility-filters">
+    <div
+      className="space-y-3 rounded-xl border border-primary/30 bg-muted/30 p-4"
+      data-section="additional-eligibility-filters"
+    >
       <div>
-        <h4 className="font-medium">Additional Eligibility Filters</h4>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Programme-specific narrowing
+        </p>
+        <h4 className="mt-1 text-base font-semibold">Additional Eligibility Filters</h4>
+        <p className="mt-1 text-sm text-muted-foreground">
           Refine this programme only. Filters cannot contradict or broaden governed programme or policy rules.
-          Field choices are limited to the current product / module journey.
+          Field choices are limited to the current product / module journey. Use + Add Filter for a single
+          condition or + Add Group for nested ALL / ANY logic.
         </p>
       </div>
       {!productCode ? (

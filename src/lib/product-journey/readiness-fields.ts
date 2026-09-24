@@ -2,6 +2,7 @@ import { isEmploymentClassificationAsPropertyCategory } from "@/constants/produc
 import type { AssessmentFact, OpportunityAssessmentFactsV1 } from "@/types/opportunity-assessment";
 import type { ProductJourneyFieldRow } from "@/types/product-journey-definition";
 import { OPPORTUNITY_ASSESSMENT_CAPTURE_FIELD_LABELS } from "@/constants/opportunity-assessment-capture";
+import { resolveProductJourneyFieldLabel } from "@/lib/product-journey/display-label";
 
 function factAtPath(facts: OpportunityAssessmentFactsV1, path: string): AssessmentFact<unknown> | null {
   const [section, key] = path.split(".");
@@ -57,7 +58,11 @@ export function missingJourneyFieldLabels(
     .filter((row) => row.mandatoryForRecommendation && !journeyFieldIsSatisfied(facts, row))
     .map((row) => {
       const path = assessmentPathForJourneyField(row.fieldId);
-      return row.label || (path ? OPPORTUNITY_ASSESSMENT_CAPTURE_FIELD_LABELS[path] : null) || row.fieldId;
+      return (
+        resolveProductJourneyFieldLabel(row.fieldId, row.label) ||
+        (path ? OPPORTUNITY_ASSESSMENT_CAPTURE_FIELD_LABELS[path] : null) ||
+        row.fieldId
+      );
     })
     .filter((label, index, all) => all.indexOf(label) === index);
 }

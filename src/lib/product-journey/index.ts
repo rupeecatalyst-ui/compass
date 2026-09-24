@@ -1,3 +1,4 @@
+export { resolveProductJourneyFieldLabel, APPROVED_JOURNEY_FIELD_LABELS } from "./display-label";
 export {
   parseProductJourneyFields,
   resolveEffectiveJourneyFields,

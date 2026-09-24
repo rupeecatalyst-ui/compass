@@ -7,6 +7,7 @@ import {
 } from "@/constants/product-programme-operations/controlled-masters";
 import { applicableJourneyFields } from "@/lib/product-journey/applicability";
 import { resolveEffectiveJourneyFields } from "@/lib/product-journey/parse";
+import { resolveProductJourneyFieldLabel } from "@/lib/product-journey/display-label";
 import {
   listProjectedRecommendationFields,
   resolveProjectedField,
@@ -72,7 +73,7 @@ export function listAdditionalEligibilityFilterFields(input: {
         seen.add(field.id);
         options.push({
           ...optionFromProjected(field),
-          label: row.label || field.label,
+          label: resolveProductJourneyFieldLabel(row.fieldId, row.label || field.label),
         });
         continue;
       }
@@ -81,7 +82,7 @@ export function listAdditionalEligibilityFilterFields(input: {
       const key = constraintKeyForField(row.fieldId);
       options.push({
         id: row.fieldId,
-        label: row.label || row.fieldId,
+        label: resolveProductJourneyFieldLabel(row.fieldId, row.label),
         valueType: key && ENUM_OPTIONS[key] ? "enum" : /age|income|cibil|score|amount|value|months/i.test(row.fieldId) ? "number" : "string",
         enumOptions: key ? ENUM_OPTIONS[key] : undefined,
         productCodes: [input.productCode],

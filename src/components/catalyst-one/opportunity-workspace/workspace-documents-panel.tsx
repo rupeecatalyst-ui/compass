@@ -55,19 +55,19 @@ export function WorkspaceDocumentsPanel() {
           type="button"
           size="sm"
           className="mt-3 h-8 gap-1.5 text-xs"
-          onClick={goToDocumentCenter}
+          onClick={goToDocumentWorkspace}
         >
           <FolderOpen className="h-3.5 w-3.5" />
-          Go to Document Center
+          Open Document Workspace
         </Button>
         <Button
           type="button"
           size="sm"
           variant="outline"
           className="mt-2 h-8 gap-1.5 text-xs"
-          onClick={goToDocumentWorkspace}
+          onClick={goToDocumentCenter}
         >
-          Open Document Workspace
+          Go to Document Center
         </Button>
       </div>
 

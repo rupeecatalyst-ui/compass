@@ -5,6 +5,7 @@ import { authenticatedJsonFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { parseProductJourneyFields, reorderVisibleJourneyFields } from "@/lib/product-journey/parse";
+import { resolveProductJourneyFieldLabel } from "@/lib/product-journey/display-label";
 import type { ProductJourneyFieldRow, ProductJourneyApplicability } from "@/types/product-journey-definition";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -547,7 +548,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
                     ...data?.bootstrap?.[productCode]?.find((field) => field.fieldId === event.target.value),
                     applicability: item.applicability, capture: item.capture, mandatoryForRecommendation: item.mandatoryForRecommendation, displayOrder: item.displayOrder,
                   } : item))}>
-                  {!availableCaptureFields.some((field) => field.id === row.fieldId) ? <option value={row.fieldId}>{row.fieldId}</option> : null}
+                  {!availableCaptureFields.some((field) => field.id === row.fieldId) ? <option value={row.fieldId}>{resolveProductJourneyFieldLabel(row.fieldId, row.label)}</option> : null}
                   {availableCaptureFields.filter((field) => field.id === row.fieldId || !draftFields.some((item) => item.fieldId === field.id && (item.applicability === row.applicability || item.applicability === "all" || row.applicability === "all"))).map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}
                 </select>
                 <select

@@ -49,17 +49,21 @@ import type { EnterpriseLenderProgramRecord, EnterpriseLenderRecord } from "@/ty
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
-  "Programme Identity",
-  "Applicant and Constitution",
-  "Geography and Transaction",
-  "Eligibility",
-  "Loan Amount and Tenure",
-  "Pricing and Charges",
-  "Policy",
-  "Required Documents",
-  "Effective Dates",
-  "Review and Publication",
+  { title: "Programme Identity", id: "programme-identity" },
+  { title: "Applicant and Constitution", id: "applicant-constitution" },
+  { title: "Geography and Transaction", id: "geography-transaction" },
+  { title: "Eligibility", id: "eligibility" },
+  { title: "Loan Amount and Tenure", id: "loan-amount-tenure" },
+  { title: "Pricing and Charges", id: "pricing-roi" },
+  { title: "Policy", id: "policy" },
+  { title: "Required Documents", id: "lod" },
+  { title: "Effective Dates", id: "effective-dates" },
+  { title: "Review and Publication", id: "completeness-review" },
 ] as const;
+
+function scrollToProgrammeSection(sectionId: string) {
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 const PROPERTY_PRODUCTS = new Set(["HOME_LOAN", "HOME_LOAN_BT", "LAP"]);
 
@@ -249,15 +253,20 @@ export function ProductProgrammeEditor({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-5" role="navigation" aria-label="Programme sections">
         {SECTIONS.map((section, index) => (
-          <div key={section} className="rounded-md border border-border px-3 py-2 text-xs">
-            <p className="font-medium">{index + 1}. {section}</p>
-          </div>
+          <button
+            key={section.id}
+            type="button"
+            className="rounded-md border border-border px-3 py-2 text-left text-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => scrollToProgrammeSection(section.id)}
+          >
+            <span className="font-medium">{index + 1}. {section.title}</span>
+          </button>
         ))}
       </div>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="programme-identity">
+      <section id="programme-identity" className="space-y-4 rounded-xl border border-border p-5" data-section="programme-identity">
         <h3 className="text-lg font-semibold">1. Programme Identity</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Lender">
@@ -327,7 +336,7 @@ export function ProductProgrammeEditor({
         </Field>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="applicant-constitution">
+      <section id="applicant-constitution" className="space-y-4 rounded-xl border border-border p-5" data-section="applicant-constitution">
         <h3 className="text-lg font-semibold">2. Applicant and Constitution</h3>
         <ControlledMultiSelect
           label="Applicant types"
@@ -363,7 +372,7 @@ export function ProductProgrammeEditor({
         />
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="geography-transaction">
+      <section id="geography-transaction" className="space-y-4 rounded-xl border border-border p-5" data-section="geography-transaction">
         <h3 className="text-lg font-semibold">3. Geography and Transaction</h3>
         <ControlledMultiSelect
           label="Eligible states"
@@ -413,7 +422,7 @@ export function ProductProgrammeEditor({
         )}
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="eligibility">
+      <section id="eligibility" className="space-y-4 rounded-xl border border-border p-5" data-section="eligibility">
         <h3 className="text-lg font-semibold">4. Eligibility</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Minimum CIBIL"><Input type="number" value={state.minCibil ?? ""} onChange={(event) => patch({ minCibil: event.target.value ? Number(event.target.value) : null })} /></Field>
@@ -471,7 +480,7 @@ export function ProductProgrammeEditor({
         />
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="loan-amount-tenure">
+      <section id="loan-amount-tenure" className="space-y-4 rounded-xl border border-border p-5" data-section="loan-amount-tenure">
         <h3 className="text-lg font-semibold">5. Loan Amount and Tenure</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Minimum loan amount"><Input value={state.minLoanAmountExact ?? ""} onChange={(event) => patch({ minLoanAmountExact: event.target.value || null })} /><p className="text-xs text-muted-foreground">{formatIndianCurrency(state.minLoanAmountExact)}</p></Field>
@@ -491,7 +500,7 @@ export function ProductProgrammeEditor({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="pricing-roi">
+      <section id="pricing-roi" className="space-y-4 rounded-xl border border-border p-5" data-section="pricing-roi">
         <h3 className="text-lg font-semibold">6. Pricing and Charges</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Minimum ROI %"><Input data-testid="programme-min-roi" value={state.minRoiExact ?? ""} onChange={(event) => patch({ minRoiExact: event.target.value || null })} /></Field>
@@ -523,7 +532,7 @@ export function ProductProgrammeEditor({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="policy">
+      <section id="policy" className="space-y-4 rounded-xl border border-border p-5" data-section="policy">
         <h3 className="text-lg font-semibold">7. Policy</h3>
         <Field label="Published policy version">
           <p className="text-xs text-muted-foreground" role="status">
@@ -556,7 +565,7 @@ export function ProductProgrammeEditor({
         </Field>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="lod">
+      <section id="lod" className="space-y-4 rounded-xl border border-border p-5" data-section="lod">
         <h3 className="text-lg font-semibold">8. Required Documents</h3>
         <ControlledMultiSelect
           label="EDIE document catalogue"
@@ -576,7 +585,7 @@ export function ProductProgrammeEditor({
         />
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="effective-dates">
+      <section id="effective-dates" className="space-y-4 rounded-xl border border-border p-5" data-section="effective-dates">
         <h3 className="text-lg font-semibold">9. Effective Dates</h3>
         <div className="grid gap-4 md:grid-cols-3">
           <Field label="Effective date"><Input type="date" value={(state.effectiveFrom ?? "").slice(0, 10)} onChange={(event) => patch({ effectiveFrom: event.target.value ? new Date(event.target.value).toISOString() : null })} /></Field>
@@ -586,7 +595,7 @@ export function ProductProgrammeEditor({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5" data-section="completeness-review">
+      <section id="completeness-review" className="space-y-4 rounded-xl border border-border p-5" data-section="completeness-review">
         <h3 className="text-lg font-semibold">10. Review and Publication</h3>
         <p className={cn("text-sm", completeness.complete ? "text-foreground" : "text-destructive")}>
           Completeness: {completeness.complete ? "Complete" : `${completeness.errors.length} field(s) remaining`}

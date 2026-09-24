@@ -25,7 +25,7 @@ import {
   getApprovedRequestedAmountMaxLabel,
 } from "@/constants/enterprise-product-master";
 import { bootstrapProductJourneyFields } from "@/constants/product-journey/bootstrap";
-import { journeyFieldMatchesIdcKey } from "@/lib/product-journey";
+import { journeyFieldMatchesIdcKey, resolveProductJourneyFieldLabel } from "@/lib/product-journey";
 import type { ProductJourneyFieldRow } from "@/types/product-journey-definition";
 import { buildPartnerOpportunityJourneyConfig } from "@server/services/partner-gateway/partner-opportunity-journey-config.service";
 
@@ -171,7 +171,7 @@ export function buildCompassJourneyConfig(
     if (!row.captureStepId) continue;
     fields.push({
       fieldId: row.fieldId,
-      label: row.label ?? row.fieldId,
+      label: resolveProductJourneyFieldLabel(row.fieldId, row.label),
       fieldType: "text",
       required: row.mandatoryForRecommendation,
       sequence: row.displayOrder,

@@ -74,6 +74,7 @@ import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-id
 import { MoveToDealConfirmDialog } from "@/components/catalyst-one/shared/move-to-deal-confirm-dialog";
 import { toast } from "sonner";
 import { ROUTES } from "@/constants/routes";
+import { buildDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -497,7 +498,14 @@ function OpportunityWorkspaceShell() {
                 setEditContact(contact);
                 setEditOpen(true);
               }}
-              onUploadDocuments={() => openTab("documents")}
+              onUploadDocuments={() =>
+                router.push(
+                  buildDocumentWorkspaceHref({
+                    opportunityId: opportunityId || opportunity?.id || null,
+                    contactId: contact?.id ?? null,
+                  }),
+                )
+              }
               onActivitySaved={() => refresh()}
             />
             <LoanStructureCommandControl

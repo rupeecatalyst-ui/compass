@@ -1,4 +1,5 @@
 import { bootstrapProductJourneyFields } from "@/constants/product-journey/bootstrap";
+import { resolveProductJourneyFieldLabel } from "@/lib/product-journey/display-label";
 import {
   PRODUCT_JOURNEY_APPLICABILITIES,
   type ProductJourneyApplicability,
@@ -28,7 +29,7 @@ export function parseProductJourneyFields(raw: unknown): ProductJourneyFieldRow[
     seen.add(identity);
     rows.push({
       fieldId,
-      label: typeof row.label === "string" ? row.label : undefined,
+      label: resolveProductJourneyFieldLabel(fieldId, typeof row.label === "string" ? row.label : undefined),
       applicability,
       capture: row.capture !== false,
       mandatoryForRecommendation: row.mandatoryForRecommendation === true,
