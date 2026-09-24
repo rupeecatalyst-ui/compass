@@ -33,6 +33,7 @@ export {
   projectChanakyaLifeRecommendationColumn,
   projectChanakyaOpportunityRecommendationPanel,
 } from "@/lib/opportunity-assessment/recommendation-presentation";
+export { selectStandardRecommendationPresentation } from "@/lib/opportunity-assessment/standard-presentation";
 export {
   applyMissingOnlyOpportunityReuse,
   type AssessmentReuseSources,

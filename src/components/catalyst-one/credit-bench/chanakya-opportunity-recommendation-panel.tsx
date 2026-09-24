@@ -10,6 +10,8 @@ import { isOpportunityRuntimeCase } from "@/lib/lead-opportunity-journey/opportu
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
 import type { LoanFile } from "@/types/catalyst-one";
 import { useChanakyaCanonicalRecommendations } from "@/hooks/use-chanakya-canonical-recommendations";
+import { selectStandardRecommendationPresentation } from "@/lib/opportunity-assessment/standard-presentation";
+import type { CanonicalRecommendationCard } from "@/types/canonical-lender-recommendation";
 
 /**
  * Stage 5C5 — Chanakya lender recommendations from a finalized Opportunity Assessment.
@@ -32,9 +34,16 @@ export function ChanakyaOpportunityRecommendationPanel({
     file,
     stated,
   );
+  const presentation = selectStandardRecommendationPresentation(
+    canonical.result?.recommendations ?? [],
+    canonical.result?.presentation,
+  );
+  const visibleCount = presentation.recommended.length + presentation.additional.length;
+  const matchRankingReady = [...presentation.recommended, ...presentation.additional].some(
+    (row) => typeof row.matchPercent === "number" && Number.isFinite(row.matchPercent),
+  );
   const result = {
     ready: canonical.result?.status === "ready",
-    recommendations: canonical.result?.recommendations ?? [],
     guidance: [canonical.guidance],
   };
   const generating = canonical.loading;
@@ -68,16 +77,21 @@ export function ChanakyaOpportunityRecommendationPanel({
 
       <div className="mt-4 space-y-3">
         <p className="text-xs text-muted-foreground">
-          Ordered by assessed offer and applicable ROI. No governed lender score or final business ranking is available.
+          {matchRankingReady
+            ? "Ranked by Match %, then lower applicable ROI, then higher assessed offer. Lender score is not used."
+            : "Match % ranking is not available for this result. Lender score is not used."}
         </p>
-        {showRecommendations && result.recommendations.map((row) => (
-          <article key={row.programmeId} className="rounded-xl border border-border/70 px-3.5 py-3">
-            <h3 className="text-sm font-semibold">{row.lenderName}</h3>
-            <p className="text-xs text-muted-foreground">{row.programmeCode} &middot; {row.matchState.replaceAll("_", " ")}</p>
-            <p className="mt-1.5 text-xs">{row.customerExplanation}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Lender score: unavailable</p>
-          </article>
-        ))}
+        {showRecommendations && visibleCount > 0 && (
+          <div className="space-y-3">
+            <RecommendationGroup label="Recommended" rows={presentation.recommended} />
+            <RecommendationGroup label="Additional options" rows={presentation.additional} />
+            {presentation.auditedOnly.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {presentation.auditedOnly.length} further programme{presentation.auditedOnly.length === 1 ? "" : "s"} retained in the recommendation audit.
+              </p>
+            )}
+          </div>
+        )}
 
         {generating && (
           <ChanakyaLoadingExperience
@@ -108,5 +122,50 @@ export function ChanakyaOpportunityRecommendationPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function formatInr(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "Not available";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatPercent(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "Not available";
+  return `${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value)}%`;
+}
+
+function RecommendationGroup({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: CanonicalRecommendationCard[];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      {rows.map((row) => (
+        <article key={row.programmeId} className="rounded-xl border border-border/70 px-3.5 py-3">
+          <h3 className="text-sm font-semibold">{row.lenderName}</h3>
+          <p className="text-xs text-muted-foreground">
+            {row.programmeCode}
+            {row.matchRank != null ? ` · Rank ${row.matchRank}` : ""}
+            {" · "}
+            {row.matchState.replaceAll("_", " ")}
+          </p>
+          <p className="mt-1.5 text-xs">Match %: {formatPercent(row.matchPercent)}</p>
+          <p className="text-xs">Applicable ROI: {formatPercent(row.applicableRoiPercent)}</p>
+          <p className="text-xs">Assessed offer: {formatInr(row.tentativeOfferRupees)}</p>
+          <p className="mt-1.5 text-xs">{row.customerExplanation}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Lender score: unavailable</p>
+        </article>
+      ))}
+    </div>
   );
 }
