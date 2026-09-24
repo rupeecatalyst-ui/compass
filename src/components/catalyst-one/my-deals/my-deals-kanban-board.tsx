@@ -8,7 +8,10 @@ import {
 } from "@/components/catalyst-one/my-deals/my-deals-kanban-composer";
 import { MyDealsKanbanFieldsControl } from "@/components/catalyst-one/my-deals/my-deals-kanban-fields-control";
 import { MyDealsKanbanStageFilter } from "@/components/catalyst-one/my-deals/my-deals-kanban-stage-filter";
-import { MY_DEALS_KANBAN_COLUMN_WIDTH_PX } from "@/constants/my-deals-kanban";
+import {
+  MY_DEALS_KANBAN_COLUMN_WIDTH_PX,
+  MY_DEALS_KANBAN_OPERATIONAL_DENSITY,
+} from "@/constants/my-deals-kanban";
 import type { MyDealsKanbanFieldId } from "@/constants/my-deals-kanban";
 import { formatINRCompact } from "@/lib/format-currency";
 import { groupDealsForMyDealsKanban } from "@/lib/my-deals/kanban-board";
@@ -96,18 +99,24 @@ export function MyDealsKanbanBoard({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-surface="my-deals-kanban">
-      <div className="shrink-0 space-y-2 border-b border-zinc-800 px-2 py-2">
-        <div className="flex flex-wrap items-start justify-between gap-2">
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      data-surface="my-deals-kanban"
+      data-density={MY_DEALS_KANBAN_OPERATIONAL_DENSITY}
+    >
+      <div className="shrink-0 border-b border-zinc-800 px-2 py-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <MyDealsKanbanStageFilter
             selectedStageIds={selectedStageIds}
             onChange={onStageIdsChange}
           />
-          <MyDealsKanbanFieldsControl
-            role={role}
-            selectedFieldIds={visibleFieldIds}
-            onApply={onFieldsApply}
-          />
+          <div className="ml-auto shrink-0">
+            <MyDealsKanbanFieldsControl
+              role={role}
+              selectedFieldIds={visibleFieldIds}
+              onApply={onFieldsApply}
+            />
+          </div>
         </div>
       </div>
 
@@ -129,7 +138,7 @@ export function MyDealsKanbanBoard({
           aria-label="Loan Deal Kanban"
           onScroll={persistBoardScroll}
           onKeyDown={onBoardKeyDown}
-          className="flex min-h-0 flex-1 touch-pan-x gap-3 overflow-x-auto overflow-y-hidden px-2 py-2 outline-none"
+          className="flex min-h-0 flex-1 touch-pan-x gap-2 overflow-x-auto overflow-y-hidden px-2 py-1 outline-none"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {columns.map((col) => (
@@ -138,16 +147,18 @@ export function MyDealsKanbanBoard({
               className="flex min-h-0 shrink-0 flex-col rounded-lg border border-zinc-800 bg-zinc-950/40"
               style={{ width: MY_DEALS_KANBAN_COLUMN_WIDTH_PX }}
             >
-              <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/95 px-2.5 py-2 backdrop-blur">
+              <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/95 px-2 py-1 backdrop-blur">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="truncate text-[12px] font-semibold text-zinc-100">
+                  <h2 className="min-w-0 truncate text-[12px] font-semibold text-zinc-100">
                     {col.column.label}
                   </h2>
-                  <span className="tabular-nums text-[11px] text-zinc-400">{col.dealCount}</span>
+                  <span className="shrink-0 tabular-nums text-[11px] text-zinc-400">
+                    {col.dealCount}
+                    <span className="ml-1.5 font-medium text-teal-200">
+                      {formatINRCompact(col.combinedLoanValue)}
+                    </span>
+                  </span>
                 </div>
-                <p className="mt-0.5 text-[11px] font-medium tabular-nums text-teal-200">
-                  {formatINRCompact(col.combinedLoanValue)}
-                </p>
               </header>
               <div
                 ref={(node) => {
@@ -155,7 +166,7 @@ export function MyDealsKanbanBoard({
                 }}
                 onScroll={() => persistColumnScroll(col.column.id)}
                 className={cn(
-                  "min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden p-2",
+                  "min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden p-1.5",
                 )}
               >
                 {col.deals.length === 0 ? (

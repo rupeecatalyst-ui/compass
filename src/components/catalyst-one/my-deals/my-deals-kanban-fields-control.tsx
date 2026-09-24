@@ -49,7 +49,7 @@ export function MyDealsKanbanFieldsControl({
         type="button"
         size="sm"
         variant="outline"
-        className="h-7 gap-1 px-2 text-[11px]"
+        className="h-6 gap-1 px-2 text-[11px]"
         onClick={openPanel}
       >
         <SlidersHorizontal className="h-3.5 w-3.5" />

@@ -52,6 +52,7 @@
     "verify:co-c1-overnight-ux-refinements-20260925": "node --conditions=react-server --import tsx scripts/co-c1-overnight-ux-refinements-20260925-verify.mjs",
     "verify:co-c1-overnight-ux-refinements-batch2-20260925": "node --conditions=react-server --import tsx scripts/co-c1-overnight-ux-refinements-batch2-20260925-verify.mjs",
     "verify:co-c1-overnight-document-workspace-contact-centric-20260925": "node --conditions=react-server --import tsx scripts/co-c1-overnight-document-workspace-contact-centric-20260925-verify.mjs",
+    "verify:co-c1-overnight-my-deals-kanban-density-20260925": "node --import tsx scripts/co-c1-overnight-my-deals-kanban-density-20260925-verify.mjs",
     "verify:co-c1-additional-filter-orchestration": "node --conditions=react-server --import tsx scripts/co-c1-chanakya-additional-filter-orchestration-verify.mjs",
     "verify:co-c1-opportunity-assessment-reuse": "node --conditions=react-server --import tsx scripts/co-c1-opportunity-assessment-reuse-verify.mjs",
     "verify:co-production-regression-014": "node scripts/co-production-regression-014-verify.mjs",

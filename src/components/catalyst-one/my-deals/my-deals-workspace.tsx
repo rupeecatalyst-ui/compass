@@ -341,10 +341,11 @@ export function MyDealsWorkspace() {
   return (
     <EnterpriseRegistryWorkspaceShell
       title={MY_DEALS_OFFICIAL_NAME}
-      subtitle="Loan Deal Registry · Enterprise Deal Registry"
+      subtitle="Enterprise Deal Registry"
       count={loanRows.length}
       countNoun="Loan Deals"
       breadcrumbs={buildSimpleWorkspaceBreadcrumbs(MY_DEALS_OFFICIAL_NAME)}
+      className="[&_[data-enterprise-exit-nav]]:!py-0.5"
       data-sprint="CO-C1-MY-DEALS-KANBAN-001"
       data-surface="loan-deal-registry"
       statusSlot={
@@ -370,48 +371,51 @@ export function MyDealsWorkspace() {
         ) : null
       }
       toolbar={
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-1 px-2 pt-1.5">
-            {MY_DEALS_WORKSPACE_VIEWS.map((view) => (
-              <button
-                key={view.id}
-                type="button"
-                onClick={() => {
-                  persistKanban({ view: view.id });
-                  if (view.id === "kanban" && filters.activity === "active") {
-                    patchFilters({ activity: "all" });
-                  }
-                }}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  workspaceView === view.id
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {view.label}
-              </button>
-            ))}
-          </div>
-          <MyDealsRegistryToolbar
-            allRows={loanRows}
-            filteredCount={filteredRows.length}
-            opportunityCount={opportunityCount}
-            filters={filters}
-            onPatchFilters={patchFilters}
-            onResetFilters={() => {
-              rememberMyDealsUiPrefs({ activityFilter: "active" });
-              setFilters({
-                ...EMPTY_DEAL_REGISTRY_FILTERS,
-                scope: initialScope,
-                activity: workspaceView === "kanban" ? "all" : "active",
-              });
-            }}
-            filtersVisible={filtersVisible}
-            onToggleFiltersVisible={setFiltersVisible}
-            showStageSelect={workspaceView === "deals"}
-          />
-        </div>
+        <MyDealsRegistryToolbar
+          leading={
+            <div
+              className="flex items-center gap-0.5"
+              data-surface="my-deals-workspace-views"
+            >
+              {MY_DEALS_WORKSPACE_VIEWS.map((view) => (
+                <button
+                  key={view.id}
+                  type="button"
+                  onClick={() => {
+                    persistKanban({ view: view.id });
+                    if (view.id === "kanban" && filters.activity === "active") {
+                      patchFilters({ activity: "all" });
+                    }
+                  }}
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors",
+                    workspaceView === view.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {view.label}
+                </button>
+              ))}
+            </div>
+          }
+          allRows={loanRows}
+          filteredCount={filteredRows.length}
+          opportunityCount={opportunityCount}
+          filters={filters}
+          onPatchFilters={patchFilters}
+          onResetFilters={() => {
+            rememberMyDealsUiPrefs({ activityFilter: "active" });
+            setFilters({
+              ...EMPTY_DEAL_REGISTRY_FILTERS,
+              scope: initialScope,
+              activity: workspaceView === "kanban" ? "all" : "active",
+            });
+          }}
+          filtersVisible={filtersVisible}
+          onToggleFiltersVisible={setFiltersVisible}
+          showStageSelect={workspaceView === "deals"}
+        />
       }
     >
       {workspaceView === "kanban" ? (

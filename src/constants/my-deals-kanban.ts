@@ -17,6 +17,9 @@ import { ROLES } from "@/constants/roles";
 export const MY_DEALS_KANBAN_COLUMN_WIDTH_PX = 340;
 export const MY_DEALS_KANBAN_ACCOUNTING_COLUMN_ID = "accounting" as const;
 
+/** Presentation-only density token — does not change Deal, stage, or filter semantics. */
+export const MY_DEALS_KANBAN_OPERATIONAL_DENSITY = "operational-compact" as const;
+
 const CANCELLED_LIFECYCLE = DEAL_LIFECYCLE_STATUSES.find((s) => s === "cancelled");
 const COMPLETED_OPERATIONAL = DEAL_OPERATIONAL_STATUSES.find((s) => s === "completed");
 const REJECTED_LOST_REASON = LENDER_LOST_REASONS.find((r) => r.id === "rejected");

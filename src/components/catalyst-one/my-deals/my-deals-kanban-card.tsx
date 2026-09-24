@@ -74,27 +74,30 @@ export function MyDealsKanbanCard({
 
   return (
     <article
-      className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-2.5 shadow-sm"
+      className="rounded-md border border-zinc-800 bg-zinc-950/90 p-1.5 shadow-sm"
       data-deal-id={row.enterpriseDealId || row.id}
       data-surface="my-deals-kanban-card"
+      data-density="operational-compact"
     >
-      <h3 className="truncate text-sm font-semibold leading-tight text-zinc-50">
+      <h3 className="truncate text-[13px] font-semibold leading-tight text-zinc-50">
         {row.borrowerName}
       </h3>
-      <div className="mt-1 flex min-w-0 items-center gap-1.5">
+      <div className="mt-0.5 flex min-w-0 items-center gap-1">
         <LenderLogo
           lender={row.selectedLender}
           seedKey={row.lenderId}
-          size="md"
+          size="sm"
         />
         <p className="truncate text-[12px] font-medium text-zinc-200">
           {present(row.selectedLender) ?? "Lender not specified"}
         </p>
       </div>
-      <p className="mt-1 truncate text-[11px] text-zinc-300">{row.product}</p>
-      <p className="truncate text-[12px] font-semibold tabular-nums text-teal-200">
-        {row.loanAmountLabel}
-      </p>
+      <div className="mt-0.5 flex items-baseline justify-between gap-2">
+        <p className="min-w-0 truncate text-[11px] text-zinc-300">{row.product}</p>
+        <p className="shrink-0 text-[12px] font-semibold tabular-nums text-teal-200">
+          {row.loanAmountLabel}
+        </p>
+      </div>
       <p
         className="truncate text-[10px] tabular-nums text-zinc-300"
         data-field="advantage-committed"
@@ -105,7 +108,7 @@ export function MyDealsKanbanCard({
       </p>
 
       {alert.primary ? (
-        <div className="mt-1.5 flex items-start justify-between gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-1">
+        <div className="mt-1 flex items-start justify-between gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-1">
           <p className="min-w-0 text-[10px] font-medium leading-snug text-amber-100">
             {alert.primary.label}
           </p>
@@ -115,7 +118,7 @@ export function MyDealsKanbanCard({
         </div>
       ) : null}
 
-      <div className="mt-1.5 space-y-0.5">
+      <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0">
         <OptionalLine
           show={has("assignedRcEmployee")}
           label="RC employee"
@@ -190,7 +193,7 @@ export function MyDealsKanbanCard({
         <OptionalLine show={has("paymentStatus")} label="Payment" value={row.paymentStatus} />
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-1 flex flex-nowrap gap-1 overflow-x-auto">
         <ActionChip
           label="Call"
           icon={Phone}
@@ -227,7 +230,7 @@ export function MyDealsKanbanCard({
       <Button
         type="button"
         size="sm"
-        className="mt-2 h-7 w-full text-[11px]"
+        className="mt-1 h-6 w-full text-[11px]"
         disabled={!cta.href}
         title={cta.disabledReason}
         onClick={() => {

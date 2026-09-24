@@ -1,6 +1,7 @@
 "use client";
 
 import { Filter, FilterX } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
 export function MyDealsRegistryToolbar({
+  leading,
   allRows,
   filteredCount,
   opportunityCount,
@@ -30,6 +32,7 @@ export function MyDealsRegistryToolbar({
   onToggleFiltersVisible,
   showStageSelect,
 }: {
+  leading?: ReactNode;
   allRows: DealRegistryRow[];
   filteredCount: number;
   opportunityCount: number;
@@ -61,8 +64,12 @@ export function MyDealsRegistryToolbar({
   const controlH = "h-7 border-zinc-700 bg-zinc-900/80 text-[11px] text-zinc-200";
 
   return (
-    <div className="shrink-0 space-y-1.5 px-2 pb-2 pt-1.5">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <div
+      className="shrink-0 space-y-1 px-2 pb-1 pt-0.5"
+      data-surface="my-deals-registry-toolbar"
+    >
+      <div className="flex flex-wrap items-center gap-1">
+        {leading}
         <Button
           type="button"
           variant="ghost"
@@ -102,7 +109,7 @@ export function MyDealsRegistryToolbar({
       </div>
 
       {filtersVisible ? (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1">
           <Select
             value={filters.activity}
             onValueChange={(v) => onPatchFilters({ activity: v as DealActivityFilter })}
