@@ -233,15 +233,18 @@ export async function runHomeLoanMatchPercentProof() {
       programmes: [{ programmeId: "foir-out", context: above as Record<string, unknown> }],
       registry,
     });
-    assert.equal(scoredIn.ok, true);
-    if (scoredIn.ok) assert.equal(scoredIn.scores[0]?.matchPercent, 100);
+    assert.equal(scoredIn.ok, false);
+    if (!scoredIn.ok) {
+      assert.equal(scoredIn.code, "SCORING_CONTRACT_PENDING");
+      assert.equal(scoredIn.detail, MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING);
+    }
     assert.equal(scoredOut.ok, false);
     if (!scoredOut.ok) {
       assert.equal(scoredOut.code, "SCORING_CONTRACT_PENDING");
-      assert.equal(scoredOut.detail, MATCH_PERCENT_CRITERION_REASONS.FOIR_ABOVE_NORM_SCORING_CONTRACT_PENDING);
+      assert.equal(scoredOut.detail, MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING);
     }
-    console.log("9 within-norm FOIR scores 100: PASS");
-    console.log("10 above-norm FOIR does not invent a score: PASS");
+    console.log("9 FOIR scoring contract is pending in both directions: PASS");
+    console.log("10 FOIR does not invent a within-norm or above-norm score: PASS");
   }
 
   {
@@ -351,7 +354,11 @@ export async function runHomeLoanMatchPercentProof() {
     assert.equal(v1.ok, false);
     if (!v1.ok) {
       assert.equal(v1.code, "SCORING_CONTRACT_PENDING");
-      assert.equal(v1.detail, MATCH_PERCENT_CRITERION_REASONS.LTV_SCORING_CONTRACT_PENDING);
+      assert.ok(
+        v1.detail === MATCH_PERCENT_CRITERION_REASONS.LTV_SCORING_CONTRACT_PENDING ||
+          v1.detail === MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING ||
+          v1.detail === MATCH_PERCENT_CRITERION_REASONS.ROI_SCORING_CONTRACT_PENDING,
+      );
     }
     console.log("17 no universal borrower Match % is emitted: PASS");
     console.log("18 incomplete scoring contracts do not emit a fake Match %: PASS");

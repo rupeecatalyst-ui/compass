@@ -1,3 +1,7 @@
+import {
+  extractAdditionalEligibilityFilters,
+  serializeAdditionalEligibilityFilters,
+} from "@/lib/product-programme-operations/additional-eligibility-filters/persist";
 import type { StructuredProgrammePayload } from "@/types/product-programme-operations";
 import type {
   CreateLenderProgramInput,
@@ -68,6 +72,7 @@ export function structuredPayloadToCreateInput(
     effectiveFrom: payload.effectiveFrom,
     effectiveUntil: payload.effectiveUntil,
     createdBy,
+    additionalEligibilityFilters: serializeAdditionalEligibilityFilters(payload.additionalEligibilityFilters),
   };
 }
 
@@ -115,6 +120,7 @@ export function createInputToStructuredPayload(input: CreateLenderProgramInput):
     effectiveUntil: input.effectiveUntil ?? null,
     notes: input.notes ?? null,
     remarks: input.remarks ?? null,
+    additionalEligibilityFilters: extractAdditionalEligibilityFilters(input.additionalEligibilityFilters),
     minLoanAmountExact: input.minLoanAmountExact ?? null,
     maxLoanAmountExact: input.maxLoanAmountExact ?? null,
     minIncomeExact: input.minIncomeExact ?? null,
@@ -206,5 +212,6 @@ export function programRecordToStructuredPayload(
     effectiveUntil: record.effectiveUntil ?? null,
     notes: record.notes ?? null,
     remarks: record.remarks ?? null,
+    additionalEligibilityFilters: extractAdditionalEligibilityFilters(record.additionalEligibilityFilters),
   };
 }

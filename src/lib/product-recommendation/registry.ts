@@ -46,6 +46,9 @@ function pendingReasonFor(criterionKey: string, context: CriterionEvaluation["in
   if (criterionKey === "ltvFit" || criterionKey === "derived:ltvPercent") {
     return MATCH_PERCENT_CRITERION_REASONS.LTV_SCORING_CONTRACT_PENDING;
   }
+  if (criterionKey === "foirFit" || criterionKey === "derived:foirPercent") {
+    return MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING;
+  }
   return "SCORING_CONTRACT_PENDING";
 }
 

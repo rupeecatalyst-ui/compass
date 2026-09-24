@@ -1,5 +1,10 @@
 import { lenderRegistryRepository } from "@server/repositories/lender-registry/lender-registry.repository";
-import { parseStructuredProgrammePayload } from "@/lib/product-programme-operations/request-schema";
+import {
+  assertAdditionalFiltersAgainstProgramme,
+  assertRecordAdditionalFilters,
+  parseStructuredProgrammePayload,
+} from "@/lib/product-programme-operations/request-schema";
+import { assertFilterFieldsAreModuleScoped } from "@/lib/product-programme-operations/additional-eligibility-filters/module-fields";
 import {
   programRecordToStructuredPayload,
   structuredPayloadToCreateInput,
@@ -24,6 +29,18 @@ async function assertPublishedPolicyVersion(policyVersionId: string | null, orga
     throw new ProgrammeValidationError("Published policy version is invalid", [
       { field: "policyVersionId", message: "Select a published policy version from this organization." },
     ]);
+  }
+}
+
+function assertModuleScopedFilters(payload: { productCode?: string | null; additionalEligibilityFilters?: { root: Record<string, unknown> } | null }): void {
+  const unknownField = assertFilterFieldsAreModuleScoped({
+    productCode: payload.productCode,
+    filters: payload.additionalEligibilityFilters ?? null,
+  });
+  if (unknownField) {
+    throw new ProgrammeValidationError("Filter field is not available in this product module", [
+      { field: unknownField, message: "CONFIGURATION_INVALID" },
+    ], "CONFIGURATION_INVALID");
   }
 }
 
@@ -53,6 +70,8 @@ export const productProgrammeOperationsService = {
     assertAdmin(input.actorRole);
     const payload = this.parseBody(input.body);
     await assertPublishedPolicyVersion(payload.policyVersionId, input.organizationId);
+    assertAdditionalFiltersAgainstProgramme(payload);
+    assertModuleScopedFilters(payload);
     const created = await lenderRegistryRepository.createProgram(
       input.organizationId,
       structuredPayloadToCreateInput(payload, input.actorUserId),
@@ -127,6 +146,8 @@ export const productProgrammeOperationsService = {
           },
     );
     await assertPublishedPolicyVersion(payload.policyVersionId, input.organizationId);
+    assertAdditionalFiltersAgainstProgramme(payload);
+    assertModuleScopedFilters(payload);
     const updateInput = structuredPayloadToUpdateInput(payload, input.actorUserId);
     const updated = createDraftRevision
       ? await lenderRegistryRepository.createDraftFromPublished(input.programId, updateInput)
@@ -158,6 +179,7 @@ export const productProgrammeOperationsService = {
     if (existing.organizationId !== input.organizationId) {
       throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
     }
+    assertRecordAdditionalFilters(existing);
     const updated = await lenderRegistryRepository.submitProgram(input.programId, input.actorUserId);
     await lenderRegistryRepository.recordProgramAudit({
       organizationId: input.organizationId,
@@ -193,6 +215,7 @@ export const productProgrammeOperationsService = {
     if (existing.createdBy === input.actorUserId && input.actorRole === "SUPER_ADMIN" && !input.approvalReason?.trim()) {
       throw new ProgrammePermissionError("Super Admin self-approval requires an audit reason.");
     }
+    assertRecordAdditionalFilters(existing);
     const updated = await lenderRegistryRepository.approveProgram(
       input.programId,
       input.actorUserId,
@@ -230,6 +253,7 @@ export const productProgrammeOperationsService = {
         { field: "approvalStatus", message: "Only an approved draft can be published." },
       ]);
     }
+    assertRecordAdditionalFilters(existing);
     const completeness = evaluateProgrammeCompleteness({
       lenderId: existing.lenderId,
       productId: existing.productId,

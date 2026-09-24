@@ -32,6 +32,14 @@ export {
   resolveEffectiveAvailableTenureMonths,
 } from "./home-loan-inputs";
 export { MATCH_PERCENT_CRITERION_REASONS } from "./match-percent-reasons";
+export {
+  SCORING_DIRECTIONS,
+  compareByScoringDirection,
+  isDirectionallyBetter,
+  scoringDirectionForField,
+  HOME_LOAN_V1_WEIGHTED_CRITERION_KEYS,
+  HOME_LOAN_V1_EXCLUDED_FROM_WEIGHTS,
+} from "./scoring-direction";
 export type {
   ActiveRecommendationRuleSet,
   CriterionEvaluation,

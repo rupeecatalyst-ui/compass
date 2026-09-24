@@ -53,6 +53,8 @@ export function structuredCreateData(input: CreateLenderProgramInput) {
     reviewAt: input.reviewAt ? new Date(input.reviewAt) : null,
     effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : undefined,
     effectiveUntil: input.effectiveUntil ? new Date(input.effectiveUntil) : undefined,
+    policyAssessmentJson: jsonOrUndefined(input.policyAssessmentJson ?? null),
+    additionalEligibilityFilters: jsonOrUndefined(input.additionalEligibilityFilters ?? null),
     minRoiPercent: input.minRoiPercent ?? toLegacyFloat(input.minRoiExact ?? null),
     maxRoiPercent: input.maxRoiPercent ?? toLegacyFloat(input.maxRoiExact ?? null),
     minFundingAmount: input.minFundingAmount ?? toLegacyFloat(input.minLoanAmountExact ?? null),
@@ -113,5 +115,7 @@ export function structuredUpdateData(input: UpdateLenderProgramInput) {
     maxLtvPercent: input.maxLtvPercent ?? toLegacyFloat(input.maxLtvExact),
     maxFoirPercent: input.maxFoirPercent ?? toLegacyFloat(input.maxFoirExact),
     maxDbrPercent: input.maxDbrPercent ?? toLegacyFloat(input.maxDbrExact),
+    policyAssessmentJson: jsonOrUndefined(input.policyAssessmentJson),
+    additionalEligibilityFilters: jsonOrUndefined(input.additionalEligibilityFilters),
   };
 }

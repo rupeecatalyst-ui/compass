@@ -596,6 +596,8 @@ export function mapProgramRow(row: {
     minDbrExact: decimalToExact(row.minDbrExact),
     maxDbrExact: decimalToExact(row.maxDbrExact),
     spreadExact: decimalToExact(row.spreadExact),
+    policyAssessmentJson: (row as { policyAssessmentJson?: unknown }).policyAssessmentJson ?? null,
+    additionalEligibilityFilters: (row as { additionalEligibilityFilters?: unknown }).additionalEligibilityFilters ?? null,
   };
 }
 

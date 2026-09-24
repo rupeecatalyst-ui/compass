@@ -47,6 +47,7 @@
     "verify:co-c1-product-journey-phase1": "node --conditions=react-server --import tsx scripts/co-c1-product-journey-phase1-verify.mjs",
     "verify:co-c1-universal-match-percent": "node --conditions=react-server --import tsx scripts/co-c1-universal-match-percent-verify.mjs",
     "verify:co-c1-home-loan-match-percent": "node --conditions=react-server --import tsx scripts/co-c1-home-loan-match-percent-verify.mjs",
+    "verify:co-c1-additional-eligibility-filters": "node --conditions=react-server --import tsx scripts/co-c1-additional-eligibility-filters-verify.mjs",
     "verify:co-c1-opportunity-assessment-reuse": "node --conditions=react-server --import tsx scripts/co-c1-opportunity-assessment-reuse-verify.mjs",
     "verify:co-production-regression-014": "node scripts/co-production-regression-014-verify.mjs",
     "ops:verify": "node scripts/co-ops-002-verify.mjs",

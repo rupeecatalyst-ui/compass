@@ -39,6 +39,7 @@ import {
   isLegacyProgrammeReviewRequired,
   mustCreateDraftRevision,
 } from "@/lib/product-programme-operations/legacy-review";
+import { AdditionalEligibilityFilterBuilder } from "@/components/catalyst-one/product-programme-operations/additional-eligibility-filter-builder";
 import { toProgrammeWritePayload } from "@/lib/product-programme-operations/to-write-payload";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
@@ -445,6 +446,29 @@ export function ProductProgrammeEditor({
         {salariedOnly ? (
           <p className="text-sm">Salaried profile — business turnover inputs are not required.</p>
         ) : null}
+        <AdditionalEligibilityFilterBuilder
+          productCode={state.productCode}
+          employmentFamily={state.employmentFamily === "self_employed" ? "self_employed" : state.employmentFamily === "salaried" ? "salaried" : "unknown"}
+          value={state.additionalEligibilityFilters}
+          onChange={(additionalEligibilityFilters) => patch({ additionalEligibilityFilters })}
+          existingConstraints={{
+            constructionStatuses: state.constructionStatuses,
+            propertyCategories: state.propertyCategories,
+            employmentTypes: state.employmentTypes,
+            residencyEligibility: state.residencyEligibility,
+            legalConstitutions: state.legalConstitutions,
+            geographyCities: state.geographyCities,
+            eligibleCities: state.geographyCities,
+            geographyStates: state.geographyStates,
+            eligibleStates: state.geographyStates,
+            minAge: state.minAge,
+            maxAge: state.maxAge,
+            minCibil: state.minCibil,
+            maxCibil: state.maxCibil,
+            minIncomeExact: state.minIncomeExact,
+            maxIncomeExact: state.maxIncomeExact,
+          }}
+        />
       </section>
 
       <section className="space-y-4 rounded-xl border border-border p-5" data-section="loan-amount-tenure">

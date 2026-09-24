@@ -9,6 +9,7 @@ import type {
 import type { ProgramLodRequirement } from "@/lib/document-requests/resolve-program-lod";
 import type { ExactDecimal } from "@/lib/product-programme-operations/money";
 import type { EmploymentFamily } from "@/lib/product-programme-operations/employment";
+import type { AdditionalEligibilityFilters } from "@/lib/product-programme-operations/additional-eligibility-filters/types";
 
 export type ProgrammeMoneyFields = {
   minLoanAmountExact: ExactDecimal | null;
@@ -70,6 +71,7 @@ export type StructuredProgrammePayload = ProgrammeMoneyFields & {
   effectiveUntil: string | null;
   notes: string | null;
   remarks: string | null;
+  additionalEligibilityFilters?: AdditionalEligibilityFilters | null;
 };
 
 export type ProgrammeVersionRecord = StructuredProgrammePayload & {

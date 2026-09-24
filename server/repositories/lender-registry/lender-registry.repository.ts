@@ -137,6 +137,8 @@ function publishedProgramToCreateInput(
     reviewAt: published.reviewAt ? published.reviewAt.toISOString() : null,
     effectiveFrom: published.effectiveFrom ? published.effectiveFrom.toISOString() : null,
     effectiveUntil: published.effectiveUntil ? published.effectiveUntil.toISOString() : null,
+    policyAssessmentJson: (published as { policyAssessmentJson?: unknown }).policyAssessmentJson ?? null,
+    additionalEligibilityFilters: (published as { additionalEligibilityFilters?: unknown }).additionalEligibilityFilters ?? null,
   };
 }
 
@@ -203,6 +205,8 @@ function overlayDefinedCreateInput(
   assign("reviewAt", input.reviewAt);
   assign("effectiveFrom", input.effectiveFrom);
   assign("effectiveUntil", input.effectiveUntil);
+  assign("policyAssessmentJson", input.policyAssessmentJson);
+  assign("additionalEligibilityFilters", input.additionalEligibilityFilters);
   return next;
 }
 
@@ -1185,6 +1189,8 @@ export class LenderRegistryRepository {
         reviewAt: structured.reviewAt,
         effectiveFrom: structured.effectiveFrom,
         effectiveUntil: structured.effectiveUntil,
+        policyAssessmentJson: structured.policyAssessmentJson,
+        additionalEligibilityFilters: structured.additionalEligibilityFilters,
       },
     });
 

@@ -15,6 +15,10 @@ import {
   deriveEmploymentFamily,
   isAmbiguousEmploymentText,
 } from "@/lib/product-programme-operations/employment";
+import { validateAdditionalFilterConflicts } from "@/lib/product-programme-operations/additional-eligibility-filters/conflict";
+import { extractAdditionalEligibilityFilters } from "@/lib/product-programme-operations/additional-eligibility-filters/persist";
+import { parseAdditionalEligibilityFilters } from "@/lib/product-programme-operations/additional-eligibility-filters/parse";
+import { snapshotGovernedConstraints } from "@/lib/product-programme-operations/additional-eligibility-filters/programme-constraints";
 import {
   ProgrammeValidationError,
   type StructuredProgrammePayload,
@@ -32,6 +36,7 @@ const PROGRAMME_IDENTITY_AND_OPERATION_KEYS = new Set([
   "description",
   "notes",
   "remarks",
+  "additionalEligibilityFilters",
   "policyVersionId",
   "creditRiskPolicyRef",
   "processingFeeLabel",
@@ -107,6 +112,7 @@ const ALLOWED_WRITE_KEYS = new Set([
   "effectiveUntil",
   "notes",
   "remarks",
+  "additionalEligibilityFilters",
   "lifecycleStatus",
   "status",
   "enabled",
@@ -144,6 +150,90 @@ function asOptionalInt(value: unknown, field: string): number | null {
     ]);
   }
   return value;
+}
+
+function parseAdditionalFilterField(value: unknown): StructuredProgrammePayload["additionalEligibilityFilters"] {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  try {
+    return parseAdditionalEligibilityFilters(value);
+  } catch {
+    throw new ProgrammeValidationError("Additional eligibility filters are invalid", [
+      { field: "additionalEligibilityFilters", message: "CONFIGURATION_INVALID" },
+    ], "CONFIGURATION_INVALID");
+  }
+}
+
+export function assertRecordAdditionalFilters(record: {
+  constructionStatuses?: string[] | null;
+  propertyCategories?: string[] | null;
+  employmentTypes?: string[] | null;
+  residencyEligibility?: string[] | null;
+  legalConstitutions?: string[] | null;
+  eligibleCities?: string[] | null;
+  eligibleStates?: string[] | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  minCibil?: number | null;
+  maxCibil?: number | null;
+  minIncomeExact?: string | null;
+  maxIncomeExact?: string | null;
+  additionalEligibilityFilters?: StructuredProgrammePayload["additionalEligibilityFilters"] | unknown;
+}): void {
+  assertAdditionalFiltersAgainstProgramme({
+    additionalEligibilityFilters: record.additionalEligibilityFilters == null
+      ? null
+      : extractAdditionalEligibilityFilters(record.additionalEligibilityFilters),
+    constructionStatuses: record.constructionStatuses ?? [],
+    propertyCategories: record.propertyCategories ?? [],
+    employmentTypes: (record.employmentTypes ?? []) as StructuredProgrammePayload["employmentTypes"],
+    residencyEligibility: (record.residencyEligibility ?? []) as StructuredProgrammePayload["residencyEligibility"],
+    legalConstitutions: (record.legalConstitutions ?? []) as StructuredProgrammePayload["legalConstitutions"],
+    geographyCities: record.eligibleCities ?? [],
+    geographyStates: record.eligibleStates ?? [],
+    minAge: record.minAge ?? null,
+    maxAge: record.maxAge ?? null,
+    minCibil: record.minCibil ?? null,
+    maxCibil: record.maxCibil ?? null,
+    minIncomeExact: record.minIncomeExact ?? null,
+    maxIncomeExact: record.maxIncomeExact ?? null,
+  } as StructuredProgrammePayload);
+}
+
+export function assertAdditionalFiltersAgainstProgramme(payload: StructuredProgrammePayload): void {
+  if (payload.additionalEligibilityFilters == null) return;
+  const report = validateAdditionalFilterConflicts({
+    filters: payload.additionalEligibilityFilters,
+    existing: snapshotGovernedConstraints({
+      constructionStatuses: payload.constructionStatuses,
+      propertyCategories: payload.propertyCategories,
+      employmentTypes: payload.employmentTypes,
+      residencyEligibility: payload.residencyEligibility,
+      legalConstitutions: payload.legalConstitutions,
+      eligibleCities: payload.geographyCities,
+      geographyCities: payload.geographyCities,
+      eligibleStates: payload.geographyStates,
+      geographyStates: payload.geographyStates,
+      minAge: payload.minAge,
+      maxAge: payload.maxAge,
+      minCibil: payload.minCibil,
+      maxCibil: payload.maxCibil,
+      minIncomeExact: payload.minIncomeExact,
+      maxIncomeExact: payload.maxIncomeExact,
+    }),
+  });
+  if (!report.ok) {
+    const first = report.conflicts[0];
+    const code = report.code === "CONFIGURATION_INVALID" ? "CONFIGURATION_INVALID" : "ADDITIONAL_FILTER_CONFLICT";
+    throw new ProgrammeValidationError(code, [
+      {
+        field: first?.fieldId ?? "additionalEligibilityFilters",
+        message: first
+          ? `Field: ${first.fieldLabel}. Existing governed rule: ${first.existingGovernedRule}. Attempted additional rule: ${first.attemptedAdditionalRule}.`
+          : code,
+      },
+    ], code);
+  }
 }
 
 function asOptionalId(value: unknown): string | null {
@@ -271,6 +361,7 @@ export function parseStructuredProgrammePayload(
     effectiveUntil: asOptionalId(body.effectiveUntil),
     notes: asOptionalId(body.notes),
     remarks: asOptionalId(body.remarks),
+    additionalEligibilityFilters: parseAdditionalFilterField(body.additionalEligibilityFilters),
   };
 
   if (payload.rateType && !PROGRAMME_RATE_TYPES.some((item) => item.id === payload.rateType)) {
@@ -286,6 +377,8 @@ export function parseStructuredProgrammePayload(
       { field: "benchmarkCode", message: `Unknown benchmark “${payload.benchmarkCode}”.` },
     ]);
   }
+
+  assertAdditionalFiltersAgainstProgramme(payload);
 
   if (!partial) {
     if (!payload.lenderId) {

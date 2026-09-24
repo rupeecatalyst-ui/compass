@@ -323,6 +323,8 @@ export interface EnterpriseLenderProgramRecord {
   minDbrExact?: string | null;
   maxDbrExact?: string | null;
   spreadExact?: string | null;
+  policyAssessmentJson?: unknown;
+  additionalEligibilityFilters?: unknown;
 }
 
 export interface LenderRegistryListQuery {
@@ -520,6 +522,8 @@ export interface CreateLenderProgramInput {
   reviewAt?: string | null;
   effectiveFrom?: string | null;
   effectiveUntil?: string | null;
+  policyAssessmentJson?: unknown;
+  additionalEligibilityFilters?: unknown;
 }
 
 export interface UpdateLenderProgramInput {
@@ -595,6 +599,8 @@ export interface UpdateLenderProgramInput {
   effectiveUntil?: string | null;
   expectedLockVersion?: number;
   createDraftRevision?: boolean;
+  policyAssessmentJson?: unknown;
+  additionalEligibilityFilters?: unknown;
 }
 
 export interface CreateLenderContactInput {

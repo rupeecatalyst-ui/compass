@@ -3,6 +3,8 @@ import type { RecommendationLenderCategory } from "@/lib/home-loan-recommendatio
 import { productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 import type { CanonicalRecommendationProduct } from "@/types/canonical-lender-recommendation";
 import { parseCanonicalPolicyRules, type ParsedCanonicalPolicyRules } from "./policy-rule-parser";
+import { liveAdditionalEligibilityFilters } from "@/lib/product-programme-operations/additional-eligibility-filters/persist";
+import type { AdditionalEligibilityFilters } from "@/lib/product-programme-operations/additional-eligibility-filters/types";
 import { governedList as list, governedNumber as num, governedExact as exact, projectAssessmentSettings } from "./programme-assessment-settings";
 
 export type CanonicalPolicyLink = {
@@ -78,6 +80,7 @@ export type CanonicalAssessmentProgramme = AssessableProgramme & {
     requiredDocumentTypeIds: string[] | null;
     unsupportedConstraintPresent: boolean;
   };
+  additionalEligibilityFilters: AdditionalEligibilityFilters | null;
 };
 
 function dateValid(asOf: Date, from: Date | null, until: Date | null): boolean {
@@ -203,5 +206,10 @@ export function mapCanonicalProgramme(input: {
     policyVersionNumber: policyVersion.versionNumber,
     parsedPolicyRules,
     canonicalConstraints: constraints,
+    additionalEligibilityFilters: liveAdditionalEligibilityFilters({
+      additionalEligibilityFilters: r.additionalEligibilityFilters,
+      publicationState: typeof r.publicationState === "string" ? r.publicationState : null,
+      isLivePublished: r.isLivePublished === true,
+    }),
   };
 }

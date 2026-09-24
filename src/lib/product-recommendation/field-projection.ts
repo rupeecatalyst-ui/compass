@@ -35,8 +35,9 @@ const RECOMMENDATION_FIELD_BINDINGS: Record<string, FieldBindingOverlay> = {
   "derived:foirPercent": {
     programmeFactRef: "ppo:maxFoirExact",
     aliases: ["foirFit"],
-    evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.WITHIN_NORM_OR_PENDING,
-    scoreability: "fully_scorable",
+    evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.PENDING_CONTRACT,
+    scoreability: "inputs_wired_scoring_contract_pending",
+    notes: "Lower FOIR is better. The FOIR scoring curve is not business-approved.",
   },
   "derived:ltvPercent": {
     programmeFactRef: "ppo:maxLtvExact",

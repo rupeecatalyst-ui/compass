@@ -5,8 +5,33 @@ import { calculateSalariedFoir } from "@/lib/home-loan-recommendation/foir";
 import { contributingCoApplicantIncomeRupees } from "@/lib/product-recommendation/home-loan-inputs";
 import { resolveHomeLoanCibilCategoryUniverse } from "@/lib/product-recommendation/home-loan-cibil-universe";
 import type { ProgrammeAssessmentCard } from "@/lib/home-loan-recommendation/engine";
+import {
+  customerFactsForAdditionalFilters,
+  evaluateAdditionalEligibilityFilters,
+} from "@/lib/product-programme-operations/additional-eligibility-filters";
+import { constraintKeyForField } from "@/lib/product-programme-operations/additional-eligibility-filters";
 
 type Customer = CanonicalLenderRecommendationRequest["customer"];
+
+const FILTER_FIELD_TO_ASSESSMENT: Record<string, CanonicalAssessmentField> = {
+  constructionStatus: "constructionStatus",
+  propertyCategory: "propertyType",
+  employment: "employment",
+  city: "city",
+  state: "state",
+  residency: "residency",
+  constitution: "constitution",
+  age: "dateOfBirth",
+  cibil: "cibil",
+  income: "monthlyIncome",
+};
+
+function mapFilterFieldsToAssessment(fieldIds: string[]): CanonicalAssessmentField[] {
+  const mapped = fieldIds
+    .map((id) => FILTER_FIELD_TO_ASSESSMENT[constraintKeyForField(id) ?? ""] ?? null)
+    .filter((item): item is CanonicalAssessmentField => item != null);
+  return mapped.length ? mapped : [];
+}
 export type GovernedVerdict = { reason: string; missingInputs: CanonicalAssessmentField[] };
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const positive = (v: unknown): v is number => finite(v) && v > 0;
@@ -147,6 +172,17 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   }
   if (missing.size) return rejected("ASSESSMENT_INPUT_REQUIRED", [...missing]);
   if (mismatch) return rejected("ELIGIBILITY_NOT_MET");
+  const additional = evaluateAdditionalEligibilityFilters({
+    filters: programme.additionalEligibilityFilters,
+    facts: customerFactsForAdditionalFilters(customer, asOf),
+  });
+  if (additional.result === "INPUT_REQUIRED") {
+    return rejected("ASSESSMENT_INPUT_REQUIRED", mapFilterFieldsToAssessment(additional.missingFieldIds));
+  }
+  if (additional.result === "CONFIGURATION_INVALID" || additional.result === "CONFLICT") {
+    return rejected("PROGRAMME_CONFIGURATION_INVALID");
+  }
+  if (additional.result === "FAIL") return rejected("ELIGIBILITY_NOT_MET");
   // Programme FOIR norm is required to calculate FOIR. No global default. Above-norm FOIR is not an automatic reject.
   // Missing comparable ROI must not eliminate an otherwise eligible programme.
   if (c.maxFoirPercent == null) return rejected("PROGRAMME_CONFIGURATION_INVALID");

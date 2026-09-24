@@ -2814,6 +2814,8 @@ model EnterpriseLenderProgram {
   maxFoirExact      Decimal?                     @map("max_foir_exact") @db.Decimal(9, 6)
   /// CO-C1-HL-BT-POLICY-001 — optional verified policy payload (BT/top-up/FOIR/LOD). Empty until PO upload.
   policyAssessmentJson Json?                     @map("policy_assessment_json")
+  /// Product-Owner additional hard eligibility AST. Null/empty = no extra restriction.
+  additionalEligibilityFilters Json?             @map("additional_eligibility_filters")
   sourceDocumentRef    String?                   @map("source_document_ref")
   sourcePageSection    String?                   @map("source_page_section")
   sourceVersionLabel   String?                   @map("source_version_label")

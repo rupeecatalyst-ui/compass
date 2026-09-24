@@ -95,7 +95,7 @@ export const relativeToEligibleMaxEvaluator: CriterionEvaluator = ({ criterionKe
   return scored(criterionKey, weightPercent, (effective / highest) * 100, recorded);
 };
 
-/** 100 when at/under the governed norm. Above-norm curve is not approved. */
+/** FOIR scoring curve is not approved. Direction is LOWER_IS_BETTER; this evaluator never emits a score. */
 export const withinNormOrPendingEvaluator: CriterionEvaluator = ({ criterionKey, weightPercent, context }) => {
   const inputs = bag(context, [`${criterionKey}Inputs`, "foirFitInputs"]);
   const calculated = finiteNumber(inputs?.calculatedFoirPercent);
@@ -104,17 +104,15 @@ export const withinNormOrPendingEvaluator: CriterionEvaluator = ({ criterionKey,
     calculatedFoirPercent: calculated,
     programmeFoirNormPercent: norm,
     aboveProgrammeNorm: inputs?.aboveProgrammeNorm === true,
+    scoringDirection: "LOWER_IS_BETTER",
   };
   if (calculated == null || norm == null) {
     return missing(criterionKey, weightPercent, "SCORING_INPUT_REQUIRED", recorded);
   }
-  if (calculated <= norm) {
-    return scored(criterionKey, weightPercent, 100, recorded);
-  }
   return pending(
     criterionKey,
     weightPercent,
-    MATCH_PERCENT_CRITERION_REASONS.FOIR_ABOVE_NORM_SCORING_CONTRACT_PENDING,
+    MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING,
     recorded,
   );
 };

@@ -1,3 +1,4 @@
+import { extractAdditionalEligibilityFilters } from "@/lib/product-programme-operations/additional-eligibility-filters/persist";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import type { StructuredProgrammePayload } from "@/types/product-programme-operations";
 import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
@@ -70,6 +71,7 @@ export function emptyProgrammeEditorState(): ProgrammeEditorState {
     effectiveUntil: null,
     notes: null,
     remarks: null,
+    additionalEligibilityFilters: null,
   };
 }
 
@@ -139,6 +141,7 @@ export function recordToEditorState(record: EnterpriseLenderProgramRecord): Prog
     effectiveUntil: record.effectiveUntil ?? null,
     notes: record.notes ?? null,
     remarks: record.remarks ?? null,
+    additionalEligibilityFilters: extractAdditionalEligibilityFilters(record.additionalEligibilityFilters),
   };
 }
 
