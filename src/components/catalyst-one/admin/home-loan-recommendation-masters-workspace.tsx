@@ -18,7 +18,11 @@ import {
   resolveProjectedField,
   sortByFriendlyDisplayLabel,
 } from "@/lib/product-recommendation";
-import { planProductJourneyDraft } from "@/lib/product-journey/lineage";
+import {
+  planProductJourneyDraft,
+  productJourneyRejectRequest,
+  productJourneyVisibleActions,
+} from "@/lib/product-journey/lineage";
 import { AUTHORISED_CIBIL_CATEGORY_RULES } from "@/lib/home-loan-recommendation/cibil-category";
 import {
   AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS,
@@ -716,7 +720,9 @@ export function HomeLoanRecommendationMastersWorkspace() {
             {journeyRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">Default configuration in effect until a version is saved and activated.</p>
             ) : (
-              journeyRows.map((row) => (
+              journeyRows.map((row) => {
+                const actions = productJourneyVisibleActions(row.lifecycleStatus);
+                return (
                 <div key={row.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>{productLabel(row.productCode)}</span>
                   <span>Version {row.versionNumber ?? 1}</span>
@@ -724,7 +730,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
                   {formatJourneyTimestamp(row.updatedAt) ? (
                     <span>Updated {formatJourneyTimestamp(row.updatedAt)}</span>
                   ) : null}
-                  {row.lifecycleStatus === "draft" ? (
+                  {actions.submitForChecker ? (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -739,7 +745,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
                       Submit for checker
                     </Button>
                   ) : null}
-                  {row.lifecycleStatus === "checker_review" ? (
+                  {actions.approve ? (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -751,7 +757,26 @@ export function HomeLoanRecommendationMastersWorkspace() {
                       Approve
                     </Button>
                   ) : null}
-                  {row.lifecycleStatus === "approved" ? (
+                  {actions.reject ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            "Reject this Product Journey version? It will remain on the list as rejected and cannot be approved or activated.",
+                          )
+                        ) {
+                          return;
+                        }
+                        void post(productJourneyRejectRequest(row.id), "Journey rejected.");
+                      }}
+                    >
+                      Reject
+                    </Button>
+                  ) : null}
+                  {actions.activate ? (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -764,7 +789,8 @@ export function HomeLoanRecommendationMastersWorkspace() {
                     </Button>
                   ) : null}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </Card>

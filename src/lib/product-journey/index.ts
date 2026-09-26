@@ -28,5 +28,7 @@ export {
   nextProductJourneyLifecycleStatus,
   idsToSupersedeOnActivate,
   inFlightRefusalMessage,
+  productJourneyVisibleActions,
+  productJourneyRejectRequest,
   PRODUCT_JOURNEY_IN_FLIGHT_STATUSES,
 } from "./lineage";

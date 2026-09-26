@@ -174,3 +174,28 @@ export function idsToSupersedeOnActivate(
     )
     .map((row) => row.id);
 }
+
+export function productJourneyVisibleActions(lifecycleStatus: string): {
+  submitForChecker: boolean;
+  approve: boolean;
+  reject: boolean;
+  activate: boolean;
+} {
+  const checkerReview = lifecycleStatus === "checker_review";
+  return {
+    submitForChecker: lifecycleStatus === "draft",
+    approve: checkerReview,
+    reject: checkerReview,
+    activate: lifecycleStatus === "approved",
+  };
+}
+
+export function productJourneyRejectRequest(rowId: string): {
+  intent: "transition_journey";
+  id: string;
+  action: "reject";
+} {
+  const id = rowId.trim();
+  if (!id) throw new Error("Journey definition not found.");
+  return { intent: "transition_journey", id, action: "reject" };
+}

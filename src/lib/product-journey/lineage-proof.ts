@@ -5,6 +5,8 @@ import {
   idsToSupersedeOnActivate,
   nextProductJourneyLifecycleStatus,
   planProductJourneyDraft,
+  productJourneyRejectRequest,
+  productJourneyVisibleActions,
   type ProductJourneyLineageRow,
   type ProductJourneyTransitionAction,
 } from "@/lib/product-journey/lineage";
@@ -191,4 +193,54 @@ export async function runProductJourneyLineageProof() {
   if (refused.action === "refuse_in_flight") {
     assert.match(refused.reason, /2 versions/);
   }
+
+  const checkerActions = productJourneyVisibleActions("checker_review");
+  assert.equal(checkerActions.approve, true);
+  assert.equal(checkerActions.reject, true);
+  assert.equal(checkerActions.submitForChecker, false);
+  assert.equal(checkerActions.activate, false);
+  assert.equal(productJourneyVisibleActions("draft").reject, false);
+  assert.equal(productJourneyVisibleActions("draft").approve, false);
+  assert.equal(productJourneyVisibleActions("approved").reject, false);
+  assert.equal(productJourneyVisibleActions("approved").approve, false);
+  assert.equal(productJourneyVisibleActions("active").reject, false);
+  assert.equal(productJourneyVisibleActions("active").approve, false);
+  assert.equal(productJourneyVisibleActions("rejected").reject, false);
+  assert.equal(productJourneyVisibleActions("rejected").approve, false);
+  const rejectOriginal = productJourneyRejectRequest("cmugrdml0000b54hz5kf1wpvn");
+  const rejectDuplicate = productJourneyRejectRequest("cmuhydg0o000354vjakrcxtcd");
+  assert.deepEqual(rejectDuplicate, {
+    intent: "transition_journey",
+    id: "cmuhydg0o000354vjakrcxtcd",
+    action: "reject",
+  });
+  assert.notEqual(rejectDuplicate.id, rejectOriginal.id);
+  console.log("CHECKER_REJECT_UI_TEST: PASS");
+
+  const siblingStore = createMemoryProductJourneyStore();
+  const kept = siblingStore.ensure({ organizationId: org, productCode: "HOME_LOAN", makerUserId: maker });
+  siblingStore.transition({ organizationId: org, id: kept.id, action: "submit_review", actorUserId: maker });
+  const accidental: StoredRow = {
+    ...kept,
+    id: "accidental-duplicate",
+    lineageId: randomUUID(),
+    checkerUserId: null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+    auditJson: [{ event: "ensure_journey_draft", at: nowIso() }, { event: "submit_review", at: nowIso() }],
+  };
+  siblingStore.rows.push(accidental);
+  siblingStore.transition({
+    organizationId: org,
+    id: accidental.id,
+    action: "reject",
+    actorUserId: maker,
+  });
+  const afterReject = siblingStore.list(org);
+  assert.equal(afterReject.find((row) => row.id === kept.id)?.lifecycleStatus, "checker_review");
+  assert.equal(afterReject.find((row) => row.id === accidental.id)?.lifecycleStatus, "rejected");
+  assert.equal(afterReject.find((row) => row.id === accidental.id)?.checkerUserId, maker);
+  assert.ok(afterReject.find((row) => row.id === accidental.id)?.auditJson.some((entry) => entry.event === "reject"));
+  assert.equal(afterReject.length, 2);
+  console.log("REJECT_SIBLING_UNCHANGED_TEST: PASS");
 }
