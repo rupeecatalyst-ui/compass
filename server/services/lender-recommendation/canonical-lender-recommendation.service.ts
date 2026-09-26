@@ -389,6 +389,7 @@ async function applyUniversalMatchPercent(input: {
           weightPercent: item.weightPercent,
           weightedContribution: item.weightedContribution,
           status: item.status,
+          inputs: item.inputs ?? null,
         })) ?? null,
     };
   });

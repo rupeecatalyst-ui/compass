@@ -10,6 +10,12 @@ export const RECOMMENDATION_EVALUATOR_TYPES = {
   RELATIVE_TO_ELIGIBLE_MAX: "relative_to_eligible_max",
   WITHIN_NORM_OR_PENDING: "within_norm_or_pending",
   LOWEST_AMONG_ELIGIBLE_OR_PENDING: "lowest_among_eligible_or_pending",
+  /** HOME_LOAN / HOME_LOAN_BT V1 — ROI vs lowest eligible, basis-point bands. */
+  ROI_BPS_FROM_BEST: "roi_bps_from_best",
+  /** HOME_LOAN / HOME_LOAN_BT V1 — absolute FOIR bands. Not a hard-elimination rule. */
+  FOIR_LOWER_BETTER_BANDS: "foir_lower_better_bands",
+  /** HOME_LOAN / HOME_LOAN_BT V1 — assessed LTV bands. Does not replace programme/RBI caps. */
+  LTV_LOWER_BETTER_BANDS: "ltv_lower_better_bands",
 } as const;
 
 export type RegisteredEvaluatorTypeId =

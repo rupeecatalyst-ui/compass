@@ -40,6 +40,7 @@ export type CanonicalRecommendationCard = HomeLoanRecommendationEngineResult["ca
     weightPercent: number;
     weightedContribution: number | null;
     status: string;
+    inputs?: Readonly<Record<string, number | string | boolean | null>> | null;
   }> | null;
 };
 

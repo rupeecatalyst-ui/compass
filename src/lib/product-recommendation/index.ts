@@ -40,6 +40,13 @@ export {
   contributingCoApplicantIncomeRupees,
   resolveEffectiveAvailableTenureMonths,
 } from "./home-loan-inputs";
+export {
+  HOME_LOAN_V1_SCORING_PRODUCT_CODES,
+  scoreHomeLoanV1Foir,
+  scoreHomeLoanV1Ltv,
+  scoreHomeLoanV1RoiFromBest,
+  roiDifferenceBasisPoints,
+} from "./home-loan-v1-scoring-contracts";
 export { MATCH_PERCENT_CRITERION_REASONS } from "./match-percent-reasons";
 export {
   SCORING_DIRECTIONS,

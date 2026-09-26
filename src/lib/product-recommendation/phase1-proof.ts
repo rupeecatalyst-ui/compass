@@ -113,10 +113,8 @@ export async function runUniversalMatchPercentPhase1Proof() {
   {
     assert.equal(validateWeightPublish({ proofAlpha: 99 }), "WEIGHTS_NOT_EXACTLY_100");
     assert.equal(validateWeightPublish({ proofAlpha: 101 }), "WEIGHTS_NOT_EXACTLY_100");
-    assert.equal(
-      validateWeightPublish({ foirFit: 40, roiCompetitiveness: 30, ltvFit: 30 }),
-      "SCORING_CONTRACT_PENDING",
-    );
+    assert.equal(validateWeightPublish({ foirFit: 40, roiCompetitiveness: 30, ltvFit: 30 }), null);
+    assert.equal(validateWeightPublish({ "assessment:cibil.exactScore": 100 }), "SCORING_CONTRACT_PENDING");
     console.log("E activation validation rejects 99%: PASS");
     console.log("F activation validation rejects 101%: PASS");
     console.log("G activation validation rejects pending scoring-contract fields at 100%: PASS");
@@ -307,13 +305,16 @@ export async function runUniversalMatchPercentPhase1Proof() {
       assert.equal(a.aboveProgrammeNorm, false);
       assert.equal(b.aboveProgrammeNorm, true);
     }
-    const pending = scoreProgrammes({
+    const scoredAboveNorm = scoreProgrammes({
       ruleSet: ruleSet("HOME_LOAN", { foirFit: 100 }),
       programmes: [{ programmeId: "p1", context: ctx35 as Record<string, unknown> }],
       registry: createGovernedCriterionRegistry(),
     });
-    assert.equal(pending.ok, false);
-    if (!pending.ok) assert.equal(pending.code, "SCORING_CONTRACT_PENDING");
+    assert.equal(scoredAboveNorm.ok, true);
+    if (scoredAboveNorm.ok) {
+      assert.equal(scoredAboveNorm.scores[0]?.contributions[0]?.status, "scored");
+      assert.ok((scoredAboveNorm.scores[0]?.matchPercent ?? 0) > 0);
+    }
     console.log("W FOIR uses obligations + proposed EMI: PASS");
     console.log("X FOIR norm is programme-specific: PASS");
     console.log("Y FOIR above programme norm is not automatically rejected solely for that reason: PASS");

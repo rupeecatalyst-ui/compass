@@ -139,15 +139,12 @@ function buildOneContext(
           tenureMonths,
         })
       : null;
-  const foir =
-    foirNorm != null
-      ? calculateSalariedFoir({
-          eligibleMonthlyIncomeRupees: income,
-          existingMonthlyEmiRupees: obligations,
-          proposedMonthlyEmiRupees: emi,
-          maxFoirPercent: foirNorm,
-        })
-      : null;
+  const foir = calculateSalariedFoir({
+    eligibleMonthlyIncomeRupees: income,
+    existingMonthlyEmiRupees: obligations,
+    proposedMonthlyEmiRupees: emi,
+    maxFoirPercent: foirNorm,
+  });
   const actualLtv = (assessed / source.propertyValueRupees) * 100;
   const maxLtv = source.maxLtvPercent == null ? null : Number(source.maxLtvPercent);
   const highestTenure =
@@ -172,19 +169,21 @@ function buildOneContext(
       agePermittedTenureMonths: tenure.agePermittedTenureMonths,
     },
     foirFitInputs: {
-      calculatedFoirPercent: foir?.foirPercent ?? null,
+      calculatedFoirPercent: foir.foirPercent,
       programmeFoirNormPercent: foirNorm,
-      aboveProgrammeNorm: foir?.withinProgrammeCap === false,
+      aboveProgrammeNorm: foir.withinProgrammeCap === false,
       obligationsRupees: obligations,
       proposedEmiRupees: emi,
       eligibleMonthlyIncomeRupees: income,
       coApplicantIncomeUsed: coIncome > 0,
+      scoringDirection: "LOWER_IS_BETTER",
     },
     roiCompetitivenessInputs: {
       applicableRoiPercent: comparableRoi,
       programmeMinRoiPercent: comparableRoi,
       programmeMaxRoiPercent: source.maxRoiPercent == null ? null : Number(source.maxRoiPercent),
       lowestApplicableRoiPercentAmongEligible: lowestRoi,
+      scoringDirection: "LOWER_IS_BETTER",
       pendingReason:
         comparableRoi == null ? MATCH_PERCENT_CRITERION_REASONS.APPLICABLE_ROI_UNAVAILABLE : undefined,
     },
@@ -195,7 +194,7 @@ function buildOneContext(
       propertyValueRupees: source.propertyValueRupees,
       programmeMaxLtvPercent: maxLtv,
       programmeMinLtvPercent: source.minLtvPercent == null ? null : Number(source.minLtvPercent),
-      pendingReason: MATCH_PERCENT_CRITERION_REASONS.LTV_SCORING_CONTRACT_PENDING,
+      scoringDirection: "LOWER_IS_BETTER",
     },
     // Explicitly excluded from scoring. Presence here is for proof that they are not read by the scorer.
     excludedDocumentTypeIds: source.requiredDocumentTypeIds ?? null,

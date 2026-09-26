@@ -115,7 +115,8 @@ export async function runFieldDrivenRecommendationProof() {
     assert.match(workspace, /\+ Add Field/);
     assert.match(workspace, /\+ Add Criteria/);
     assert.match(workspace, /TOTAL WEIGHTAGE/);
-    assert.match(workspace, /Home Loan Balance Transfer/);
+    assert.match(workspace, /HOME_LOAN/);
+    assert.match(workspace, /productChoices/);
     assert.match(workspace, /Save Draft/);
     assert.match(workspace, /Not Known/);
     assert.match(workspace, /Lender Categories/);
@@ -137,6 +138,15 @@ export async function runFieldDrivenRecommendationProof() {
   assert.ok(foir);
   assert.equal(foir?.sourceKind, "derived");
   assert.equal(foir?.fieldKind, "derived_fact");
+  assert.equal(foir?.scoreability, "fully_scorable");
+  assert.equal(foir?.evaluatorType, RECOMMENDATION_EVALUATOR_TYPES.FOIR_LOWER_BETTER_BANDS);
+  assert.equal(resolveProjectedField("derived:ltvPercent")?.scoreability, "fully_scorable");
+  assert.equal(resolveProjectedField("derived:ltvPercent")?.evaluatorType, RECOMMENDATION_EVALUATOR_TYPES.LTV_LOWER_BETTER_BANDS);
+  assert.equal(resolveProjectedField("derived:applicableRoiPercent")?.scoreability, "fully_scorable");
+  assert.equal(
+    resolveProjectedField("derived:applicableRoiPercent")?.evaluatorType,
+    RECOMMENDATION_EVALUATOR_TYPES.ROI_BPS_FROM_BEST,
+  );
   console.log("D derived governed field can appear in same projection: PASS");
   assert.notEqual(income?.id, foir?.id);
   console.log("E raw and derived fields have stable distinct IDs: PASS");
@@ -254,6 +264,9 @@ export async function runFieldDrivenRecommendationProof() {
     "relative_to_eligible_max",
     "within_norm_or_pending",
     "lowest_among_eligible_or_pending",
+    "roi_bps_from_best",
+    "foir_lower_better_bands",
+    "ltv_lower_better_bands",
   ];
   typeKeys.forEach((key) => assert.ok(typeRegistry.get(key)));
   assert.equal(typeRegistry.get("foirFit"), undefined);

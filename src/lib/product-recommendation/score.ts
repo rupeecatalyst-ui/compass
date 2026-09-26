@@ -143,7 +143,11 @@ export function scoreProgrammes(input: {
       }
       matchPercent += row.weightedContribution;
     }
-    scores.push({ programmeId: programme.programmeId, matchPercent, contributions });
+    scores.push({
+      programmeId: programme.programmeId,
+      matchPercent: Math.min(100, matchPercent),
+      contributions,
+    });
   }
 
   return {

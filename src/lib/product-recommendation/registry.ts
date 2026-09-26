@@ -4,8 +4,11 @@ import { RECOMMENDATION_EVALUATOR_TYPES } from "./evaluator-types";
 import { MATCH_PERCENT_CRITERION_REASONS } from "./match-percent-reasons";
 import {
   cappedRequirementRatioEvaluator,
+  foirLowerBetterBandsEvaluator,
   lowestAmongEligibleOrPendingEvaluator,
+  ltvLowerBetterBandsEvaluator,
   relativeToEligibleMaxEvaluator,
+  roiBpsFromBestEvaluator,
   withinNormOrPendingEvaluator,
 } from "./approved-scoring-contracts";
 
@@ -79,6 +82,9 @@ export function createGovernedEvaluatorTypeRegistry(): CriterionEvaluatorRegistr
     [RECOMMENDATION_EVALUATOR_TYPES.RELATIVE_TO_ELIGIBLE_MAX]: relativeToEligibleMaxEvaluator,
     [RECOMMENDATION_EVALUATOR_TYPES.WITHIN_NORM_OR_PENDING]: withinNormOrPendingEvaluator,
     [RECOMMENDATION_EVALUATOR_TYPES.LOWEST_AMONG_ELIGIBLE_OR_PENDING]: lowestAmongEligibleOrPendingEvaluator,
+    [RECOMMENDATION_EVALUATOR_TYPES.ROI_BPS_FROM_BEST]: roiBpsFromBestEvaluator,
+    [RECOMMENDATION_EVALUATOR_TYPES.FOIR_LOWER_BETTER_BANDS]: foirLowerBetterBandsEvaluator,
+    [RECOMMENDATION_EVALUATOR_TYPES.LTV_LOWER_BETTER_BANDS]: ltvLowerBetterBandsEvaluator,
   });
 }
 

@@ -1,4 +1,10 @@
 import { MATCH_PERCENT_CRITERION_REASONS } from "./match-percent-reasons";
+import {
+  roiDifferenceBasisPoints,
+  scoreHomeLoanV1Foir,
+  scoreHomeLoanV1Ltv,
+  scoreHomeLoanV1RoiFromBest,
+} from "./home-loan-v1-scoring-contracts";
 import type { CriterionEvaluation, CriterionEvaluationContext, CriterionEvaluator } from "./types";
 
 function bag(context: CriterionEvaluationContext, keys: readonly string[]): Record<string, unknown> | null {
@@ -95,40 +101,32 @@ export const relativeToEligibleMaxEvaluator: CriterionEvaluator = ({ criterionKe
   return scored(criterionKey, weightPercent, (effective / highest) * 100, recorded);
 };
 
-/** FOIR scoring curve is not approved. Direction is LOWER_IS_BETTER; this evaluator never emits a score. */
+/** @deprecated Kept for evaluator-type compatibility. FOIR V1 uses foirLowerBetterBandsEvaluator. */
 export const withinNormOrPendingEvaluator: CriterionEvaluator = ({ criterionKey, weightPercent, context }) => {
-  const inputs = bag(context, [`${criterionKey}Inputs`, "foirFitInputs"]);
-  const calculated = finiteNumber(inputs?.calculatedFoirPercent);
-  const norm = finiteNumber(inputs?.programmeFoirNormPercent);
-  const recorded = {
-    calculatedFoirPercent: calculated,
-    programmeFoirNormPercent: norm,
-    aboveProgrammeNorm: inputs?.aboveProgrammeNorm === true,
-    scoringDirection: "LOWER_IS_BETTER",
-  };
-  if (calculated == null || norm == null) {
-    return missing(criterionKey, weightPercent, "SCORING_INPUT_REQUIRED", recorded);
-  }
-  return pending(
-    criterionKey,
-    weightPercent,
-    MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING,
-    recorded,
-  );
+  return foirLowerBetterBandsEvaluator({ criterionKey, weightPercent, context });
 };
 
-/** Lowest valid comparable value scores 100. Missing or higher values stay pending. */
+/** @deprecated Kept for evaluator-type compatibility. ROI V1 uses roiBpsFromBestEvaluator. */
 export const lowestAmongEligibleOrPendingEvaluator: CriterionEvaluator = ({
   criterionKey,
   weightPercent,
   context,
 }) => {
+  return roiBpsFromBestEvaluator({ criterionKey, weightPercent, context });
+};
+
+/**
+ * HOME_LOAN / HOME_LOAN_BT V1 ROI: lower is better.
+ * Anchor is the lowest comparable eligible ROI for this run. Missing ROI stays fail-closed.
+ */
+export const roiBpsFromBestEvaluator: CriterionEvaluator = ({ criterionKey, weightPercent, context }) => {
   const inputs = bag(context, [`${criterionKey}Inputs`, "roiCompetitivenessInputs"]);
   const applicable = finiteNumber(inputs?.applicableRoiPercent);
   const lowest = finiteNumber(inputs?.lowestApplicableRoiPercentAmongEligible);
-  const recorded = {
+  const recorded: CriterionEvaluation["inputs"] = {
     applicableRoiPercent: applicable,
     lowestApplicableRoiPercentAmongEligible: lowest,
+    scoringDirection: "LOWER_IS_BETTER",
   };
   if (applicable == null) {
     return pending(
@@ -141,13 +139,51 @@ export const lowestAmongEligibleOrPendingEvaluator: CriterionEvaluator = ({
   if (lowest == null) {
     return missing(criterionKey, weightPercent, "SCORING_INPUT_REQUIRED", recorded);
   }
-  if (applicable === lowest) {
-    return scored(criterionKey, weightPercent, 100, recorded);
+  const differenceBps = roiDifferenceBasisPoints(applicable, lowest);
+  return scored(criterionKey, weightPercent, scoreHomeLoanV1RoiFromBest(applicable, lowest), {
+    ...recorded,
+    differenceBps,
+  });
+};
+
+/**
+ * HOME_LOAN / HOME_LOAN_BT V1 FOIR: lower is better.
+ * Programme/policy FOIR norm remains audit/eligibility, not this Match % curve.
+ */
+export const foirLowerBetterBandsEvaluator: CriterionEvaluator = ({ criterionKey, weightPercent, context }) => {
+  const inputs = bag(context, [`${criterionKey}Inputs`, "foirFitInputs"]);
+  const calculated = finiteNumber(inputs?.calculatedFoirPercent);
+  const norm = finiteNumber(inputs?.programmeFoirNormPercent);
+  const recorded: CriterionEvaluation["inputs"] = {
+    calculatedFoirPercent: calculated,
+    programmeFoirNormPercent: norm,
+    aboveProgrammeNorm: inputs?.aboveProgrammeNorm === true,
+    scoringDirection: "LOWER_IS_BETTER",
+  };
+  if (calculated == null) {
+    return missing(criterionKey, weightPercent, "SCORING_INPUT_REQUIRED", recorded);
   }
-  return pending(
-    criterionKey,
-    weightPercent,
-    MATCH_PERCENT_CRITERION_REASONS.ROI_SCORING_CONTRACT_PENDING,
-    recorded,
-  );
+  return scored(criterionKey, weightPercent, scoreHomeLoanV1Foir(calculated), recorded);
+};
+
+/**
+ * HOME_LOAN / HOME_LOAN_BT V1 LTV: lower is better.
+ * Uses assessed/tentative amount ÷ property value. Does not replace programme/RBI caps.
+ */
+export const ltvLowerBetterBandsEvaluator: CriterionEvaluator = ({ criterionKey, weightPercent, context }) => {
+  const inputs = bag(context, [`${criterionKey}Inputs`, "ltvFitInputs"]);
+  const assessedLtv = finiteNumber(inputs?.actualLtvPercent);
+  const assessedOffer = finiteNumber(inputs?.assessedOfferRupees);
+  const propertyValue = finiteNumber(inputs?.propertyValueRupees);
+  const recorded: CriterionEvaluation["inputs"] = {
+    actualLtvPercent: assessedLtv,
+    assessedOfferRupees: assessedOffer,
+    propertyValueRupees: propertyValue,
+    programmeMaxLtvPercent: finiteNumber(inputs?.programmeMaxLtvPercent),
+    scoringDirection: "LOWER_IS_BETTER",
+  };
+  if (assessedLtv == null || assessedLtv < 0 || assessedOffer == null || assessedOffer <= 0 || propertyValue == null || propertyValue <= 0) {
+    return missing(criterionKey, weightPercent, "SCORING_INPUT_REQUIRED", recorded);
+  }
+  return scored(criterionKey, weightPercent, scoreHomeLoanV1Ltv(assessedLtv), recorded);
 };

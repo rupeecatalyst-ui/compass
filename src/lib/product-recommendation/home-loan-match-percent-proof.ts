@@ -66,7 +66,7 @@ export async function runHomeLoanMatchPercentProof() {
     if ("error" in draft) throw new Error(draft.error);
     assert.equal(draft.total, 90);
     assert.equal(weightsTotalExact100(draft), false);
-    assert.equal(validateWeightPublish({ eligibleAmount: 25, tenureAvailability: 15, foirFit: 20, roiCompetitiveness: 30, ltvFit: 10 }), "SCORING_CONTRACT_PENDING");
+    assert.equal(validateWeightPublish({ eligibleAmount: 25, tenureAvailability: 15, foirFit: 20, roiCompetitiveness: 30, ltvFit: 10 }), null);
     assert.equal(validateWeightPublish({ eligibleAmount: 60, tenureAvailability: 40 }), null);
     console.log("1 weights remain configuration-driven and active totals must equal 100: PASS");
   }
@@ -233,18 +233,15 @@ export async function runHomeLoanMatchPercentProof() {
       programmes: [{ programmeId: "foir-out", context: above as Record<string, unknown> }],
       registry,
     });
-    assert.equal(scoredIn.ok, false);
-    if (!scoredIn.ok) {
-      assert.equal(scoredIn.code, "SCORING_CONTRACT_PENDING");
-      assert.equal(scoredIn.detail, MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING);
+    assert.equal(scoredIn.ok, true);
+    assert.equal(scoredOut.ok, true);
+    if (scoredIn.ok && scoredOut.ok) {
+      assert.ok((scoredIn.scores[0]?.matchPercent ?? 0) > (scoredOut.scores[0]?.matchPercent ?? 0));
+      assert.equal((above as { foirFitInputs: { aboveProgrammeNorm: boolean } }).foirFitInputs.aboveProgrammeNorm, true);
+      assert.equal(scoredOut.scores[0]?.contributions[0]?.status, "scored");
     }
-    assert.equal(scoredOut.ok, false);
-    if (!scoredOut.ok) {
-      assert.equal(scoredOut.code, "SCORING_CONTRACT_PENDING");
-      assert.equal(scoredOut.detail, MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING);
-    }
-    console.log("9 FOIR scoring contract is pending in both directions: PASS");
-    console.log("10 FOIR does not invent a within-norm or above-norm score: PASS");
+    console.log("9 FOIR V1 scores lower FOIR higher without eliminating above-norm programmes: PASS");
+    console.log("10 FOIR above a lender norm remains Match %-scored, not a new hard fail: PASS");
   }
 
   {
@@ -253,7 +250,20 @@ export async function runHomeLoanMatchPercentProof() {
       fixture({ programmeId: "roi-higher", minRoiPercent: 8.5 }),
       fixture({ programmeId: "roi-missing", minRoiPercent: null }),
     ]);
-    const scored = scoreProgrammes({
+    const comparable = scoreProgrammes({
+      ruleSet: ruleSet({ roiCompetitiveness: 100 }),
+      programmes: [
+        { programmeId: "roi-best", context: contexts[0] as Record<string, unknown> },
+        { programmeId: "roi-higher", context: contexts[1] as Record<string, unknown> },
+      ],
+      registry,
+    });
+    assert.equal(comparable.ok, true);
+    if (comparable.ok) {
+      assert.equal(comparable.scores.find((row) => row.programmeId === "roi-best")?.matchPercent, 100);
+      assert.equal(comparable.scores.find((row) => row.programmeId === "roi-higher")?.matchPercent, 20);
+    }
+    const withMissing = scoreProgrammes({
       ruleSet: ruleSet({ roiCompetitiveness: 100 }),
       programmes: [
         { programmeId: "roi-best", context: contexts[0] as Record<string, unknown> },
@@ -262,24 +272,19 @@ export async function runHomeLoanMatchPercentProof() {
       ],
       registry,
     });
-    assert.equal(scored.ok, false);
-    if (!scored.ok) {
-      assert.equal(scored.code, "SCORING_CONTRACT_PENDING");
+    assert.equal(withMissing.ok, false);
+    if (!withMissing.ok) {
       assert.ok(
-        scored.detail === MATCH_PERCENT_CRITERION_REASONS.ROI_SCORING_CONTRACT_PENDING ||
-          scored.detail === MATCH_PERCENT_CRITERION_REASONS.APPLICABLE_ROI_UNAVAILABLE,
+        withMissing.code === "SCORING_CONTRACT_PENDING" || withMissing.code === "SCORING_INPUT_REQUIRED",
+      );
+      assert.ok(
+        withMissing.detail === MATCH_PERCENT_CRITERION_REASONS.APPLICABLE_ROI_UNAVAILABLE ||
+          withMissing.detail === "roi-missing",
       );
     }
-    const lowestOnly = scoreProgrammes({
-      ruleSet: ruleSet({ roiCompetitiveness: 100 }),
-      programmes: [{ programmeId: "roi-best", context: contexts[0] as Record<string, unknown> }],
-      registry,
-    });
-    assert.equal(lowestOnly.ok, true);
-    if (lowestOnly.ok) assert.equal(lowestOnly.scores[0]?.matchPercent, 100);
     assert.equal("error" in (contexts[2] as object), false);
     console.log("11 lowest valid ROI scores 100: PASS");
-    console.log("12 other ROI scores remain pending until configured: PASS");
+    console.log("12 higher ROI scores V1 bps bands instead of pending: PASS");
     console.log("13 missing ROI does not automatically eliminate the candidate context: PASS");
   }
 
@@ -299,12 +304,12 @@ export async function runHomeLoanMatchPercentProof() {
       programmes: [{ programmeId: "ltv", context: ctx as Record<string, unknown> }],
       registry,
     });
-    assert.equal(scored.ok, false);
-    if (!scored.ok) {
-      assert.equal(scored.code, "SCORING_CONTRACT_PENDING");
-      assert.equal(scored.detail, MATCH_PERCENT_CRITERION_REASONS.LTV_SCORING_CONTRACT_PENDING);
+    assert.equal(scored.ok, true);
+    if (scored.ok) {
+      assert.equal(scored.scores[0]?.matchPercent, 25);
+      assert.equal(scored.scores[0]?.contributions[0]?.status, "scored");
     }
-    console.log("14 LTV is calculated and scoring remains pending: PASS");
+    console.log("14 LTV is calculated and scored on the V1 lower-is-better curve: PASS");
   }
 
   {
@@ -339,11 +344,11 @@ export async function runHomeLoanMatchPercentProof() {
     );
     const v1 = scoreProgrammes({
       ruleSet: ruleSet({
-        roiCompetitiveness: 30,
-        eligibleAmount: 25,
-        foirFit: 20,
+        roiCompetitiveness: 35,
+        eligibleAmount: 20,
+        foirFit: 15,
+        ltvFit: 15,
         tenureAvailability: 15,
-        ltvFit: 10,
       }),
       programmes: [
         { programmeId: "p-a", context: contexts[0] as Record<string, unknown> },
@@ -351,17 +356,29 @@ export async function runHomeLoanMatchPercentProof() {
       ],
       registry,
     });
-    assert.equal(v1.ok, false);
-    if (!v1.ok) {
-      assert.equal(v1.code, "SCORING_CONTRACT_PENDING");
-      assert.ok(
-        v1.detail === MATCH_PERCENT_CRITERION_REASONS.LTV_SCORING_CONTRACT_PENDING ||
-          v1.detail === MATCH_PERCENT_CRITERION_REASONS.FOIR_SCORING_CONTRACT_PENDING ||
-          v1.detail === MATCH_PERCENT_CRITERION_REASONS.ROI_SCORING_CONTRACT_PENDING,
+    assert.equal(v1.ok, true);
+    if (v1.ok) {
+      assert.equal(v1.ruleSet.versionNumber, 1);
+      assert.equal(v1.weights.total, 100);
+      for (const row of v1.scores) {
+        assert.ok(row.matchPercent <= 100);
+        assert.equal(row.contributions.length, 5);
+        const contributionSum = row.contributions.reduce((sum, item) => sum + (item.weightedContribution ?? 0), 0);
+        assert.ok(Math.abs(contributionSum - row.matchPercent) < 0.0001);
+      }
+      const ranked = rankByMatchPercent(
+        v1.scores.map((row) => ({
+          item: {},
+          programmeId: row.programmeId,
+          matchPercent: row.matchPercent,
+          applicableRoiPercent: row.programmeId === "p-a" ? 7.1 : 8.5,
+          tentativeOfferRupees: row.programmeId === "p-a" ? 5000000 : 4500000,
+        })),
       );
+      assert.equal(ranked[0]?.programmeId, "p-a");
     }
-    console.log("17 no universal borrower Match % is emitted: PASS");
-    console.log("18 incomplete scoring contracts do not emit a fake Match %: PASS");
+    console.log("17 configured 100% weights emit a deterministic Match %: PASS");
+    console.log("18 missing scoring contracts no longer apply to ROI/FOIR/LTV V1: PASS");
   }
 
   {
@@ -482,9 +499,17 @@ function runFourUatCases(registry: ReturnType<typeof createGovernedEvaluatorType
     ],
     registry,
   });
-  assert.equal(case2Score.ok, false);
+  assert.equal(case2Score.ok, true);
+  if (case2Score.ok) {
+    assert.equal(case2Score.weights.total, 100);
+    assert.equal(case2Score.scores.length, 2);
+    for (const row of case2Score.scores) {
+      assert.ok(row.matchPercent <= 100);
+      assert.equal(row.contributions.every((item) => item.status === "scored"), true);
+    }
+  }
   assert.deepEqual(resolveHomeLoanCibilCategoryUniverse("800_plus").permittedCategories, ["A", "B", "C"]);
-  console.log("UAT CASE 2 A+B+C universe, LTV 50, maturity changes EMI/FOIR, no invented Match %: PASS");
+  console.log("UAT CASE 2 A+B+C universe, LTV 50, maturity changes EMI/FOIR, Match % scored: PASS");
 
   assert.deepEqual(resolveHomeLoanCibilCategoryUniverse(650).permittedCategories, ["C"]);
   const case3 = buildHomeLoanMatchPercentContext(fixture({
@@ -505,8 +530,12 @@ function runFourUatCases(registry: ReturnType<typeof createGovernedEvaluatorType
     programmes: [{ programmeId: "case3", context: case3 as Record<string, unknown> }],
     registry,
   });
-  assert.equal(case3Score.ok, false);
-  console.log("UAT CASE 3 Category C universe, LTV 66.67, no invented Match %: PASS");
+  assert.equal(case3Score.ok, true);
+  if (case3Score.ok) {
+    assert.equal(case3Score.scores[0]?.contributions.every((item) => item.status === "scored"), true);
+    assert.ok((case3Score.scores[0]?.matchPercent ?? 0) <= 100);
+  }
+  console.log("UAT CASE 3 Category C universe, LTV 66.67, Match % scored: PASS");
 
   const case4 = buildHomeLoanMatchPercentContexts([
     fixture({
