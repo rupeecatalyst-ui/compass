@@ -5861,3 +5861,101 @@ model EnterpriseDocumentVersionSeen {
   @@map("enterprise_document_version_seen")
 }
 
+// =============================================================================
+// Field Control Master — Foundation V1 metadata only.
+// Does not store customer, opportunity, assessment, deal, or accounting values.
+// Migration is local review material. Do not apply it to production from this sprint.
+// =============================================================================
+
+enum FieldControlFieldType {
+  text
+  long_text
+  number
+  currency
+  percentage
+  date
+  yes_no
+  single_select
+  multi_select
+}
+
+enum FieldControlClassification {
+  raw_canonical
+  derived
+  reference_mirror
+  alias
+  system
+  configuration
+  programme_constraint_reference
+}
+
+enum FieldControlOwningDomain {
+  contact
+  company
+  opportunity
+  deal
+  accounting
+  assessment
+  document
+  derived_engine
+  system
+  unassigned
+}
+
+enum FieldControlLifecycleStatus {
+  draft
+  checker_review
+  approved
+  active
+  superseded
+  inactive
+}
+
+enum FieldControlOwnershipReview {
+  certified_binding
+  owner_requires_product_decision
+}
+
+/// Governance identity for a field. Empty until a later commissioned load.
+/// controls_runtime and customer_facing_activation stay false in Foundation V1.
+model FieldControlDefinition {
+  id                              String                        @id @default(cuid())
+  fieldId                         String                        @map("field_id")
+  lineageId                       String                        @map("lineage_id")
+  versionNumber                   Int                           @default(1) @map("version_number")
+  previousVersionId               String?                       @map("previous_version_id")
+  friendlyLabel                   String                        @map("friendly_label")
+  description                     String                        @db.Text
+  helpText                        String                        @map("help_text") @db.Text
+  fieldType                       FieldControlFieldType         @map("field_type")
+  classification                  FieldControlClassification
+  owningDomain                    FieldControlOwningDomain      @map("owning_domain")
+  ownershipReview                 FieldControlOwnershipReview   @map("ownership_review")
+  sourceBindingJson               Json                          @map("source_binding_json")
+  aliasesJson                     Json                          @default("[]") @map("aliases_json")
+  lifecycleStatus                 FieldControlLifecycleStatus   @default(draft) @map("lifecycle_status")
+  productApplicabilityJson        Json                          @default("[]") @map("product_applicability_json")
+  customerCategoryApplicabilityJson Json                        @default("[]") @map("customer_category_applicability_json")
+  applicabilityDeclared           Boolean                       @default(false) @map("applicability_declared")
+  authorisedConsumersJson         Json                          @default("[]") @map("authorised_consumers_json")
+  validationSummary               String                        @map("validation_summary") @db.Text
+  presentationSummary             String                        @map("presentation_summary") @db.Text
+  selectOptionSource              String?                       @map("select_option_source")
+  selectOptionKeysJson            Json                          @default("[]") @map("select_option_keys_json")
+  currencyUnitsJson               Json                          @default("[]") @map("currency_units_json")
+  candidateMirrorOf               String?                       @map("candidate_mirror_of")
+  controlsRuntime                 Boolean                       @default(false) @map("controls_runtime")
+  customerFacingActivation        Boolean                       @default(false) @map("customer_facing_activation")
+  makerUserId                     String?                       @map("maker_user_id")
+  checkerUserId                   String?                       @map("checker_user_id")
+  effectiveFrom                   DateTime?                     @map("effective_from")
+  effectiveUntil                  DateTime?                     @map("effective_until")
+  createdAt                       DateTime                      @default(now()) @map("created_at")
+  updatedAt                       DateTime                      @updatedAt @map("updated_at")
+
+  @@unique([fieldId, versionNumber], map: "fcm_field_version_key")
+  @@index([classification, lifecycleStatus], map: "fcm_classification_lifecycle_idx")
+  @@index([owningDomain, ownershipReview], map: "fcm_owner_review_idx")
+  @@map("field_control_definitions")
+}
+

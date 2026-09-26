@@ -535,6 +535,13 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         keywords: ["decisions", "ledger", "audit"],
       },
       {
+        id: "field-control-master",
+        title: "Field Control Master",
+        description: "Read-only registry of canonical field identities. Does not capture customer values.",
+        href: ROUTES.ADMIN_FIELD_CONTROL_MASTER,
+        keywords: ["fields", "registry", "governance", "metadata"],
+      },
+      {
         id: "recovery-center",
         title: "Enterprise Recovery Center",
         description: "Restore or permanently purge soft-deleted business records.",

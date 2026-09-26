@@ -200,6 +200,8 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_ASSETS_LIFECYCLE: "/admin/enterprise-assets/lifecycle",
   ADMIN_ENTERPRISE_ASSETS_AUDIT: "/admin/enterprise-assets/audit",
   ADMIN_ENTERPRISE_DECISION_LEDGER: "/admin/enterprise-decision-ledger",
+  /** Field Control Master Foundation V1 — read-only identity registry. */
+  ADMIN_FIELD_CONTROL_MASTER: "/admin/field-control-master",
   /** CO-SPRINT-119 — Soft-deleted business records recovery. */
   ADMIN_ENTERPRISE_RECOVERY_CENTER: "/admin/enterprise-recovery-center",
   /** CO-ARCH-001-I7 — Tier 1 Reference Master administration. */
@@ -395,6 +397,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_ENTERPRISE_ASSETS_LIFECYCLE,
   ROUTES.ADMIN_ENTERPRISE_ASSETS_AUDIT,
   ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER,
+  ROUTES.ADMIN_FIELD_CONTROL_MASTER,
   ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER,
   ROUTES.ADMIN_REFERENCE_MASTERS,
   ROUTES.ADMIN_LENDER_REGISTRY,

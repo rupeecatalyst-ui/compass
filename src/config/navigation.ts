@@ -41,6 +41,7 @@ import {
   StickyNote,
   Mail,
   History,
+  Library,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -165,6 +166,7 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY },
   { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS },
   { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER },
+  { title: "Field Control Master", href: ROUTES.ADMIN_FIELD_CONTROL_MASTER },
   { title: "Enterprise Recovery Center", href: ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER },
   { title: "Foundation Libraries", href: ROUTES.ADMIN_FOUNDATION_LIBRARIES },
   { title: "Universal Guided Journey", href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY },
@@ -396,6 +398,7 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY, icon: Package },
     { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS, icon: Boxes },
     { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER, icon: Scale },
+    { title: "Field Control Master", href: ROUTES.ADMIN_FIELD_CONTROL_MASTER, icon: Library },
     { title: "Enterprise Recovery Center", href: ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER, icon: History },
     { title: "Foundation Libraries", href: ROUTES.ADMIN_FOUNDATION_LIBRARIES, icon: BookMarked },
     { title: "Universal Guided Journey", href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY, icon: MessageSquareHeart },
