@@ -18,6 +18,7 @@ import {
   resolveProjectedField,
   sortByFriendlyDisplayLabel,
 } from "@/lib/product-recommendation";
+import { planProductJourneyDraft } from "@/lib/product-journey/lineage";
 import { AUTHORISED_CIBIL_CATEGORY_RULES } from "@/lib/home-loan-recommendation/cibil-category";
 import {
   AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS,
@@ -77,6 +78,19 @@ function formatLoanAmount(value: number | null): string {
   return `₹${value.toLocaleString("en-IN")}`;
 }
 
+function formatJourneyTimestamp(value: string | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function categoryList(values: string[] | undefined): string {
   if (!values?.length) return "none";
   if (values.length === 1) return `Category ${values[0]} only`;
@@ -108,9 +122,12 @@ export function HomeLoanRecommendationMastersWorkspace() {
     definitions?: Array<{
       id: string;
       productCode: string;
+      lineageId?: string;
       lifecycleStatus: string;
       versionNumber?: number;
       fieldsJson?: unknown;
+      createdAt?: string;
+      updatedAt?: string;
     }>;
     bootstrap?: Record<string, Array<{ fieldId: string; applicability: "all" | "salaried" | "self_employed"; capture: boolean; mandatoryForRecommendation: boolean; displayOrder: number }>>;
     authorisedCibilRules?: typeof AUTHORISED_CIBIL_CATEGORY_RULES;
@@ -158,15 +175,42 @@ export function HomeLoanRecommendationMastersWorkspace() {
   }, [productChoices, productCode]);
   const journeyRows = useMemo(
     () =>
-      (data?.definitions ?? []).filter((row) =>
-        recommendationProductCodesEquivalent(row.productCode, productCode),
-      ),
+      [...(data?.definitions ?? [])]
+        .filter((row) => recommendationProductCodesEquivalent(row.productCode, productCode))
+        .sort((left, right) => {
+          const versionDelta = (right.versionNumber ?? 1) - (left.versionNumber ?? 1);
+          if (versionDelta !== 0) return versionDelta;
+          return new Date(right.updatedAt ?? 0).getTime() - new Date(left.updatedAt ?? 0).getTime();
+        }),
     [data?.definitions, productCode],
   );
+  const journeyPlan = useMemo(
+    () =>
+      planProductJourneyDraft(
+        journeyRows.map((row) => ({
+          id: row.id,
+          organizationId: "",
+          productCode: row.productCode,
+          lineageId: row.lineageId ?? row.id,
+          versionNumber: row.versionNumber ?? 1,
+          lifecycleStatus: row.lifecycleStatus,
+          makerUserId: "",
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        })),
+        productCode,
+      ),
+    [journeyRows, productCode],
+  );
   const journeyDraft =
-    journeyRows.find((row) => row.lifecycleStatus === "draft") ??
+    journeyRows.find((row) => row.lifecycleStatus === "draft") ?? null;
+  const journeyFieldSource =
+    journeyDraft ??
+    journeyRows.find((row) => row.lifecycleStatus === "checker_review") ??
+    journeyRows.find((row) => row.lifecycleStatus === "approved") ??
     journeyRows.find((row) => row.lifecycleStatus === "active") ??
     null;
+  const journeySaveBlocked = journeyPlan.action === "refuse_in_flight";
   const productRows = useMemo(
     () => (data?.weights ?? []).filter((row) => recommendationProductCodesEquivalent(row.productCode, productCode)),
     [data?.weights, productCode],
@@ -218,9 +262,9 @@ export function HomeLoanRecommendationMastersWorkspace() {
   }, [selectedRow?.id, selectedRow?.weightsJson]);
 
   useEffect(() => {
-    const source = journeyDraft?.fieldsJson ?? data?.bootstrap?.[productCode] ?? [];
+    const source = journeyFieldSource?.fieldsJson ?? data?.bootstrap?.[productCode] ?? [];
     setDraftFields(parseProductJourneyFields(source));
-  }, [journeyDraft?.id, journeyDraft?.fieldsJson, data?.bootstrap, productCode]);
+  }, [journeyFieldSource?.id, journeyFieldSource?.fieldsJson, data?.bootstrap, productCode]);
 
   const post = async (payload: Record<string, unknown>, success = "Saved.") => {
     setBusy(true);
@@ -260,6 +304,10 @@ export function HomeLoanRecommendationMastersWorkspace() {
   };
 
   const saveJourney = async () => {
+    if (journeyPlan.action === "refuse_in_flight") {
+      setMessage(journeyPlan.reason);
+      return;
+    }
     let draftId = journeyDraft?.lifecycleStatus === "draft" ? journeyDraft.id : null;
     if (!draftId) {
       const created = await post({ intent: "ensure_journey_draft", productCode }, "Journey draft opened.");
@@ -652,9 +700,17 @@ export function HomeLoanRecommendationMastersWorkspace() {
               Add selected field
             </Button>
           </div> : null}
-          <Button disabled={busy} onClick={() => void saveJourney()}>
+          <Button disabled={busy || journeySaveBlocked} onClick={() => void saveJourney()}>
             Save Journey Draft
           </Button>
+          {journeyPlan.action === "refuse_in_flight" ? (
+            <p className="text-sm text-amber-200">{journeyPlan.reason}</p>
+          ) : journeyPlan.action === "create_next" ? (
+            <p className="text-sm text-muted-foreground">
+              Saving opens Version {journeyPlan.versionNumber} as a draft in the same product lineage. It does not
+              activate automatically.
+            </p>
+          ) : null}
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Journey version lineage. Activation applies this version to the product journey.</p>
             {journeyRows.length === 0 ? (
@@ -665,6 +721,9 @@ export function HomeLoanRecommendationMastersWorkspace() {
                   <span>{productLabel(row.productCode)}</span>
                   <span>Version {row.versionNumber ?? 1}</span>
                   <span>{row.lifecycleStatus}</span>
+                  {formatJourneyTimestamp(row.updatedAt) ? (
+                    <span>Updated {formatJourneyTimestamp(row.updatedAt)}</span>
+                  ) : null}
                   {row.lifecycleStatus === "draft" ? (
                     <Button
                       size="sm"

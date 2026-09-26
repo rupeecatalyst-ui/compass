@@ -21,3 +21,12 @@ export {
   missingJourneyFieldLabels,
   assessmentPathIsConfigured,
 } from "./readiness-fields";
+export {
+  canonicalProductJourneyCode,
+  planProductJourneyDraft,
+  assertProductJourneyTransitionAllowed,
+  nextProductJourneyLifecycleStatus,
+  idsToSupersedeOnActivate,
+  inFlightRefusalMessage,
+  PRODUCT_JOURNEY_IN_FLIGHT_STATUSES,
+} from "./lineage";
