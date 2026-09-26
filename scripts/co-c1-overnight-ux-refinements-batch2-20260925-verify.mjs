@@ -124,7 +124,8 @@ const { ROUTES } = await import("../src/constants/routes.ts");
   const foir = read("src/lib/home-loan-recommendation/foir.ts");
   assert.match(foir, /export function calculateSalariedFoir/);
   const scoring = read("src/lib/product-recommendation/approved-scoring-contracts.ts");
-  assert.match(scoring, /FOIR scoring curve is not approved/);
+  assert.match(scoring, /foirLowerBetterBandsEvaluator/);
+  assert.match(scoring, /HOME_LOAN \/ HOME_LOAN_BT V1 FOIR/);
   console.log("PASS  H salaried / self-employed presentation remains distinct");
 }
 
