@@ -39,6 +39,21 @@ export {
   idsToSupersedeOnMatchPercentActivate,
   MATCH_PERCENT_IN_FLIGHT_STATUSES,
 } from "./weight-lineage";
+export {
+  asMatchPercentLineageRow,
+  displayedCriteriaBelongToRow,
+  matchPercentCriterionDisplayLabel,
+  matchPercentDraftIsEditable,
+  matchPercentReviewCriteria,
+  matchPercentReviewIdentity,
+  matchPercentReviewIsReadOnly,
+  matchPercentReviewTotal,
+  matchPercentSaveDraftRequest,
+  matchPercentSelectValueIsInOptions,
+  matchPercentTransitionRequest,
+  matchPercentVisibleReviewActions,
+  resolveMatchPercentDisplayedRow,
+} from "./weight-review";
 export { scoreProgrammes, type ScoreableProgramme } from "./score";
 export { rankByMatchPercent, presentationSlice, type RankableCandidate } from "./rank";
 export { resolveActiveRecommendationRuleSet } from "./resolve-active-rule-set";

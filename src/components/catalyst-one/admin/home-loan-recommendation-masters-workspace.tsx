@@ -24,6 +24,19 @@ import {
   productJourneyVisibleActions,
 } from "@/lib/product-journey/lineage";
 import { planMatchPercentDraft } from "@/lib/product-recommendation/weight-lineage";
+import {
+  asMatchPercentLineageRow,
+  matchPercentDraftIsEditable,
+  matchPercentReviewCriteria,
+  matchPercentReviewIdentity,
+  matchPercentReviewIsReadOnly,
+  matchPercentReviewTotal,
+  matchPercentSaveDraftRequest,
+  matchPercentSelectValueIsInOptions,
+  matchPercentTransitionRequest,
+  matchPercentVisibleReviewActions,
+  resolveMatchPercentDisplayedRow,
+} from "@/lib/product-recommendation/weight-review";
 import { AUTHORISED_CIBIL_CATEGORY_RULES } from "@/lib/home-loan-recommendation/cibil-category";
 import {
   AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS,
@@ -70,38 +83,6 @@ function asWeightMap(value: unknown): Record<string, number> {
 
 function journeyRowVisible(row: ProductJourneyFieldRow, category: ProductJourneyApplicability): boolean {
   return category === "all" || row.applicability === "all" || row.applicability === category;
-}
-
-function pickWorkingWeightRow(rows: MasterRow[], productCode: string): MasterRow | null {
-  const plan = planMatchPercentDraft(
-    rows.map((row) => ({
-      id: row.id,
-      organizationId: "",
-      productCode: row.productCode ?? productCode,
-      lineageId: row.lineageId ?? row.id,
-      versionNumber: row.versionNumber ?? 1,
-      lifecycleStatus: row.lifecycleStatus,
-      makerUserId: "",
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    })),
-    productCode,
-  );
-  if (plan.action === "reuse_draft") {
-    return rows.find((row) => row.id === plan.row.id) ?? null;
-  }
-  return (
-    rows.find(
-      (row) =>
-        recommendationProductCodesEquivalent(row.productCode, productCode) && row.lifecycleStatus === "draft",
-    ) ??
-    rows.find(
-      (row) =>
-        recommendationProductCodesEquivalent(row.productCode, productCode) &&
-        (row.lifecycleStatus === "checker_review" || row.lifecycleStatus === "approved" || row.lifecycleStatus === "active"),
-    ) ??
-    null
-  );
 }
 
 function formatLoanAmount(value: number | null): string {
@@ -265,10 +246,32 @@ export function HomeLoanRecommendationMastersWorkspace() {
       ),
     [productRows, productCode],
   );
-  const workingRow = useMemo(() => pickWorkingWeightRow(data?.weights ?? [], productCode), [data?.weights, productCode]);
-  const weightSaveBlocked = weightPlan.action === "refuse_in_flight";
-  const selectedRow =
-    (historyVersionId ? productRows.find((row) => row.id === historyVersionId) : null) ?? workingRow;
+  const weightLineageRows = useMemo(
+    () => (data?.weights ?? []).map((row) => asMatchPercentLineageRow(row, productCode)),
+    [data?.weights, productCode],
+  );
+  const selectedLineageRow = useMemo(
+    () =>
+      resolveMatchPercentDisplayedRow({
+        rows: weightLineageRows,
+        productCode,
+        selectedVersionId: historyVersionId,
+      }),
+    [weightLineageRows, productCode, historyVersionId],
+  );
+  const selectedRow = selectedLineageRow
+    ? (productRows.find((row) => row.id === selectedLineageRow.id) ?? null)
+    : null;
+  const weightEditorEditable = matchPercentDraftIsEditable({
+    row: selectedLineageRow,
+    selectedVersionId: historyVersionId,
+    productRows: weightLineageRows,
+  });
+  const weightReviewActions = matchPercentVisibleReviewActions({
+    lifecycleStatus: selectedRow?.lifecycleStatus ?? "",
+    editable: weightEditorEditable,
+  });
+  const weightSaveBlocked = weightPlan.action === "refuse_in_flight" && !weightEditorEditable;
   const total = useMemo(
     () => Object.values(draftWeights).reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0),
     [draftWeights],
@@ -339,21 +342,12 @@ export function HomeLoanRecommendationMastersWorkspace() {
   };
 
   const saveDraft = async () => {
-    if (weightPlan.action === "refuse_in_flight") {
-      setMessage(weightPlan.reason);
+    if (!selectedRow || selectedRow.lifecycleStatus !== "draft" || !weightEditorEditable) {
+      setMessage("Select the exact draft from Version History before saving Match % weights.");
       return;
     }
-    let draftId = selectedRow?.lifecycleStatus === "draft" ? selectedRow.id : null;
-    if (!draftId) {
-      const created = await post(
-        { intent: "ensure_weight_draft", productCode },
-        "Draft opened for this product.",
-      );
-      draftId = created && typeof created === "object" && "id" in created ? String(created.id) : null;
-    }
-    if (!draftId) return;
     await post(
-      { intent: "save_weight_draft", id: draftId, weightsJson: draftWeights },
+      matchPercentSaveDraftRequest(selectedRow.id, draftWeights),
       "Draft weights saved. Percentages were not auto-balanced.",
     );
   };
@@ -379,40 +373,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => journeyRowVisible(row, customerCategory));
 
-  const selectedWeightRows = (() => {
-    const seen = new Set<string>();
-    const rows = pickerFields.filter((field) => {
-      if (!fieldIsSelected(draftWeights, field)) return false;
-      seen.add(field.id);
-      return true;
-    });
-    for (const key of Object.keys(draftWeights)) {
-      if (seen.has(key)) continue;
-      const resolved = resolveProjectedField(key, availableFields);
-      if (resolved) {
-        if (seen.has(resolved.id)) continue;
-        seen.add(resolved.id);
-        rows.push(resolved);
-        continue;
-      }
-      seen.add(key);
-      rows.push({
-        id: key,
-        label: key,
-        productCodes: [productCode],
-        sourceKind: "raw",
-        fieldKind: "assessment_fact",
-        valueType: "number",
-        customerFactRef: null,
-        programmeFactRef: null,
-        evaluatorType: "not_implemented",
-        selectable: true,
-        scoreability: "not_implemented",
-        aliases: [],
-      });
-    }
-    return rows;
-  })();
+  const reviewCriteria = matchPercentReviewCriteria(weightEditorEditable ? draftWeights : selectedRow?.weightsJson);
   const unselectedFields = pickerFields.filter((field) => !fieldIsSelected(draftWeights, field));
   const unconfiguredJourneyFields = availableCaptureFields.filter((field) => {
     if (draftFields.some((row) => row.fieldId === field.id && (row.applicability === "all" || customerCategory === "all" || row.applicability === customerCategory))) return false;
@@ -451,7 +412,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
               View this version
             </Button>
           ) : null}
-          {kind && row.lifecycleStatus === "draft" ? (
+          {kind && kind !== "weights" && row.lifecycleStatus === "draft" ? (
             <Button
               size="sm"
               variant="ghost"
@@ -461,7 +422,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
               Submit for checker
             </Button>
           ) : null}
-          {kind && row.lifecycleStatus === "checker_review" ? (
+          {kind && kind !== "weights" && row.lifecycleStatus === "checker_review" ? (
             <Button
               size="sm"
               variant="ghost"
@@ -471,7 +432,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
               Approve
             </Button>
           ) : null}
-          {kind && row.lifecycleStatus === "approved" ? (
+          {kind && kind !== "weights" && row.lifecycleStatus === "approved" ? (
             <Button
               size="sm"
               variant="ghost"
@@ -852,82 +813,131 @@ export function HomeLoanRecommendationMastersWorkspace() {
           <div>
             <h2 className="text-base font-semibold">Match % criteria</h2>
             <p className="text-sm text-muted-foreground">
-              Only selected criteria appear. Weights are manual. Activation requires exactly 100%. No silent balancing.
+              Review is version-specific. Approve and Reject apply only to the durable row shown here.
             </p>
           </div>
-          {selectedWeightRows.length === 0 ? (
+          {selectedRow && selectedLineageRow ? (
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm" role="status" aria-label="Match percent version identity">
+              {(() => {
+                const identity = matchPercentReviewIdentity(selectedLineageRow, productLabel(productCode));
+                const displayedTotal = weightEditorEditable ? total : matchPercentReviewTotal(reviewCriteria);
+                return (
+                  <>
+                    <p><span className="text-muted-foreground">Product</span> {identity.productLabel}</p>
+                    <p><span className="text-muted-foreground">Version</span> {identity.versionNumber}</p>
+                    <p><span className="text-muted-foreground">Lifecycle status</span> {identity.lifecycleStatus}</p>
+                    <p><span className="text-muted-foreground">Durable ID</span> <span className="font-mono">{identity.shortId}</span></p>
+                    <p><span className="text-muted-foreground">Total weight</span> {displayedTotal}%</p>
+                    {matchPercentReviewIsReadOnly(identity.lifecycleStatus) ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Read-only review of this exact version.</p>
+                    ) : null}
+                  </>
+                );
+              })()}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No Match % version is selected for this product.</p>
+          )}
+          {reviewCriteria.length === 0 ? (
             <p className="text-sm text-muted-foreground">No Match % criteria selected.</p>
           ) : (
-            selectedWeightRows.map((field) => {
-              const storedKey = Object.prototype.hasOwnProperty.call(draftWeights, field.id)
-                ? field.id
-                : (field.aliases.find((alias) => Object.prototype.hasOwnProperty.call(draftWeights, alias)) ?? field.id);
+            reviewCriteria.map((criterion) => {
+              const selectValue = criterion.knownField && criterion.selectable ? criterion.canonicalKey : "";
+              const selectOptions = availableFields.filter(
+                (option) => option.id === selectValue || !fieldIsSelected(draftWeights, option),
+              );
+              const canUseSelect =
+                weightEditorEditable &&
+                criterion.selectable &&
+                matchPercentSelectValueIsInOptions(selectValue, selectOptions);
+              const field = resolveProjectedField(criterion.canonicalKey, availableFields);
               return (
-                <div role="group" aria-label={`Match criterion ${field.id}`} key={field.id} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2">
-                  <select className="h-9 min-w-56 rounded-md border border-input bg-background px-2 text-sm"
-                    aria-label={`Criterion for ${field.label}`} value={field.id} disabled={busy || Boolean(historyVersionId)}
-                    onChange={(event) => setDraftWeights((current) => {
-                      const next = { ...deselectFieldKeys(current, field), [event.target.value]: current[storedKey] ?? 0 };
-                      const parsed = normalizeDraftCriterionWeights(next);
-                      return "error" in parsed ? next : { ...parsed.selected };
-                    })}>
-                    {availableFields.filter((option) => option.id === field.id || !fieldIsSelected(draftWeights, option)).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-                  </select>
+                <div role="group" aria-label={`Match criterion ${criterion.storedKey}`} key={criterion.storedKey} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2">
+                  {canUseSelect ? (
+                    <select
+                      className="h-9 min-w-56 rounded-md border border-input bg-background px-2 text-sm"
+                      aria-label={`Criterion for ${criterion.label}`}
+                      value={selectValue}
+                      disabled={busy || !weightEditorEditable}
+                      onChange={(event) => setDraftWeights((current) => {
+                        const without = field ? deselectFieldKeys(current, field) : { ...current };
+                        if (!field) delete without[criterion.storedKey];
+                        const next = { ...without, [event.target.value]: current[criterion.storedKey] ?? 0 };
+                        const parsed = normalizeDraftCriterionWeights(next);
+                        return "error" in parsed ? next : { ...parsed.selected };
+                      })}
+                    >
+                      {selectOptions.map((option) => (
+                        <option key={option.id} value={option.id}>{option.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="min-w-56 text-sm font-medium">{criterion.label}</span>
+                  )}
                   <Input
-                    aria-label={`Weight % for ${field.label}`}
+                    aria-label={`Weight % for ${criterion.label}`}
                     min={0}
                     max={100}
                     step="any"
                     type="number"
                     className="w-24"
-                    disabled={busy || Boolean(historyVersionId)}
-                    value={Number.isFinite(draftWeights[storedKey]) ? String(draftWeights[storedKey]) : ""}
+                    readOnly={!weightEditorEditable}
+                    disabled={busy || !weightEditorEditable}
+                    value={
+                      weightEditorEditable
+                        ? (Number.isFinite(draftWeights[criterion.storedKey]) ? String(draftWeights[criterion.storedKey]) : "")
+                        : String(criterion.weight)
+                    }
                     onChange={(event) => {
+                      if (!weightEditorEditable) return;
                       const next = Number(event.target.value);
                       setDraftWeights((current) => {
                         const parsed = normalizeDraftCriterionWeights({
                           ...current,
-                          [storedKey]: Number.isFinite(next) ? next : 0,
+                          [criterion.storedKey]: Number.isFinite(next) ? next : 0,
                         });
                         return "error" in parsed
-                          ? { ...current, [storedKey]: Number.isFinite(next) ? next : 0 }
+                          ? { ...current, [criterion.storedKey]: Number.isFinite(next) ? next : 0 }
                           : { ...parsed.selected };
                       });
                     }}
                   />
                   <span className="text-xs text-muted-foreground">%</span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy || Boolean(historyVersionId)}
-                    onClick={() => setDraftWeights((current) => {
-                      const next = deselectFieldKeys(current, field);
-                      const parsed = normalizeDraftCriterionWeights(next);
-                      return "error" in parsed ? next : { ...parsed.selected };
-                    })}
-                  >
-                    Remove
-                  </Button>
+                  {weightReviewActions.addOrRemoveCriteria ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => setDraftWeights((current) => {
+                        const next = field ? deselectFieldKeys(current, field) : { ...current };
+                        if (!field) delete next[criterion.storedKey];
+                        const parsed = normalizeDraftCriterionWeights(next);
+                        return "error" in parsed ? next : { ...parsed.selected };
+                      })}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
                 </div>
               );
             })
           )}
-          <Button size="sm" variant="outline" disabled={Boolean(historyVersionId)} onClick={() => setShowCriterionPicker((open) => !open)}>+ Add Criteria</Button>
-          {showCriterionPicker ? <div className="flex flex-wrap items-end gap-2">
+          {weightReviewActions.addOrRemoveCriteria ? (
+            <Button size="sm" variant="outline" onClick={() => setShowCriterionPicker((open) => !open)}>+ Add Criteria</Button>
+          ) : null}
+          {weightReviewActions.addOrRemoveCriteria && showCriterionPicker ? <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-72">
               <p className="text-xs text-muted-foreground">Select criteria</p>
               <Input
                 className="mt-1"
                 placeholder="Search governed criteria"
                 value={addCriterionQuery}
-                disabled={Boolean(historyVersionId)}
                 onChange={(event) => setAddCriterionQuery(event.target.value)}
               />
               <select
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                 aria-label="Match criterion"
                 value={addCriterionId}
-                disabled={Boolean(historyVersionId)}
                 onChange={(event) => setAddCriterionId(event.target.value)}
               >
                 <option value="">Choose a governed criterion</option>
@@ -940,7 +950,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
             </div>
             <Button
               size="sm"
-              disabled={!addCriterionId || Boolean(historyVersionId)}
+              disabled={!addCriterionId}
               onClick={() => {
                 setDraftWeights((current) => {
                   const parsed = normalizeDraftCriterionWeights({ ...current, [addCriterionId]: 0 });
@@ -953,11 +963,11 @@ export function HomeLoanRecommendationMastersWorkspace() {
               Add selected criterion
             </Button>
           </div> : null}
-          <p className={`text-sm font-medium ${total === 100 ? "text-emerald-300" : "text-amber-200"}`}>
-            TOTAL WEIGHTAGE: {total}%
-            {total === 100 ? " — total valid; governed scoring required" : " — draft may be saved at any total"}
+          <p className={`text-sm font-medium ${(weightEditorEditable ? total : matchPercentReviewTotal(reviewCriteria)) === 100 ? "text-emerald-300" : "text-amber-200"}`}>
+            TOTAL WEIGHTAGE: {weightEditorEditable ? total : matchPercentReviewTotal(reviewCriteria)}%
+            {(weightEditorEditable ? total : matchPercentReviewTotal(reviewCriteria)) === 100 ? " — total valid; governed scoring required" : " — draft may be saved at any total"}
           </p>
-          {!historyVersionId ? (
+          {weightReviewActions.saveDraft ? (
             <>
               {weightPlan.action === "refuse_in_flight" ? (
                 <p className="text-sm text-amber-200">{weightPlan.reason}</p>
@@ -966,11 +976,71 @@ export function HomeLoanRecommendationMastersWorkspace() {
                 Save Draft
               </Button>
             </>
-          ) : (
+          ) : selectedRow ? (
             <p className="text-sm text-muted-foreground">
-              Viewing a historical version. Return to the current draft from Version History to save weights.
+              This version is read-only. Use Version History → View this version to open a specific draft for editing.
             </p>
-          )}
+          ) : null}
+          {selectedRow ? (
+            <div className="flex flex-wrap gap-2">
+              {weightReviewActions.submitForChecker ? (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setHistoryVersionId(selectedRow.id);
+                    void post(matchPercentTransitionRequest(selectedRow.id, "submit_review"), "Submitted for checker.");
+                  }}
+                >
+                  Submit for checker
+                </Button>
+              ) : null}
+              {weightReviewActions.approve ? (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setHistoryVersionId(selectedRow.id);
+                    void post(matchPercentTransitionRequest(selectedRow.id, "approve"), "Approved.");
+                  }}
+                >
+                  Approve
+                </Button>
+              ) : null}
+              {weightReviewActions.reject ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        "Reject this Match % version? It will remain on the list as rejected and cannot be approved or activated.",
+                      )
+                    ) {
+                      return;
+                    }
+                    setHistoryVersionId(selectedRow.id);
+                    void post(matchPercentTransitionRequest(selectedRow.id, "reject"), "Rejected.");
+                  }}
+                >
+                  Reject
+                </Button>
+              ) : null}
+              {weightReviewActions.activate ? (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setHistoryVersionId(selectedRow.id);
+                    void post(matchPercentTransitionRequest(selectedRow.id, "activate"), "Activated.");
+                  }}
+                >
+                  Activate
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           <VersionList title="Weightage versions for this product" kind="weights" rows={productRows} />
         </Card>
       ) : null}
