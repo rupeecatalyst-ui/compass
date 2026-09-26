@@ -2,6 +2,9 @@
  * Foundation V1 registry invariants. Does not read or write a database.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { EDL_CHANGE_CATEGORIES } from "@/constants/enterprise-decision-ledger";
 import { listHomeLoanGovernedDerivedFacts } from "@/lib/home-loan-recommendation/governed-derived-facts";
 import { resolveProjectedField } from "@/lib/product-recommendation/field-projection";
@@ -107,5 +110,28 @@ assert.equal("weight" in (ledgerInput.newValue as object), false);
 
 const published = { ...dob, lifecycleStatus: "active" as const };
 assert.throws(() => nextFieldDefinitionVersion(published, { friendlyLabel: "Changed" }));
+
+const migrationSql = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../../prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql",
+  ),
+  "utf8",
+);
+const migrationExecutable = migrationSql
+  .split("\n")
+  .map((line) => line.trim())
+  .filter((line) => line.length > 0 && !line.startsWith("--"))
+  .join("\n");
+assert.match(migrationExecutable, /ALTER TABLE "field_control_definitions" ENABLE ROW LEVEL SECURITY;/);
+assert.equal((migrationExecutable.match(/\bALTER\b/g) ?? []).length, 1);
+assert.equal(migrationExecutable.includes("CREATE POLICY"), false);
+assert.equal(migrationExecutable.includes("FORCE ROW LEVEL SECURITY"), false);
+assert.equal(/USING\s*\(\s*true\s*\)/i.test(migrationExecutable), false);
+for (const forbidden of ["DROP ", "DELETE ", "UPDATE ", "INSERT ", "TRUNCATE ", "RENAME "]) {
+  assert.equal(migrationExecutable.includes(forbidden), false, forbidden);
+}
+assert.match(migrationExecutable, /fcm_foundation_v1_no_runtime_control/);
+assert.match(migrationExecutable, /fcm_foundation_v1_no_customer_facing/);
 
 console.log(`FIELD_CONTROL_MASTER_FOUNDATION_V1_PROOF PASS definitions=${definitions.length}`);

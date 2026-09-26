@@ -101,3 +101,9 @@ CREATE INDEX "fcm_classification_lifecycle_idx"
 
 CREATE INDEX "fcm_owner_review_idx"
     ON "field_control_definitions" ("owning_domain", "ownership_review");
+
+-- Fail closed for Supabase Data API roles.
+-- No anon or authenticated policy is created.
+-- The table owner used by Prisma bypasses ENABLE ROW LEVEL SECURITY.
+-- Do not add a permissive USING (true) policy.
+ALTER TABLE "field_control_definitions" ENABLE ROW LEVEL SECURITY;
