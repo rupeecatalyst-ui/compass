@@ -30,6 +30,15 @@ export {
   validateWeightPublish,
   RESERVED_WEIGHT_METADATA_KEYS,
 } from "./weights";
+export {
+  canonicalMatchPercentProductCode,
+  planMatchPercentDraft,
+  planMatchPercentUnapprovedBootstrap,
+  assertMatchPercentTransitionAllowed,
+  nextMatchPercentLifecycleStatus,
+  idsToSupersedeOnMatchPercentActivate,
+  MATCH_PERCENT_IN_FLIGHT_STATUSES,
+} from "./weight-lineage";
 export { scoreProgrammes, type ScoreableProgramme } from "./score";
 export { rankByMatchPercent, presentationSlice, type RankableCandidate } from "./rank";
 export { resolveActiveRecommendationRuleSet } from "./resolve-active-rule-set";

@@ -18,6 +18,8 @@ type FieldBindingOverlay = {
   notes?: string;
   evaluatorType?: ProjectedRecommendationField["evaluatorType"];
   scoreability?: ProjectedRecommendationField["scoreability"];
+  label?: string;
+  selectable?: boolean;
 };
 
 /**
@@ -64,6 +66,14 @@ const RECOMMENDATION_FIELD_BINDINGS: Record<string, FieldBindingOverlay> = {
     aliases: ["tenureAvailability"],
     evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.RELATIVE_TO_ELIGIBLE_MAX,
     scoreability: "fully_scorable",
+    label: "Max Tenure Months",
+    notes:
+      "HOME_LOAN / HOME_LOAN_BT V1 scored tenure. Effective available tenure (requested, programme maximum, maturity-age). Not raw PPO maxTenureMonths.",
+  },
+  "ppo:maxTenureMonths": {
+    label: "Programme maximum tenure",
+    selectable: false,
+    notes: "Programme cap only. Not the V1 scored tenure criterion. Use derived:effectiveTenureMonths.",
   },
   "derived:btSavingsRupees": { aliases: ["balanceTransferBenefit"] },
 };
@@ -133,6 +143,8 @@ function applyBindingOverlay(row: ProjectedRecommendationField): ProjectedRecomm
     notes: overlay.notes ?? row.notes,
     evaluatorType: overlay.evaluatorType ?? row.evaluatorType,
     scoreability: overlay.scoreability ?? row.scoreability,
+    label: overlay.label ?? row.label,
+    selectable: overlay.selectable ?? row.selectable,
   };
 }
 

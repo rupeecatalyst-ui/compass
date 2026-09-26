@@ -23,6 +23,7 @@ import {
   productJourneyRejectRequest,
   productJourneyVisibleActions,
 } from "@/lib/product-journey/lineage";
+import { planMatchPercentDraft } from "@/lib/product-recommendation/weight-lineage";
 import { AUTHORISED_CIBIL_CATEGORY_RULES } from "@/lib/home-loan-recommendation/cibil-category";
 import {
   AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS,
@@ -34,7 +35,11 @@ type MasterRow = {
   lifecycleStatus: string;
   versionNumber?: number;
   productCode?: string;
+  lineageId?: string;
   labelledUnapproved?: boolean;
+  simulationOnly?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   weightsJson?: Record<string, number>;
   weightsTotal?: number;
   payloadJson?: {
@@ -68,11 +73,34 @@ function journeyRowVisible(row: ProductJourneyFieldRow, category: ProductJourney
 }
 
 function pickWorkingWeightRow(rows: MasterRow[], productCode: string): MasterRow | null {
+  const plan = planMatchPercentDraft(
+    rows.map((row) => ({
+      id: row.id,
+      organizationId: "",
+      productCode: row.productCode ?? productCode,
+      lineageId: row.lineageId ?? row.id,
+      versionNumber: row.versionNumber ?? 1,
+      lifecycleStatus: row.lifecycleStatus,
+      makerUserId: "",
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    })),
+    productCode,
+  );
+  if (plan.action === "reuse_draft") {
+    return rows.find((row) => row.id === plan.row.id) ?? null;
+  }
   return (
     rows.find(
       (row) =>
         recommendationProductCodesEquivalent(row.productCode, productCode) && row.lifecycleStatus === "draft",
-    ) ?? null
+    ) ??
+    rows.find(
+      (row) =>
+        recommendationProductCodesEquivalent(row.productCode, productCode) &&
+        (row.lifecycleStatus === "checker_review" || row.lifecycleStatus === "approved" || row.lifecycleStatus === "active"),
+    ) ??
+    null
   );
 }
 
@@ -219,7 +247,26 @@ export function HomeLoanRecommendationMastersWorkspace() {
     () => (data?.weights ?? []).filter((row) => recommendationProductCodesEquivalent(row.productCode, productCode)),
     [data?.weights, productCode],
   );
+  const weightPlan = useMemo(
+    () =>
+      planMatchPercentDraft(
+        productRows.map((row) => ({
+          id: row.id,
+          organizationId: "",
+          productCode: row.productCode ?? productCode,
+          lineageId: row.lineageId ?? row.id,
+          versionNumber: row.versionNumber ?? 1,
+          lifecycleStatus: row.lifecycleStatus,
+          makerUserId: "",
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        })),
+        productCode,
+      ),
+    [productRows, productCode],
+  );
   const workingRow = useMemo(() => pickWorkingWeightRow(data?.weights ?? [], productCode), [data?.weights, productCode]);
+  const weightSaveBlocked = weightPlan.action === "refuse_in_flight";
   const selectedRow =
     (historyVersionId ? productRows.find((row) => row.id === historyVersionId) : null) ?? workingRow;
   const total = useMemo(
@@ -292,6 +339,10 @@ export function HomeLoanRecommendationMastersWorkspace() {
   };
 
   const saveDraft = async () => {
+    if (weightPlan.action === "refuse_in_flight") {
+      setMessage(weightPlan.reason);
+      return;
+    }
     let draftId = selectedRow?.lifecycleStatus === "draft" ? selectedRow.id : null;
     if (!draftId) {
       const created = await post(
@@ -907,9 +958,14 @@ export function HomeLoanRecommendationMastersWorkspace() {
             {total === 100 ? " — total valid; governed scoring required" : " — draft may be saved at any total"}
           </p>
           {!historyVersionId ? (
-            <Button disabled={busy} onClick={() => void saveDraft()}>
-              Save Draft
-            </Button>
+            <>
+              {weightPlan.action === "refuse_in_flight" ? (
+                <p className="text-sm text-amber-200">{weightPlan.reason}</p>
+              ) : null}
+              <Button disabled={busy || weightSaveBlocked} onClick={() => void saveDraft()}>
+                Save Draft
+              </Button>
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">
               Viewing a historical version. Return to the current draft from Version History to save weights.

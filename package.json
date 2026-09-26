@@ -46,6 +46,7 @@
     "verify:co-c1-field-driven-recommendation": "node --conditions=react-server --import tsx scripts/co-c1-field-driven-recommendation-verify.mjs",
     "verify:co-c1-product-journey-phase1": "node --conditions=react-server --import tsx scripts/co-c1-product-journey-phase1-verify.mjs",
     "verify:co-c1-product-journey-lineage": "node --conditions=react-server --import tsx scripts/co-c1-product-journey-lineage-verify.mjs",
+    "verify:co-c1-match-percent-weight-lineage": "node --conditions=react-server --import tsx scripts/co-c1-match-percent-weight-lineage-verify.mjs",
     "verify:co-c1-product-journey-uat-remediation": "node --conditions=react-server --import tsx scripts/co-c1-product-journey-uat-remediation-verify.mjs",
     "verify:co-c1-universal-match-percent": "node --conditions=react-server --import tsx scripts/co-c1-universal-match-percent-verify.mjs",
     "verify:co-c1-home-loan-match-percent": "node --conditions=react-server --import tsx scripts/co-c1-home-loan-match-percent-verify.mjs",

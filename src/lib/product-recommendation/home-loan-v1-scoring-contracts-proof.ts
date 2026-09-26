@@ -292,6 +292,26 @@ export async function runHomeLoanV1ScoringContractsProof() {
     assert.equal(validateWeightPublish(CONFIGURED_V1_WEIGHTS), null);
     assert.equal(
       validateWeightPublish({
+        "derived:applicableRoiPercent": 35,
+        "derived:assessedOfferRupees": 20,
+        "derived:foirPercent": 15,
+        "derived:ltvPercent": 15,
+        "derived:effectiveTenureMonths": 15,
+      }),
+      null,
+    );
+    assert.equal(
+      validateWeightPublish({
+        "derived:applicableRoiPercent": 35,
+        "derived:assessedOfferRupees": 20,
+        "derived:foirPercent": 15,
+        "derived:ltvPercent": 15,
+        "ppo:maxTenureMonths": 15,
+      }),
+      "SCORING_CONTRACT_PENDING",
+    );
+    assert.equal(
+      validateWeightPublish({
         roiCompetitiveness: 35,
         eligibleAmount: 20,
         foirFit: 15,
@@ -365,6 +385,11 @@ export async function runHomeLoanV1ScoringContractsProof() {
       const personal = listProjectedRecommendationFields({ productCode: "PERSONAL_LOAN" });
       assert.equal(homeLoanFields.find((row) => row.id === "derived:foirPercent")?.scoreability, "fully_scorable");
       assert.equal(hlbtFields.find((row) => row.id === "derived:ltvPercent")?.scoreability, "fully_scorable");
+      const tenureField = homeLoanFields.find((row) => row.id === "derived:effectiveTenureMonths");
+      assert.equal(tenureField?.label, "Max Tenure Months");
+      assert.equal(tenureField?.scoreability, "fully_scorable");
+      assert.equal(tenureField?.evaluatorType, "relative_to_eligible_max");
+      assert.equal(homeLoanFields.some((row) => row.id === "ppo:maxTenureMonths"), false);
       assert.equal(personal.some((row) => row.id === "derived:foirPercent"), false);
       assert.equal(personal.some((row) => row.id === "derived:ltvPercent"), false);
       assert.equal(personal.some((row) => row.id === "derived:applicableRoiPercent"), false);
