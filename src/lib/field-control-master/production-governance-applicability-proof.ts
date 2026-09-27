@@ -225,10 +225,40 @@ async function main(): Promise<void> {
   check("proposal_has_no_runtime_controls", proposal.includes("Propose Applicability") && proposal.includes("Creating this proposal creates a new governed version. It does not change application behaviour.") && !proposal.includes("Activate") && !proposal.includes("customerFacingActivation") && !proposal.includes("controlsRuntime"));
   const foundationDiff = execFileSync("git", ["diff", "--name-only", "HEAD", "--", "prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql"], { cwd: repoRoot, encoding: "utf8" });
   check("foundation_migration_unchanged", foundationDiff.trim() === "");
-  const schemaPatch = execFileSync("git", ["diff", "-U0", "HEAD", "--", "prisma/schema.prisma"], { cwd: repoRoot, encoding: "utf8" });
-  const schemaAdded = schemaPatch.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++"));
-  const schemaRemoved = schemaPatch.split("\n").filter((line) => line.startsWith("-") && !line.startsWith("---"));
-  check("schema_adds_only_custom_field", schemaAdded.length === 1 && schemaAdded[0]?.trim() === "+  custom_field" && schemaRemoved.length === 0);
+  const classificationSequence = [
+    "raw_canonical",
+    "derived",
+    "reference_mirror",
+    "alias",
+    "system",
+    "configuration",
+    "programme_constraint_reference",
+    "custom_field",
+  ];
+  const schemaSource = readFileSync(join(repoRoot, "prisma/schema.prisma"), "utf8");
+  const enumStart = schemaSource.indexOf("enum FieldControlClassification {");
+  const enumEnd = schemaSource.indexOf("}", enumStart);
+  const enumValues = schemaSource
+    .slice(enumStart, enumEnd)
+    .split("\n")
+    .map((line) => line.trim().replace(/\r/g, ""))
+    .filter((line) => line.length > 0 && !line.startsWith("enum") && line !== "{");
+  check(
+    "classification_prior_values_unchanged",
+    classificationSequence.slice(0, 7).every((value, index) => enumValues[index] === value),
+  );
+  check("classification_appends_only_custom_field", enumValues.length === 8 && enumValues[7] === "custom_field");
+  const preservedPatch = execFileSync(
+    "git",
+    ["diff", "-U0", "3accbb6fc8d0f3affda69084b20587d23ac656dc", "295ae054e7022a00928961474d32179d96906862", "--", "prisma/schema.prisma"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  const preservedAdded = preservedPatch.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++"));
+  const preservedRemoved = preservedPatch.split("\n").filter((line) => line.startsWith("-") && !line.startsWith("---"));
+  check(
+    "preserved_v18a_commit_adds_only_custom_field",
+    preservedAdded.length === 1 && preservedAdded[0]?.trim() === "+  custom_field" && preservedRemoved.length === 0,
+  );
 
   const failed = checks.filter(([, passed]) => !passed);
   console.log(`FIELD_CONTROL_APPLICABILITY_V17_PROOF PASS checks=${checks.length} failed=${failed.length}`);
