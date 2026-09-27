@@ -361,14 +361,19 @@ async function main(): Promise<void> {
     check(`create_has_no_${forbidden.replace(/[^a-z]/gi, "_")}`, !executable.includes(forbidden));
   }
 
+  const view = readFileSync(join(repoRoot, "src/components/catalyst-one/field-control-master/field-control-master-view.tsx"), "utf8");
+  const lifecycleActions = readFileSync(join(repoRoot, "src/components/catalyst-one/field-control-master/governed-field-lifecycle-actions.tsx"), "utf8");
+  check("create_service_has_no_lifecycle_writer", !createSource.includes("submitCertifiedFieldControlReview") && !createSource.includes("decideCertifiedFieldControlReview"));
+  check("view_does_not_call_draft_create", !view.includes("createCertifiedFieldControlDraft") && !view.includes("/drafts"));
+  check("lifecycle_actions_do_not_create_drafts", !lifecycleActions.includes("createCertifiedFieldControlDraft") && !lifecycleActions.includes("DRAFT_SOURCE_ALLOWLIST") && !lifecycleActions.includes("allowlistEntryId"));
+  check("v15_create_files_unchanged", execFileSync("git", ["diff", "--name-only", "HEAD", "--", "src/lib/field-control-master/production-governance-create.ts", "src/app/api/admin/field-control-definitions/drafts/route.ts", "src/lib/field-control-master/draft-source-allowlist.ts"], { cwd: repoRoot, encoding: "utf8" }).trim() === "");
+
   const frozen: Array<[string, number, string]> = [
-    ["src/components/catalyst-one/field-control-master/field-control-master-view.tsx", 12981, "CAE55FDE6A92301EF4ABBED98C65DCF7CAF8967A39A8C2495D0B49AA9C51678C"],
     ["src/lib/field-control-master/production-governance-read.ts", 17317, "CF53CA32E8EEE09BDF9F2F9722565D6D4AB70709E351FE7000B30A2380E089E3"],
     ["src/lib/field-control-master/production-governance-read-proof.ts", 10594, "F9A167562C8B34B369DB7D20B7D2E7F855B951840FC6759272E5AA42C9CC17ED"],
     ["src/app/api/admin/field-control-definitions/route.ts", 1109, "14616E66451E485A0F281F26D36753F5FB8F5532D91477CB1A01B81754516EBB"],
     ["src/app/api/admin/field-control-definitions/[id]/route.ts", 1243, "653A3D36236641C06BD1CE93AE15B3EE772D71AE2FE9ADC1E32E84CE5D4081CD"],
     ["src/lib/field-control-master/governance-presentation.ts", 12873, "7AC01ED6F8FB9A5D59AAB22DD9F876B73827BEA369329C15642508BF0A90B304"],
-    ["src/lib/field-control-master/governance-presentation-proof.ts", 9575, "2CD3193787DF50A159C061BDFFEC188AD2DD1274B0C83A3D938F5EFA09F32F06"],
     ["prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql", 3660, "1B05A9EAE8A0AD7A0227BF2847D51A2E39DEA1F96AACCE1C11CD2F6CBB8B3E5D"],
     ["src/lib/field-control-master/foundation-v1-2-seed.sql", 44107, "BAE4E1E80AA1869783948C559F2966FF93DB627DEBD274A52C3DE7B2CC50D352"],
     ["src/lib/field-control-master/foundation-v1-2-verification.sql", 6595, "B4A7905C34168C6484B98CDA2EA44E8EDEA9084C02CDE73D87A062F0A347B3E9"],

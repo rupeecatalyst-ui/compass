@@ -155,18 +155,23 @@ check("search_uses_field_id_or_label", byLabel.length === 1 && byLabel[0]?.field
 
 const viewPath = join(here, "../../components/catalyst-one/field-control-master/field-control-master-view.tsx");
 const view = readFileSync(viewPath, "utf8");
+const actions = readFileSync(join(here, "../../components/catalyst-one/field-control-master/governed-field-lifecycle-actions.tsx"), "utf8");
 const presentation = readFileSync(join(here, "governance-presentation.ts"), "utf8");
 const screen = `${view}\n${presentation}`;
 check("screen_does_not_call_inspection_list", !view.includes("listFieldControlDefinitions"));
 check("screen_does_not_import_registry", !view.includes("registry.ts") && !view.includes('from "@/lib/field-control-master"') && !view.includes('from "./registry"'));
 check("screen_uses_certified_api", view.includes("CERTIFIED_FIELD_CONTROL_LIST_PATH") && CERTIFIED_FIELD_CONTROL_LIST_PATH === "/api/admin/field-control-definitions");
-check("screen_request_is_get", view.includes('method: "GET"') && !view.includes('method: "POST"') && !view.includes('method: "PUT"') && !view.includes('method: "PATCH"') && !view.includes('method: "DELETE"'));
+check("list_request_stays_get", view.includes('method: "GET"') && !view.includes('method: "POST"') && !view.includes('method: "PUT"') && !view.includes('method: "PATCH"') && !view.includes('method: "DELETE"'));
 check("error_state_exists", view.includes("GOVERNANCE_ERROR_MESSAGE") && GOVERNANCE_ERROR_MESSAGE === "Certified Field Control definitions could not be loaded.");
 check("empty_state_exists", view.includes("GOVERNANCE_EMPTY_MESSAGE") && GOVERNANCE_EMPTY_MESSAGE === "No certified definitions match.");
 check("loading_state_exists", view.includes("GOVERNANCE_LOADING_MESSAGE") && view.includes("Skeleton") && GOVERNANCE_LOADING_MESSAGE.length > 0);
 check("mode_badge_exists", view.includes("GOVERNANCE_MODE_BADGE") && GOVERNANCE_MODE_BADGE === "Governance / Non-Operational");
-check("drawer_is_readonly", view.includes('data-readonly="true"') && !view.includes("Switch") && !view.includes('role="switch"') && !view.includes('type="checkbox"'));
+check("field_definition_remains_read_only", view.includes('data-field-definition="read-only"') && !view.includes("Switch") && !view.includes('role="switch"') && !view.includes('type="checkbox"') && !view.includes("<textarea"));
 check("failure_clears_rows", view.includes("setDefinitions([])") && view.includes('setPhase("error")'));
+check("lifecycle_actions_are_isolated", view.includes("GovernedFieldLifecycleActions") && actions.includes('data-governance-lifecycle="bounded"'));
+check("lifecycle_posts_are_only_review_actions", actions.includes("fieldControlSubmitReviewPath") && actions.includes("fieldControlReviewPath") && actions.includes('method: "POST"') && !actions.includes('method: "PATCH"') && !actions.includes('method: "PUT"') && !actions.includes('method: "DELETE"'));
+check("lifecycle_component_owns_approve", actions.includes(">Approve<") && actions.includes(">Submit for Review<") && actions.includes(">Return to Maker<") && actions.includes("Review Definition") && !view.includes(">Approve<") && !presentation.includes(">Approve<"));
+check("lifecycle_component_has_no_editor", !actions.includes("<input") && !actions.includes("<textarea") && !actions.includes("<select") && !actions.includes("controlsRuntime") && !actions.includes("customerFacingActivation") && !actions.includes("applicabilityDeclared"));
 
 for (const action of [
   "Add Field Definition",
@@ -178,13 +183,12 @@ for (const action of [
   ">Edit<",
   ">Save<",
   ">Delete<",
-  ">Approve<",
   ">Reject<",
   ">Publish<",
   ">Activate<",
   ">Deactivate<",
 ]) {
-  check(`no_action_${action.replace(/[^a-z]+/gi, "_")}`, !screen.includes(action));
+  check(`no_action_${action.replace(/[^a-z]+/gi, "_")}`, !screen.includes(action) && !actions.includes(action));
 }
 
 const imports = screen

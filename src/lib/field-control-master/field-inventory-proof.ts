@@ -282,16 +282,13 @@ function main(): void {
     "src/app/(dashboard)/admin/field-control-master/page.tsx",
     "src/lib/field-control-master/draft-source-allowlist.ts",
     "src/lib/field-control-master/production-governance-create.ts",
-    "src/lib/field-control-master/production-governance-create-proof.ts",
     "src/lib/field-control-master/draft-creation-presentation.ts",
     "src/app/api/admin/field-control-definitions/drafts/route.ts",
-    "src/components/catalyst-one/field-control-master/field-control-master-view.tsx",
     "src/lib/field-control-master/production-governance-read.ts",
     "src/lib/field-control-master/production-governance-read-proof.ts",
     "src/app/api/admin/field-control-definitions/route.ts",
     "src/app/api/admin/field-control-definitions/[id]/route.ts",
     "src/lib/field-control-master/governance-presentation.ts",
-    "src/lib/field-control-master/governance-presentation-proof.ts",
     "prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql",
     "src/lib/field-control-master/foundation-v1-2-seed.sql",
     "src/lib/field-control-master/foundation-v1-2-verification.sql",
@@ -299,6 +296,15 @@ function main(): void {
     "src/lib/field-control-master/foundation-v1-3-derived-verification.sql",
   ];
   check("frozen_and_functional_files_unchanged", diffNames(unchanged) === "");
+  const inventoryPanel = source("src/components/catalyst-one/field-control-master/field-inventory-panel.tsx");
+  const inventoryCatalogue = source("src/lib/field-control-master/field-inventory-catalogue.ts");
+  check("inventory_panel_remains_read_only", inventoryPanel.includes('data-field-inventory="read-only"') && !inventoryPanel.includes("submit-review") && !inventoryPanel.includes(">Approve<") && !inventoryPanel.includes("Return to Maker") && !inventoryPanel.includes('method: "POST"'));
+  check("inventory_catalogue_is_not_lifecycle_authority", !inventoryCatalogue.includes("submit-review") && !inventoryCatalogue.includes("updateMany") && !inventoryCatalogue.includes("checkerUserId") && !inventoryCatalogue.includes("lifecycleStatus"));
+  check("inventory_files_unchanged", diffNames([
+    "src/components/catalyst-one/field-control-master/field-inventory-panel.tsx",
+    "src/lib/field-control-master/field-inventory-catalogue.ts",
+    "src/lib/field-control-master/field-inventory-presentation.ts",
+  ]) === "");
 
   const failed = checks.filter(([, passed]) => !passed);
   console.log(`FIELD_INVENTORY_R2_PROOF PASS checks=${checks.length} failed=${failed.length}`);

@@ -33,6 +33,7 @@ import {
   sourceTableLabel,
   type GovernanceFilter,
 } from "@/lib/field-control-master/governance-presentation";
+import { GovernedFieldLifecycleActions } from "@/components/catalyst-one/field-control-master/governed-field-lifecycle-actions";
 import type { FieldControlGovernanceDefinition } from "@/lib/field-control-master/production-governance-read";
 import type { ApiResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
@@ -248,14 +249,14 @@ export function FieldControlMasterView() {
       ) : null}
 
       <Sheet open={selected !== null} onOpenChange={(open) => { if (!open) setOpenId(null); }}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl" data-readonly="true">
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
           {selected && detail ? (
             <>
               <SheetHeader>
                 <SheetTitle>{selected.friendlyLabel}</SheetTitle>
                 <SheetDescription className="font-mono text-xs">{selected.fieldId}</SheetDescription>
               </SheetHeader>
-              <div className="mt-4 space-y-5">
+              <div data-field-definition="read-only" className="mt-4 space-y-5">
                 {detail.factLabel ? <Badge variant="secondary">{detail.factLabel}</Badge> : null}
                 {detail.notes.map((note) => (
                   <p key={note} className="text-sm text-foreground">
@@ -278,6 +279,10 @@ export function FieldControlMasterView() {
                   </section>
                 ))}
               </div>
+              <GovernedFieldLifecycleActions
+                definition={selected}
+                onCompleted={() => setReloadKey((value) => value + 1)}
+              />
             </>
           ) : null}
         </SheetContent>
