@@ -33,6 +33,7 @@ import {
   sourceTableLabel,
   type GovernanceFilter,
 } from "@/lib/field-control-master/governance-presentation";
+import { GovernedApplicabilityProposal } from "@/components/catalyst-one/field-control-master/governed-applicability-proposal";
 import { GovernedFieldLifecycleActions } from "@/components/catalyst-one/field-control-master/governed-field-lifecycle-actions";
 import type { FieldControlGovernanceDefinition } from "@/lib/field-control-master/production-governance-read";
 import type { ApiResponse } from "@/types/api";
@@ -282,6 +283,13 @@ export function FieldControlMasterView() {
               <GovernedFieldLifecycleActions
                 definition={selected}
                 onCompleted={() => setReloadKey((value) => value + 1)}
+              />
+              <GovernedApplicabilityProposal
+                definition={selected}
+                onCreated={(definitionId) => {
+                  setOpenId(definitionId);
+                  setReloadKey((value) => value + 1);
+                }}
               />
             </>
           ) : null}

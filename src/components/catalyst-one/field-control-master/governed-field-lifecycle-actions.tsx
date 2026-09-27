@@ -54,7 +54,7 @@ export function GovernedFieldLifecycleActions({
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Governance review</h3>
       <p className="text-sm text-foreground">{GOVERNANCE_NOT_RUNTIME}</p>
       {definition.lifecycleStatus === "approved" ? (
-        <p className="text-sm font-medium text-foreground">Approved. No further governance action is available.</p>
+        <p className="text-sm font-medium text-foreground">Approved. This version has no further review action.</p>
       ) : null}
       {definition.lifecycleStatus === "draft" ? (
         <button
