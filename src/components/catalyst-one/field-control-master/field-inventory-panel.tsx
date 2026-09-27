@@ -125,8 +125,20 @@ export function FieldInventoryPanel({ entries }: { entries: readonly FieldInvent
         />
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+      <div className="overflow-x-auto rounded-md border border-border lg:overflow-x-visible">
+        <table className="w-full min-w-[72rem] border-collapse text-left text-sm lg:min-w-0 lg:table-fixed">
+          <colgroup>
+            <col className="w-[13%]" />
+            <col className="w-[11%]" />
+            <col className="w-[8%]" />
+            <col className="w-[9%]" />
+            <col className="w-[6%]" />
+            <col className="w-[11%]" />
+            <col className="w-[13%]" />
+            <col className="w-[12%]" />
+            <col className="w-[11%]" />
+            <col className="w-[6%]" />
+          </colgroup>
           <thead className="bg-muted text-foreground">
             <tr>
               {[
@@ -134,14 +146,14 @@ export function FieldInventoryPanel({ entries }: { entries: readonly FieldInvent
                 "Business label",
                 "Domain",
                 "Source class",
-                "Source",
                 "Type",
                 "FCM status",
                 "Ownership status",
                 "Registration eligibility",
                 "Ambiguity",
+                "Source",
               ].map((heading) => (
-                <th key={heading} scope="col" className="px-3 py-2 font-medium">
+                <th key={heading} scope="col" className="px-2 py-2 align-bottom text-xs font-medium">
                   {heading}
                 </th>
               ))}
@@ -150,31 +162,44 @@ export function FieldInventoryPanel({ entries }: { entries: readonly FieldInvent
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-foreground">
+                <td colSpan={10} className="px-2 py-6 text-foreground">
                   No inventory identities match these filters.
                 </td>
               </tr>
             ) : (
               visible.map((entry) => (
                 <tr key={entry.identity} className="border-t border-border align-top">
-                  <td className="px-3 py-2">
+                  <td className="max-w-0 px-2 py-2">
                     <button
                       type="button"
-                      className="text-left font-mono text-xs text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      title={entry.identity}
+                      className="block w-full truncate whitespace-nowrap text-left font-mono text-xs text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => setSelectedId(entry.identity)}
                     >
                       {entry.identity}
                     </button>
                   </td>
-                  <td className="px-3 py-2 text-foreground">{entry.businessLabel}</td>
-                  <td className="px-3 py-2 text-foreground">{entry.domain}</td>
-                  <td className="px-3 py-2 text-foreground">{entry.sourceClass}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-foreground">{entry.source}</td>
-                  <td className="px-3 py-2 text-foreground">{entry.dataType}</td>
-                  <td className="px-3 py-2 text-foreground">{entry.fcmStatus}</td>
-                  <td className="px-3 py-2 text-foreground">{entry.ownershipStatus}</td>
-                  <td className="px-3 py-2 text-foreground">{entry.registrationEligibility}</td>
-                  <td className="px-3 py-2 text-foreground">{entry.ambiguity}</td>
+                  <td className="px-2 py-2 text-foreground">
+                    <span title={entry.businessLabel} className="line-clamp-2 break-words">
+                      {entry.businessLabel}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-xs leading-snug text-foreground">{entry.domain}</td>
+                  <td className="px-2 py-2 text-xs leading-snug text-foreground">{entry.sourceClass}</td>
+                  <td className="px-2 py-2 text-xs leading-snug text-foreground">{entry.dataType}</td>
+                  <td className="px-2 py-2 text-xs leading-snug text-foreground">{entry.fcmStatus}</td>
+                  <td className="px-2 py-2 text-xs leading-snug text-foreground">{entry.ownershipStatus}</td>
+                  <td className="px-2 py-2 text-xs leading-snug text-foreground">{entry.registrationEligibility}</td>
+                  <td className="px-2 py-2 text-xs leading-snug text-foreground">
+                    <span title={entry.ambiguity} className="line-clamp-2 break-words">
+                      {entry.ambiguity}
+                    </span>
+                  </td>
+                  <td className="max-w-0 px-2 py-2">
+                    <span title={entry.source} className="block truncate whitespace-nowrap font-mono text-xs text-foreground">
+                      {entry.source}
+                    </span>
+                  </td>
                 </tr>
               ))
             )}
@@ -224,7 +249,7 @@ function InventoryDetail({ entry }: { entry: FieldInventoryEntry }) {
         {rows.map(([label, value]) => (
           <div key={label}>
             <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-            <dd className="text-sm text-foreground">{value}</dd>
+            <dd className="break-words text-sm text-foreground">{value}</dd>
           </div>
         ))}
       </dl>
