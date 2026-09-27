@@ -85,6 +85,7 @@ const CLASSIFICATION_LABELS: Record<FieldControlClassification, string> = {
   system: "System",
   configuration: "Configuration",
   programme_constraint_reference: "Programme constraint reference",
+  custom_field: "Custom Field",
 };
 
 const FIELD_TYPE_LABELS: Record<FieldControlFieldType, string> = {

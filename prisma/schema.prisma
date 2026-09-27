@@ -5887,6 +5887,7 @@ enum FieldControlClassification {
   system
   configuration
   programme_constraint_reference
+  custom_field
 }
 
 enum FieldControlOwningDomain {

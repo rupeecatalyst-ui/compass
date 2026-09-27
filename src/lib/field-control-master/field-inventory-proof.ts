@@ -288,7 +288,6 @@ function main(): void {
     "src/lib/field-control-master/production-governance-read-proof.ts",
     "src/app/api/admin/field-control-definitions/route.ts",
     "src/app/api/admin/field-control-definitions/[id]/route.ts",
-    "src/lib/field-control-master/governance-presentation.ts",
     "prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql",
     "src/lib/field-control-master/foundation-v1-2-seed.sql",
     "src/lib/field-control-master/foundation-v1-2-verification.sql",
@@ -296,6 +295,14 @@ function main(): void {
     "src/lib/field-control-master/foundation-v1-3-derived-verification.sql",
   ];
   check("frozen_and_functional_files_unchanged", diffNames(unchanged) === "");
+  const presentation = source("src/lib/field-control-master/governance-presentation.ts");
+  check(
+    "presentation_adds_custom_field_label",
+    presentation.includes('custom_field: "Custom Field"') &&
+      presentation.includes('raw_canonical: "Raw canonical"') &&
+      presentation.includes('configuration: "Configuration"') &&
+      !presentation.includes("controlsRuntime: true"),
+  );
   const inventoryPanel = source("src/components/catalyst-one/field-control-master/field-inventory-panel.tsx");
   const inventoryCatalogue = source("src/lib/field-control-master/field-inventory-catalogue.ts");
   check("inventory_panel_remains_read_only", inventoryPanel.includes('data-field-inventory="read-only"') && !inventoryPanel.includes("submit-review") && !inventoryPanel.includes(">Approve<") && !inventoryPanel.includes("Return to Maker") && !inventoryPanel.includes('method: "POST"'));

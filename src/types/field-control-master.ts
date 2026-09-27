@@ -25,6 +25,8 @@ export const FIELD_CONTROL_CLASSIFICATIONS = [
   "system",
   "configuration",
   "programme_constraint_reference",
+  // Governed logical business field. Not a column, calculator, placement, or runtime activation.
+  "custom_field",
 ] as const;
 
 export type FieldControlClassification = (typeof FIELD_CONTROL_CLASSIFICATIONS)[number];

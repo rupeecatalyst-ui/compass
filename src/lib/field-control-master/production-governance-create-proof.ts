@@ -373,7 +373,6 @@ async function main(): Promise<void> {
     ["src/lib/field-control-master/production-governance-read-proof.ts", 10594, "F9A167562C8B34B369DB7D20B7D2E7F855B951840FC6759272E5AA42C9CC17ED"],
     ["src/app/api/admin/field-control-definitions/route.ts", 1109, "14616E66451E485A0F281F26D36753F5FB8F5532D91477CB1A01B81754516EBB"],
     ["src/app/api/admin/field-control-definitions/[id]/route.ts", 1243, "653A3D36236641C06BD1CE93AE15B3EE772D71AE2FE9ADC1E32E84CE5D4081CD"],
-    ["src/lib/field-control-master/governance-presentation.ts", 12873, "7AC01ED6F8FB9A5D59AAB22DD9F876B73827BEA369329C15642508BF0A90B304"],
     ["prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql", 3660, "1B05A9EAE8A0AD7A0227BF2847D51A2E39DEA1F96AACCE1C11CD2F6CBB8B3E5D"],
     ["src/lib/field-control-master/foundation-v1-2-seed.sql", 44107, "BAE4E1E80AA1869783948C559F2966FF93DB627DEBD274A52C3DE7B2CC50D352"],
     ["src/lib/field-control-master/foundation-v1-2-verification.sql", 6595, "B4A7905C34168C6484B98CDA2EA44E8EDEA9084C02CDE73D87A062F0A347B3E9"],
@@ -386,6 +385,22 @@ async function main(): Promise<void> {
   }
   const diff = execFileSync("git", ["diff", "--name-only", "HEAD", "--", ...frozen.map(([path]) => path)], { cwd: repoRoot, encoding: "utf8" });
   check("frozen_worktree_diff_empty", diff.trim() === "");
+  const governancePresentation = readFileSync(join(here, "governance-presentation.ts"), "utf8");
+  check(
+    "presentation_custom_field_label_only",
+    governancePresentation.includes('custom_field: "Custom Field"') &&
+      governancePresentation.includes('raw_canonical: "Raw canonical"') &&
+      governancePresentation.includes('derived: "Derived"') &&
+      governancePresentation.includes('reference_mirror: "Reference mirror"') &&
+      governancePresentation.includes('alias: "Alias"') &&
+      governancePresentation.includes('system: "System"') &&
+      governancePresentation.includes('configuration: "Configuration"') &&
+      governancePresentation.includes('programme_constraint_reference: "Programme constraint reference"') &&
+      governancePresentation.includes("if (classification === \"raw_canonical\") return RAW_CANONICAL_FACT_LABEL;") &&
+      governancePresentation.includes("if (classification === \"derived\") return DERIVED_RESULT_LABEL;") &&
+      !governancePresentation.includes("controlsRuntime: true") &&
+      !governancePresentation.includes("customerFacingActivation: true"),
+  );
 
   const failed = checks.filter(([, passed]) => !passed);
   console.log(`FIELD_CONTROL_DRAFT_CREATE_PROOF PASS checks=${checks.length} failed=${failed.length}`);

@@ -223,8 +223,12 @@ async function main(): Promise<void> {
   check("no_programme_or_edie_write", !executable.toLowerCase().includes("product-programme") && !executable.toLowerCase().includes("edie") && !executable.toLowerCase().includes("lenderprogram"));
   check("no_channel_write", !executable.toLowerCase().includes("compass") && !executable.toLowerCase().includes("chanakya") && !executable.toLowerCase().includes("sarathi"));
   check("proposal_has_no_runtime_controls", proposal.includes("Propose Applicability") && proposal.includes("Creating this proposal creates a new governed version. It does not change application behaviour.") && !proposal.includes("Activate") && !proposal.includes("customerFacingActivation") && !proposal.includes("controlsRuntime"));
-  const schemaDiff = execFileSync("git", ["diff", "--name-only", "HEAD", "--", "prisma/schema.prisma", "prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql"], { cwd: repoRoot, encoding: "utf8" });
-  check("schema_and_foundation_migration_unchanged", schemaDiff.trim() === "");
+  const foundationDiff = execFileSync("git", ["diff", "--name-only", "HEAD", "--", "prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql"], { cwd: repoRoot, encoding: "utf8" });
+  check("foundation_migration_unchanged", foundationDiff.trim() === "");
+  const schemaPatch = execFileSync("git", ["diff", "-U0", "HEAD", "--", "prisma/schema.prisma"], { cwd: repoRoot, encoding: "utf8" });
+  const schemaAdded = schemaPatch.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++"));
+  const schemaRemoved = schemaPatch.split("\n").filter((line) => line.startsWith("-") && !line.startsWith("---"));
+  check("schema_adds_only_custom_field", schemaAdded.length === 1 && schemaAdded[0]?.trim() === "+  custom_field" && schemaRemoved.length === 0);
 
   const failed = checks.filter(([, passed]) => !passed);
   console.log(`FIELD_CONTROL_APPLICABILITY_V17_PROOF PASS checks=${checks.length} failed=${failed.length}`);

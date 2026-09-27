@@ -284,8 +284,12 @@ async function main(): Promise<void> {
   check("inventory_panel_has_no_lifecycle_post", !inventoryPanel.includes("submit-review") && !inventoryPanel.includes(">Approve<") && !inventoryPanel.includes("Return to Maker"));
   check("actions_send_no_identity", !actions.includes("makerUserId") && !actions.includes("checkerUserId") && !actions.includes("note"));
   check("actions_have_no_editor", !actions.includes("<input") && !actions.includes("<textarea") && !actions.includes("<select") && !actions.includes("Activate") && !actions.includes("Reject"));
-  const schemaDiff = execFileSync("git", ["diff", "--name-only", "HEAD", "--", "prisma/schema.prisma", "prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql"], { cwd: repoRoot, encoding: "utf8" });
-  check("schema_and_foundation_migration_unchanged", schemaDiff.trim() === "");
+  const foundationDiff = execFileSync("git", ["diff", "--name-only", "HEAD", "--", "prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql"], { cwd: repoRoot, encoding: "utf8" });
+  check("foundation_migration_unchanged", foundationDiff.trim() === "");
+  const schemaPatch = execFileSync("git", ["diff", "-U0", "HEAD", "--", "prisma/schema.prisma"], { cwd: repoRoot, encoding: "utf8" });
+  const schemaAdded = schemaPatch.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++"));
+  const schemaRemoved = schemaPatch.split("\n").filter((line) => line.startsWith("-") && !line.startsWith("---"));
+  check("schema_adds_only_custom_field", schemaAdded.length === 1 && schemaAdded[0]?.trim() === "+  custom_field" && schemaRemoved.length === 0);
 
   const failed = checks.filter(([, passed]) => !passed);
   console.log(`FIELD_CONTROL_LIFECYCLE_V16_PROOF PASS checks=${checks.length} failed=${failed.length}`);
