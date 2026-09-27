@@ -1,12 +1,25 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import { classifyStatus } from "./prisma-migrate-status-build-probe.mjs";
 
 const policyMigration = "20260917120000_co_credit_risk_policy_lifecycle_status";
 const propertyMigration = "20260920160000_co_hl_property_model";
+const customFieldMigration = "20260927193000_field_control_classification_custom_field";
 const unknownMigration = "20260921120000_unapproved_change";
-const known = [policyMigration, propertyMigration, unknownMigration];
+const known = [policyMigration, propertyMigration, customFieldMigration, unknownMigration];
+const probeSource = readFileSync(new URL("./prisma-migrate-status-build-probe.mjs", import.meta.url), "utf8");
+const deploySource = readFileSync(new URL("./prisma-migrate-deploy-on-build.mjs", import.meta.url), "utf8");
+const buildScript = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")).scripts.build;
+
+function approvedNames(source) {
+  const block = source.match(/const APPROVED = new Set\(\[([\s\S]*?)\]\);/);
+  assert.ok(block, "APPROVED set must remain an explicit string set");
+  return [...block[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+}
 
 function pendingOutput(names) {
   return `${names.length} migrations have not yet been applied\n${names.join("\n")}\n`;
@@ -54,4 +67,65 @@ test("classification never returns raw Prisma output or credentials", () => {
   const result = classifyStatus(`P1001: can't reach database ${secret}`, 1, known);
   assert.deepEqual(result, { kind: "PROBE_UNAVAILABLE", pending: [] });
   assert.equal(JSON.stringify(result).includes(secret), false);
+});
+
+test("approved set is exactly the three reviewed migration names", () => {
+  assert.deepEqual(approvedNames(probeSource), [
+    policyMigration,
+    propertyMigration,
+    customFieldMigration,
+  ]);
+  assert.equal(probeSource.includes(`${customFieldMigration.slice(0, 8)}*`), false);
+  assert.match(probeSource, /pending\.every\(\(name\) => APPROVED\.has\(name\)\)/);
+  assert.doesNotMatch(probeSource, /APPROVED\.has\(name\.(?:slice|startsWith|endsWith)\)/);
+});
+
+test("the approved custom field migration is explicitly accepted", () => {
+  assert.deepEqual(classifyStatus(pendingOutput([customFieldMigration]), 1, known), {
+    kind: "APPROVED_PENDING_ONLY",
+    pending: [customFieldMigration],
+  });
+});
+
+test("one unapproved migration beside the custom field migration fails closed", () => {
+  assert.equal(
+    classifyStatus(pendingOutput([customFieldMigration, unknownMigration]), 1, known).kind,
+    "OTHER_PENDING",
+  );
+});
+
+test("pending-count mismatch and authentication failure fail closed", () => {
+  assert.equal(
+    classifyStatus(`2 migrations have not yet been applied\n${customFieldMigration}\n`, 1, known).kind,
+    "UNCLASSIFIED",
+  );
+  assert.equal(classifyStatus("P1000 authentication failed for database role postgres", 1, known).kind, "PROBE_UNAVAILABLE");
+  assert.equal(classifyStatus("Environment variable not found: DIRECT_URL", 1, known).kind, "PROBE_UNAVAILABLE");
+});
+
+test("status probe stays read-only and deploy stays gated behind it", () => {
+  assert.match(probeSource, /prismaCli, "migrate", "status"/);
+  assert.doesNotMatch(probeSource, /migrate deploy|migrate", "deploy"|db push|migrate reset|migrate dev/);
+  assert.match(
+    probeSource,
+    /classification\.kind === "UP_TO_DATE" \|\| classification\.kind === "APPROVED_PENDING_ONLY" \? 0 : 1/,
+  );
+
+  const probeAt = buildScript.indexOf("node scripts/prisma-migrate-status-build-probe.mjs");
+  const deployAt = buildScript.indexOf("node scripts/prisma-migrate-deploy-on-build.mjs");
+  const nextAt = buildScript.indexOf("next build");
+  assert.equal(buildScript.startsWith("prisma generate &&"), true);
+  assert.ok(probeAt > 0 && deployAt > probeAt && nextAt > deployAt);
+
+  const unchanged = spawnSync(
+    "git",
+    ["diff", "--numstat", "--", "package.json", "scripts/prisma-migrate-deploy-on-build.mjs"],
+    { encoding: "utf8" },
+  );
+  assert.equal(unchanged.status, 0);
+  assert.equal(unchanged.stdout.trim(), "");
+  assert.match(deploySource, /gate === "true" \|\| gate === "1"/);
+  assert.doesNotMatch(buildScript, /PRISMA_MIGRATE_DEPLOY_ON_BUILD\s*=\s*true/);
+  assert.doesNotMatch(probeSource, /PRISMA_MIGRATE_DEPLOY_ON_BUILD\s*=/);
+  assert.doesNotMatch(deploySource, /custom_field|field_control_classification_custom_field/);
 });
