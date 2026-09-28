@@ -16,6 +16,7 @@ import {
   CREATE_FIELD_SAFETY_COPY,
   DESIGN_NEW_FIELD_LABEL,
   DESIGN_NEW_FIELD_NOTE,
+  DESIGN_NEW_FIELD_PATH,
   DRAFT_CREATE_PATH,
   DRAFT_EMPTY_ALLOWLIST_MESSAGE,
   DRAFT_SAVED_MESSAGE,
@@ -27,6 +28,8 @@ import {
   REGISTER_EXISTING_FIELD_LABEL,
   SAVE_DRAFT_LABEL,
 } from "@/lib/field-control-master/draft-creation-presentation";
+import { DESIGN_NEW_FIELD_DOMAINS } from "@/lib/field-control-master/custom-field-design";
+import { FIELD_CONTROL_FIELD_TYPES, type FieldControlFieldType } from "@/types/field-control-master";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
   Dialog,
@@ -39,6 +42,7 @@ import {
 import type { ApiResponse } from "@/types/api";
 
 type SourceMode = DraftSourceAllowlistEntry["mode"];
+type CreationMode = "register" | "design";
 
 const EMPTY_COPY = {
   friendlyLabel: "",
@@ -48,10 +52,17 @@ const EMPTY_COPY = {
   presentationSummary: "",
 };
 
+const SELECT_TYPES = new Set<FieldControlFieldType>(["single_select", "multi_select"]);
+
 export function CreateFieldDraftDialog() {
   const [open, setOpen] = useState(false);
+  const [creationMode, setCreationMode] = useState<CreationMode>("register");
   const [mode, setMode] = useState<SourceMode>("raw_canonical");
   const [allowlistEntryId, setAllowlistEntryId] = useState("");
+  const [fieldId, setFieldId] = useState("");
+  const [owningDomain, setOwningDomain] = useState<(typeof DESIGN_NEW_FIELD_DOMAINS)[number]>("deal");
+  const [fieldType, setFieldType] = useState<FieldControlFieldType>("text");
+  const [options, setOptions] = useState<Array<{ key: string; label: string }>>([{ key: "", label: "" }]);
   const [copy, setCopy] = useState(EMPTY_COPY);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -60,6 +71,16 @@ export function CreateFieldDraftDialog() {
   const entries = useMemo(() => listDraftSourceAllowlistEntries(mode), [mode]);
   const selected = entries.find((entry) => entry.allowlistEntryId === allowlistEntryId) ?? null;
   const copyReady = Object.values(copy).every((value) => value.trim().length > 0);
+  const selectType = SELECT_TYPES.has(fieldType);
+  const optionsReady = !selectType || options.every((option) => option.key.trim() && option.label.trim());
+  const designReady = fieldId.trim().length > 0 && copyReady && optionsReady;
+  const canSave = creationMode === "register" ? Boolean(selected) && copyReady : designReady;
+
+  function selectCreationMode(next: CreationMode) {
+    setCreationMode(next);
+    setError(null);
+    setMessage(null);
+  }
 
   function selectMode(next: SourceMode) {
     setMode(next);
@@ -68,24 +89,46 @@ export function CreateFieldDraftDialog() {
     setMessage(null);
   }
 
+  function selectFieldType(next: FieldControlFieldType) {
+    setFieldType(next);
+    if (!SELECT_TYPES.has(next)) setOptions([{ key: "", label: "" }]);
+  }
+
   async function saveDraft() {
-    if (!selected || !copyReady || saving) return;
+    if (!canSave || saving) return;
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      const response = await authenticatedJsonFetch(DRAFT_CREATE_PATH, {
-        method: "POST",
-        body: JSON.stringify({
-          mode,
-          allowlistEntryId: selected.allowlistEntryId,
-          friendlyLabel: copy.friendlyLabel,
-          description: copy.description,
-          helpText: copy.helpText,
-          validationSummary: copy.validationSummary,
-          presentationSummary: copy.presentationSummary,
-        }),
-      });
+      const response = await authenticatedJsonFetch(
+        creationMode === "register" ? DRAFT_CREATE_PATH : DESIGN_NEW_FIELD_PATH,
+        {
+          method: "POST",
+          body: JSON.stringify(
+            creationMode === "register"
+              ? {
+                  mode,
+                  allowlistEntryId: selected?.allowlistEntryId,
+                  friendlyLabel: copy.friendlyLabel,
+                  description: copy.description,
+                  helpText: copy.helpText,
+                  validationSummary: copy.validationSummary,
+                  presentationSummary: copy.presentationSummary,
+                }
+              : {
+                  fieldId,
+                  owningDomain,
+                  fieldType,
+                  friendlyLabel: copy.friendlyLabel,
+                  description: copy.description,
+                  helpText: copy.helpText,
+                  validationSummary: copy.validationSummary,
+                  presentationSummary: copy.presentationSummary,
+                  ...(selectType ? { options: options.map((option) => ({ key: option.key, label: option.label })) } : {}),
+                },
+          ),
+        },
+      );
       const body = (await response.json()) as ApiResponse<{ definition: { ownershipReview: string } }>;
       if (!response.ok || !body.success) {
         setError(body.error?.message ?? "Field Control definition could not be created.");
@@ -94,6 +137,8 @@ export function CreateFieldDraftDialog() {
       setMessage(DRAFT_SAVED_MESSAGE);
       setCopy(EMPTY_COPY);
       setAllowlistEntryId("");
+      setFieldId("");
+      setOptions([{ key: "", label: "" }]);
     } catch {
       setError("Field Control definition could not be created.");
     } finally {
@@ -134,73 +179,139 @@ export function CreateFieldDraftDialog() {
             <h2 id="create-field-source-heading" className="text-xs font-semibold uppercase tracking-wide text-foreground">
               Source
             </h2>
-            <div className="rounded-md border border-border bg-card px-3 py-3 text-card-foreground" data-create-mode="register-existing">
-              <div className="text-sm font-medium text-foreground">{REGISTER_EXISTING_FIELD_LABEL}</div>
-              <p className="mt-1 text-xs text-muted-foreground">Enabled. Registers governance metadata for an existing source.</p>
+            <div className="grid gap-2">
+              <button
+                type="button"
+                data-create-mode="register-existing"
+                aria-pressed={creationMode === "register"}
+                onClick={() => selectCreationMode("register")}
+                className="rounded-md border border-border bg-card px-3 py-3 text-left text-card-foreground"
+              >
+                <div className="text-sm font-medium text-foreground">{REGISTER_EXISTING_FIELD_LABEL}</div>
+                <p className="mt-1 text-xs text-muted-foreground">Registers governance metadata for an existing source.</p>
+              </button>
+              <button
+                type="button"
+                data-design-new-field="enabled"
+                aria-pressed={creationMode === "design"}
+                onClick={() => selectCreationMode("design")}
+                className="rounded-md border border-border bg-card px-3 py-3 text-left text-card-foreground"
+              >
+                <div className="text-sm font-medium text-foreground">{DESIGN_NEW_FIELD_LABEL}</div>
+                <p className="mt-1 text-xs text-muted-foreground">{DESIGN_NEW_FIELD_NOTE}</p>
+              </button>
             </div>
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              data-design-new-field="disabled"
-              className="w-full rounded-md border border-border bg-muted px-3 py-3 text-left text-muted-foreground"
-            >
-              <div className="text-sm font-medium">{DESIGN_NEW_FIELD_LABEL}</div>
-              <p className="mt-1 text-xs">{DESIGN_NEW_FIELD_NOTE}</p>
-            </button>
 
-            <fieldset className="space-y-2">
-              <legend className="text-xs font-medium text-foreground">Source type</legend>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="radio"
-                  name="sourceType"
-                  checked={mode === "raw_canonical"}
-                  onChange={() => selectMode("raw_canonical")}
-                />
-                {EXISTING_APPLICATION_FIELD_LABEL}
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="radio"
-                  name="sourceType"
-                  checked={mode === "derived"}
-                  onChange={() => selectMode("derived")}
-                />
-                {EXISTING_DERIVED_CALCULATOR_LABEL}
-              </label>
-            </fieldset>
-
-            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
-              Source
-              {entries.length === 0 ? (
-                <p className="text-sm font-normal text-muted-foreground">{DRAFT_EMPTY_ALLOWLIST_MESSAGE}</p>
-              ) : (
-                <select
-                  value={allowlistEntryId}
-                  onChange={(event) => setAllowlistEntryId(event.target.value)}
-                  className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-                >
-                  <option value="">Select a source</option>
-                  {entries.map((entry) => (
-                    <option key={entry.allowlistEntryId} value={entry.allowlistEntryId}>
-                      {entry.fieldId}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </label>
-
-            {selected ? (
-              <dl className="grid grid-cols-1 gap-2 rounded-md border border-border px-3 py-3 text-sm">
-                <PreviewItem label="Field ID" value={selected.fieldId} mono />
-                <PreviewItem label="Classification" value={classificationLabel(selected.classification)} />
-                <PreviewItem label="Owning domain" value={owningDomainLabel(selected.owningDomain)} />
-                <PreviewItem label="Field type" value={fieldTypeLabel(selected.fieldType)} />
-                <PreviewItem label="Source binding" value={draftSourceBindingLabel(selected)} mono />
-              </dl>
+            {creationMode === "register" ? (
+              <>
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-medium text-foreground">Source type</legend>
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <input type="radio" name="sourceType" checked={mode === "raw_canonical"} onChange={() => selectMode("raw_canonical")} />
+                    {EXISTING_APPLICATION_FIELD_LABEL}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <input type="radio" name="sourceType" checked={mode === "derived"} onChange={() => selectMode("derived")} />
+                    {EXISTING_DERIVED_CALCULATOR_LABEL}
+                  </label>
+                </fieldset>
+                <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+                  Source
+                  {entries.length === 0 ? (
+                    <p className="text-sm font-normal text-muted-foreground">{DRAFT_EMPTY_ALLOWLIST_MESSAGE}</p>
+                  ) : (
+                    <select
+                      value={allowlistEntryId}
+                      onChange={(event) => setAllowlistEntryId(event.target.value)}
+                      className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                    >
+                      <option value="">Select a source</option>
+                      {entries.map((entry) => (
+                        <option key={entry.allowlistEntryId} value={entry.allowlistEntryId}>
+                          {entry.fieldId}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </label>
+                {selected ? (
+                  <dl className="grid grid-cols-1 gap-2 rounded-md border border-border px-3 py-3 text-sm">
+                    <PreviewItem label="Field ID" value={selected.fieldId} mono />
+                    <PreviewItem label="Classification" value={classificationLabel(selected.classification)} />
+                    <PreviewItem label="Owning domain" value={owningDomainLabel(selected.owningDomain)} />
+                    <PreviewItem label="Field type" value={fieldTypeLabel(selected.fieldType)} />
+                    <PreviewItem label="Source binding" value={draftSourceBindingLabel(selected)} mono />
+                  </dl>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Select a closed allowlist source to preview its binding.</p>
+                )}
+              </>
             ) : (
-              <p className="text-sm text-muted-foreground">Select a closed allowlist source to preview its binding.</p>
+              <div className="space-y-3">
+                <CopyField label="Field ID" value={fieldId} onChange={setFieldId} />
+                <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+                  Owning domain
+                  <select
+                    value={owningDomain}
+                    onChange={(event) => setOwningDomain(event.target.value as (typeof DESIGN_NEW_FIELD_DOMAINS)[number])}
+                    className="h-9 rounded-md border border-border bg-background px-2 text-sm font-normal text-foreground"
+                  >
+                    {DESIGN_NEW_FIELD_DOMAINS.map((domain) => (
+                      <option key={domain} value={domain}>
+                        {owningDomainLabel(domain)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+                  Field type
+                  <select
+                    value={fieldType}
+                    onChange={(event) => selectFieldType(event.target.value as FieldControlFieldType)}
+                    className="h-9 rounded-md border border-border bg-background px-2 text-sm font-normal text-foreground"
+                  >
+                    {FIELD_CONTROL_FIELD_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {fieldTypeLabel(type)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {selectType ? (
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-foreground">Options</div>
+                    {options.map((option, index) => (
+                      <div key={index} className="grid grid-cols-2 gap-2">
+                        <input
+                          value={option.key}
+                          aria-label={`Option key ${index + 1}`}
+                          placeholder="Key"
+                          onChange={(event) =>
+                            setOptions((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, key: event.target.value } : item)))
+                          }
+                          className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                        />
+                        <input
+                          value={option.label}
+                          aria-label={`Option label ${index + 1}`}
+                          placeholder="Label"
+                          onChange={(event) =>
+                            setOptions((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, label: event.target.value } : item)))
+                          }
+                          className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                        />
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setOptions((current) => [...current, { key: "", label: "" }])}
+                      className="h-8 rounded-md border border-border px-2 text-xs text-foreground"
+                    >
+                      Add option
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             )}
           </section>
 
@@ -223,26 +334,16 @@ export function CreateFieldDraftDialog() {
               {LOCKED_DRAFT_OUTCOME.map(([label, value]) => (
                 <div key={label}>
                   <dt className="text-xs text-muted-foreground">{label}</dt>
-                  <dd className="text-sm text-foreground">
-                    {label === "Ownership review" ? draftOwnershipReviewLabel() : value}
-                  </dd>
+                  <dd className="text-sm text-foreground">{label === "Ownership review" ? draftOwnershipReviewLabel() : value}</dd>
                 </div>
               ))}
             </dl>
-            {error ? (
-              <p role="alert" className="text-sm text-foreground">
-                {error}
-              </p>
-            ) : null}
-            {message ? (
-              <p role="status" className="text-sm text-foreground">
-                {message}
-              </p>
-            ) : null}
+            {error ? <p role="alert" className="text-sm text-foreground">{error}</p> : null}
+            {message ? <p role="status" className="text-sm text-foreground">{message}</p> : null}
             <button
               type="submit"
               data-submit="save-draft"
-              disabled={!selected || !copyReady || saving}
+              disabled={!canSave || saving}
               className="h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:bg-muted disabled:text-muted-foreground"
             >
               {SAVE_DRAFT_LABEL}

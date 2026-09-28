@@ -17,8 +17,10 @@ export const REGISTER_EXISTING_FIELD_LABEL = "Register Existing Field";
 
 export const DESIGN_NEW_FIELD_LABEL = "Design New Field";
 
+export const DESIGN_NEW_FIELD_PATH = "/api/admin/field-control-definitions/custom-field-drafts";
+
 export const DESIGN_NEW_FIELD_NOTE =
-  "Designing a new logical or application field is a later capability. It is not available in this version and does not register a binding.";
+  "Designing a field does not make it active in the application. After approval, it must be placed on an authorized internal screen before a value can be captured.";
 
 export const EXISTING_APPLICATION_FIELD_LABEL = "Existing application field";
 

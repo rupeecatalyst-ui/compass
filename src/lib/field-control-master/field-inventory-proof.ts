@@ -267,7 +267,7 @@ function main(): void {
   check("dialog_uses_94vw_92vh", dialog.includes("h-[92vh]") && dialog.includes("w-[94vw]") && dialog.includes("max-w-none"));
   check("dialog_three_column_and_responsive", dialog.includes("lg:grid-cols-3") && dialog.includes("grid-cols-1") && dialog.includes("md:grid-cols-2"));
   check("dialog_safety_sentence", dialog.includes("CREATE_FIELD_SAFETY_COPY") && CREATE_FIELD_SAFETY_COPY === "Creating a field definition does not change application behaviour.");
-  check("dialog_design_new_disabled", dialog.includes('data-design-new-field="disabled"') && dialog.includes("disabled"));
+  check("dialog_design_new_enabled", dialog.includes('data-design-new-field="enabled"') && dialog.includes("DESIGN_NEW_FIELD_LABEL") && dialog.includes("REGISTER_EXISTING_FIELD_LABEL"));
   check("dialog_single_submit", dialog.split('type="submit"').length === 2);
   check("dialog_post_path", dialog.includes("DRAFT_CREATE_PATH"));
   for (const key of ["mode", "allowlistEntryId", "friendlyLabel", "description", "helpText", "validationSummary", "presentationSummary"]) {
@@ -282,9 +282,7 @@ function main(): void {
     "src/app/(dashboard)/admin/field-control-master/page.tsx",
     "src/lib/field-control-master/draft-source-allowlist.ts",
     "src/lib/field-control-master/production-governance-create.ts",
-    "src/lib/field-control-master/draft-creation-presentation.ts",
     "src/app/api/admin/field-control-definitions/drafts/route.ts",
-    "src/lib/field-control-master/production-governance-read.ts",
     "src/lib/field-control-master/production-governance-read-proof.ts",
     "src/app/api/admin/field-control-definitions/route.ts",
     "src/app/api/admin/field-control-definitions/[id]/route.ts",

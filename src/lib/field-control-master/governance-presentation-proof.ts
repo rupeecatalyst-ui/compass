@@ -59,6 +59,7 @@ function row(overrides: Partial<FieldControlGovernanceDefinition> = {}): FieldCo
     customerCategoryApplicability: [],
     aliases: [],
     selectOptionKeys: [],
+    selectOptions: [],
     selectOptionSource: null,
     candidateMirrorOf: null,
     validationSummary: "Required identity.",

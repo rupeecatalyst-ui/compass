@@ -43,6 +43,9 @@ export const RAW_CANONICAL_NOTE =
 export const DERIVED_RESULT_NOTE =
   "The existing calculator remains authoritative. This definition does not execute the calculation and is not a database value column.";
 
+export const CUSTOM_FIELD_DEFINITION_NOTE =
+  "Designing this field does not place it on a screen or store a value. Approval is governance only.";
+
 export const PRODUCT_PROGRAMME_BOUNDARY_NOTE = "Product Programme policy is not registered here.";
 
 export const APPLICABILITY_NOT_DECLARED_NOTE =
@@ -173,6 +176,8 @@ export function sourceTableLabel(binding: FieldControlGovernanceSourceBinding): 
       return `Assessment fact ${binding.path}`;
     case "unresolved":
       return `Unresolved ${binding.legacyProjectionId}`;
+    case "custom_value_storage":
+      return "Custom value storage";
     case "unrecognized":
       return UNRECOGNIZED_BINDING_LABEL;
   }
@@ -188,6 +193,8 @@ export function bindingKindLabel(binding: FieldControlGovernanceSourceBinding): 
       return "Assessment fact";
     case "unresolved":
       return "Unresolved";
+    case "custom_value_storage":
+      return "Custom value storage";
     case "unrecognized":
       return UNRECOGNIZED_BINDING_LABEL;
   }
@@ -204,6 +211,8 @@ export function sourceDetailRows(binding: FieldControlGovernanceSourceBinding): 
       return [kind, { label: "Path", value: binding.path }, { label: "Store", value: binding.store }];
     case "unresolved":
       return [kind, { label: "Legacy projection", value: binding.legacyProjectionId }];
+    case "custom_value_storage":
+      return [kind, { label: "Storage", value: "Custom value storage" }];
     case "unrecognized":
       return [kind];
   }
@@ -263,6 +272,7 @@ export function governanceDetail(row: FieldControlGovernanceDefinition): Governa
   const notes = [PRODUCT_PROGRAMME_BOUNDARY_NOTE];
   if (row.classification === "raw_canonical") notes.unshift(RAW_CANONICAL_NOTE);
   if (row.classification === "derived") notes.unshift(DERIVED_RESULT_NOTE);
+  if (row.classification === "custom_field") notes.unshift(CUSTOM_FIELD_DEFINITION_NOTE);
   if (!row.applicabilityDeclared) notes.push(APPLICABILITY_NOT_DECLARED_NOTE);
 
   return {
@@ -302,6 +312,13 @@ export function governanceDetail(row: FieldControlGovernanceDefinition): Governa
         rows: [
           { label: "Currency units", value: listText(row.currencyUnits) },
           { label: "Option keys", value: listText(row.selectOptionKeys) },
+          {
+            label: "Options",
+            value:
+              row.selectOptions.length > 0
+                ? row.selectOptions.map((option) => `${option.key} — ${option.label}`).join(", ")
+                : "None",
+          },
           { label: "Option source", value: noneText(row.selectOptionSource) },
         ],
       },

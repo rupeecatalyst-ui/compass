@@ -337,7 +337,9 @@ async function main(): Promise<void> {
   const presentation = readFileSync(join(here, "draft-creation-presentation.ts"), "utf8");
   const page = readFileSync(join(repoRoot, "src/app/(dashboard)/admin/field-control-master/page.tsx"), "utf8");
   check("safety_sentence", CREATE_FIELD_SAFETY_COPY === "Creating a field definition does not change application behaviour." && dialog.includes("CREATE_FIELD_SAFETY_COPY") && presentation.includes(CREATE_FIELD_SAFETY_COPY));
-  check("design_new_field_disabled", dialog.includes('data-design-new-field="disabled"') && dialog.includes("disabled") && dialog.includes("DESIGN_NEW_FIELD_NOTE"));
+  check("design_new_field_enabled", dialog.includes('data-design-new-field="enabled"') && dialog.includes("DESIGN_NEW_FIELD_NOTE") && dialog.includes("REGISTER_EXISTING_FIELD_LABEL") && !dialog.includes('data-design-new-field="disabled"'));
+  const projector = readFileSync(join(here, "production-governance-read.ts"), "utf8");
+  check("projector_names_custom_value_storage_and_still_rejects_unknown", projector.includes('kind: "custom_value_storage"') && projector.includes('return { kind: "unrecognized" }'));
   check("only_save_draft_submits", dialog.includes('type="submit"') && dialog.includes("SAVE_DRAFT_LABEL") && dialog.split('type="submit"').length === 2);
   for (const forbidden of ["Activate", "Publish", "Approve", "Submit for review"]) {
     check(`ui_has_no_${forbidden.replace(/[^a-z]+/gi, "_")}`, !dialog.includes(forbidden) && !presentation.includes(forbidden));
@@ -369,7 +371,6 @@ async function main(): Promise<void> {
   check("v15_create_files_unchanged", execFileSync("git", ["diff", "--name-only", "HEAD", "--", "src/lib/field-control-master/production-governance-create.ts", "src/app/api/admin/field-control-definitions/drafts/route.ts", "src/lib/field-control-master/draft-source-allowlist.ts"], { cwd: repoRoot, encoding: "utf8" }).trim() === "");
 
   const frozen: Array<[string, number, string]> = [
-    ["src/lib/field-control-master/production-governance-read.ts", 17317, "CF53CA32E8EEE09BDF9F2F9722565D6D4AB70709E351FE7000B30A2380E089E3"],
     ["src/lib/field-control-master/production-governance-read-proof.ts", 10594, "F9A167562C8B34B369DB7D20B7D2E7F855B951840FC6759272E5AA42C9CC17ED"],
     ["src/app/api/admin/field-control-definitions/route.ts", 1109, "14616E66451E485A0F281F26D36753F5FB8F5532D91477CB1A01B81754516EBB"],
     ["src/app/api/admin/field-control-definitions/[id]/route.ts", 1243, "653A3D36236641C06BD1CE93AE15B3EE772D71AE2FE9ADC1E32E84CE5D4081CD"],

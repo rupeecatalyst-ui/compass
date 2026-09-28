@@ -57,6 +57,7 @@ const GOVERNANCE_DEFINITION_KEYS = [
   "customerCategoryApplicability",
   "aliases",
   "selectOptionKeys",
+  "selectOptions",
   "selectOptionSource",
   "candidateMirrorOf",
   "validationSummary",
@@ -82,7 +83,15 @@ export type FieldControlGovernanceSourceBinding =
       store: "EnterpriseOpportunityAssessment.draftFactsJson";
     }
   | { kind: "unresolved"; legacyProjectionId: string }
+  | { kind: "custom_value_storage"; fieldId: string }
   | { kind: "unrecognized" };
+
+export type FieldControlGovernedSelectOption = {
+  key: string;
+  label: string;
+  sortOrder: number;
+  retired: boolean;
+};
 
 export type FieldControlGovernanceDefinition = {
   id: string;
@@ -104,6 +113,7 @@ export type FieldControlGovernanceDefinition = {
   customerCategoryApplicability: string[];
   aliases: string[];
   selectOptionKeys: string[];
+  selectOptions: FieldControlGovernedSelectOption[];
   selectOptionSource: string | null;
   candidateMirrorOf: string | null;
   validationSummary: string;
@@ -370,7 +380,50 @@ export function projectFieldControlSourceBinding(value: unknown): FieldControlGo
   if (record.kind === "unresolved" && nonEmpty(record.legacyProjectionId)) {
     return { kind: "unresolved", legacyProjectionId: record.legacyProjectionId };
   }
+  if (record.kind === "custom_value_storage" && nonEmpty(record.fieldId)) {
+    return { kind: "custom_value_storage", fieldId: record.fieldId };
+  }
   return { kind: "unrecognized" };
+}
+
+function projectSelectOptions(value: unknown): {
+  selectOptionKeys: string[];
+  selectOptions: FieldControlGovernedSelectOption[];
+} {
+  if (!Array.isArray(value)) {
+    throw new FieldControlProjectionError("Field Control selectOptionKeys is not a string array.");
+  }
+  if (value.every((item) => typeof item === "string")) {
+    return { selectOptionKeys: [...value], selectOptions: [] };
+  }
+  const options: FieldControlGovernedSelectOption[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new FieldControlProjectionError("Field Control selectOptionKeys is not a string array.");
+    }
+    const record = item as Record<string, unknown>;
+    if (
+      typeof record.key !== "string" ||
+      typeof record.label !== "string" ||
+      typeof record.sortOrder !== "number" ||
+      !Number.isInteger(record.sortOrder) ||
+      typeof record.retired !== "boolean"
+    ) {
+      throw new FieldControlProjectionError("Field Control selectOptionKeys is not a string array.");
+    }
+    options.push({
+      key: record.key,
+      label: record.label,
+      sortOrder: record.sortOrder,
+      retired: record.retired,
+    });
+  }
+  return {
+    selectOptionKeys: [...options]
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.key.localeCompare(right.key))
+      .map((option) => option.key),
+    selectOptions: options,
+  };
 }
 
 function nonEmpty(value: unknown): value is string {
@@ -409,7 +462,7 @@ export function projectCertifiedFieldControlDefinition(
       "customerCategoryApplicability",
     ),
     aliases: textArray(row.aliasesJson, "aliases"),
-    selectOptionKeys: textArray(row.selectOptionKeysJson, "selectOptionKeys"),
+    ...projectSelectOptions(row.selectOptionKeysJson),
     selectOptionSource: row.selectOptionSource,
     candidateMirrorOf: row.candidateMirrorOf,
     validationSummary: row.validationSummary,
