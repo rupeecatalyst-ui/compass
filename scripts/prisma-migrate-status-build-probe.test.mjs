@@ -9,8 +9,19 @@ import { classifyStatus } from "./prisma-migrate-status-build-probe.mjs";
 const policyMigration = "20260917120000_co_credit_risk_policy_lifecycle_status";
 const propertyMigration = "20260920160000_co_hl_property_model";
 const customFieldMigration = "20260927193000_field_control_classification_custom_field";
+const placementValueMigration = "20260928140000_field_control_custom_placement_value";
+const similarPlacementMigration = "20260928140000_field_control_custom_placement_value_extra";
+const placementPrefixMigration = "20260928140000_field_control_custom_placement";
 const unknownMigration = "20260921120000_unapproved_change";
-const known = [policyMigration, propertyMigration, customFieldMigration, unknownMigration];
+const known = [
+  policyMigration,
+  propertyMigration,
+  customFieldMigration,
+  placementValueMigration,
+  similarPlacementMigration,
+  placementPrefixMigration,
+  unknownMigration,
+];
 const probeSource = readFileSync(new URL("./prisma-migrate-status-build-probe.mjs", import.meta.url), "utf8");
 const deploySource = readFileSync(new URL("./prisma-migrate-deploy-on-build.mjs", import.meta.url), "utf8");
 const buildScript = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")).scripts.build;
@@ -69,13 +80,16 @@ test("classification never returns raw Prisma output or credentials", () => {
   assert.equal(JSON.stringify(result).includes(secret), false);
 });
 
-test("approved set is exactly the three reviewed migration names", () => {
+test("approved set is exactly the reviewed migration names", () => {
   assert.deepEqual(approvedNames(probeSource), [
     policyMigration,
     propertyMigration,
     customFieldMigration,
+    placementValueMigration,
   ]);
   assert.equal(probeSource.includes(`${customFieldMigration.slice(0, 8)}*`), false);
+  assert.equal(probeSource.includes(`${placementValueMigration.slice(0, 8)}*`), false);
+  assert.equal(probeSource.includes("2026092814*"), false);
   assert.match(probeSource, /pending\.every\(\(name\) => APPROVED\.has\(name\)\)/);
   assert.doesNotMatch(probeSource, /APPROVED\.has\(name\.(?:slice|startsWith|endsWith)\)/);
 });
@@ -92,6 +106,40 @@ test("one unapproved migration beside the custom field migration fails closed", 
     classifyStatus(pendingOutput([customFieldMigration, unknownMigration]), 1, known).kind,
     "OTHER_PENDING",
   );
+});
+
+test("exact pending placement value migration returns approved pending only", () => {
+  assert.deepEqual(classifyStatus(pendingOutput([placementValueMigration]), 1, known), {
+    kind: "APPROVED_PENDING_ONLY",
+    pending: [placementValueMigration],
+  });
+});
+
+test("placement value migration beside an unknown migration fails closed", () => {
+  assert.equal(
+    classifyStatus(pendingOutput([placementValueMigration, unknownMigration]), 1, known).kind,
+    "OTHER_PENDING",
+  );
+});
+
+test("a similarly named migration does not pass", () => {
+  assert.equal(classifyStatus(pendingOutput([similarPlacementMigration]), 1, known).kind, "OTHER_PENDING");
+});
+
+test("a date or prefix match does not pass", () => {
+  assert.equal(classifyStatus(pendingOutput([placementPrefixMigration]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(
+    approvedNames(probeSource).some((name) => name.startsWith("20260928140000") && name !== placementValueMigration),
+    false,
+  );
+});
+
+test("migration deploy remains controlled solely by the build flag", () => {
+  assert.match(deploySource, /const enabled = gate === "true" \|\| gate === "1"/);
+  assert.match(deploySource, /if \(!enabled\)/);
+  assert.doesNotMatch(deploySource, /field_control_custom_placement_value/);
+  assert.doesNotMatch(probeSource, /PRISMA_MIGRATE_DEPLOY_ON_BUILD\s*=/);
+  assert.doesNotMatch(buildScript, /PRISMA_MIGRATE_DEPLOY_ON_BUILD\s*=\s*true/);
 });
 
 test("pending-count mismatch and authentication failure fail closed", () => {

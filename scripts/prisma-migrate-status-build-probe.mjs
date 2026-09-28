@@ -8,6 +8,7 @@ const APPROVED = new Set([
   "20260917120000_co_credit_risk_policy_lifecycle_status",
   "20260920160000_co_hl_property_model",
   "20260927193000_field_control_classification_custom_field",
+  "20260928140000_field_control_custom_placement_value",
 ]);
 const MIGRATION_NAME = /^\d{14}_[a-z0-9_]+$/;
 const PREFIX = "[prisma-status-probe]";
