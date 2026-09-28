@@ -17,23 +17,12 @@ type Envelope<T> = {
 };
 
 async function parse<T>(res: Response): Promise<T> {
-  const body = (await res.json().catch(() => ({}))) as Envelope<T> & {
-    meta?: { otpPreview?: string };
-  };
+  const body = (await res.json().catch(() => ({}))) as Envelope<T>;
   if (!res.ok || !body.success) {
     const err = new Error(body.error?.message || `Request failed (${res.status})`) as Error & {
       code?: string;
-      otpPreview?: string;
     };
     err.code = body.error?.code;
-    if ((body as { otpPreview?: string }).otpPreview) {
-      err.otpPreview = (body as { otpPreview?: string }).otpPreview;
-    }
-    // Attach otp preview from meta if present
-    const meta = (body as { data?: { otpPreview?: string } }).data;
-    if (meta && typeof meta === "object" && "otpPreview" in (meta as object)) {
-      err.otpPreview = (meta as { otpPreview?: string }).otpPreview;
-    }
     throw err;
   }
   return body.data as T;
@@ -45,6 +34,7 @@ export const lenderProgramPortalClient = {
     productIds: string[];
     ttlDays?: number;
     maxUses?: number | null;
+    recipientEmail: string;
     notes?: string;
   }): Promise<LenderProgramPortalInvite> {
     const res = await authenticatedJsonFetch("/api/admin/lender-program-portal/invites", {
@@ -104,6 +94,7 @@ export const lenderProgramPortalClient = {
       clarificationNotes?: string;
       rejectionReason?: string;
       schedulePublishAt?: string;
+      policyVersionId?: string;
     },
   ): Promise<LenderProgramSubmission> {
     const res = await authenticatedJsonFetch(
@@ -134,12 +125,7 @@ export const lenderProgramPortalPublicClient = {
   async requestOtp(
     token: string,
     verifier: LenderProgramVerifier,
-  ): Promise<{
-    ok: true;
-    emailOtpPreview?: string;
-    mobileOtpPreview?: string;
-    otpPreview?: string;
-  }> {
+  ): Promise<{ ok: true; channel: "email"; delivered: true }> {
     const res = await fetch(
       `/api/lender-program-portal/${encodeURIComponent(token)}/otp`,
       {

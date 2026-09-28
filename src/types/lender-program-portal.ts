@@ -64,6 +64,7 @@ export type LenderProgramPortalInvite = {
   createdAt: string;
   /** CO-MASTER-005A — all invitation products (never first-only). */
   products: LenderProgramPortalInviteProduct[];
+  linkDelivery?: { status: "sent" | "failed" | "disabled"; recipientEmail: string };
 };
 
 export type LenderProgramDialogueMessage = {
