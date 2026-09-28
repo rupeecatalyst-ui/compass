@@ -354,6 +354,8 @@ model Organization {
   cccDocumentPackageDefinitions            CccDocumentPackageDefinition[]
   cccDocumentPackageInstances              CccDocumentPackageInstance[]
   cccDispatches                            CccDispatch[]
+  /// FCM V2.0 — organization-scoped custom field values. No column is added to Deal.
+  fieldControlCustomValues                 FieldControlCustomValue[]
 
   @@map("organizations")
 }
@@ -5953,10 +5955,62 @@ model FieldControlDefinition {
   effectiveUntil                  DateTime?                     @map("effective_until")
   createdAt                       DateTime                      @default(now()) @map("created_at")
   updatedAt                       DateTime                      @updatedAt @map("updated_at")
+  /// FCM V2.0 — values captured under this definition version. The lineage remains the field identity.
+  capturedCustomValues            FieldControlCustomValue[]
 
   @@unique([fieldId, versionNumber], map: "fcm_field_version_key")
   @@index([classification, lifecycleStatus], map: "fcm_classification_lifecycle_idx")
   @@index([owningDomain, ownershipReview], map: "fcm_owner_review_idx")
   @@map("field_control_definitions")
+}
+
+/// FCM V2.0 — where an approved internal custom field may appear.
+/// Global governance: no organization column. Does not change definition flags.
+/// Screen and domain checks are enforced again in the V2.0 migration.
+model FieldControlPlacement {
+  id                   String                   @id
+  fieldLineageId       String                   @map("field_lineage_id")
+  fieldId              String                   @map("field_id")
+  owningDomain         FieldControlOwningDomain @map("owning_domain")
+  screenId             String                   @map("screen_id")
+  sectionId            String                   @map("section_id")
+  showOnCreate         Boolean                  @map("show_on_create")
+  showOnEdit           Boolean                  @map("show_on_edit")
+  showOnView           Boolean                  @map("show_on_view")
+  requiredOnPlacement  Boolean                  @map("required_on_placement")
+  displayOrder         Int                      @map("display_order")
+  active               Boolean
+  createdAt            DateTime                 @map("created_at")
+  updatedAt            DateTime                 @map("updated_at")
+  createdByUserId      String                   @map("created_by_user_id")
+  updatedByUserId      String                   @map("updated_by_user_id")
+
+  @@unique([fieldLineageId, owningDomain, screenId, sectionId], map: "fcm_placement_lineage_screen_key")
+  @@index([owningDomain, screenId, active], map: "fcm_placement_domain_screen_idx")
+  @@map("field_control_placements")
+}
+
+/// FCM V2.0 — one current custom value per organization, lineage, and entity.
+/// entityId is intentionally not a foreign key: one column serves every launch domain.
+model FieldControlCustomValue {
+  id                    String                   @id
+  organizationId        String                   @map("organization_id")
+  fieldLineageId        String                   @map("field_lineage_id")
+  fieldId               String                   @map("field_id")
+  definitionVersionId   String                   @map("definition_version_id")
+  entityDomain          FieldControlOwningDomain @map("entity_domain")
+  entityId              String                   @map("entity_id")
+  valueJson             Json                     @map("value_json")
+  createdAt             DateTime                 @map("created_at")
+  updatedAt             DateTime                 @map("updated_at")
+  createdByUserId       String                   @map("created_by_user_id")
+  updatedByUserId       String                   @map("updated_by_user_id")
+
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  capturedUnder         FieldControlDefinition   @relation(fields: [definitionVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, fieldLineageId, entityDomain, entityId], map: "fcm_custom_value_org_lineage_entity_key")
+  @@index([organizationId, entityDomain, entityId], map: "fcm_custom_value_org_entity_idx")
+  @@map("field_control_custom_values")
 }
 
