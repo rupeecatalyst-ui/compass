@@ -81,8 +81,19 @@ function main(): void {
   check("v15_create_does_not_accept_custom_field", !createService.includes("custom_field"));
 
   const changed = execFileSync("git", ["diff", "--name-only", "HEAD"], { cwd: repoRoot, encoding: "utf8" });
+  const dealWorkspaceChanges = changed
+    .split(/\r?\n/)
+    .filter((line) => line.includes("src/components/catalyst-one/deal-workspace/"));
+  check(
+    "diff_limits_deal_workspace_to_custom_fields",
+    dealWorkspaceChanges.every(
+      (line) =>
+        line.endsWith("deal-workspace-host.tsx") ||
+        line.endsWith("deal-custom-fields-section.tsx") ||
+        line.endsWith("custom-field-input.tsx"),
+    ),
+  );
   for (const forbidden of [
-    "src/components/catalyst-one/deal-workspace/",
     "src/lib/product-programme-operations/",
     "src/lib/edie-certified/",
     "server/services/compass-customer-gateway/",

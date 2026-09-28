@@ -35,6 +35,7 @@ import {
 } from "@/lib/field-control-master/governance-presentation";
 import { GovernedApplicabilityProposal } from "@/components/catalyst-one/field-control-master/governed-applicability-proposal";
 import { GovernedFieldLifecycleActions } from "@/components/catalyst-one/field-control-master/governed-field-lifecycle-actions";
+import { CustomFieldPlacementPanel } from "@/components/catalyst-one/field-control-master/custom-field-placement-panel";
 import type { FieldControlGovernanceDefinition } from "@/lib/field-control-master/production-governance-read";
 import type { ApiResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
@@ -290,6 +291,10 @@ export function FieldControlMasterView() {
                   setOpenId(definitionId);
                   setReloadKey((value) => value + 1);
                 }}
+              />
+              <CustomFieldPlacementPanel
+                definition={selected}
+                onCompleted={() => setReloadKey((value) => value + 1)}
               />
             </>
           ) : null}
