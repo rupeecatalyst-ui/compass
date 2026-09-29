@@ -91,7 +91,13 @@ async function main(): Promise<void> {
   const route = source("src/app/api/internal/deals/[dealId]/custom-fields/route.ts");
   const lifecycle = source("src/lib/field-control-master/production-governance-lifecycle.ts");
   const renderer = `${host}\n${section}\n${input}`;
-  check("deal_workspace_contains_custom_fields", host.includes("DealCustomFieldsSection") && section.includes(">Custom Fields<") && section.includes('data-custom-fields-screen="deal_workspace"') && section.includes('data-custom-fields-section="custom_fields"'));
+  check(
+    "deal_workspace_contains_custom_fields",
+    host.includes("DealCustomFieldsSection") &&
+      !section.includes(">Custom Fields<") &&
+      section.includes('data-custom-fields-screen="deal_workspace"') &&
+      section.includes('data-custom-fields-section="custom_fields"'),
+  );
   check("no_hardcoded_decline_reason_renderer", !renderer.includes("deal.declineReason"));
   check("single_select_displays_labels_and_stores_keys", input.includes("{option.label}") && input.includes("value={option.key}"));
   check("placement_admin_uses_controlled_screens", panel.includes("CUSTOM_FIELD_PLACEMENT_SCREENS") && panel.includes("Place Field") && panel.includes("Deactivate") && panel.includes("Activate") && !panel.includes('type="text"'));

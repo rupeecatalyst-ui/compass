@@ -51,43 +51,41 @@ export function DealCustomFieldsSection({ dealId }: { dealId: string }) {
         });
         const body = (await response.json()) as ApiResponse<unknown>;
         if (!response.ok || !body.success) {
-          setMessage(body.error?.message ?? "Custom fields could not be saved.");
+          setMessage(body.error?.message ?? "These questions could not be saved.");
           return;
         }
       }
       await load();
-      setMessage("Custom fields saved.");
+      setMessage("Saved.");
     } catch {
-      setMessage("Custom fields could not be saved.");
+      setMessage("These questions could not be saved.");
     } finally {
       setPending(false);
     }
   }
 
+  if (phase === "ready" && fields.length === 0) return null;
+
   return (
-    <section
+    <div
       data-custom-fields-section="custom_fields"
       data-custom-fields-screen="deal_workspace"
       data-custom-fields-domain="deal"
-      className="shrink-0 rounded-md border border-border/70 bg-card/50"
+      className="shrink-0 space-y-2"
     >
-      <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-        <h2 className="text-[11px] font-semibold text-foreground">Custom Fields</h2>
+      <div className="flex items-center justify-end gap-2">
         <button
           type="button"
           className="h-7 rounded-md border border-border bg-background px-2 text-[11px] font-medium text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
           disabled={pending || phase !== "ready" || fields.every((field) => !field.editable)}
           onClick={() => void save()}
         >
-          Save custom fields
+          Save
         </button>
       </div>
-      <div className="max-h-40 space-y-2 overflow-y-auto px-2 pb-2">
-        {phase === "loading" ? <p className="text-xs text-muted-foreground">Loading custom fields…</p> : null}
-        {phase === "error" ? <p className="text-xs text-foreground">Custom fields could not be loaded.</p> : null}
-        {phase === "ready" && fields.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No custom fields are placed on this Deal.</p>
-        ) : null}
+      <div className="space-y-2">
+        {phase === "loading" ? <p className="text-xs text-muted-foreground">Loading questions.</p> : null}
+        {phase === "error" ? <p className="text-xs text-foreground">Questions could not be loaded.</p> : null}
         {fields.map((field) => (
           <label key={field.fieldLineageId} className="block space-y-1" data-custom-field-lineage={field.fieldLineageId}>
             <span className="text-xs font-medium text-foreground">
@@ -103,6 +101,6 @@ export function DealCustomFieldsSection({ dealId }: { dealId: string }) {
         ))}
         {message ? <p className="text-xs text-foreground">{message}</p> : null}
       </div>
-    </section>
+    </div>
   );
 }

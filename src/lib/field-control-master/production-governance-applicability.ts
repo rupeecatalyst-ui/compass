@@ -10,6 +10,10 @@ import {
   type FieldControlGovernanceDefinition,
 } from "./production-governance-read";
 import { parseExpectedUpdatedAt } from "./production-governance-lifecycle";
+import {
+  isOpportunityFormEmploymentTypeCode,
+  opportunityFormEmploymentTypeCodes,
+} from "./opportunity-employment-applicability";
 
 export const APPLICABILITY_VERSION_BODY_KEYS = ["productCodes", "expectedUpdatedAt"] as const;
 
@@ -22,6 +26,16 @@ export function canonicalEnterpriseProductCodes(): readonly string[] {
 export function fieldControlApplicabilityVersionPath(id: string): string {
   return `/api/admin/field-control-definitions/${encodeURIComponent(id)}/applicability-version`;
 }
+
+export function fieldControlEmploymentApplicabilityVersionPath(id: string): string {
+  return `/api/admin/field-control-definitions/${encodeURIComponent(id)}/employment-applicability-version`;
+}
+
+export const EMPLOYMENT_APPLICABILITY_VERSION_BODY_KEYS = [
+  "declared",
+  "employmentTypeCodes",
+  "expectedUpdatedAt",
+] as const;
 
 export type FieldControlApplicabilityInsert = {
   id: string;
@@ -42,6 +56,8 @@ export type FieldControlApplicabilityInsert = {
   productApplicabilityJson: string[];
   customerCategoryApplicabilityJson: string[];
   applicabilityDeclared: true;
+  employmentTypeApplicabilityJson: string[];
+  employmentApplicabilityDeclared: boolean;
   authorisedConsumersJson: string[];
   validationSummary: string;
   presentationSummary: string;
@@ -167,6 +183,21 @@ export function assertKnownProductCodes(codes: readonly string[], knownProductCo
   return [...codes];
 }
 
+function copiedEmploymentApplicability(source: CertifiedFieldControlRecord): {
+  employmentTypeApplicabilityJson: string[];
+  employmentApplicabilityDeclared: boolean;
+} | null {
+  if (source.employmentTypeApplicabilityJson === undefined && source.employmentApplicabilityDeclared === undefined) {
+    return { employmentTypeApplicabilityJson: [], employmentApplicabilityDeclared: false };
+  }
+  const list = preservedStringList(source.employmentTypeApplicabilityJson ?? []);
+  if (!list) return null;
+  return {
+    employmentTypeApplicabilityJson: list,
+    employmentApplicabilityDeclared: source.employmentApplicabilityDeclared === true,
+  };
+}
+
 function preservedStringList(value: unknown): string[] | null {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) return null;
   return [...value];
@@ -199,12 +230,14 @@ export function planApplicabilityVersion(input: {
     return conflict("A newer version already exists for this field.");
   }
   const customerCategoryApplicabilityJson = preservedStringList(input.source.customerCategoryApplicabilityJson);
+  const employmentApplicability = copiedEmploymentApplicability(input.source);
   const authorisedConsumersJson = preservedStringList(input.source.authorisedConsumersJson);
   const aliasesJson = preservedStringList(input.source.aliasesJson);
   const selectOptionKeysJson = preservedStringList(input.source.selectOptionKeysJson);
   const currencyUnitsJson = preservedStringList(input.source.currencyUnitsJson);
   if (
     !customerCategoryApplicabilityJson ||
+    !employmentApplicability ||
     !authorisedConsumersJson ||
     !aliasesJson ||
     !selectOptionKeysJson ||
@@ -232,6 +265,8 @@ export function planApplicabilityVersion(input: {
       productApplicabilityJson: [...input.productCodes],
       customerCategoryApplicabilityJson,
       applicabilityDeclared: true,
+      employmentTypeApplicabilityJson: employmentApplicability.employmentTypeApplicabilityJson,
+      employmentApplicabilityDeclared: employmentApplicability.employmentApplicabilityDeclared,
       authorisedConsumersJson,
       validationSummary: input.source.validationSummary,
       presentationSummary: input.source.presentationSummary,
@@ -316,6 +351,211 @@ export async function createCertifiedFieldApplicabilityVersion(
       source,
       versions,
       productCodes,
+      expectedUpdatedAt: parsed.expectedUpdatedAt,
+    });
+    if ("ok" in plan) return plan;
+    let created: CertifiedFieldControlRecord;
+    try {
+      created = await deps.create({ data: plan.data });
+    } catch (err) {
+      if (isUniqueConflict(err)) {
+        return conflict("A newer version already exists for this field.");
+      }
+      throw err;
+    }
+    return { ok: true, status: 201, data: { definition: projectCertifiedFieldControlDefinition(created) } };
+  } catch (err) {
+    return toFailure(err);
+  }
+}
+
+export type FieldControlEmploymentApplicabilityInsert = Omit<
+  FieldControlApplicabilityInsert,
+  "applicabilityDeclared" | "selectOptionKeysJson"
+> & {
+  applicabilityDeclared: boolean;
+  selectOptionKeysJson: unknown;
+};
+
+export function parseEmploymentApplicabilityVersionRequest(value: unknown): {
+  declared: boolean;
+  employmentTypeCodes: string[];
+  expectedUpdatedAt: Date;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new FieldControlApplicabilityRequestError("Invalid request.");
+  }
+  const record = value as Record<string, unknown>;
+  const allowed = new Set<string>(EMPLOYMENT_APPLICABILITY_VERSION_BODY_KEYS);
+  for (const key of Object.keys(record)) {
+    if (!allowed.has(key)) {
+      throw new FieldControlApplicabilityRequestError(`Unknown property: ${key}.`);
+    }
+  }
+  for (const key of EMPLOYMENT_APPLICABILITY_VERSION_BODY_KEYS) {
+    if (!(key in record)) {
+      throw new FieldControlApplicabilityRequestError(`Missing ${key}.`);
+    }
+  }
+  if (typeof record.declared !== "boolean") {
+    throw new FieldControlApplicabilityRequestError("Invalid declared.");
+  }
+  if (!Array.isArray(record.employmentTypeCodes)) {
+    throw new FieldControlApplicabilityRequestError("Invalid employment type codes.");
+  }
+  const codes: string[] = [];
+  for (const item of record.employmentTypeCodes) {
+    if (typeof item !== "string" || item !== item.trim() || item.length === 0) {
+      throw new FieldControlApplicabilityRequestError("Invalid employment type code.");
+    }
+    if (!isOpportunityFormEmploymentTypeCode(item)) {
+      throw new FieldControlApplicabilityRequestError("Unknown employment type code.");
+    }
+    if (codes.includes(item)) {
+      throw new FieldControlApplicabilityRequestError("Duplicate employment type code.");
+    }
+    codes.push(item);
+  }
+  if (record.declared && codes.length === 0) {
+    throw new FieldControlApplicabilityRequestError("At least one employment type is required.");
+  }
+  if (!record.declared && codes.length > 0) {
+    throw new FieldControlApplicabilityRequestError("Employment type codes must be empty when applicability is not declared.");
+  }
+  return {
+    declared: record.declared,
+    employmentTypeCodes: codes,
+    expectedUpdatedAt: parseExpectedUpdatedAt(record.expectedUpdatedAt),
+  };
+}
+
+export function planEmploymentApplicabilityVersion(input: {
+  actorUserId: string;
+  source: CertifiedFieldControlRecord;
+  versions: readonly CertifiedFieldControlRecord[];
+  declared: boolean;
+  employmentTypeCodes: readonly string[];
+  expectedUpdatedAt: Date;
+}): FieldControlApplicabilityFailure | { data: FieldControlEmploymentApplicabilityInsert } {
+  if (input.source.owningDomain !== "opportunity") {
+    return conflict("Employment type applicability is only available for Opportunity fields.");
+  }
+  if (input.source.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) {
+    return conflict("The definition changed before this proposal was saved.");
+  }
+  if (input.source.lifecycleStatus !== "approved" || input.source.ownershipReview !== "owner_requires_product_decision") {
+    return conflict("Only an approved definition awaiting a product decision can propose applicability.");
+  }
+  const highest = input.versions.reduce((max, row) => Math.max(max, row.versionNumber), 0);
+  if (highest !== input.source.versionNumber) {
+    return conflict("A newer version already exists for this field.");
+  }
+  const nextVersion = input.source.versionNumber + 1;
+  const nextId = `fcm:${input.source.fieldId}:v${nextVersion}`;
+  if (input.versions.some((row) => row.versionNumber === nextVersion || row.id === nextId)) {
+    return conflict("A newer version already exists for this field.");
+  }
+  const productApplicabilityJson = preservedStringList(input.source.productApplicabilityJson);
+  const customerCategoryApplicabilityJson = preservedStringList(input.source.customerCategoryApplicabilityJson);
+  const authorisedConsumersJson = preservedStringList(input.source.authorisedConsumersJson);
+  const aliasesJson = preservedStringList(input.source.aliasesJson);
+  const currencyUnitsJson = preservedStringList(input.source.currencyUnitsJson);
+  const selectOptionKeysJson = input.source.selectOptionKeysJson;
+  if (
+    !productApplicabilityJson ||
+    !customerCategoryApplicabilityJson ||
+    !authorisedConsumersJson ||
+    !aliasesJson ||
+    !currencyUnitsJson ||
+    !Array.isArray(selectOptionKeysJson)
+  ) {
+    return conflict("The source definition cannot be versioned.");
+  }
+  for (const code of input.employmentTypeCodes) {
+    if (!isOpportunityFormEmploymentTypeCode(code)) {
+      return conflict("Unknown employment type code.");
+    }
+  }
+  return {
+    data: {
+      id: nextId,
+      fieldId: input.source.fieldId,
+      lineageId: input.source.lineageId,
+      versionNumber: nextVersion,
+      previousVersionId: input.source.id,
+      friendlyLabel: input.source.friendlyLabel,
+      description: input.source.description,
+      helpText: input.source.helpText,
+      fieldType: input.source.fieldType,
+      classification: input.source.classification,
+      owningDomain: input.source.owningDomain,
+      ownershipReview: "owner_requires_product_decision",
+      sourceBindingJson: input.source.sourceBindingJson,
+      aliasesJson,
+      lifecycleStatus: "draft",
+      productApplicabilityJson,
+      customerCategoryApplicabilityJson,
+      applicabilityDeclared: input.source.applicabilityDeclared === true,
+      employmentTypeApplicabilityJson: [...input.employmentTypeCodes],
+      employmentApplicabilityDeclared: input.declared,
+      authorisedConsumersJson,
+      validationSummary: input.source.validationSummary,
+      presentationSummary: input.source.presentationSummary,
+      selectOptionSource: input.source.selectOptionSource,
+      selectOptionKeysJson,
+      currencyUnitsJson,
+      candidateMirrorOf: input.source.candidateMirrorOf,
+      controlsRuntime: false,
+      customerFacingActivation: false,
+      makerUserId: input.actorUserId,
+      checkerUserId: null,
+      effectiveFrom: null,
+      effectiveUntil: null,
+    },
+  };
+}
+
+export async function createCertifiedFieldEmploymentApplicabilityVersion(
+  request: Request,
+  id: string,
+  deps: {
+    authenticate: ApplicabilityDeps["authenticate"];
+    findUnique: ApplicabilityDeps["findUnique"];
+    findMany: ApplicabilityDeps["findMany"];
+    create: (args: { data: FieldControlEmploymentApplicabilityInsert }) => Promise<CertifiedFieldControlRecord>;
+  },
+): Promise<FieldControlApplicabilityResult> {
+  try {
+    const actor = deps.authenticate(request);
+    assertFieldControlAdministrator(actor.role);
+    const actorUserId = actor.userId.trim();
+    if (!actorUserId) {
+      return { ok: false, status: 401, code: "UNAUTHORIZED", message: "Authentication required" };
+    }
+    const definitionId = id.trim();
+    if (!definitionId) {
+      throw new FieldControlApplicabilityRequestError("Invalid definition.");
+    }
+    const body = await request.json().catch(() => {
+      throw new FieldControlApplicabilityRequestError("Invalid request.");
+    });
+    const parsed = parseEmploymentApplicabilityVersionRequest(body);
+    for (const code of parsed.employmentTypeCodes) {
+      if (!opportunityFormEmploymentTypeCodes().includes(code)) {
+        throw new FieldControlApplicabilityRequestError("Unknown employment type code.");
+      }
+    }
+    const source = await deps.findUnique({ where: { id: definitionId } });
+    if (!source) {
+      return { ok: false, status: 404, code: "FIELD_CONTROL_NOT_FOUND", message: "Field Control definition was not found." };
+    }
+    const versions = await deps.findMany({ where: { fieldId: source.fieldId } });
+    const plan = planEmploymentApplicabilityVersion({
+      actorUserId,
+      source,
+      versions,
+      declared: parsed.declared,
+      employmentTypeCodes: parsed.employmentTypeCodes,
       expectedUpdatedAt: parsed.expectedUpdatedAt,
     });
     if ("ok" in plan) return plan;

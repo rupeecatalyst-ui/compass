@@ -16,20 +16,26 @@ function query(input: {
   mode: OperationalCustomFieldMode;
   entityId?: string | null;
   productCode?: string | null;
+  employmentTypeCode?: string | null;
 }) {
   const params = new URLSearchParams({ domain: input.domain, mode: input.mode });
   if (input.entityId) params.set("entityId", input.entityId);
   if (input.productCode) params.set("productCode", input.productCode);
+  if (input.domain === "opportunity") params.set("employmentTypeCode", input.employmentTypeCode ?? "");
   return `/api/internal/field-control/operational-fields?${params.toString()}`;
 }
 
 export function OperationalCustomFieldsCollector({
   domain,
   productCode,
+  employmentTypeCode,
+  entityId,
   onState,
 }: {
   domain: OperationalCustomFieldDomain;
   productCode?: string | null;
+  employmentTypeCode?: string | null;
+  entityId?: string | null;
   onState: (state: { submissions: OperationalCustomFieldSubmission[]; blocked: boolean }) => void;
 }) {
   const [fields, setFields] = useState<DealCustomFieldView[]>([]);
@@ -61,7 +67,11 @@ export function OperationalCustomFieldsCollector({
   useEffect(() => {
     let cancelled = false;
     setBlocked(true);
-    void authenticatedJsonFetch(query({ domain, mode: "create", productCode }), { method: "GET" })
+    publish([], {}, true);
+    void authenticatedJsonFetch(
+      query({ domain, mode: "create", productCode, employmentTypeCode, entityId }),
+      { method: "GET" },
+    )
       .then(async (response) => {
         const body = (await response.json()) as ApiResponse<{ fields: DealCustomFieldView[] }>;
         if (cancelled) return;
@@ -86,25 +96,20 @@ export function OperationalCustomFieldsCollector({
     return () => {
       cancelled = true;
     };
-  }, [domain, productCode, publish]);
+  }, [domain, productCode, employmentTypeCode, entityId, publish]);
 
   if (!blocked && fields.length === 0) return null;
 
   return (
-    <section
-      data-custom-fields-section="custom_fields"
-      data-custom-fields-screen={`${domain}_workspace`}
-      data-custom-fields-domain={domain}
-      data-custom-fields-mode="create"
-      className="space-y-2 rounded-md border border-border/70 bg-card/40 p-3"
-    >
-      <h2 className="text-xs font-semibold text-foreground">Custom Fields</h2>
-      {blocked ? <p className="text-xs text-muted-foreground">Custom fields are loading.</p> : null}
+    <>
+      {blocked && fields.length === 0 ? (
+        <p className="text-xs text-muted-foreground sm:col-span-2">Additional questions are loading.</p>
+      ) : null}
       {fields.map((field) => (
-        <label key={field.fieldLineageId} className="block space-y-1">
-          <span className="text-[11px] text-foreground">
+        <label key={field.fieldLineageId} className="block space-y-1.5">
+          <span className="text-xs font-medium text-foreground">
             {field.friendlyLabel}
-            {field.required ? " *" : ""}
+            {field.required ? <span className="text-destructive"> *</span> : null}
           </span>
           <CustomFieldInput
             field={{ ...field, editable: true }}
@@ -117,7 +122,7 @@ export function OperationalCustomFieldsCollector({
           />
         </label>
       ))}
-    </section>
+    </>
   );
 }
 
@@ -126,11 +131,13 @@ export function OperationalCustomFieldsSection({
   entityId,
   mode,
   productCode,
+  employmentTypeCode,
 }: {
   domain: OperationalCustomFieldDomain;
   entityId: string;
   mode: "edit" | "view";
   productCode?: string | null;
+  employmentTypeCode?: string | null;
 }) {
   const [fields, setFields] = useState<DealCustomFieldView[]>([]);
   const [drafts, setDrafts] = useState<Record<string, unknown>>({});
@@ -142,7 +149,10 @@ export function OperationalCustomFieldsSection({
     setPhase("loading");
     setMessage(null);
     try {
-      const response = await authenticatedJsonFetch(query({ domain, mode, entityId, productCode }), { method: "GET" });
+      const response = await authenticatedJsonFetch(
+        query({ domain, mode, entityId, productCode, employmentTypeCode }),
+        { method: "GET" },
+      );
       const body = (await response.json()) as ApiResponse<{ fields: DealCustomFieldView[] }>;
       if (!response.ok || !body.success || !Array.isArray(body.data?.fields)) {
         setFields([]);
@@ -156,7 +166,7 @@ export function OperationalCustomFieldsSection({
       setFields([]);
       setPhase("error");
     }
-  }, [domain, entityId, mode, productCode]);
+  }, [domain, entityId, mode, productCode, employmentTypeCode]);
 
   useEffect(() => {
     void load();
@@ -176,18 +186,19 @@ export function OperationalCustomFieldsSection({
             fieldLineageId: field.fieldLineageId,
             value: drafts[field.fieldLineageId] ?? null,
             productCode: productCode ?? null,
+            employmentTypeCode: domain === "opportunity" ? (employmentTypeCode ?? null) : null,
           }),
         });
         const body = (await response.json()) as ApiResponse<unknown>;
         if (!response.ok || !body.success) {
-          setMessage(body.error?.message ?? "Custom fields could not be saved.");
+          setMessage(body.error?.message ?? "These questions could not be saved.");
           return;
         }
       }
       await load();
-      setMessage("Custom fields saved.");
+      setMessage("Saved.");
     } catch {
-      setMessage("Custom fields could not be saved.");
+      setMessage("These questions could not be saved.");
     } finally {
       setPending(false);
     }
@@ -196,33 +207,30 @@ export function OperationalCustomFieldsSection({
   if (phase === "ready" && fields.length === 0) return null;
 
   return (
-    <section
-      data-custom-fields-section="custom_fields"
-      data-custom-fields-screen={`${domain}_workspace`}
-      data-custom-fields-domain={domain}
-      data-custom-fields-mode={mode}
-      className="space-y-2 rounded-md border border-border/70 bg-card/40 p-3"
+    <div
+      data-field-control-domain={domain}
+      data-field-control-mode={mode}
+      className="space-y-3"
     >
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold text-foreground">Custom Fields</h2>
-        {mode === "edit" ? (
+      {mode === "edit" ? (
+        <div className="flex justify-end">
           <button
             type="button"
-            className="h-7 rounded-md border border-border bg-background px-2 text-[11px] font-medium text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+            className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
             disabled={pending || phase !== "ready" || fields.every((field) => !field.editable)}
             onClick={() => void save()}
           >
-            Save custom fields
+            Save
           </button>
-        ) : null}
-      </div>
-      {phase === "loading" ? <p className="text-xs text-muted-foreground">Loading custom fields.</p> : null}
-      {phase === "error" ? <p className="text-xs text-destructive">Custom fields could not be loaded.</p> : null}
+        </div>
+      ) : null}
+      {phase === "loading" ? <p className="text-xs text-muted-foreground">Loading questions.</p> : null}
+      {phase === "error" ? <p className="text-xs text-destructive">Questions could not be loaded.</p> : null}
       {fields.map((field) => (
-        <label key={field.fieldLineageId} className="block space-y-1">
-          <span className="text-[11px] text-foreground">
+        <label key={field.fieldLineageId} className="block space-y-1.5">
+          <span className="text-xs font-medium text-foreground">
             {field.friendlyLabel}
-            {field.required ? " *" : ""}
+            {field.required ? <span className="text-destructive"> *</span> : null}
           </span>
           <CustomFieldInput
             field={field}
@@ -232,6 +240,6 @@ export function OperationalCustomFieldsSection({
         </label>
       ))}
       {message ? <p className="text-[11px] text-muted-foreground">{message}</p> : null}
-    </section>
+    </div>
   );
 }

@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       mode: modeValue as OperationalCustomFieldMode,
       entityId: url.searchParams.get("entityId"),
       productCode: url.searchParams.get("productCode"),
+      employmentTypeCode: domain === "opportunity" ? url.searchParams.get("employmentTypeCode") : null,
     });
     return successResponse({ fields });
   } catch (error) {
@@ -74,6 +75,8 @@ export async function PUT(request: Request) {
       value: body.value,
       mode: "edit",
       productCode: typeof body.productCode === "string" ? body.productCode : null,
+      employmentTypeCode:
+        body.domain === "opportunity" && typeof body.employmentTypeCode === "string" ? body.employmentTypeCode : null,
       actorUserId: token.userId,
     });
     return successResponse({ saved: true });

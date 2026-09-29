@@ -57,6 +57,8 @@ function row(overrides: Partial<FieldControlGovernanceDefinition> = {}): FieldCo
     authorisedConsumers: [],
     productApplicability: [],
     customerCategoryApplicability: [],
+    employmentTypeApplicability: [],
+    employmentApplicabilityDeclared: false,
     aliases: [],
     selectOptionKeys: [],
     selectOptions: [],

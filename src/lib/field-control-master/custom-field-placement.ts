@@ -34,6 +34,8 @@ export type PlacementDefinitionRecord = {
   currencyUnitsJson: unknown;
   applicabilityDeclared?: boolean;
   productApplicabilityJson?: unknown;
+  employmentApplicabilityDeclared?: boolean;
+  employmentTypeApplicabilityJson?: unknown;
 };
 
 export type PlacementRow = {

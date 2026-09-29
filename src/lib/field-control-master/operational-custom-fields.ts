@@ -12,6 +12,7 @@ import {
   type PlacementStore,
 } from "./custom-field-placement";
 import { productApplicabilityPermits } from "./custom-field-product-applicability";
+import { employmentApplicabilityPermits } from "./opportunity-employment-applicability";
 import type { CustomFieldAuditEvent } from "./custom-field-audit";
 import {
   clearCustomFieldValue,
@@ -123,6 +124,7 @@ export function projectOperationalCustomFields(input: {
   domain: OperationalCustomFieldDomain;
   mode: OperationalCustomFieldMode;
   productCode?: string | null;
+  employmentTypeCode?: string | null;
   placements: PlacementRow[];
   definitions: OperationalCustomFieldDefinition[];
   values: CustomFieldValueRow[];
@@ -149,6 +151,7 @@ export function projectOperationalCustomFields(input: {
     }
     if (governing.owningDomain !== input.domain) continue;
     if (!productApplicabilityPermits(governing, input.domain, input.productCode ?? null)) continue;
+    if (!employmentApplicabilityPermits(governing, input.domain, input.employmentTypeCode ?? null)) continue;
     const label =
       input.definitions.find((row) => row.id === governing.id)?.friendlyLabel ?? governing.fieldId;
     const stored = input.values.find((row) => row.fieldLineageId === governing.lineageId) ?? null;
@@ -202,6 +205,7 @@ export function prepareOperationalCustomValueWrites(input: {
   domain: OperationalCustomFieldDomain;
   mode: "create" | "edit";
   productCode?: string | null;
+  employmentTypeCode?: string | null;
   placements: PlacementRow[];
   definitions: OperationalCustomFieldDefinition[];
   submissions: OperationalCustomFieldSubmission[];
@@ -211,10 +215,12 @@ export function prepareOperationalCustomValueWrites(input: {
     fail(409, "PLACEMENT_NOT_EDITABLE", "Custom field values cannot be written in view mode.");
   }
   const productCode = input.productCode ?? null;
+  const employmentTypeCode = input.employmentTypeCode ?? null;
   const visible = projectOperationalCustomFields({
     domain: input.domain,
     mode: input.mode,
     productCode,
+    employmentTypeCode,
     placements: input.placements,
     definitions: input.definitions,
     values: input.existingValues ?? [],
@@ -230,6 +236,9 @@ export function prepareOperationalCustomValueWrites(input: {
       );
       if (!productApplicabilityPermits(governing, input.domain, productCode)) {
         fail(409, "PRODUCT_NOT_APPLICABLE", "This custom field does not apply to the current product.");
+      }
+      if (!employmentApplicabilityPermits(governing, input.domain, employmentTypeCode)) {
+        fail(409, "EMPLOYMENT_NOT_APPLICABLE", "This question does not apply to the current employment type.");
       }
       fail(409, "PLACEMENT_NOT_ACTIVE", "An active placement for this operation is required.");
     }

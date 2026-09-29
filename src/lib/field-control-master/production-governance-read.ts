@@ -55,6 +55,8 @@ const GOVERNANCE_DEFINITION_KEYS = [
   "authorisedConsumers",
   "productApplicability",
   "customerCategoryApplicability",
+  "employmentTypeApplicability",
+  "employmentApplicabilityDeclared",
   "aliases",
   "selectOptionKeys",
   "selectOptions",
@@ -111,6 +113,8 @@ export type FieldControlGovernanceDefinition = {
   authorisedConsumers: string[];
   productApplicability: string[];
   customerCategoryApplicability: string[];
+  employmentTypeApplicability: string[];
+  employmentApplicabilityDeclared: boolean;
   aliases: string[];
   selectOptionKeys: string[];
   selectOptions: FieldControlGovernedSelectOption[];
@@ -149,6 +153,8 @@ export type CertifiedFieldControlRecord = {
   productApplicabilityJson: unknown;
   customerCategoryApplicabilityJson: unknown;
   applicabilityDeclared: boolean;
+  employmentTypeApplicabilityJson?: unknown;
+  employmentApplicabilityDeclared?: boolean;
   authorisedConsumersJson: unknown;
   validationSummary: string;
   presentationSummary: string;
@@ -461,6 +467,11 @@ export function projectCertifiedFieldControlDefinition(
       row.customerCategoryApplicabilityJson,
       "customerCategoryApplicability",
     ),
+    employmentTypeApplicability: textArray(
+      row.employmentTypeApplicabilityJson ?? [],
+      "employmentTypeApplicability",
+    ),
+    employmentApplicabilityDeclared: row.employmentApplicabilityDeclared === true,
     aliases: textArray(row.aliasesJson, "aliases"),
     ...projectSelectOptions(row.selectOptionKeysJson),
     selectOptionSource: row.selectOptionSource,

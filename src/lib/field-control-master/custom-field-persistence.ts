@@ -196,6 +196,8 @@ export async function loadPlacementDefinitions(lineageId: string): Promise<Place
     currencyUnitsJson: row.currencyUnitsJson,
     applicabilityDeclared: row.applicabilityDeclared,
     productApplicabilityJson: row.productApplicabilityJson,
+    employmentApplicabilityDeclared: row.employmentApplicabilityDeclared,
+    employmentTypeApplicabilityJson: row.employmentTypeApplicabilityJson,
   }));
 }
 

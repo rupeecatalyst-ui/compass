@@ -3,11 +3,11 @@
  * Does not connect to a database and does not execute the seed.
  */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { proveFoundationV1MigrationImmutable } from "./foundation-v1-migration-immutability";
 import {
   FCM_V12_MAKER_USER_ID,
   FOUNDATION_V12_SEED_ROWS,
@@ -140,16 +140,13 @@ for (const forbidden of ["CREATE", "DROP", "ALTER", "TRUNCATE", "DELETE", "UPDAT
 check("verification_is_select_only", verificationSql.includes("SELECT check_name, passed") && !verificationSql.includes("INSERT INTO"));
 check("verification_failure_only", verificationSql.includes("WHERE passed IS DISTINCT FROM true"));
 
-const migrationPath = join(
-  here,
-  "../../../prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql",
-);
-const migrationBytes = readFileSync(migrationPath);
-const migrationSha = createHash("sha256").update(migrationBytes).digest("hex").toUpperCase();
-check(
-  "foundation_v1_migration_unchanged",
-  migrationBytes.length === 3660 && migrationSha === "1B05A9EAE8A0AD7A0227BF2847D51A2E39DEA1F96AACCE1C11CD2F6CBB8B3E5D",
-);
+const foundation = proveFoundationV1MigrationImmutable(join(here, "../../.."));
+check("foundation_v1_migration_unchanged", foundation.unchanged);
+check("foundation_v1_crlf_checkout_passes", foundation.crlfCheckoutPasses);
+check("foundation_v1_sql_mutation_fails", foundation.sqlMutationFails);
+check("foundation_v1_deletion_fails", foundation.deletionFails);
+check("foundation_v1_replacement_fails", foundation.replacementFails);
+check("foundation_v1_blob_mismatch_fails", foundation.blobMismatchFails);
 const indexSource = readFileSync(join(here, "index.ts"), "utf8");
 check("runtime_index_does_not_export_seed", !indexSource.includes("foundation-v1-2"));
 

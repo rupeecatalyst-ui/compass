@@ -51,6 +51,7 @@ async function contextFor(input: {
   domain: OperationalCustomFieldDomain;
   mode: OperationalCustomFieldMode;
   productCode: string | null;
+  employmentTypeCode?: string | null;
   submissions: ReturnType<typeof readCustomFieldSubmissions>;
   existingEntityId?: string;
 }) {
@@ -79,6 +80,7 @@ async function contextFor(input: {
     domain: input.domain,
     mode: input.mode === "view" ? "edit" : input.mode,
     productCode: input.productCode,
+    employmentTypeCode: input.employmentTypeCode ?? null,
     placements: placements.filter((row) => row.active),
     definitions,
     submissions: input.submissions,
@@ -92,6 +94,7 @@ export async function loadOperationalCustomFields(input: {
   mode: OperationalCustomFieldMode;
   entityId?: string | null;
   productCode?: string | null;
+  employmentTypeCode?: string | null;
 }) {
   const organizationId = await resolveCustomFieldOrganizationId();
   if (input.entityId) {
@@ -120,6 +123,7 @@ export async function loadOperationalCustomFields(input: {
     domain: input.domain,
     mode: input.mode,
     productCode: input.productCode ?? null,
+    employmentTypeCode: input.domain === "opportunity" ? (input.employmentTypeCode ?? null) : null,
     placements,
     definitions,
     values,
@@ -216,7 +220,7 @@ export async function commitOpportunityWithCustomFields(input: {
   }
   const existing = await prisma.enterpriseOpportunity.findFirst({
     where: { id: input.opportunityId, organizationId, isDeleted: false },
-    select: { productCode: true },
+    select: { productCode: true, employmentTypeCode: true },
   });
   const productCode =
     input.body.productCode !== undefined
@@ -224,10 +228,17 @@ export async function commitOpportunityWithCustomFields(input: {
         ? String(input.body.productCode)
         : null
       : (existing?.productCode ?? null);
+  const employmentTypeCode =
+    input.body.employmentTypeCode !== undefined
+      ? input.body.employmentTypeCode
+        ? String(input.body.employmentTypeCode)
+        : null
+      : (existing?.employmentTypeCode ?? null);
   const prepared = await contextFor({
     domain: "opportunity",
     mode: "create",
     productCode,
+    employmentTypeCode,
     submissions,
     existingEntityId: input.opportunityId,
   });
@@ -251,12 +262,14 @@ export async function saveOperationalCustomField(input: {
   value: unknown;
   mode: "edit";
   productCode?: string | null;
+  employmentTypeCode?: string | null;
   actorUserId: string;
 }) {
   const prepared = await contextFor({
     domain: input.domain,
     mode: "edit",
     productCode: input.productCode ?? null,
+    employmentTypeCode: input.domain === "opportunity" ? (input.employmentTypeCode ?? null) : null,
     submissions: [{ fieldLineageId: input.fieldLineageId, value: input.value }],
     existingEntityId: input.entityId,
   });

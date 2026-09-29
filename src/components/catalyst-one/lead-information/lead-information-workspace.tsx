@@ -222,7 +222,7 @@ export function LeadInformationWorkspace() {
       return;
     }
     if (isEnterprisePersistencePrisma() && customBlocked) {
-      toastError("Complete required custom fields", "A required custom field is missing.");
+      toastError("Complete required fields", "A required question is missing.");
       return;
     }
 
@@ -727,6 +727,18 @@ export function LeadInformationWorkspace() {
               onChange={(v) => patchForm("approxCibilScore", v)}
               error={errors.approxCibilScore}
             />
+            {isEnterprisePersistencePrisma() ? (
+              <OperationalCustomFieldsCollector
+                domain="opportunity"
+                entityId={opportunityId}
+                productCode={form.productCode || null}
+                employmentTypeCode={form.employmentTypeCode || null}
+                onState={(state) => {
+                  setCustomSubmissions(state.submissions);
+                  setCustomBlocked(state.blocked);
+                }}
+              />
+            ) : null}
           </div>
         </section>
 
@@ -765,18 +777,6 @@ export function LeadInformationWorkspace() {
                 aria-readonly="true"
               />
             </Field>
-            <div className="sm:col-span-2">
-              {isEnterprisePersistencePrisma() ? (
-                <OperationalCustomFieldsCollector
-                  domain="opportunity"
-                  productCode={form.productCode || null}
-                  onState={(state) => {
-                    setCustomSubmissions(state.submissions);
-                    setCustomBlocked(state.blocked);
-                  }}
-                />
-              ) : null}
-            </div>
             <div className="sm:col-span-2">
               <Field label="Notes / Remarks">
                 <Textarea

@@ -515,6 +515,7 @@ function OpportunityWorkspaceShell() {
                 entityId={opportunityId}
                 mode="edit"
                 productCode={registryOpportunity?.productCode ?? null}
+                employmentTypeCode={registryOpportunity?.employmentTypeCode ?? null}
               />
             ) : null}
             <LoanStructureCommandControl

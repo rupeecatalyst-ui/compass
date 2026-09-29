@@ -5940,6 +5940,9 @@ model FieldControlDefinition {
   productApplicabilityJson        Json                          @default("[]") @map("product_applicability_json")
   customerCategoryApplicabilityJson Json                        @default("[]") @map("customer_category_applicability_json")
   applicabilityDeclared           Boolean                       @default(false) @map("applicability_declared")
+  /// Opportunity form visibility only. Undeclared leaves current visibility unchanged.
+  employmentTypeApplicabilityJson Json                          @default("[]") @map("employment_type_applicability_json")
+  employmentApplicabilityDeclared Boolean                       @default(false) @map("employment_applicability_declared")
   authorisedConsumersJson         Json                          @default("[]") @map("authorised_consumers_json")
   validationSummary               String                        @map("validation_summary") @db.Text
   presentationSummary             String                        @map("presentation_summary") @db.Text

@@ -332,6 +332,19 @@ export function governanceDetail(row: FieldControlGovernanceDefinition): Governa
           { label: "Product metadata", value: listText(row.productApplicability) },
           { label: "Customer categories", value: listText(row.customerCategoryApplicability) },
           { label: "Applicability declared", value: applicabilityDeclaredLabel(row.applicabilityDeclared) },
+          {
+            label: "Employment type form applicability",
+            value:
+              row.owningDomain === "opportunity"
+                ? row.employmentApplicabilityDeclared
+                  ? listText(row.employmentTypeApplicability)
+                  : "Not declared. The Opportunity form is not restricted by employment type."
+                : "Not used for this domain.",
+          },
+          {
+            label: "Employment applicability scope",
+            value: "Form visibility only. This does not decide lender eligibility.",
+          },
         ],
       },
       {

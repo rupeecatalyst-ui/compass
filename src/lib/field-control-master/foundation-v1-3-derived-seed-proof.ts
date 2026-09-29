@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { proveFoundationV1MigrationImmutable } from "./foundation-v1-migration-immutability";
 import {
   FCM_V13_FROZEN_V12_FIELD_IDS,
   FCM_V13_MAKER_USER_ID,
@@ -260,13 +261,13 @@ function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex").toUpperCase();
 }
 
-const migrationBytes = readFileSync(
-  join(here, "../../../prisma/migrations/20260926180000_field_control_master_foundation_v1/migration.sql"),
-);
-check(
-  "foundation_v1_migration_unchanged",
-  migrationBytes.length === 3660 && sha256(migrationBytes) === "1B05A9EAE8A0AD7A0227BF2847D51A2E39DEA1F96AACCE1C11CD2F6CBB8B3E5D",
-);
+const foundation = proveFoundationV1MigrationImmutable(join(here, "../../.."));
+check("foundation_v1_migration_unchanged", foundation.unchanged);
+check("foundation_v1_crlf_checkout_passes", foundation.crlfCheckoutPasses);
+check("foundation_v1_sql_mutation_fails", foundation.sqlMutationFails);
+check("foundation_v1_deletion_fails", foundation.deletionFails);
+check("foundation_v1_replacement_fails", foundation.replacementFails);
+check("foundation_v1_blob_mismatch_fails", foundation.blobMismatchFails);
 const v12SeedBytes = readFileSync(join(here, "foundation-v1-2-seed.sql"));
 const v12VerificationBytes = readFileSync(join(here, "foundation-v1-2-verification.sql"));
 check(
