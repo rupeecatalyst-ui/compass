@@ -10,6 +10,8 @@ const policyMigration = "20260917120000_co_credit_risk_policy_lifecycle_status";
 const propertyMigration = "20260920160000_co_hl_property_model";
 const customFieldMigration = "20260927193000_field_control_classification_custom_field";
 const placementValueMigration = "20260928140000_field_control_custom_placement_value";
+const employmentApplicabilityMigration = "20260929180000_field_control_employment_applicability";
+const similarEmploymentMigration = "20260929180000_field_control_employment_applicability_extra";
 const similarPlacementMigration = "20260928140000_field_control_custom_placement_value_extra";
 const placementPrefixMigration = "20260928140000_field_control_custom_placement";
 const unknownMigration = "20260921120000_unapproved_change";
@@ -18,6 +20,8 @@ const known = [
   propertyMigration,
   customFieldMigration,
   placementValueMigration,
+  employmentApplicabilityMigration,
+  similarEmploymentMigration,
   similarPlacementMigration,
   placementPrefixMigration,
   unknownMigration,
@@ -86,6 +90,7 @@ test("approved set is exactly the reviewed migration names", () => {
     propertyMigration,
     customFieldMigration,
     placementValueMigration,
+    employmentApplicabilityMigration,
   ]);
   assert.equal(probeSource.includes(`${customFieldMigration.slice(0, 8)}*`), false);
   assert.equal(probeSource.includes(`${placementValueMigration.slice(0, 8)}*`), false);
@@ -120,6 +125,24 @@ test("placement value migration beside an unknown migration fails closed", () =>
     classifyStatus(pendingOutput([placementValueMigration, unknownMigration]), 1, known).kind,
     "OTHER_PENDING",
   );
+});
+
+test("exact pending employment applicability migration returns approved pending only", () => {
+  assert.deepEqual(classifyStatus(pendingOutput([employmentApplicabilityMigration]), 1, known), {
+    kind: "APPROVED_PENDING_ONLY",
+    pending: [employmentApplicabilityMigration],
+  });
+});
+
+test("employment applicability migration beside an unknown migration fails closed", () => {
+  assert.equal(
+    classifyStatus(pendingOutput([employmentApplicabilityMigration, unknownMigration]), 1, known).kind,
+    "OTHER_PENDING",
+  );
+});
+
+test("a similarly named employment applicability migration does not pass", () => {
+  assert.equal(classifyStatus(pendingOutput([similarEmploymentMigration]), 1, known).kind, "OTHER_PENDING");
 });
 
 test("a similarly named migration does not pass", () => {
