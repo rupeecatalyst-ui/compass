@@ -48,8 +48,18 @@ async function definitionsForLineage(lineageId: string): Promise<DealWorkspaceFi
     customerFacingActivation: row.customerFacingActivation,
     selectOptionKeysJson: row.selectOptionKeysJson,
     currencyUnitsJson: row.currencyUnitsJson,
+    applicabilityDeclared: row.applicabilityDeclared,
+    productApplicabilityJson: row.productApplicabilityJson,
     friendlyLabel: row.friendlyLabel,
   }));
+}
+
+async function resolveDealProductCode(organizationId: string, dealId: string): Promise<string | null> {
+  const deal = await prisma.enterpriseDeal.findFirst({
+    where: { id: dealId, organizationId, isDeleted: false },
+    select: { productCode: true },
+  });
+  return deal?.productCode ?? null;
 }
 
 export async function GET(request: Request, context: RouteContext) {
@@ -69,6 +79,7 @@ export async function GET(request: Request, context: RouteContext) {
       placements: prismaPlacementStore(),
       definitionsForLineage,
       values: prismaCustomFieldValueStore(),
+      resolveProductCode: resolveDealProductCode,
     });
     return successResponse({ fields });
   } catch (error) {
@@ -99,6 +110,7 @@ export async function PUT(request: Request, context: RouteContext) {
       definitions,
       values: prismaCustomFieldValueStore(),
       audit: recordCustomFieldAudit,
+      resolveProductCode: resolveDealProductCode,
     });
     return successResponse(saved);
   } catch (error) {

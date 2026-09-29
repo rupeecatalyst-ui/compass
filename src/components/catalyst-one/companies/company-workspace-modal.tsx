@@ -36,6 +36,11 @@ import {
 import type { EcmCompany, EcmCompanyRelationRole } from "@/types/enterprise-company-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
+import {
+  OperationalCustomFieldsCollector,
+  OperationalCustomFieldsSection,
+} from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
+import type { OperationalCustomFieldSubmission } from "@/lib/field-control-master/operational-custom-fields";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { SoftDeleteConfirmDialog } from "@/components/enterprise/soft-delete/soft-delete-dialogs";
 import { useAuthContext } from "@/components/providers/auth-provider";
@@ -168,6 +173,8 @@ export function CompanyWorkspaceModal({
   const [startingJourney, setStartingJourney] = useState(false);
   const startingJourneyLockRef = useRef(false);
   const [busy, setBusy] = useState(false);
+  const [customSubmissions, setCustomSubmissions] = useState<OperationalCustomFieldSubmission[]>([]);
+  const [customBlocked, setCustomBlocked] = useState(isEnterprisePersistencePrisma());
   const baselineRef = useRef("");
   const wasOpenRef = useRef(false);
 
@@ -331,21 +338,28 @@ export function CompanyWorkspaceModal({
     if (!applyValidationErrors(errors, "Complete the required Company Identity fields.")) {
       return null;
     }
+    if (!draftId && isEnterprisePersistencePrisma() && customBlocked) {
+      setValidationMessage("Complete the required custom fields.");
+      return null;
+    }
 
     setBusy(true);
     try {
       if (!draftId) {
-        const created = await persistRegisterEcmCompany({
-          companyName,
-          constitution,
-          cin,
-          pan,
-          gst,
-          dateOfIncorporation: doi,
-          registeredAddress: address,
-          ownerName,
-          createdBy: actorId,
-        });
+        const created = await persistRegisterEcmCompany(
+          {
+            companyName,
+            constitution,
+            cin,
+            pan,
+            gst,
+            dateOfIncorporation: doi,
+            registeredAddress: address,
+            ownerName,
+            createdBy: actorId,
+          },
+          isEnterprisePersistencePrisma() ? { customFieldValues: customSubmissions } : undefined,
+        );
         setDraftId(created.id);
         if (linkContactId) {
           await persistLinkCompanyContact({
@@ -659,6 +673,22 @@ export function CompanyWorkspaceModal({
                   )}
                 />
               </Field>
+              {!draftId && isEnterprisePersistencePrisma() ? (
+                <OperationalCustomFieldsCollector
+                  domain="company"
+                  onState={(state) => {
+                    setCustomSubmissions(state.submissions);
+                    setCustomBlocked(state.blocked);
+                  }}
+                />
+              ) : null}
+              {draftId ? (
+                <OperationalCustomFieldsSection
+                  domain="company"
+                  entityId={draftId}
+                  mode="edit"
+                />
+              ) : null}
               <Field label="Constitution">
                 <EcmMasterSelect
                   domain="constitution"

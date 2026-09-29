@@ -13,6 +13,7 @@ import {
   type PlacementStore,
 } from "./custom-field-placement";
 import { resolvePlacementScreen } from "./custom-field-placement-catalogue";
+import { productApplicabilityPermits } from "./custom-field-product-applicability";
 import { CustomFieldValueContractError, validateCustomFieldValue } from "./custom-field-value-contract";
 
 export class CustomFieldValueError extends Error {
@@ -81,18 +82,40 @@ function rejectClientOrganization(body: Record<string, unknown>): void {
   }
 }
 
-async function authorizedDeal(input: {
+const VALIDATED_ENTITY_DOMAINS = new Set(["contact", "company", "opportunity", "deal"]);
+
+async function authorizedEntity(input: {
   organizationId: string;
   entityDomain: string;
   entityId: string;
-  dealInOrganization: (organizationId: string, entityId: string) => Promise<boolean>;
+  dealInOrganization?: (organizationId: string, entityId: string) => Promise<boolean>;
+  entityInOrganization?: (
+    organizationId: string,
+    entityDomain: string,
+    entityId: string,
+  ) => Promise<boolean>;
 }): Promise<DesignNewFieldDomain> {
-  if (input.entityDomain !== "deal") {
-    fail(409, "ENTITY_DOMAIN_NOT_VALIDATED", "This launch slice validates Deal entities only.");
+  if (!VALIDATED_ENTITY_DOMAINS.has(input.entityDomain)) {
+    fail(409, "ENTITY_DOMAIN_NOT_VALIDATED", "This entity domain is not validated for custom field values.");
   }
-  const allowed = await input.dealInOrganization(input.organizationId, input.entityId);
+  if (input.entityDomain === "deal") {
+    if (!input.dealInOrganization) {
+      fail(409, "ENTITY_DOMAIN_NOT_VALIDATED", "Deal membership validation is required.");
+    }
+    const allowed = await input.dealInOrganization(input.organizationId, input.entityId);
+    if (!allowed) fail(404, "ENTITY_NOT_IN_ORGANIZATION", "The entity is not available in the authorized organization.");
+    return "deal";
+  }
+  if (!input.entityInOrganization) {
+    fail(409, "ENTITY_DOMAIN_NOT_VALIDATED", "Entity membership validation is required for this domain.");
+  }
+  const allowed = await input.entityInOrganization(
+    input.organizationId,
+    input.entityDomain,
+    input.entityId,
+  );
   if (!allowed) fail(404, "ENTITY_NOT_IN_ORGANIZATION", "The entity is not available in the authorized organization.");
-  return "deal";
+  return input.entityDomain as DesignNewFieldDomain;
 }
 
 async function audited(
@@ -135,7 +158,12 @@ export async function readCustomFieldValues(input: {
   entityDomain: string;
   entityId: string;
   resolveOrganizationId: () => Promise<string>;
-  dealInOrganization: (organizationId: string, entityId: string) => Promise<boolean>;
+  dealInOrganization?: (organizationId: string, entityId: string) => Promise<boolean>;
+  entityInOrganization?: (
+    organizationId: string,
+    entityDomain: string,
+    entityId: string,
+  ) => Promise<boolean>;
   store: CustomFieldValueStore;
 }): Promise<CustomFieldValueRow[]> {
   assertUser(input.actor);
@@ -146,11 +174,12 @@ export async function readCustomFieldValues(input: {
   if (typeof organizationId !== "string" || organizationId.length === 0) {
     fail(403, "ORGANIZATION_CONTEXT_REJECTED", "Organization context is not available.");
   }
-  const entityDomain = await authorizedDeal({
+  const entityDomain = await authorizedEntity({
     organizationId,
     entityDomain: input.entityDomain,
     entityId: input.entityId,
     dealInOrganization: input.dealInOrganization,
+    entityInOrganization: input.entityInOrganization,
   });
   return input.store.listForEntity({ organizationId, entityDomain, entityId: input.entityId });
 }
@@ -160,7 +189,15 @@ export async function writeCustomFieldValue(input: {
   body: unknown;
   definitions: PlacementDefinitionRecord[];
   resolveOrganizationId: () => Promise<string>;
-  dealInOrganization: (organizationId: string, entityId: string) => Promise<boolean>;
+  dealInOrganization?: (organizationId: string, entityId: string) => Promise<boolean>;
+  entityInOrganization?: (
+    organizationId: string,
+    entityDomain: string,
+    entityId: string,
+  ) => Promise<boolean>;
+  enforceProductApplicability?: boolean;
+  productCode?: string | null;
+  operation?: "create" | "edit";
   placements: PlacementStore;
   store: CustomFieldValueStore;
   audit: (event: CustomFieldAuditEvent) => void;
@@ -182,11 +219,12 @@ export async function writeCustomFieldValue(input: {
   if (!screen) fail(400, "UNKNOWN_SCREEN", "The screen and section are not an authorized placement target.");
   const organizationId = await input.resolveOrganizationId();
   if (!organizationId) fail(403, "ORGANIZATION_CONTEXT_REJECTED", "Organization context is not available.");
-  const entityDomain = await authorizedDeal({
+  const entityDomain = await authorizedEntity({
     organizationId,
     entityDomain: body.entityDomain,
     entityId: body.entityId,
     dealInOrganization: input.dealInOrganization,
+    entityInOrganization: input.entityInOrganization,
   });
   if (entityDomain !== screen.owningDomain) {
     fail(409, "DOMAIN_MISMATCH", "The entity domain does not match the placement screen.");
@@ -197,13 +235,25 @@ export async function writeCustomFieldValue(input: {
   if (governing.owningDomain !== entityDomain) {
     fail(409, "DOMAIN_MISMATCH", "The field domain does not match the entity.");
   }
-  await activePlacement({
+  const placement = await activePlacement({
     store: input.placements,
     lineageId: governing.lineageId,
     entityDomain,
     screenId: screen.screenId,
     sectionId: screen.sectionId,
   });
+  if (input.operation === "create" && !placement.showOnCreate) {
+    fail(409, "PLACEMENT_NOT_VISIBLE", "This placement is not open for create.");
+  }
+  if (input.operation === "edit" && !placement.showOnEdit) {
+    fail(409, "PLACEMENT_NOT_EDITABLE", "This placement is not open for editing.");
+  }
+  if (
+    input.enforceProductApplicability &&
+    !productApplicabilityPermits(governing, entityDomain, input.productCode ?? null)
+  ) {
+    fail(409, "PRODUCT_NOT_APPLICABLE", "This custom field does not apply to the current product.");
+  }
   const key: CustomFieldValueKey = {
     organizationId,
     fieldLineageId: governing.lineageId,
@@ -277,7 +327,12 @@ export async function clearCustomFieldValue(input: {
   fieldLineageId: string;
   clientOrganizationId?: string | null;
   resolveOrganizationId: () => Promise<string>;
-  dealInOrganization: (organizationId: string, entityId: string) => Promise<boolean>;
+  dealInOrganization?: (organizationId: string, entityId: string) => Promise<boolean>;
+  entityInOrganization?: (
+    organizationId: string,
+    entityDomain: string,
+    entityId: string,
+  ) => Promise<boolean>;
   store: CustomFieldValueStore;
   audit: (event: CustomFieldAuditEvent) => void;
 }): Promise<{ cleared: boolean }> {
@@ -290,11 +345,12 @@ export async function clearCustomFieldValue(input: {
   }
   const organizationId = await input.resolveOrganizationId();
   if (!organizationId) fail(403, "ORGANIZATION_CONTEXT_REJECTED", "Organization context is not available.");
-  const entityDomain = await authorizedDeal({
+  const entityDomain = await authorizedEntity({
     organizationId,
     entityDomain: input.entityDomain,
     entityId: input.entityId,
     dealInOrganization: input.dealInOrganization,
+    entityInOrganization: input.entityInOrganization,
   });
   const key: CustomFieldValueKey = {
     organizationId,

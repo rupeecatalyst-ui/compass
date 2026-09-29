@@ -85,8 +85,12 @@ export async function hydrateCompanyLinksFromPrisma(
 
 export async function persistRegisterEcmContact(
   input: EcmContactRegisterInput,
+  options?: { customFieldValues?: Array<{ fieldLineageId: string; value: unknown }> },
 ): Promise<EcmContact> {
   if (!isEnterprisePersistencePrisma()) {
+    if (options?.customFieldValues?.length) {
+      throw new Error("Custom fields require enterprise persistence.");
+    }
     return registerEcmContactMemory(input);
   }
   const created = await ecmApiClient.createContact({
@@ -104,6 +108,7 @@ export async function persistRegisterEcmContact(
     ownerName: input.ownerName,
     ownerId: input.ownerId,
     employmentType: input.employmentType,
+    customFieldValues: options?.customFieldValues,
   });
   getEcmPorts().contacts.save(created);
   notifyEcmContactRegistryChanged();
@@ -126,11 +131,18 @@ export async function persistUpdateEcmContact(
 
 export async function persistRegisterEcmCompany(
   input: EcmCompanyRegisterInput,
+  options?: { customFieldValues?: Array<{ fieldLineageId: string; value: unknown }> },
 ): Promise<EcmCompany> {
   if (!isEnterprisePersistencePrisma()) {
+    if (options?.customFieldValues?.length) {
+      throw new Error("Custom fields require enterprise persistence.");
+    }
     return registerEcmCompanyMemory(input);
   }
-  const created = await ecmApiClient.createCompany(input);
+  const created = await ecmApiClient.createCompany({
+    ...input,
+    customFieldValues: options?.customFieldValues,
+  });
   upsertEcmCompanyLocal(created);
   notifyEcmContactRegistryChanged();
   return created;

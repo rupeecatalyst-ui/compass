@@ -36,6 +36,9 @@ import { opportunityLifecycleLabel } from "@/constants/opportunity-lifecycle";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import { OPPORTUNITY_FIELD_NOT_SPECIFIED } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import { borrowerDisplayNameOrDash } from "@/lib/enterprise-borrower-identity";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { OperationalCustomFieldsCollector } from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
+import type { OperationalCustomFieldSubmission } from "@/lib/field-control-master/operational-custom-fields";
 import {
   parseRequestedAmountInput,
   validateLeadInformationForm,
@@ -115,6 +118,8 @@ export function LeadInformationWorkspace() {
     Partial<Record<keyof LeadInformationFormState, string>>
   >({});
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [customSubmissions, setCustomSubmissions] = useState<OperationalCustomFieldSubmission[]>([]);
+  const [customBlocked, setCustomBlocked] = useState(isEnterprisePersistencePrisma());
   const { options: productOptions } = useProductMasterOptions(true);
   const productCatalog =
     productOptions.length > 0 ? productOptions : LEAD_INFORMATION_PRODUCT_OPTIONS;
@@ -216,6 +221,10 @@ export function LeadInformationWorkspace() {
       );
       return;
     }
+    if (isEnterprisePersistencePrisma() && customBlocked) {
+      toastError("Complete required custom fields", "A required custom field is missing.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -233,6 +242,7 @@ export function LeadInformationWorkspace() {
         {
           ...body,
           ...(opts.continueAfter ? { markInProgress: true } : {}),
+          ...(isEnterprisePersistencePrisma() ? { customFieldValues: customSubmissions } : {}),
         },
       );
       setOpp(updated);
@@ -755,6 +765,18 @@ export function LeadInformationWorkspace() {
                 aria-readonly="true"
               />
             </Field>
+            <div className="sm:col-span-2">
+              {isEnterprisePersistencePrisma() ? (
+                <OperationalCustomFieldsCollector
+                  domain="opportunity"
+                  productCode={form.productCode || null}
+                  onState={(state) => {
+                    setCustomSubmissions(state.submissions);
+                    setCustomBlocked(state.blocked);
+                  }}
+                />
+              ) : null}
+            </div>
             <div className="sm:col-span-2">
               <Field label="Notes / Remarks">
                 <Textarea

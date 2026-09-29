@@ -7,6 +7,8 @@ import {
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { configureEcmPersistencePorts } from "@/lib/enterprise-persistence/server";
 import { ecmCompanyService } from "@server/services/ecm/company.service";
+import { CustomFieldValueError } from "@/lib/field-control-master/custom-field-value";
+import { commitCompanyWithCustomFields } from "@/lib/field-control-master/operational-custom-field-commit";
 import type { ApiResponse } from "@/types/api";
 import type { EcmCompanyQuery } from "@/types/enterprise-company-master";
 
@@ -44,7 +46,10 @@ export async function POST(request: Request) {
     configureEcmPersistencePorts();
     const actor = requireAccessToken(request);
     const body = await request.json();
-    const company = await ecmCompanyService.register({
+    if ("organizationId" in body || "organisationId" in body) {
+      return errorResponse(400, "ORGANIZATION_CONTEXT_REJECTED", "Organization is taken from the server context.");
+    }
+    const registerInput = {
       companyName: String(body.companyName ?? ""),
       createdBy: actor.userId,
       constitution: body.constitution,
@@ -62,9 +67,20 @@ export async function POST(request: Request) {
       website: body.website,
       ownerName: body.ownerName,
       ownerId: body.ownerId,
-    });
+    };
+    const company =
+      body.customFieldValues !== undefined
+        ? await commitCompanyWithCustomFields({
+            company: registerInput,
+            customFieldValues: body.customFieldValues,
+            actorUserId: actor.userId,
+          })
+        : await ecmCompanyService.register(registerInput);
     return successResponse(company, 201);
   } catch (err) {
+    if (err instanceof CustomFieldValueError) {
+      return errorResponse(err.statusCode, err.code, err.message);
+    }
     if (typeof err === "object" && err !== null && "status" in err) {
       return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
     }

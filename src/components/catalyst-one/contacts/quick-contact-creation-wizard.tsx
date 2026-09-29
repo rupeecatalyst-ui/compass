@@ -29,6 +29,8 @@ import {
 import { persistRegisterEcmContact } from "@/lib/enterprise-persistence";
 import { ecmApiClient } from "@/lib/enterprise-persistence/ecm-api-client";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { OperationalCustomFieldsCollector } from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
+import type { OperationalCustomFieldSubmission } from "@/lib/field-control-master/operational-custom-fields";
 import type {
   EcmContact,
   EcmContactIdentitySnapshot,
@@ -105,6 +107,8 @@ export function QuickContactCreationWizard({
     useState<EcmContactIdentitySnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [customSubmissions, setCustomSubmissions] = useState<OperationalCustomFieldSubmission[]>([]);
+  const [customBlocked, setCustomBlocked] = useState(isEnterprisePersistencePrisma());
   const [animKey, setAnimKey] = useState(0);
 
   const roleMaster = useMemo(() => getEnabledEcmRoleMaster(), []);
@@ -259,6 +263,10 @@ export function QuickContactCreationWizard({
   };
 
   const handleCreate = () => {
+    if (isEnterprisePersistencePrisma() && customBlocked) {
+      setError("Complete the required custom fields.");
+      return;
+    }
     setCreating(true);
     setError(null);
     void (async () => {
@@ -320,6 +328,8 @@ export function QuickContactCreationWizard({
         },
         ownerName,
         createdBy: actorId,
+      }, {
+        customFieldValues: isEnterprisePersistencePrisma() ? customSubmissions : undefined,
       });
 
       if (sessionId) {
@@ -620,6 +630,17 @@ export function QuickContactCreationWizard({
             <SummaryRow label="Email" value={email.trim() || "Skipped"} />
             <SummaryRow label="Roles" value={roles.map(getEcmRoleLabel).join(", ") || "—"} />
           </div>
+          {isEnterprisePersistencePrisma() ? (
+            <div className="mt-3">
+              <OperationalCustomFieldsCollector
+                domain="contact"
+                onState={(state) => {
+                  setCustomSubmissions(state.submissions);
+                  setCustomBlocked(state.blocked);
+                }}
+              />
+            </div>
+          ) : null}
           <p className="mt-3 text-xs text-muted-foreground">
             Conversation complete. You will continue in {journey.workspaceTargetLabel} — no re-entry
             of these details.

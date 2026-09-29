@@ -1,4 +1,4 @@
-import type { EcmCompanyRelationRole } from "@prisma/client";
+import type { EcmCompanyRelationRole, Prisma } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
 import type {
   EcmCompanyContactLink,
@@ -104,8 +104,8 @@ export class EcmCompanyRepository {
     };
   }
 
-  async create(data: CompanyCreateData) {
-    const row = await prisma.ecmCompany.create({
+  async create(data: CompanyCreateData, db: Prisma.TransactionClient | typeof prisma = prisma) {
+    const row = await db.ecmCompany.create({
       data: {
         organizationId: data.organizationId,
         companyName: data.companyName,

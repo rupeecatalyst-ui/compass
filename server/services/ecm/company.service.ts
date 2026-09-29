@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import type {
   EcmCompanyQuery,
   EcmCompanyRegisterInput,
@@ -45,7 +46,7 @@ export class EcmCompanyService {
     return ecmCompanyRepository.findById(id);
   }
 
-  async register(input: EcmCompanyRegisterInput) {
+  async register(input: EcmCompanyRegisterInput, db?: Prisma.TransactionClient) {
     const organizationId = await resolvePilotOrganizationId();
     const displayName = formatCompanyDisplayName(input.companyName);
     if (!displayName) throw new Error("Company Name is required.");
@@ -78,7 +79,7 @@ export class EcmCompanyService {
       modifiedBy: input.createdBy,
     };
 
-    return ecmCompanyRepository.create(draft);
+    return ecmCompanyRepository.create(draft, db);
   }
 
   async update(id: string, patch: Partial<EcmCompanyRegisterInput>, actorId: string) {

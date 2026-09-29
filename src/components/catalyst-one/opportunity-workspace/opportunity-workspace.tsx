@@ -79,6 +79,7 @@ import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
+import { OperationalCustomFieldsSection } from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
 
 function OpportunityWorkspaceShell() {
   const { user } = useAuthContext();
@@ -508,6 +509,14 @@ function OpportunityWorkspaceShell() {
               }
               onActivitySaved={() => refresh()}
             />
+            {opportunityId ? (
+              <OperationalCustomFieldsSection
+                domain="opportunity"
+                entityId={opportunityId}
+                mode="edit"
+                productCode={registryOpportunity?.productCode ?? null}
+              />
+            ) : null}
             <LoanStructureCommandControl
               file={activeLoan}
               participants={activeLoan?.participants ?? []}

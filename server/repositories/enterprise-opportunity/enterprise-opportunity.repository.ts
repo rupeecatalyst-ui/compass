@@ -544,6 +544,7 @@ export class EnterpriseOpportunityRepository {
     organizationId: string,
     opportunityId: string,
     input: UpdateEnterpriseOpportunityInput,
+    db: Prisma.TransactionClient | typeof prisma = prisma,
   ) {
     const existing = await this.requireOpportunity(organizationId, opportunityId);
 
@@ -558,7 +559,7 @@ export class EnterpriseOpportunityRepository {
     }
 
     if (input.productId) {
-      const product = await prisma.enterpriseProduct.findFirst({
+      const product = await db.enterpriseProduct.findFirst({
         where: {
           id: input.productId,
           organizationId,
@@ -652,7 +653,7 @@ export class EnterpriseOpportunityRepository {
       (data as Record<string, unknown>).marketingProspectRef = input.marketingProspectRef;
     }
 
-    return prisma.enterpriseOpportunity.update({
+    return db.enterpriseOpportunity.update({
       where: { id: existing.id },
       data,
     });

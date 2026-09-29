@@ -32,6 +32,8 @@ export type PlacementDefinitionRecord = {
   customerFacingActivation: boolean;
   selectOptionKeysJson: unknown;
   currencyUnitsJson: unknown;
+  applicabilityDeclared?: boolean;
+  productApplicabilityJson?: unknown;
 };
 
 export type PlacementRow = {

@@ -305,8 +305,8 @@ export class EcmContactRepository {
     };
   }
 
-  async create(data: ContactCreateData) {
-    const row = await prisma.ecmContact.create({
+  async create(data: ContactCreateData, db: Prisma.TransactionClient | typeof prisma = prisma) {
+    const row = await db.ecmContact.create({
       data: {
         organizationId: data.organizationId,
         name: data.name,

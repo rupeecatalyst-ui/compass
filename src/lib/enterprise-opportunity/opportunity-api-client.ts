@@ -199,6 +199,8 @@ export type OpportunityUpdateBody = {
   overrideReason?: string;
   /** CO-OPP-002 — promote Requirement Captured → In Progress when continuing journey. */
   markInProgress?: boolean;
+  /** FCM custom values committed with this Opportunity update. */
+  customFieldValues?: Array<{ fieldLineageId: string; value: unknown }>;
 };
 
 export const enterpriseOpportunityApiClient = {

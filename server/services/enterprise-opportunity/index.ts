@@ -593,6 +593,10 @@ export class EnterpriseOpportunityService {
     opportunityId: string,
     body: Record<string, unknown>,
     actorUserId: string,
+    options?: {
+      db?: Prisma.TransactionClient;
+      afterRowUpdate?: (row: { id: string }) => Promise<void>;
+    },
   ) {
     const organizationId = await this.orgId();
     const existing = await enterpriseOpportunityRepository.requireOpportunity(
@@ -916,7 +920,9 @@ export class EnterpriseOpportunityService {
         organizationId,
         opportunityId,
         patch,
+        options?.db,
       );
+      if (options?.afterRowUpdate) await options.afterRowUpdate(updated);
       const assignmentTouched =
         body.relationshipManagerUserId !== undefined ||
         body.relationshipManagerName !== undefined ||

@@ -20,6 +20,7 @@ import {
   type CustomFieldValueStore,
 } from "./custom-field-value";
 import type { CustomFieldAuditEvent } from "./custom-field-audit";
+import { productApplicabilityPermits } from "./custom-field-product-applicability";
 import { readSelectKeySets } from "./custom-field-value-contract";
 
 export type DealWorkspaceFieldMode = "edit" | "view";
@@ -181,6 +182,7 @@ export async function loadDealWorkspaceCustomFields(input: {
   placements: PlacementStore;
   definitionsForLineage: (lineageId: string) => Promise<DealWorkspaceFieldDefinition[]>;
   values: CustomFieldValueStore;
+  resolveProductCode?: (organizationId: string, dealId: string) => Promise<string | null>;
 }): Promise<DealCustomFieldView[]> {
   const organizationId = await authorizedDeal(input);
   const placements = await input.placements.list({
@@ -198,12 +200,21 @@ export async function loadDealWorkspaceCustomFields(input: {
     entityDomain: "deal",
     entityId: input.dealId,
   });
-  return projectDealWorkspaceCustomFields({
+  const views = projectDealWorkspaceCustomFields({
     mode: input.mode,
     placements,
     definitions,
     values,
   });
+  if (!input.resolveProductCode) return views;
+  const productCode = await input.resolveProductCode(organizationId, input.dealId);
+  return views.filter((view) =>
+    productApplicabilityPermits(
+      definitions.find((row) => row.lineageId === view.fieldLineageId),
+      "deal",
+      productCode,
+    ),
+  );
 }
 
 export async function saveDealWorkspaceCustomField(input: {
@@ -219,11 +230,12 @@ export async function saveDealWorkspaceCustomField(input: {
   values: CustomFieldValueStore;
   audit: (event: CustomFieldAuditEvent) => void;
   now?: string;
+  resolveProductCode?: (organizationId: string, dealId: string) => Promise<string | null>;
 }): Promise<{ value: unknown | null }> {
   if (input.clientOrganizationId) {
     fail(400, "ORGANIZATION_CONTEXT_REJECTED", "Organization is taken from the server context.");
   }
-  await authorizedDeal(input);
+  const organizationId = await authorizedDeal(input);
   const placements = await input.placements.list({
     fieldLineageId: input.fieldLineageId,
     owningDomain: "deal",
@@ -234,6 +246,15 @@ export async function saveDealWorkspaceCustomField(input: {
   const placement = placements[0];
   if (!placement) fail(409, "PLACEMENT_NOT_ACTIVE", "An active placement is required before a value can be saved.");
   if (!placement.showOnEdit) fail(409, "PLACEMENT_NOT_EDITABLE", "This placement is not open for editing.");
+  if (input.resolveProductCode) {
+    const productCode = await input.resolveProductCode(organizationId, input.dealId);
+    const governing = governingCustomDefinition(
+      input.definitions.filter((row) => row.lineageId === input.fieldLineageId),
+    );
+    if (!productApplicabilityPermits(governing, "deal", productCode)) {
+      fail(409, "PRODUCT_NOT_APPLICABLE", "This custom field does not apply to the current product.");
+    }
+  }
   if (isEmptyCustomFieldValue(input.value)) {
     if (placement.requiredOnPlacement) {
       fail(400, "REQUIRED_FIELD", "This custom field is required on the Deal Workspace placement.");

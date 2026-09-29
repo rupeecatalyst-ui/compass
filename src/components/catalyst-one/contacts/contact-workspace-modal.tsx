@@ -59,6 +59,11 @@ import {
   persistRegisterEcmContact,
   persistUpdateEcmContact,
 } from "@/lib/enterprise-persistence";
+import {
+  OperationalCustomFieldsCollector,
+  OperationalCustomFieldsSection,
+} from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
+import type { OperationalCustomFieldSubmission } from "@/lib/field-control-master/operational-custom-fields";
 import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
 import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
@@ -531,6 +536,8 @@ export function ContactWorkspaceModal({
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(initialTab);
   const [saving, setSaving] = useState(false);
+  const [customSubmissions, setCustomSubmissions] = useState<OperationalCustomFieldSubmission[]>([]);
+  const [customBlocked, setCustomBlocked] = useState(isEnterprisePersistencePrisma());
   const [dupOpen, setDupOpen] = useState(false);
   const [dupContact, setDupContact] = useState<EcmContact | null>(null);
   const [dupField, setDupField] = useState<EcmDuplicateMatchField | null>(null);
@@ -715,14 +722,23 @@ export function ContactWorkspaceModal({
       return;
     }
     setError(null);
+    if (awaitingFirstSave && isEnterprisePersistencePrisma() && customBlocked) {
+      setError("Complete the required custom fields.");
+      return;
+    }
     setSaving(true);
     try {
       if (awaitingFirstSave) {
-        const created = await persistRegisterEcmContact({
-          ...identityPayload(),
-          ownerName: "Platform Admin",
-          createdBy: actorId,
-        });
+        const created = await persistRegisterEcmContact(
+          {
+            ...identityPayload(),
+            ownerName: "Platform Admin",
+            createdBy: actorId,
+          },
+          {
+            customFieldValues: isEnterprisePersistencePrisma() ? customSubmissions : undefined,
+          },
+        );
         hydrateFromContact(created);
         markComplete("identity");
         onSaved(created);
@@ -1638,6 +1654,27 @@ export function ContactWorkspaceModal({
             />
           </div>
         </div>
+
+        {awaitingFirstSave && isEnterprisePersistencePrisma() ? (
+          <div className="mt-4">
+            <OperationalCustomFieldsCollector
+              domain="contact"
+              onState={(state) => {
+                setCustomSubmissions(state.submissions);
+                setCustomBlocked(state.blocked);
+              }}
+            />
+          </div>
+        ) : null}
+        {active && !awaitingFirstSave ? (
+          <div className="mt-4">
+            <OperationalCustomFieldsSection
+              domain="contact"
+              entityId={active.id}
+              mode={contactArchived ? "view" : "edit"}
+            />
+          </div>
+        ) : null}
 
         <div className="mt-4">
           <Button

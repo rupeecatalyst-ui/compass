@@ -104,8 +104,8 @@ function placementTable(): PlacementDelegate {
   return table;
 }
 
-function valueTable(): ValueDelegate {
-  const table = (prisma as unknown as { fieldControlCustomValue?: ValueDelegate }).fieldControlCustomValue;
+function valueTable(db: unknown = prisma): ValueDelegate {
+  const table = (db as { fieldControlCustomValue?: ValueDelegate }).fieldControlCustomValue;
   if (!table?.findFirst || !table.findMany || !table.create || !table.update || !table.delete) {
     throw new CustomFieldValueError(
       503,
@@ -153,8 +153,8 @@ export function prismaPlacementStore(): PlacementStore {
   };
 }
 
-export function prismaCustomFieldValueStore(): CustomFieldValueStore {
-  const table = valueTable();
+export function prismaCustomFieldValueStore(db: unknown = prisma): CustomFieldValueStore {
+  const table = valueTable(db);
   return {
     async findByKey(key) {
       const row = await table.findFirst({ where: { ...key } });
@@ -194,7 +194,71 @@ export async function loadPlacementDefinitions(lineageId: string): Promise<Place
     customerFacingActivation: row.customerFacingActivation,
     selectOptionKeysJson: row.selectOptionKeysJson,
     currencyUnitsJson: row.currencyUnitsJson,
+    applicabilityDeclared: row.applicabilityDeclared,
+    productApplicabilityJson: row.productApplicabilityJson,
   }));
+}
+
+type MembershipClient = {
+  ecmContact: { findFirst: typeof prisma.ecmContact.findFirst };
+  ecmCompany: { findFirst: typeof prisma.ecmCompany.findFirst };
+  enterpriseOpportunity: { findFirst: typeof prisma.enterpriseOpportunity.findFirst };
+  enterpriseDeal: { findFirst: typeof prisma.enterpriseDeal.findFirst };
+};
+
+export async function contactBelongsToOrganization(
+  organizationId: string,
+  entityId: string,
+  db: MembershipClient = prisma,
+): Promise<boolean> {
+  const row = await db.ecmContact.findFirst({
+    where: { id: entityId, organizationId, isDeleted: false },
+    select: { id: true },
+  });
+  return row !== null;
+}
+
+export async function companyBelongsToOrganization(
+  organizationId: string,
+  entityId: string,
+  db: MembershipClient = prisma,
+): Promise<boolean> {
+  const row = await db.ecmCompany.findFirst({
+    where: { id: entityId, organizationId, isDeleted: false },
+    select: { id: true },
+  });
+  return row !== null;
+}
+
+export async function opportunityBelongsToOrganization(
+  organizationId: string,
+  entityId: string,
+  db: MembershipClient = prisma,
+): Promise<boolean> {
+  const row = await db.enterpriseOpportunity.findFirst({
+    where: { id: entityId, organizationId, isDeleted: false },
+    select: { id: true },
+  });
+  return row !== null;
+}
+
+export async function entityBelongsToOrganization(
+  entityDomain: string,
+  organizationId: string,
+  entityId: string,
+  db: MembershipClient = prisma,
+): Promise<boolean> {
+  if (entityDomain === "contact") return contactBelongsToOrganization(organizationId, entityId, db);
+  if (entityDomain === "company") return companyBelongsToOrganization(organizationId, entityId, db);
+  if (entityDomain === "opportunity") return opportunityBelongsToOrganization(organizationId, entityId, db);
+  if (entityDomain === "deal") {
+    const row = await db.enterpriseDeal.findFirst({
+      where: { id: entityId, organizationId, isDeleted: false },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+  return false;
 }
 
 export async function dealBelongsToOrganization(organizationId: string, entityId: string): Promise<boolean> {
