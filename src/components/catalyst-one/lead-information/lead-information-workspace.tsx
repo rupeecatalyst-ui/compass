@@ -120,6 +120,7 @@ export function LeadInformationWorkspace() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [customSubmissions, setCustomSubmissions] = useState<OperationalCustomFieldSubmission[]>([]);
   const [customBlocked, setCustomBlocked] = useState(isEnterprisePersistencePrisma());
+  const [applicabilityContextReady, setApplicabilityContextReady] = useState(false);
   const { options: productOptions } = useProductMasterOptions(true);
   const productCatalog =
     productOptions.length > 0 ? productOptions : LEAD_INFORMATION_PRODUCT_OPTIONS;
@@ -130,12 +131,14 @@ export function LeadInformationWorkspace() {
       setLoading(false);
       return;
     }
+    setApplicabilityContextReady(false);
     setLoading(true);
     setLoadError(null);
     try {
       const row = await enterpriseOpportunityApiClient.getOpportunity(opportunityId);
       setOpp(row);
       setForm(formFromOpportunity(row));
+      setApplicabilityContextReady(true);
     } catch (err) {
       const message =
         err instanceof OpportunityApiError
@@ -727,12 +730,14 @@ export function LeadInformationWorkspace() {
               onChange={(v) => patchForm("approxCibilScore", v)}
               error={errors.approxCibilScore}
             />
-            {isEnterprisePersistencePrisma() ? (
+            {isEnterprisePersistencePrisma() && applicabilityContextReady ? (
               <OperationalCustomFieldsCollector
                 domain="opportunity"
+                mode="edit"
                 entityId={opportunityId}
                 productCode={form.productCode || null}
                 employmentTypeCode={form.employmentTypeCode || null}
+                contextReady
                 onState={(state) => {
                   setCustomSubmissions(state.submissions);
                   setCustomBlocked(state.blocked);

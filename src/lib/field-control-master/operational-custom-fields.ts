@@ -36,6 +36,25 @@ export type OperationalCustomFieldDomain = "contact" | "company" | "opportunity"
 export type OperationalCustomFieldMode = "create" | "edit" | "view";
 export type OperationalCustomFieldSubmission = { fieldLineageId: string; value: unknown };
 
+/** False only while the caller says canonical form context is still hydrating. */
+export function shouldRequestOperationalFields(contextReady?: boolean): boolean {
+  return contextReady !== false;
+}
+
+export function buildOperationalFieldsQuery(input: {
+  domain: OperationalCustomFieldDomain;
+  mode: OperationalCustomFieldMode;
+  entityId?: string | null;
+  productCode?: string | null;
+  employmentTypeCode?: string | null;
+}): string {
+  const params = new URLSearchParams({ domain: input.domain, mode: input.mode });
+  if (input.entityId) params.set("entityId", input.entityId);
+  if (input.productCode) params.set("productCode", input.productCode);
+  if (input.domain === "opportunity") params.set("employmentTypeCode", input.employmentTypeCode ?? "");
+  return `/api/internal/field-control/operational-fields?${params.toString()}`;
+}
+
 export function readCustomFieldSubmissions(raw: unknown): OperationalCustomFieldSubmission[] {
   if (!Array.isArray(raw)) {
     throw new CustomFieldValueError(400, "VALIDATION_ERROR", "customFieldValues must be an array.");

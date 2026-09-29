@@ -4,38 +4,31 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { CustomFieldInput } from "@/components/catalyst-one/deal-workspace/custom-field-input";
 import type { DealCustomFieldView } from "@/lib/field-control-master/deal-workspace-custom-fields";
-import type {
-  OperationalCustomFieldDomain,
-  OperationalCustomFieldMode,
-  OperationalCustomFieldSubmission,
+import {
+  buildOperationalFieldsQuery,
+  shouldRequestOperationalFields,
+  type OperationalCustomFieldDomain,
+  type OperationalCustomFieldMode,
+  type OperationalCustomFieldSubmission,
 } from "@/lib/field-control-master/operational-custom-fields";
 import type { ApiResponse } from "@/types/api";
-
-function query(input: {
-  domain: OperationalCustomFieldDomain;
-  mode: OperationalCustomFieldMode;
-  entityId?: string | null;
-  productCode?: string | null;
-  employmentTypeCode?: string | null;
-}) {
-  const params = new URLSearchParams({ domain: input.domain, mode: input.mode });
-  if (input.entityId) params.set("entityId", input.entityId);
-  if (input.productCode) params.set("productCode", input.productCode);
-  if (input.domain === "opportunity") params.set("employmentTypeCode", input.employmentTypeCode ?? "");
-  return `/api/internal/field-control/operational-fields?${params.toString()}`;
-}
 
 export function OperationalCustomFieldsCollector({
   domain,
   productCode,
   employmentTypeCode,
   entityId,
+  mode = "create",
+  contextReady = true,
   onState,
 }: {
   domain: OperationalCustomFieldDomain;
   productCode?: string | null;
   employmentTypeCode?: string | null;
   entityId?: string | null;
+  mode?: OperationalCustomFieldMode;
+  /** False while the parent canonical form is still hydrating. Defaults to ready. */
+  contextReady?: boolean;
   onState: (state: { submissions: OperationalCustomFieldSubmission[]; blocked: boolean }) => void;
 }) {
   const [fields, setFields] = useState<DealCustomFieldView[]>([]);
@@ -65,11 +58,17 @@ export function OperationalCustomFieldsCollector({
   );
 
   useEffect(() => {
+    if (!shouldRequestOperationalFields(contextReady)) {
+      setFields([]);
+      setBlocked(true);
+      publish([], {}, true);
+      return;
+    }
     let cancelled = false;
     setBlocked(true);
     publish([], {}, true);
     void authenticatedJsonFetch(
-      query({ domain, mode: "create", productCode, employmentTypeCode, entityId }),
+      buildOperationalFieldsQuery({ domain, mode, productCode, employmentTypeCode, entityId }),
       { method: "GET" },
     )
       .then(async (response) => {
@@ -96,7 +95,7 @@ export function OperationalCustomFieldsCollector({
     return () => {
       cancelled = true;
     };
-  }, [domain, productCode, employmentTypeCode, entityId, publish]);
+  }, [domain, mode, productCode, employmentTypeCode, entityId, contextReady, publish]);
 
   if (!blocked && fields.length === 0) return null;
 
@@ -150,7 +149,7 @@ export function OperationalCustomFieldsSection({
     setMessage(null);
     try {
       const response = await authenticatedJsonFetch(
-        query({ domain, mode, entityId, productCode, employmentTypeCode }),
+        buildOperationalFieldsQuery({ domain, mode, entityId, productCode, employmentTypeCode }),
         { method: "GET" },
       );
       const body = (await response.json()) as ApiResponse<{ fields: DealCustomFieldView[] }>;

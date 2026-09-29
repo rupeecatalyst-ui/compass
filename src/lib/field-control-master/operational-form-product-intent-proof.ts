@@ -9,8 +9,10 @@ import path from "node:path";
 import { CustomFieldValueError, type CustomFieldValueRow } from "./custom-field-value";
 import type { PlacementRow } from "./custom-field-placement";
 import {
+  buildOperationalFieldsQuery,
   prepareOperationalCustomValueWrites,
   projectOperationalCustomFields,
+  shouldRequestOperationalFields,
   type OperationalCustomFieldDefinition,
 } from "./operational-custom-fields";
 import {
@@ -279,18 +281,95 @@ function main(): void {
       lead.includes("employmentTypeCode={form.employmentTypeCode || null}") &&
       lead.includes("entityId={opportunityId}") &&
       lead.includes("productCode={form.productCode || null}") &&
+      lead.includes('mode="edit"') &&
+      lead.includes("applicabilityContextReady") &&
+      lead.includes("setForm(formFromOpportunity(row))") &&
+      lead.includes("setApplicabilityContextReady(true)") &&
       lead.includes(">Customer Profile<") &&
       lead.includes("Employment Type") &&
       lead.includes("Required Amount") &&
       lead.includes("Lending Type") &&
       lead.includes("Business Source"),
   );
+  const readyAfterHydration =
+    lead.indexOf("setForm(formFromOpportunity(row))") !== -1 &&
+    lead.indexOf("setForm(formFromOpportunity(row))") < lead.indexOf("setApplicabilityContextReady(true)");
+  check("projection_waits_until_canonical_form_is_hydrated", readyAfterHydration && lead.includes("isEnterprisePersistencePrisma() && applicabilityContextReady"));
+  check("empty_initial_projection_request_prevented", shouldRequestOperationalFields(false) === false && shouldRequestOperationalFields(undefined) === true);
+
+  const batQuery = buildOperationalFieldsQuery({
+    domain: "opportunity",
+    mode: "edit",
+    entityId: "opp-129",
+    productCode: "HOME_LOAN",
+    employmentTypeCode: "salaried",
+  });
+  check(
+    "hydrated_request_carries_product_and_employment",
+    batQuery.includes("domain=opportunity") &&
+      batQuery.includes("mode=edit") &&
+      batQuery.includes("entityId=opp-129") &&
+      batQuery.includes("productCode=HOME_LOAN") &&
+      batQuery.includes("employmentTypeCode=salaried"),
+  );
+  const blankQuery = buildOperationalFieldsQuery({
+    domain: "opportunity",
+    mode: "edit",
+    entityId: "opp-129",
+    productCode: null,
+    employmentTypeCode: null,
+  });
+  check("unset_product_is_omitted", !blankQuery.includes("productCode="));
+  check("unset_employment_stays_empty", blankQuery.includes("employmentTypeCode="));
+
+  const batPlacement = placement({
+    id: "placement:bat",
+    fieldLineageId: "opportunity.fcmBatTest",
+    fieldId: "opportunity.fcmBatTest",
+  });
+  const batDefinition = definition({
+    id: "def:bat",
+    fieldId: "opportunity.fcmBatTest",
+    lineageId: "opportunity.fcmBatTest",
+    friendlyLabel: "FCM BAT Test",
+    applicabilityDeclared: true,
+    productApplicabilityJson: ["HOME_LOAN"],
+    employmentApplicabilityDeclared: true,
+    employmentTypeApplicabilityJson: ["salaried"],
+  });
+  const batView = (productCode: string | null, employmentTypeCode: string | null) =>
+    projectOperationalCustomFields({
+      domain: "opportunity",
+      mode: "edit",
+      productCode,
+      employmentTypeCode,
+      placements: [batPlacement],
+      definitions: [batDefinition],
+      values: [storedValue("kept")],
+    });
+  const batVisible = batView("HOME_LOAN", "salaried");
+  check("bat_home_loan_salaried_visible", batVisible.length === 1 && batVisible[0]?.fieldId === "opportunity.fcmBatTest" && batVisible[0]?.friendlyLabel === "FCM BAT Test");
+  check("bat_other_product_hidden", batView("PERSONAL_LOAN", "salaried").length === 0);
+  check("bat_home_loan_alias_matches_without_rewriting_storage", batView("HL", "salaried").length === 1 && batView("HOME-LOAN", "salaried").length === 1);
+  check("bat_self_employed_professional_hidden", batView("HOME_LOAN", "self-employed-professional").length === 0);
+  check("bat_self_employed_business_hidden", batView("HOME_LOAN", "self-employed-business").length === 0);
+  check("bat_unset_product_hidden", batView(null, "salaried").length === 0);
+  check("bat_unset_employment_hidden", batView("HOME_LOAN", null).length === 0 && batView("HOME_LOAN", "").length === 0);
+  const historical = storedValue("kept");
+  batView("PERSONAL_LOAN", "salaried");
+  check("historical_custom_value_untouched", historical.valueJson === "kept");
+  check("no_duplicate_bat_field", batVisible.length === 1);
 
   const section = readFileSync(
     path.join(repoRoot, "src/components/catalyst-one/field-control-master/operational-custom-fields-section.tsx"),
     "utf8",
   );
   check("shared_operational_renderer_has_no_custom_fields_title", !section.includes(">Custom Fields<") && !section.includes("Custom Fields"));
+  check(
+    "dynamic_product_and_employment_refetch",
+    section.includes("productCode, employmentTypeCode, entityId, contextReady, publish") &&
+      section.includes("buildOperationalFieldsQuery({ domain, mode, productCode, employmentTypeCode, entityId })"),
+  );
 
   const commit = readFileSync(path.join(repoRoot, "src/lib/field-control-master/operational-custom-field-commit.ts"), "utf8");
   const contactFn = commit.slice(
