@@ -35,6 +35,31 @@ const JUSTIFICATION: Record<CustomFieldAuditAction, string> = {
   value_cleared: "Cleared an organization custom field value.",
 };
 
+/**
+ * Holds custom-value audit events until the surrounding database transaction
+ * completes. Placement audits keep calling recordCustomFieldAudit directly.
+ */
+export function createOperationalCustomValueAuditBuffer() {
+  const events: CustomFieldAuditEvent[] = [];
+  return {
+    capture(event: CustomFieldAuditEvent) {
+      if (event.actorUserId.trim().length === 0) {
+        throw new Error("Field Control audit requires an actor.");
+      }
+      events.push(event);
+    },
+    publish() {
+      for (const event of events) {
+        if (event.actorUserId.trim().length === 0) {
+          throw new Error("Field Control audit requires an actor.");
+        }
+      }
+      const ready = events.splice(0, events.length);
+      for (const event of ready) recordCustomFieldAudit(event);
+    },
+  };
+}
+
 export function recordCustomFieldAudit(event: CustomFieldAuditEvent): void {
   if (event.actorUserId.trim().length === 0) {
     throw new Error("Field Control audit requires an actor.");

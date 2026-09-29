@@ -339,8 +339,8 @@ export class EcmContactRepository {
     return mapPrismaContactToDomain(row);
   }
 
-  async update(id: string, data: ContactUpdateData) {
-    const row = await prisma.ecmContact.update({
+  async update(id: string, data: ContactUpdateData, db: Prisma.TransactionClient | typeof prisma = prisma) {
+    const row = await db.ecmContact.update({
       where: { id },
       data: {
         name: data.name,

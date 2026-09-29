@@ -179,6 +179,7 @@ export class EcmContactService {
       roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
     },
     actorId: string,
+    db?: Prisma.TransactionClient,
   ) {
     const existing = await ecmContactRepository.findById(id);
     if (!existing) throw new Error("Contact not found.");
@@ -246,7 +247,7 @@ export class EcmContactService {
       enabled: patch.enabled ?? existing.enabled,
       contactScore,
       modifiedBy: actorId,
-    });
+    }, db);
 
     const { propagateContactIdentityToTransactions } = await import(
       "@server/services/ecm/contact-ssot-propagate"
@@ -263,7 +264,7 @@ export class EcmContactService {
         state: updated.state,
       },
       modifiedBy: actorId,
-    });
+    }, db);
 
     return updated;
   }

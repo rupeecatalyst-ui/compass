@@ -9,7 +9,8 @@ import { ecmContactService } from "@server/services/ecm/contact.service";
 import { enterpriseOpportunityService } from "@server/services/enterprise-opportunity";
 import type { EcmCompanyRegisterInput } from "@/types/enterprise-company-master";
 import type { RegisterContactInput } from "@server/services/ecm/contact.service";
-import { recordCustomFieldAudit } from "./custom-field-audit";
+import { createOperationalCustomValueAuditBuffer, recordCustomFieldAudit } from "./custom-field-audit";
+import type { CustomFieldAuditEvent } from "./custom-field-audit";
 import {
   entityBelongsToOrganization,
   loadPlacementDefinitions,
@@ -24,6 +25,7 @@ import {
   prepareOperationalCustomValueWrites,
   projectOperationalCustomFields,
   readCustomFieldSubmissions,
+  resolveCompanyCreateCustomValueAction,
   type OperationalCustomFieldDefinition,
   type OperationalCustomFieldDomain,
   type OperationalCustomFieldMode,
@@ -129,6 +131,7 @@ async function applyPlan(
   prepared: Awaited<ReturnType<typeof contextFor>>,
   entityId: string,
   actorUserId: string,
+  audit: (event: CustomFieldAuditEvent) => void = recordCustomFieldAudit,
 ) {
   await applyOperationalCustomValuePlan({
     plan: prepared.plan,
@@ -140,7 +143,7 @@ async function applyPlan(
     placements: prepared.placements,
     definitions: prepared.definitions,
     values: prismaCustomFieldValueStore(tx),
-    audit: recordCustomFieldAudit,
+    audit,
   });
 }
 
@@ -176,9 +179,26 @@ export async function commitCompanyWithCustomFields(input: {
     submissions,
   });
   return prisma.$transaction(async (tx) => {
-    const company = await ecmCompanyService.register({ ...input.company, createdBy: input.actorUserId }, tx);
-    await applyPlan(tx, prepared, company.id, input.actorUserId);
-    return company;
+    const outcome = await ecmCompanyService.registerOutcome(
+      { ...input.company, createdBy: input.actorUserId },
+      tx,
+    );
+    const action = resolveCompanyCreateCustomValueAction({
+      created: outcome.created,
+      writes: prepared.plan.writes,
+      clears: prepared.plan.clears,
+    });
+    if (action === "reject") {
+      throw new CustomFieldValueError(
+        409,
+        "COMPANY_ALREADY_EXISTS",
+        "A company with this name already exists. Open that company to change its custom fields. The values entered here were not saved.",
+      );
+    }
+    if (action === "apply") {
+      await applyPlan(tx, prepared, outcome.company.id, input.actorUserId);
+    }
+    return outcome.company;
   });
 }
 
@@ -211,14 +231,17 @@ export async function commitOpportunityWithCustomFields(input: {
     submissions,
     existingEntityId: input.opportunityId,
   });
-  return prisma.$transaction(async (tx) =>
-    enterpriseOpportunityService.updateOpportunity(input.opportunityId, input.body, input.actorUserId, {
+  const customValueAudits = createOperationalCustomValueAuditBuffer();
+  return prisma.$transaction(async (tx) => {
+    const saved = await enterpriseOpportunityService.updateOpportunity(input.opportunityId, input.body, input.actorUserId, {
       db: tx,
       afterRowUpdate: async () => {
-        await applyPlan(tx, prepared, input.opportunityId, input.actorUserId);
+        await applyPlan(tx, prepared, input.opportunityId, input.actorUserId, customValueAudits.capture);
       },
-    }),
-  );
+    });
+    customValueAudits.publish();
+    return saved;
+  });
 }
 
 export async function saveOperationalCustomField(input: {

@@ -47,13 +47,18 @@ export class EcmCompanyService {
   }
 
   async register(input: EcmCompanyRegisterInput, db?: Prisma.TransactionClient) {
+    const outcome = await this.registerOutcome(input, db);
+    return outcome.company;
+  }
+
+  async registerOutcome(input: EcmCompanyRegisterInput, db?: Prisma.TransactionClient) {
     const organizationId = await resolvePilotOrganizationId();
     const displayName = formatCompanyDisplayName(input.companyName);
     if (!displayName) throw new Error("Company Name is required.");
 
     const nameKey = normalizeCompanyNameKey(displayName);
     const existing = await ecmCompanyRepository.findEnabledByNameKey(organizationId, nameKey);
-    if (existing) return existing;
+    if (existing) return { company: existing, created: false as const };
 
     const draft = {
       organizationId,
@@ -79,7 +84,8 @@ export class EcmCompanyService {
       modifiedBy: input.createdBy,
     };
 
-    return ecmCompanyRepository.create(draft, db);
+    const company = await ecmCompanyRepository.create(draft, db);
+    return { company, created: true as const };
   }
 
   async update(id: string, patch: Partial<EcmCompanyRegisterInput>, actorId: string) {

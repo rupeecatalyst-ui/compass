@@ -21,7 +21,11 @@ import {
   type CustomFieldValueRow,
   type CustomFieldValueStore,
 } from "./custom-field-value";
-import { readSelectKeySets } from "./custom-field-value-contract";
+import {
+  CustomFieldValueContractError,
+  readSelectKeySets,
+  validateCustomFieldValue,
+} from "./custom-field-value-contract";
 import {
   isEmptyCustomFieldValue,
   type DealCustomFieldView,
@@ -248,7 +252,39 @@ export function prepareOperationalCustomValueWrites(input: {
     if (isEmptyCustomFieldValue(submission.value)) clears.push(submission.fieldLineageId);
     else writes.push(submission);
   }
+  for (const write of writes) {
+    const governing = governingCustomDefinition(
+      input.definitions.filter((row) => row.lineageId === write.fieldLineageId),
+    );
+    const existing = input.existingValues?.find((row) => row.fieldLineageId === write.fieldLineageId);
+    try {
+      validateCustomFieldValue({
+        fieldType: governing.fieldType,
+        raw: write.value,
+        selectOptionKeysJson: governing.selectOptionKeysJson,
+        existingValue: existing ? existing.valueJson : undefined,
+      });
+    } catch (error) {
+      if (error instanceof CustomFieldValueContractError) fail(error.statusCode, error.code, error.message);
+      throw error;
+    }
+  }
   return { domain: input.domain, mode: input.mode, productCode, writes, clears };
+}
+
+/**
+ * Create that resolves to an existing company must not apply submitted custom values.
+ * A brand-new company applies them. A name match with no custom writes or clears
+ * reuses the company and leaves its custom values untouched.
+ */
+export function resolveCompanyCreateCustomValueAction(input: {
+  created: boolean;
+  writes: readonly unknown[];
+  clears: readonly unknown[];
+}): "apply" | "reuse" | "reject" {
+  if (input.created) return "apply";
+  if (input.writes.length > 0 || input.clears.length > 0) return "reject";
+  return "reuse";
 }
 
 export async function applyOperationalCustomValuePlan(input: {

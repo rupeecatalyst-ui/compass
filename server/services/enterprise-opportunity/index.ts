@@ -914,6 +914,7 @@ export class EnterpriseOpportunityService {
         primaryBorrowerKind: existing.primaryBorrowerKind,
         body,
         actorUserId,
+        db: options?.db,
       });
 
       const updated = await enterpriseOpportunityRepository.updateOpportunity(
