@@ -502,7 +502,7 @@ export function WorkspaceLifeStrategyBoard() {
       ? canonical.guidance
       : !chanakyaResult.ready
         ? chanakyaResult.guidance[0] ??
-          "Finalize the Opportunity Assessment before Chanakya can recommend lenders."
+          "Open CHANAKYA Recommendation to review lender options for this Opportunity."
         : recommendations.length === 0
           ? "No open recommendations. Adjust competition or clear the Execution Queue."
           : "";

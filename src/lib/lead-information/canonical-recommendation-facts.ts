@@ -340,6 +340,38 @@ export function storedCanonicalNumber(value: number | null | undefined): string 
   return String(value);
 }
 
+const CHANAKYA_PATCH_KEYS = [
+  "requestedTenureMonths",
+  "monthlyIncomeRupees",
+  "existingMonthlyObligationsRupees",
+  "propertyValueRupees",
+  "propertyCategory",
+  "constructionStatus",
+  "residency",
+  "currentRoiPercent",
+  "currentHomeLoanEmiRupees",
+  "remainingTenureMonths",
+  "loanStartDate",
+  "repaymentTrack",
+  "delayedEmiCount",
+  "requestedAmount",
+  "employmentTypeCode",
+] as const;
+
+/**
+ * Partial Opportunity update for facts entered in the CHANAKYA workspace.
+ * Only submitted keys are present. Lending-extension keys are merged by the caller.
+ */
+export function buildChanakyaCanonicalUpdateBody(
+  submit: Record<string, unknown>,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  for (const key of CHANAKYA_PATCH_KEYS) {
+    if (submit[key] !== undefined) body[key] = submit[key];
+  }
+  return body;
+}
+
 export function storedCanonicalDate(value: string | Date | null | undefined): string {
   if (value == null || value === "") return "";
   if (value instanceof Date) {

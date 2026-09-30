@@ -41,8 +41,8 @@ function provenance(map: Record<string, string>, field: string, fact: Assessment
 export function mapFinalizedAssessmentFactsToCanonical(
   facts: OpportunityAssessmentFactsV1,
 ): CanonicalMappedRecommendationInput {
-  const product = knownValue(facts.loanRequirement.productCode);
-  if (product !== "HOME_LOAN" && product !== "HOME_LOAN_BT") {
+  const storedProduct = knownValue(facts.loanRequirement.productCode);
+  if (storedProduct !== "HOME_LOAN" && storedProduct !== "HOME_LOAN_BT") {
     throw new OpportunityAssessmentError("ASSESSMENT_UNSUPPORTED", "UNSUPPORTED_RECOMMENDATION_PRODUCT");
   }
 
@@ -53,12 +53,23 @@ export function mapFinalizedAssessmentFactsToCanonical(
   ) {
     throw new OpportunityAssessmentError("ASSESSMENT_UNSUPPORTED", "UNSUPPORTED_RECOMMENDATION_TRANSACTION");
   }
-  if (product === "HOME_LOAN_BT" && transactionType !== "balance_transfer") {
+  if (storedProduct === "HOME_LOAN_BT" && transactionType !== "balance_transfer") {
     throw new OpportunityAssessmentError("ASSESSMENT_UNSUPPORTED", "UNSUPPORTED_RECOMMENDATION_TRANSACTION");
   }
-  if (product === "HOME_LOAN" && transactionType != null) {
+  if (
+    storedProduct === "HOME_LOAN" &&
+    transactionType != null &&
+    transactionType !== "balance_transfer"
+  ) {
     throw new OpportunityAssessmentError("ASSESSMENT_UNSUPPORTED", "UNSUPPORTED_RECOMMENDATION_TRANSACTION");
   }
+
+  // HOME_LOAN + balance_transfer is the approved Lead HLBT journey.
+  // Opportunity productCode stays HOME_LOAN. Programme inventory uses HOME_LOAN_BT.
+  const balanceTransferJourney =
+    storedProduct === "HOME_LOAN_BT" ||
+    (storedProduct === "HOME_LOAN" && transactionType === "balance_transfer");
+  const product = balanceTransferJourney ? "HOME_LOAN_BT" : storedProduct;
 
   const employmentFamily = knownValue(facts.borrower.employmentFamily);
   if (employmentFamily === "self_employed") {
@@ -123,7 +134,7 @@ export function mapFinalizedAssessmentFactsToCanonical(
   provenance(fieldProvenance, "customerSelectedTenureMonths", facts.incomeAndObligations.requestedTenureMonths, "incomeAndObligations.requestedTenureMonths");
   provenance(fieldProvenance, "cibilBand", facts.cibil.kind, "cibil.kind");
 
-  if (product === "HOME_LOAN_BT") {
+  if (balanceTransferJourney) {
     customer.currentOutstandingRupees = knownMoney(facts.balanceTransfer.outstandingPrincipal);
     customer.currentOutstandingCertainty = knownValue(facts.balanceTransfer.outstandingCertainty);
     customer.currentHomeLoanEmiRupees = knownMoney(facts.balanceTransfer.currentHomeLoanEmi);

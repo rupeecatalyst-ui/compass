@@ -47,10 +47,6 @@ import { evaluateDocumentCompletionForLoanFile } from "@/lib/document-completion
 import { listEdieCriticalPending } from "@/lib/edie-certified";
 import type { EdieChecklistItem } from "@/types/edie-certified-rules";
 import { OpportunityActionCenter } from "@/components/catalyst-one/action-center";
-import {
-  AnalyzeDealTriggerButton,
-  AnalyzeDealWorkspace,
-} from "@/components/catalyst-one/analyze-deal";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import { BusinessNotesActionButton } from "@/components/catalyst-one/enterprise-business-notes";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
@@ -122,7 +118,6 @@ function OpportunityWorkspaceShell() {
   const [gateIntent, setGateIntent] = useState("continue");
   const [gateHasProceed, setGateHasProceed] = useState(false);
   const gateProceedRef = useRef<(() => void) | null>(null);
-  const [analyzeDealOpen, setAnalyzeDealOpen] = useState(false);
   const [competitionPromptOpen, setCompetitionPromptOpen] = useState(false);
   const [moveToDealOpen, setMoveToDealOpen] = useState(false);
   const [moveToDealBusy, setMoveToDealBusy] = useState(false);
@@ -478,7 +473,6 @@ function OpportunityWorkspaceShell() {
                 lenderName: activeLoan?.lender || null,
               }}
             />
-            <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
             <OpportunityActionCenter
               entityId={opportunityId}
               entityLabel={`${headerBorrowerName || "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
@@ -740,20 +734,6 @@ function OpportunityWorkspaceShell() {
         }
       />
 
-      <AnalyzeDealWorkspace
-        open={analyzeDealOpen}
-        onOpenChange={setAnalyzeDealOpen}
-        opportunityLabel={`${headerBorrowerName || "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
-        defaultProductLabel={productLabel}
-        defaultProductId={
-          productLabel?.toLowerCase().includes("lap") ||
-          productLabel?.toLowerCase().includes("against property")
-            ? "lap"
-            : productLabel?.toLowerCase().includes("business")
-              ? "business-loan"
-              : "home-loan"
-        }
-      />
     </div>
   );
 }

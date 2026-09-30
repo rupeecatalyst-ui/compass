@@ -1,11 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
-import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
-import { ROUTES } from "@/constants/routes";
 import { isOpportunityRuntimeCase } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
 import type { LoanFile } from "@/types/catalyst-one";
@@ -48,18 +44,11 @@ export function ChanakyaOpportunityRecommendationPanel({
   };
   const generating = canonical.loading;
   const showRecommendations = result.ready && !generating;
-  const missingCount = canonical.missingCount;
-  const assessmentHref = buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, {
-    opportunityId: opportunityId || file.enterpriseOpportunityId || (isOpportunityRuntimeCase(file) ? file.id : null),
-    tab: "opportunity_assessment",
-  });
   const statusTitle = canonical.noEligibleLender
     ? "No eligible lender"
-    : canonical.assessmentNotReady && missingCount > 0
-      ? `Assessment incomplete — ${missingCount} required details missing`
-      : canonical.assessmentNotReady
-        ? "Assessment incomplete — required details missing"
-        : "Recommendations are not available yet.";
+    : canonical.missingLabels.length > 0
+      ? canonical.missingLabels.join(", ")
+      : canonical.guidance || "Recommendations are not available yet.";
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
@@ -105,19 +94,13 @@ export function ChanakyaOpportunityRecommendationPanel({
         {!result.ready && !generating && (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-3">
             <p className="text-xs font-medium text-foreground">{statusTitle}</p>
-            {canonical.assessmentNotReady ? (
-              <Button asChild size="sm" className="mt-3">
-                <Link href={assessmentHref}>Complete Assessment</Link>
-              </Button>
-            ) : (
-              <ul className="mt-2 space-y-1.5">
-                {result.guidance.map((msg) => (
-                  <li key={msg} className="text-xs leading-relaxed text-muted-foreground">
-                    {msg}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <ul className="mt-2 space-y-1.5">
+              {(canonical.missingLabels.length > 0 ? canonical.missingLabels : result.guidance).map((msg) => (
+                <li key={msg} className="text-xs leading-relaxed text-muted-foreground">
+                  {msg}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
@@ -139,7 +122,7 @@ function formatPercent(value: number | null): string {
   return `${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value)}%`;
 }
 
-function RecommendationGroup({
+export function RecommendationGroup({
   label,
   rows,
 }: {

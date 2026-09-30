@@ -8,7 +8,6 @@ import {
   FileText,
   Home,
   Pencil,
-  Sparkles,
   UserRound,
   Users,
   Wallet,
@@ -17,7 +16,6 @@ import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/l
 import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
-import { ChanakyaOpportunityRecommendationPanel } from "@/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel";
 import { OpportunityLoanStructureTab } from "@/components/catalyst-one/credit-bench/opportunity-loan-structure-tab";
 import { ModifyLoanDetailsSheet } from "@/components/catalyst-one/credit-bench/modify-loan-details-sheet";
 import { CreditBenchDocumentRequestsHost } from "@/components/catalyst-one/credit-bench/credit-bench-document-requests-host";
@@ -52,14 +50,13 @@ import { formatOpportunitySourceDisplay } from "@/constants/opportunity-business
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
 import { buildJourneyHref, getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
-import { isPropertySectionVisible, type PropertyType } from "@/constants/loan-stage-master";
+import { isPropertySectionVisible } from "@/constants/loan-stage-master";
 import { isProductSecured } from "@/constants/product-master";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import { ROUTES } from "@/constants/routes";
 import { buildDealWorkspaceHref, buildLeadInformationHref } from "@/lib/loan-journey/adr-018-routing";
-import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,13 +109,10 @@ export function CreditBenchWorkspace() {
     | "financial"
     | "business"
     | "property"
-    | "chanakya"
   >("customer");
   /** BAT #19 — section edit toggles (Planning remains editable until Deal). */
   const [editingStructure, setEditingStructure] = useState(false);
-  const [editingFinancial, setEditingFinancial] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState(false);
-  const [editingProperty, setEditingProperty] = useState(false);
   const [loanDetailsOpen, setLoanDetailsOpen] = useState(false);
 
   const reloadRuntime = useCallback(async () => {
@@ -373,7 +367,6 @@ export function CreditBenchWorkspace() {
     ...(propertyApplicable
       ? [{ id: "property" as const, label: "Property", icon: Home }]
       : []),
-    { id: "chanakya" as const, label: "Chanakya Recommendation", icon: Sparkles },
   ];
 
   const businessFromProfile = Boolean(
@@ -587,54 +580,8 @@ export function CreditBenchWorkspace() {
             {section === "financial" && categoryCtx.isSalariedFamily && (
               <Panel
                 title="Financial Details"
-                description="Reuse salary from Business Profile when present; only capture gaps here."
-                headerAction={modifyButton(editingFinancial, () => {
-                  if (editingFinancial) {
-                    void finishSectionEdit(setEditingFinancial);
-                    return;
-                  }
-                  if (!planningCanModify) return;
-                  if (
-                    profile?.monthlyIncome &&
-                    !stated.statedIncomeMonthly?.startsWith("override:")
-                  ) {
-                    setStated((p) => ({
-                      ...p,
-                      statedIncomeMonthly: `override:${String(profile.monthlyIncome).replace(/[^\d.]/g, "")}`,
-                    }));
-                  }
-                  setEditingFinancial(true);
-                })}
+                description="Salary context is shown here. Lender recommendation facts are entered in CHANAKYA Recommendation."
               >
-                {editingFinancial ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Stated Monthly Income">
-                      <EnterpriseFinancialInput
-                        value={absoluteRupeesFromStoredString(stated.statedIncomeMonthly)}
-                        onChange={(absolute) =>
-                          setStated((p) => ({
-                            ...p,
-                            statedIncomeMonthly: absoluteRupeesToStoredString(absolute, {
-                              overridePrefix: true,
-                            }),
-                          }))
-                        }
-                        placeholder="e.g. 1.85"
-                        defaultUnit="lakh"
-                      />
-                    </Field>
-                    <Field label="Stated Obligations / EMIs">
-                      <Input
-                        className="h-9 text-sm"
-                        value={stated.statedObligations ?? ""}
-                        onChange={(e) =>
-                          setStated((p) => ({ ...p, statedObligations: e.target.value }))
-                        }
-                        placeholder="Existing obligations"
-                      />
-                    </Field>
-                  </div>
-                ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <ReadOnly
                       label="Monthly Income"
@@ -655,7 +602,6 @@ export function CreditBenchWorkspace() {
                       value={stated.statedObligations || "—"}
                     />
                   </div>
-                )}
               </Panel>
             )}
 
@@ -787,50 +733,8 @@ export function CreditBenchWorkspace() {
             {section === "property" && propertyApplicable && (
               <Panel
                 title="Property Details"
-                description="Stated property context for secured products."
-                headerAction={modifyButton(editingProperty, () => {
-                  if (editingProperty) {
-                    void finishSectionEdit(setEditingProperty);
-                    return;
-                  }
-                  if (!planningCanModify) return;
-                  setEditingProperty(true);
-                })}
+                description="Property context is shown here. Lender recommendation facts are entered in CHANAKYA Recommendation."
               >
-                {editingProperty ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Property Type">
-                      <PropertyTypeSelect
-                        value={stated.statedPropertyType ?? file.propertyType}
-                        onSelect={(type: PropertyType) =>
-                          setStated((p) => ({ ...p, statedPropertyType: type }))
-                        }
-                      />
-                    </Field>
-                    <Field label="Property Value">
-                      <EnterpriseFinancialInput
-                        value={absoluteRupeesFromStoredString(stated.statedPropertyValue)}
-                        onChange={(absolute) =>
-                          setStated((p) => ({
-                            ...p,
-                            statedPropertyValue: absoluteRupeesToStoredString(absolute),
-                          }))
-                        }
-                        placeholder="e.g. 1.2"
-                        defaultUnit="crore"
-                      />
-                    </Field>
-                    <Field label="Property Location">
-                      <Input
-                        className="h-9 text-sm"
-                        value={stated.statedPropertyLocation ?? ""}
-                        onChange={(e) =>
-                          setStated((p) => ({ ...p, statedPropertyLocation: e.target.value }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <ReadOnly
                       label="Property Type"
@@ -845,28 +749,9 @@ export function CreditBenchWorkspace() {
                       value={stated.statedPropertyLocation || "—"}
                     />
                   </div>
-                )}
               </Panel>
             )}
 
-            {section === "chanakya" && (
-              <ChanakyaOpportunityRecommendationPanel
-                file={file}
-                stated={stated}
-                opportunityId={resolveOppId}
-                onStatedChange={(patch) =>
-                  setStated((prev) => {
-                    const next = { ...prev, ...patch };
-                    saveStatedDraft(file.id, next);
-                    return next;
-                  })
-                }
-                onFileChange={(patch) =>
-                  setFile((prev) => (prev ? { ...prev, ...patch } : prev))
-                }
-                onAfterPersist={reloadRuntime}
-              />
-            )}
           </div>
         </div>
       </LeadOpportunityJourneyChrome>
