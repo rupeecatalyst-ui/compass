@@ -68,6 +68,7 @@ export type LeadInformationFormState = {
   /** Balance Transfer — outstanding amount as entered (numeric string / empty) */
   btAmount: string;
   /** Absolute months. Empty = not answered. */
+  borrowerAgeYears: string;
   requestedTenureMonths: string;
   /** Salaried monthly income, absolute rupees. Empty = not answered. */
   monthlyIncomeRupees: string;
@@ -107,6 +108,7 @@ export function emptyLeadInformationForm(): LeadInformationFormState {
     btInstitutionId: "",
     btInstitutionName: "",
     btAmount: "",
+    borrowerAgeYears: "",
     requestedTenureMonths: "",
     monthlyIncomeRupees: "",
     existingMonthlyObligationsRupees: "",

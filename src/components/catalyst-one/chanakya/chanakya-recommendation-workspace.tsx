@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { RecommendationGroup } from "@/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel";
+import { CitySelect } from "@/components/catalyst-one/shared/city-select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
   CHANAKYA_FACT_INPUTS,
@@ -72,9 +73,18 @@ export function ChanakyaRecommendationWorkspace({
   if (!open) return null;
 
   const missingKeys = model?.missingFactKeys ?? [];
-  const inputs = missingKeys
-    .map((key) => ({ key, input: CHANAKYA_FACT_INPUTS[key] }))
-    .filter((row): row is { key: string; input: NonNullable<(typeof CHANAKYA_FACT_INPUTS)[string]> } => Boolean(row.input));
+  const inputs = missingKeys.reduce<Array<{ key: string; input: (typeof CHANAKYA_FACT_INPUTS)[string] }>>(
+    (rows, key) => {
+      const input = CHANAKYA_FACT_INPUTS[key];
+      if (!input) return rows;
+      if (input.control === "city" && rows.some((row) => row.input.control === "city")) return rows;
+      rows.push({ key, input });
+      return rows;
+    },
+    [],
+  );
+  const informationComplete =
+    model?.workspaceState === "INFORMATION_COMPLETE" || model?.workspaceState === "NO_ELIGIBLE_PROGRAMMES";
   const presentation = selectStandardRecommendationPresentation(
     model?.result?.recommendations ?? [],
     model?.result?.presentation,
@@ -84,6 +94,17 @@ export function ChanakyaRecommendationWorkspace({
   const submit = async () => {
     const payload: Record<string, string | number> = {};
     for (const row of inputs) {
+      if (row.input.control === "city") {
+        const city = values[`${row.key}:city`] ?? "";
+        const state = values[`${row.key}:state`] ?? "";
+        if (!city || !state) {
+          setError("Select a property city.");
+          return;
+        }
+        payload.cityLabel = city;
+        payload.stateLabel = state;
+        continue;
+      }
       const parsed = chanakyaSubmitValue(row.input.control, values[row.key] ?? "");
       if (parsed == null) {
         setError(`Enter ${row.input.label}.`);
@@ -128,7 +149,7 @@ export function ChanakyaRecommendationWorkspace({
         <section className="min-h-0 overflow-y-auto border-b p-4 md:border-b-0 md:border-r">
           <h3 className="text-sm font-semibold">Information</h3>
           {busy && !model ? <p className="mt-3 text-sm text-muted-foreground">Reading saved Opportunity facts…</p> : null}
-          {model?.panel === "complete" ? (
+          {informationComplete ? (
             <p className="mt-3 text-sm text-foreground">Information complete</p>
           ) : null}
           {model?.panel === "information_required" ? (
@@ -139,7 +160,19 @@ export function ChanakyaRecommendationWorkspace({
               {inputs.map((row) => (
                 <div key={row.key} className="space-y-1">
                   <Label htmlFor={`chanakya-${row.key}`}>{row.input.label}</Label>
-                  {row.input.control === "select" ? (
+                  {row.input.control === "city" ? (
+                    <CitySelect
+                      city={values[`${row.key}:city`]}
+                      state={values[`${row.key}:state`]}
+                      onSelect={(entry) =>
+                        setValues((prev) => ({
+                          ...prev,
+                          [`${row.key}:city`]: entry.city,
+                          [`${row.key}:state`]: entry.state,
+                        }))
+                      }
+                    />
+                  ) : row.input.control === "select" ? (
                     <Select
                       value={values[row.key] ?? ""}
                       onValueChange={(value) => setValues((prev) => ({ ...prev, [row.key]: value }))}
@@ -158,7 +191,13 @@ export function ChanakyaRecommendationWorkspace({
                   ) : (
                     <Input
                       id={`chanakya-${row.key}`}
-                      inputMode={row.input.control === "date" ? undefined : "decimal"}
+                      inputMode={
+                        row.input.control === "date"
+                          ? undefined
+                          : row.input.control === "age" || row.input.control === "count" || row.input.control === "months"
+                            ? "numeric"
+                            : "decimal"
+                      }
                       type={row.input.control === "date" ? "date" : "text"}
                       value={values[row.key] ?? ""}
                       placeholder={row.input.control === "money" || row.input.control === "money_or_zero" ? "₹" : ""}
@@ -195,7 +234,7 @@ export function ChanakyaRecommendationWorkspace({
               Recommendation will appear after the required information is submitted.
             </p>
           ) : null}
-          {!busy && model?.resultStatus === "no_eligible_programmes" ? (
+          {!busy && model?.workspaceState === "NO_ELIGIBLE_PROGRAMMES" ? (
             <p className="mt-3 text-sm text-foreground">{model.guidance}</p>
           ) : null}
           {!busy && hasCards ? (

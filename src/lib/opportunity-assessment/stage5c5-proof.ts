@@ -69,6 +69,7 @@ function salariedHomeLoanFacts(): OpportunityAssessmentFactsV1 {
   let facts = emptyCapturedAssessmentFacts();
   facts = captureKnownValue(facts, "borrower", "residency", "resident");
   facts = captureKnownValue(facts, "borrower", "dateOfBirth", "1990-01-01");
+  facts = captureKnownValue(facts, "borrower", "ageYears", 36);
   facts = setCapturedEmploymentFamily(facts, "salaried");
   facts = captureKnownValue(facts, "incomeAndObligations", "monthlyIncome", "200000.00");
   facts = declareKnownZeroObligations(facts);

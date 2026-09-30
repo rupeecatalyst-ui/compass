@@ -74,6 +74,7 @@ export function formFromOpportunity(
     btInstitutionName: ext.btInstitutionName?.trim() || "",
     btAmount:
       ext.btAmount != null && Number.isFinite(ext.btAmount) ? String(ext.btAmount) : "",
+    borrowerAgeYears: storedCanonicalNumber(opp.borrowerAgeYears),
     requestedTenureMonths: storedCanonicalNumber(opp.requestedTenureMonths),
     monthlyIncomeRupees: storedCanonicalNumber(opp.monthlyIncomeRupees),
     existingMonthlyObligationsRupees: storedCanonicalNumber(opp.existingMonthlyObligationsRupees),
@@ -178,6 +179,7 @@ export function buildLeadInformationPatchBody(
     sourceWealthPartnerId,
     participationRole,
     sourceCampaignLabel,
+    borrowerAgeYears: facts.borrowerAgeYears,
     requestedTenureMonths: facts.requestedTenureMonths,
     monthlyIncomeRupees: facts.monthlyIncomeRupees,
     existingMonthlyObligationsRupees: facts.existingMonthlyObligationsRupees,

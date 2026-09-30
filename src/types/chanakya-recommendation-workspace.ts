@@ -6,6 +6,15 @@ export type ChanakyaWorkspacePanel =
   | "blocked"
   | "complete";
 
+export type ChanakyaWorkspaceState =
+  | "INFORMATION_REQUIRED"
+  | "INFORMATION_COMPLETE"
+  | "UNSUPPORTED_CANONICAL_FACT"
+  | "NO_PROGRAMME_INVENTORY"
+  | "NO_ELIGIBLE_PROGRAMMES"
+  | "CONFIGURATION_BLOCKED"
+  | "UNSUPPORTED_METHODOLOGY";
+
 export type ChanakyaRecommendationWorkspaceDto = {
   opportunityId: string;
   assessmentId: string | null;
@@ -16,6 +25,7 @@ export type ChanakyaRecommendationWorkspaceDto = {
   missingFactKeys: string[];
   missingLabels: string[];
   panel: ChanakyaWorkspacePanel;
+  workspaceState: ChanakyaWorkspaceState;
   executionAllowed: boolean;
   recommendationExecuted: boolean;
   resultStatus: string | null;

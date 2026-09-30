@@ -18,6 +18,9 @@ export const OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY = {
   UNSUPPORTED_RECOMMENDATION_PRODUCT: "Canonical recommendation supports Home Loan and Home Loan BT only.",
   UNSUPPORTED_RECOMMENDATION_TRANSACTION: "This transaction type is not supported for canonical recommendation.",
   NO_ELIGIBLE_PROGRAMMES: "No eligible lender programme matched this finalized assessment.",
+  NO_PROGRAMME_INVENTORY: "No published lender programme is available for this product.",
+  CANONICAL_FACT_STORAGE_NOT_AVAILABLE:
+    "CHANAKYA cannot evaluate this programme because a required fact has no canonical Opportunity store.",
   READY: "Ranked by Match % where a governed active weight set can be scored. No invented lender score, stars, or confidence is used.",
   CONFIGURATION_ERROR: "Recommendation configuration is unavailable.",
   RUN_FAILED: "Recommendation could not be completed.",

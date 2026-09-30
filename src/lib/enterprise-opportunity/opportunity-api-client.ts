@@ -39,6 +39,7 @@ export type EnterpriseOpportunityApiRecord = {
   relationshipManagerName?: string | null;
   relationshipManagerUserId?: string | null;
   requestedAmount?: number | null;
+  borrowerAgeYears?: number | null;
   requestedTenureMonths?: number | null;
   monthlyIncomeRupees?: number | null;
   existingMonthlyObligationsRupees?: number | null;
@@ -184,6 +185,7 @@ export type OpportunityUpdateBody = {
   productLabel?: string | null;
   productFamily?: string;
   requestedAmount?: number | null;
+  borrowerAgeYears?: number | null;
   requestedTenureMonths?: number | null;
   monthlyIncomeRupees?: number | null;
   existingMonthlyObligationsRupees?: number | null;

@@ -16,14 +16,14 @@ export const TENURE_GOVERNED_DERIVED_FACTS: readonly GovernedDerivedFactDescript
     label: "Current age",
     productCodes: HL,
     valueType: "integer",
-    customerFactRef: "borrower.dateOfBirth",
+    customerFactRef: "borrower.ageYears",
   },
   {
     id: "derived:ageAtMaturityYears",
     label: "Age at maturity",
     productCodes: HL,
     valueType: "integer",
-    customerFactRef: "borrower.dateOfBirth",
+    customerFactRef: "borrower.ageYears",
   },
   {
     id: "derived:effectiveTenureMonths",

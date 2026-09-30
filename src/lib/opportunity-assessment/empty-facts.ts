@@ -26,6 +26,7 @@ export function emptyOpportunityAssessmentFacts(): OpportunityAssessmentFactsV1 
     schemaVersion: OPPORTUNITY_ASSESSMENT_FACTS_SCHEMA_VERSION,
     borrower: {
       residency: missingAssessmentFact(),
+      ageYears: missingAssessmentFact(),
       dateOfBirth: missingAssessmentFact(),
       employmentTypeCode: missingAssessmentFact(),
       employmentFamily: missingAssessmentFact(),

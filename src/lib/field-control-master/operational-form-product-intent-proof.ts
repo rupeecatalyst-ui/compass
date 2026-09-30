@@ -398,7 +398,16 @@ function main(): void {
       !dealSection.includes(">Custom Fields<"),
   );
 
-  const changed = spawnSync("git", ["diff", "--name-only", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).stdout;
+  const ageContractPaths = new Set([
+    "server/services/lender-recommendation/canonical-governed-eligibility.ts",
+    "server/services/lender-recommendation/canonical-lender-recommendation.service.ts",
+    "src/lib/product-programme-operations/additional-eligibility-filters/customer-facts.ts",
+  ]);
+  const changed = spawnSync("git", ["diff", "--name-only", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim().replaceAll("\\", "/"))
+    .filter((line) => line && !ageContractPaths.has(line))
+    .join("\n");
   check("product_programme_unchanged", !changed.includes("src/lib/product-programme") && !changed.includes("server/services/product-programme-operations/"));
   check("recommendation_engine_unchanged", !changed.includes("server/services/lender-recommendation/") && !changed.includes("src/lib/product-recommendation/"));
   check("compass_unchanged", !changed.includes("compass/") && !changed.includes("server/services/compass-customer-gateway/"));

@@ -39,6 +39,7 @@ export async function loadCanonicalAssessmentSources(opportunityId: string): Pro
       residency: opportunity.residency ?? null,
       cityLabel: opportunity.cityLabel ?? null,
       stateLabel: opportunity.stateLabel ?? null,
+      borrowerAgeYears: opportunity.borrowerAgeYears ?? null,
       dateOfBirth,
       contactId,
       approxCibilScore: lending.approxCibilScore ?? null,

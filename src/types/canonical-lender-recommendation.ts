@@ -20,7 +20,7 @@ export type CanonicalProgrammeRejection = {
 
 /** Fixed public vocabulary only; never policy payloads, database errors or borrower values. */
 export type CanonicalAssessmentField =
-  | "residency" | "cibil" | "dateOfBirth" | "requestedTenure" | "employment"
+  | "residency" | "cibil" | "age" | "dateOfBirth" | "requestedTenure" | "employment"
   | "monthlyIncome" | "obligations" | "propertyValue" | "propertyType" | "constructionStatus"
   | "constitution" | "city" | "state" | "requestedAmount" | "coApplicant"
   | "btOutstanding" | "loanStartDate" | "repaymentTrack" | "delayedEmis"

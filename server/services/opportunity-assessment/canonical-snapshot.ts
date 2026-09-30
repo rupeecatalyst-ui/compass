@@ -41,6 +41,7 @@ export type CanonicalAssessmentSources = {
   residency?: string | null;
   cityLabel?: string | null;
   stateLabel?: string | null;
+  borrowerAgeYears?: number | null;
   dateOfBirth?: string | null;
   contactId?: string | null;
   approxCibilScore?: string | null;
@@ -276,6 +277,15 @@ export function buildCanonicalAssessmentSnapshot(
     const state = sources.stateLabel.trim();
     facts.borrower.journeyState = known(state, "EnterpriseOpportunity", opportunityId, "stateLabel");
     facts.property.propertyState = known(state, "EnterpriseOpportunity", opportunityId, "stateLabel");
+  }
+
+  if (sources.borrowerAgeYears != null && Number.isInteger(sources.borrowerAgeYears) && sources.borrowerAgeYears >= 1 && sources.borrowerAgeYears <= 120) {
+    facts.borrower.ageYears = known(
+      sources.borrowerAgeYears,
+      "EnterpriseOpportunity",
+      opportunityId,
+      "borrowerAgeYears",
+    );
   }
 
   const dob = calendarDate(sources.dateOfBirth);

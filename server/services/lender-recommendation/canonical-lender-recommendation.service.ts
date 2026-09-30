@@ -412,3 +412,60 @@ async function applyUniversalMatchPercent(input: {
     versions: { ...base.versions, ruleSetVersion: `${ruleSet.lineageId}:${ruleSet.versionNumber}` },
   };
 }
+
+export type MappedCanonicalProgrammeSet = {
+  retrievedProgrammeCount: number;
+  viable: CanonicalAssessmentProgramme[];
+  unavailableCount: number;
+  configurationCount: number;
+};
+
+/** Viable programmes are those that pass publication, lifecycle, and policy-link gates. */
+export async function loadMappedCanonicalProgrammes(
+  request: Pick<CanonicalLenderRecommendationRequest, "organizationId" | "product"> & { asOf?: Date },
+  dependencies: CanonicalRecommendationDependencies = {},
+): Promise<MappedCanonicalProgrammeSet> {
+  const asOf = request.asOf ?? new Date();
+  const loadInventory = dependencies.loadInventory ?? loadCanonicalProgrammeInventory;
+  const inventory = await loadInventory({
+    organizationId: request.organizationId,
+    product: request.product,
+    asOf,
+  });
+  const viable: CanonicalAssessmentProgramme[] = [];
+  let unavailableCount = 0;
+  let configurationCount = 0;
+  for (const row of inventory.programmes) {
+    try {
+      const lender = row.lender;
+      const effective = (value: Date | string | null | undefined, from: boolean) => value == null ||
+        (Number.isFinite(new Date(value).getTime()) && (from ? new Date(value) <= asOf : new Date(value) >= asOf));
+      if (!isCanonicalProgrammeAvailable({
+        programme: row as unknown as CanonicalProgrammeAvailabilityFields,
+        organizationId: request.organizationId,
+        product: request.product,
+        asOf,
+      }) || row.lifecycleStatus !== "active" || row.status !== "active" || row.approvalStatus !== "approved" ||
+        row.suspendedByOverride === true || !lender || lender.organizationId !== request.organizationId ||
+        lender.enabled !== true || lender.isDeleted !== false || lender.lifecycleStatus !== "active" ||
+        lender.operationalStatus !== "active" || !effective(lender.effectiveFrom, true) || !effective(lender.effectiveUntil, false)) {
+        unavailableCount += 1;
+        continue;
+      }
+      viable.push(mapCanonicalProgramme({
+        row,
+        product: request.product,
+        lenderCategory: inventory.lenderCategories.get(row.lenderId) ?? null,
+        asOf,
+      }));
+    } catch {
+      configurationCount += 1;
+    }
+  }
+  return {
+    retrievedProgrammeCount: inventory.programmes.length,
+    viable,
+    unavailableCount,
+    configurationCount,
+  };
+}

@@ -75,6 +75,7 @@ function buildSerializedOpportunity(
     stateLabel: contactIdentity.stateLabel,
     currencyCode: row.currencyCode,
     requestedAmount,
+    borrowerAgeYears: row.borrowerAgeYears ?? null,
     requestedTenureMonths: row.requestedTenureMonths ?? null,
     monthlyIncomeRupees: decimalToNumber(row.monthlyIncomeRupees),
     existingMonthlyObligationsRupees: decimalToNumber(row.existingMonthlyObligationsRupees),

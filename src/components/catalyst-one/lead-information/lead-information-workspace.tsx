@@ -777,6 +777,19 @@ export function LeadInformationWorkspace() {
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field
+                label="Age"
+                error={errors.borrowerAgeYears}
+                hint="Completed years. Leave blank if not answered."
+              >
+                <Input
+                  className="h-9"
+                  inputMode="numeric"
+                  value={form.borrowerAgeYears}
+                  placeholder="e.g. 36"
+                  onChange={(e) => patchForm("borrowerAgeYears", e.target.value)}
+                />
+              </Field>
+              <Field
                 label="Requested Tenure (months)"
                 error={errors.requestedTenureMonths}
                 hint="Stored in months. 20 years = 240."

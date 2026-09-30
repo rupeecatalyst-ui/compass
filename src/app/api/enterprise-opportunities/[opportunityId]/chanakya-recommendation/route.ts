@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/auth-route-utils";
 import { buildChanakyaCanonicalUpdateBody } from "@/lib/lead-information/canonical-recommendation-facts";
 import { isApproxCibilScoreBand } from "@/constants/cibil-score-master";
+import { findCityEntry } from "@/constants/city-master";
 import { prisma } from "@server/lib/prisma";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { projectChanakyaRecommendationWorkspace } from "@server/services/opportunity-assessment/chanakya-workspace";
@@ -66,6 +67,16 @@ export async function POST(request: Request, context: Ctx) {
       );
     }
     const body = buildChanakyaCanonicalUpdateBody(submit);
+    if (submit.cityLabel !== undefined || submit.stateLabel !== undefined) {
+      const city = typeof submit.cityLabel === "string" ? submit.cityLabel.trim() : "";
+      const state = typeof submit.stateLabel === "string" ? submit.stateLabel.trim() : "";
+      const entry = city && state ? findCityEntry(city, state) : undefined;
+      if (!entry || entry.state.toLowerCase() !== state.toLowerCase()) {
+        return errorResponse(400, "INVALID_CITY", "Select a city from the master.");
+      }
+      body.cityLabel = entry.city;
+      body.stateLabel = entry.state;
+    }
     const lending = { ...loaded.lendingExtension };
     let lendingChanged = false;
     for (const key of LENDING_KEYS) {

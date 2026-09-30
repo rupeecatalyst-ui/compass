@@ -119,6 +119,7 @@ export const opportunityAssessmentFactsSchema = z
     schemaVersion: z.literal(OPPORTUNITY_ASSESSMENT_FACTS_SCHEMA_VERSION),
     borrower: z.object({
       residency: stringFact("borrower.residency"),
+      ageYears: intFact("borrower.ageYears").optional(),
       dateOfBirth: stringFact("borrower.dateOfBirth"),
       employmentTypeCode: stringFact("borrower.employmentTypeCode"),
       employmentFamily: assessmentFactSchema(
@@ -241,6 +242,11 @@ export const opportunityAssessmentFactsSchema = z
       );
     }
 
+    const age = facts.borrower.ageYears;
+    if (age && (age.state === "known" || age.state === "unconfirmed") && (typeof age.value !== "number" || !Number.isInteger(age.value) || age.value < 1 || age.value > 120)) {
+      issue(ctx, ["borrower", "ageYears", "value"], "Borrower age must be a whole number from 1 to 120.");
+    }
+
     const tenure = facts.incomeAndObligations.requestedTenureMonths;
     if ((tenure.state === "known" || tenure.state === "unconfirmed") && (typeof tenure.value !== "number" || tenure.value <= 0)) {
       issue(ctx, ["incomeAndObligations", "requestedTenureMonths", "value"], "Requested tenure must be a positive integer month count.");
@@ -339,7 +345,26 @@ export const opportunityAssessmentFactsSchema = z
   });
 
 export function parseOpportunityAssessmentFacts(input: unknown): OpportunityAssessmentFactsV1 {
-  return opportunityAssessmentFactsSchema.parse(input) as OpportunityAssessmentFactsV1;
+  const parsed = opportunityAssessmentFactsSchema.parse(input) as OpportunityAssessmentFactsV1;
+  if (!parsed.borrower.ageYears) {
+    parsed.borrower.ageYears = {
+      value: null,
+      state: "missing",
+      sourceChannel: null,
+      sourceEntityType: null,
+      sourceEntityId: null,
+      sourceFieldKey: null,
+      sourceUpdatedAt: null,
+      capturedByUserId: null,
+      capturedAt: null,
+      effectiveAt: null,
+      confirmedByUserId: null,
+      confirmedAt: null,
+      certainty: null,
+      evidenceRef: null,
+    };
+  }
+  return parsed;
 }
 
 export function safeParseOpportunityAssessmentFacts(input: unknown) {

@@ -118,6 +118,8 @@ export type AssessmentFact<T> = {
 
 export type OpportunityAssessmentBorrowerSection = {
   residency: AssessmentFact<string>;
+  /** Completed years captured on the Opportunity. Not Contact date of birth. */
+  ageYears: AssessmentFact<number>;
   dateOfBirth: AssessmentFact<string>;
   employmentTypeCode: AssessmentFact<string>;
   employmentFamily: AssessmentFact<"salaried" | "self_employed" | "unknown">;

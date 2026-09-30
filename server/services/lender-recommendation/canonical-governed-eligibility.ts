@@ -21,7 +21,7 @@ const FILTER_FIELD_TO_ASSESSMENT: Record<string, CanonicalAssessmentField> = {
   state: "state",
   residency: "residency",
   constitution: "constitution",
-  age: "dateOfBirth",
+  age: "age",
   cibil: "cibil",
   income: "monthlyIncome",
 };
@@ -61,6 +61,24 @@ function cibilInterval(value: Customer["cibilBand"]): [number, number] | "unknow
   if (raw === "800_plus") return [800, Number.POSITIVE_INFINITY];
   if (["600_649", "650_699", "700_749", "750_799"].includes(raw)) return raw.split("_").map(Number) as [number, number];
   return null;
+}
+
+/** True when a published CIBIL bound cannot be decided from Not Known or a partial band. A band entirely outside the bound is a genuine mismatch, not a new question. */
+export function programmeRequiresMorePreciseCibil(programme: CanonicalAssessmentProgramme, customer: Customer): boolean {
+  const ranges = [{ minimum: programme.canonicalConstraints.minCibil, maximum: programme.canonicalConstraints.maxCibil }, ...programme.parsedPolicyRules.cibilRanges];
+  const active = ranges.filter((range) => range.minimum != null || range.maximum != null);
+  if (!active.length) return false;
+  const interval = cibilInterval(customer.cibilBand);
+  if (interval == null || interval === "unknown") return true;
+  let anyInsideOrPartial = false;
+  let partial = false;
+  for (const range of active) {
+    const outside = (range.minimum != null && interval[1] < range.minimum) || (range.maximum != null && interval[0] > range.maximum);
+    if (outside) continue;
+    anyInsideOrPartial = true;
+    if (!within(interval[0], range.minimum, null) || !within(interval[1], null, range.maximum)) partial = true;
+  }
+  return anyInsideOrPartial && partial;
 }
 
 export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgramme, customer: Customer, asOf: Date): GovernedVerdict | null {
@@ -111,27 +129,22 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   // Required for EMI/FOIR calculation even when no programme tenure bound is populated.
   if (!positive(tenure) || !Number.isInteger(tenure)) missing.add("requestedTenure");
   else if (!within(tenure, c.minTenureMonths, c.maxTenureMonths)) mismatch = true;
-  const age =
-    monthsSince(customer.dateOfBirth, asOf) ??
-    (customer.ageYears != null && Number.isFinite(customer.ageYears) && customer.ageYears > 0
+  // Opportunity age is authoritative. Contact date of birth is not a lending age.
+  const ageMonths =
+    customer.ageYears != null && Number.isFinite(customer.ageYears) && customer.ageYears > 0
       ? Math.round(customer.ageYears * 12)
-      : null);
+      : null;
   if (c.minAge != null || c.maxAge != null || programme.maxAgeAtMaturityYears != null) {
-    if (age == null) missing.add("dateOfBirth");
-    else if (!within(age, c.minAge == null ? null : c.minAge * 12, c.maxAge == null ? null : c.maxAge * 12)) mismatch = true;
+    if (ageMonths == null) missing.add("age");
+    else if (!within(ageMonths, c.minAge == null ? null : c.minAge * 12, c.maxAge == null ? null : c.maxAge * 12)) mismatch = true;
   }
-  const maturity = programme.maxAgeAtMaturityYears ?? c.maxAge;
+  const maturity = programme.maxAgeAtMaturityYears ?? null;
   if (maturity != null) {
     const party = programme.ageGoverningParty;
-    const coAge = monthsSince(customer.coApplicant?.dateOfBirth, asOf);
-    let governing = age;
-    if (party === "co_applicant") governing = coAge;
-    if (party === "younger" || party === "older") {
-      governing = age == null || coAge == null ? null : party === "younger" ? Math.min(age, coAge) : Math.max(age, coAge);
-    }
-    if (governing == null) missing.add(party && party !== "applicant" ? "coApplicant" : "dateOfBirth");
+    if (party && party !== "applicant") missing.add("coApplicant");
+    else if (ageMonths == null) missing.add("age");
     // Requested tenure above age-permitted tenure reduces EffectiveAvailableTenure.
-    // It is not an automatic programme exclusion.
+    // It is not an automatic programme exclusion. Age months = completed years × 12.
   }
 
   if (customer.employmentFamily !== "salaried") missing.add("employment");

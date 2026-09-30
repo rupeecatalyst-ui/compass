@@ -527,12 +527,14 @@ export function WorkspaceLifeStrategyBoard() {
     chanakya?.panel === "blocked";
   const chanakyaEmptyText = chanakyaLoading && !chanakya
     ? "Assessing published programmes..."
-    : chanakya?.panel === "information_required"
+    : chanakya?.workspaceState === "INFORMATION_REQUIRED"
       ? "CHANAKYA needs additional information before lender strategy can be completed."
-      : chanakya?.panel === "unsupported" || chanakya?.panel === "blocked"
+      : chanakya?.workspaceState === "UNSUPPORTED_METHODOLOGY" ||
+          chanakya?.workspaceState === "UNSUPPORTED_CANONICAL_FACT" ||
+          chanakya?.workspaceState === "NO_PROGRAMME_INVENTORY" ||
+          chanakya?.workspaceState === "CONFIGURATION_BLOCKED" ||
+          chanakya?.workspaceState === "NO_ELIGIBLE_PROGRAMMES"
         ? chanakya.guidance
-        : chanakya?.resultStatus === "no_eligible_programmes"
-          ? chanakya.guidance
           : !chanakyaResult.ready
             ? "Open CHANAKYA Recommendation to review lender options for this Opportunity."
             : recommendations.length === 0

@@ -60,10 +60,83 @@ function result(status: CanonicalLenderRecommendationResult["status"]): Canonica
     readOnly: true,
     recommendations: [],
     rejectedProgrammes: [],
-    retrievedProgrammeCount: 0,
-    evaluatedProgrammeCount: 0,
+    retrievedProgrammeCount: 1,
+    evaluatedProgrammeCount: 1,
     versions: { lenderScoreVersion: null } as CanonicalLenderRecommendationResult["versions"],
     analyzedAt: "2026-09-30T00:00:00.000Z",
+  };
+}
+
+function bareProgramme(product: "HOME_LOAN" | "HOME_LOAN_BT" = "HOME_LOAN") {
+  return {
+    id: "bare",
+    organizationId: "org-1",
+    lenderId: "lender-bare",
+    productCode: product,
+    code: "bare",
+    label: "bare",
+    versionNumber: 1,
+    transactionTypes: product === "HOME_LOAN" ? null : ["balance_transfer"],
+    policyVersionId: "version-bare",
+    policyVersion: {
+      id: "version-bare",
+      organizationId: "org-1",
+      policyId: "policy-bare",
+      versionNumber: 1,
+      status: "published",
+      eligibilityRules: {},
+      creditRules: {},
+      effectiveFrom: null,
+      effectiveUntil: null,
+      policy: {
+        id: "policy-bare",
+        organizationId: "org-1",
+        lenderId: "lender-bare",
+        productCode: product,
+        status: "published",
+        currentPublishedVersionId: "version-bare",
+        isDeleted: false,
+      },
+    },
+    lender: {
+      displayName: "Bare Lender",
+      label: "bare",
+      code: "bare",
+      organizationId: "org-1",
+      enabled: true,
+      isDeleted: false,
+      lifecycleStatus: "active",
+      operationalStatus: "active",
+      effectiveFrom: null,
+      effectiveUntil: null,
+    },
+    isDeleted: false,
+    enabled: true,
+    isLivePublished: true,
+    publicationState: "published",
+    completenessState: "complete",
+    lifecycleStatus: "active",
+    status: "active",
+    approvalStatus: "approved",
+    effectiveFrom: null,
+    effectiveUntil: null,
+    residencyEligibility: null,
+    minCibil: null,
+    maxCibil: null,
+    minAge: null,
+    maxAge: null,
+    maxFoirExact: "60",
+    minRoiExact: "8.5",
+  };
+}
+
+function proofDependencies(recommend: (request: { customer: { monthlyIncomeRupees?: number | null } }) => Promise<CanonicalLenderRecommendationResult>) {
+  return {
+    loadInventory: async () => ({
+      programmes: [bareProgramme()],
+      lenderCategories: new Map([["lender-bare", "A" as const]]),
+    }),
+    recommend,
   };
 }
 
@@ -87,6 +160,14 @@ export async function runChanakyaSingleEntryProof() {
   assert.equal(facts.cibil.expectedBand.value, "750_799");
   assert.equal(facts.borrower.dateOfBirth.value, "1990-01-15");
   assert.equal(facts.borrower.dateOfBirth.sourceChannel, "CONTACT");
+  assert.equal(facts.borrower.ageYears.state, "missing");
+  const aged = buildCanonicalAssessmentSnapshot(salaried({ borrowerAgeYears: 47 }));
+  assert.equal(aged.borrower.ageYears.value, 47);
+  assert.equal(aged.borrower.ageYears.sourceEntityType, "EnterpriseOpportunity");
+  assert.equal(aged.borrower.ageYears.sourceFieldKey, "borrowerAgeYears");
+  assert.equal(aged.borrower.dateOfBirth.value, "1990-01-15");
+  assert.equal(mapFinalizedAssessmentFactsToCanonical(aged).customer.ageYears, 47);
+  assert.equal(mapFinalizedAssessmentFactsToCanonical(facts).customer.ageYears, null);
   assert.equal(facts.loanRequirement.productCode.value, "HOME_LOAN");
   assert.equal(facts.loanRequirement.transactionType.state, "missing");
 
@@ -194,12 +275,10 @@ export async function runChanakyaSingleEntryProof() {
     service,
     ACTOR,
     salaried({ opportunityId: "opp-run" }),
-    {
-      recommend: async (request) => {
-        seenIncome = request.customer.monthlyIncomeRupees;
-        return result("ready");
-      },
-    },
+    proofDependencies(async (request) => {
+      seenIncome = request.customer.monthlyIncomeRupees;
+      return result("ready");
+    }),
   );
   assert.equal(opened.revisionKind, "FINALIZED");
   assert.equal(opened.executionAllowed, true);
@@ -211,9 +290,10 @@ export async function runChanakyaSingleEntryProof() {
     service,
     ACTOR,
     salaried({ opportunityId: "opp-run" }),
-    { recommend: async () => result("ready") },
+    proofDependencies(async () => result("ready")),
   );
   assert.equal(lifeSame.revisionId, opened.revisionId);
+  assert.equal(lifeSame.workspaceState, opened.workspaceState);
   assert.equal(lifeSame.panel, opened.panel);
   assert.equal(lifeSame.resultStatus, opened.resultStatus);
   assert.equal(lifeSame.guidance.includes("Assessment incomplete"), false);
@@ -223,9 +303,10 @@ export async function runChanakyaSingleEntryProof() {
     service,
     ACTOR,
     salaried({ opportunityId: "opp-life-gap", monthlyIncomeRupees: null }),
-    { recommend: async () => result("ready") },
+    proofDependencies(async () => result("ready")),
   );
   assert.equal(missingOpen.panel, "information_required");
+  assert.equal(missingOpen.workspaceState, "INFORMATION_REQUIRED");
   assert.ok(missingOpen.missingLabels.includes("Monthly Income"));
   assert.equal(missingOpen.guidance.includes("Finalize"), false);
   const incomeBody = buildChanakyaCanonicalUpdateBody({ monthlyIncomeRupees: 500000 });
@@ -241,9 +322,10 @@ export async function runChanakyaSingleEntryProof() {
       monthlyIncomeRupees: incomeParsed.patch.monthlyIncomeRupees,
       rowVersion: 6,
     }),
-    { recommend: async () => result("ready") },
+    proofDependencies(async () => result("ready")),
   );
   assert.equal(afterIncome.revisionKind, "FINALIZED");
+  assert.equal(afterIncome.workspaceState, "INFORMATION_COMPLETE");
   assert.equal(afterIncome.panel, "complete");
   const lifeAfterIncome = await projectChanakyaRecommendationWorkspace(
     service,
@@ -253,9 +335,10 @@ export async function runChanakyaSingleEntryProof() {
       monthlyIncomeRupees: incomeParsed.patch.monthlyIncomeRupees,
       rowVersion: 6,
     }),
-    { recommend: async () => result("ready") },
+    proofDependencies(async () => result("ready")),
   );
   assert.equal(lifeAfterIncome.revisionId, afterIncome.revisionId);
+  assert.equal(lifeAfterIncome.workspaceState, afterIncome.workspaceState);
   assert.equal(lifeAfterIncome.panel, afterIncome.panel);
   assert.equal(lifeAfterIncome.resultStatus, afterIncome.resultStatus);
 
@@ -274,10 +357,14 @@ export async function runChanakyaSingleEntryProof() {
     service,
     ACTOR,
     salaried({ opportunityId: "opp-none" }),
-    { recommend: async () => result("no_eligible_programmes") },
+    proofDependencies(async () => ({
+      ...result("no_eligible_programmes"),
+      rejectedProgrammes: [{ programmeId: "bare", code: "bare", reason: "ELIGIBILITY_NOT_MET", missingInputs: [] }],
+    })),
   );
   assert.equal(none.resultStatus, "no_eligible_programmes");
   assert.equal(none.panel, "complete");
+  assert.equal(none.workspaceState, "NO_ELIGIBLE_PROGRAMMES");
 
   const reads = (relative: string) => readFileSync(path.join(root, relative), "utf8");
   const panel = reads("src/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel.tsx");
@@ -331,5 +418,5 @@ export async function runChanakyaSingleEntryProof() {
   ]);
   assert.equal(bench.includes("ChanakyaOpportunityRecommendationPanel"), false);
 
-  console.log("CHANAKYA_SINGLE_ENTRY_PROOF checks=109 failed=0");
+  console.log("CHANAKYA_SINGLE_ENTRY_PROOF checks=121 failed=0");
 }

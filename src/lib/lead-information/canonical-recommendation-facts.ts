@@ -29,6 +29,7 @@ const INT4_MAX = 2147483647;
 const ROI_STORAGE_MAX = 9999.9999;
 
 export type CanonicalRecommendationFactWrite = {
+  borrowerAgeYears: number | null;
   requestedTenureMonths: number | null;
   monthlyIncomeRupees: number | null;
   existingMonthlyObligationsRupees: number | null;
@@ -170,6 +171,19 @@ function parseControlled(
   return { ok: true, value };
 }
 
+function parseBorrowerAgeYears(raw: unknown): ParseResult {
+  if (blank(raw)) return { ok: true, value: null };
+  const text = numericText(raw);
+  if (text == null || /[eE.]/.test(text)) {
+    return { ok: false, message: "Enter age as a whole number from 1 to 120." };
+  }
+  const n = Number(text);
+  if (!Number.isInteger(n) || n < 1 || n > 120) {
+    return { ok: false, message: "Enter age as a whole number from 1 to 120." };
+  }
+  return { ok: true, value: n };
+}
+
 function parseLoanStartDate(raw: unknown): ParseResult {
   if (blank(raw)) return { ok: true, value: null };
   const text = String(raw).trim();
@@ -190,6 +204,7 @@ function parseLoanStartDate(raw: unknown): ParseResult {
 }
 
 const NULL_WRITE: CanonicalRecommendationFactWrite = {
+  borrowerAgeYears: null,
   requestedTenureMonths: null,
   monthlyIncomeRupees: null,
   existingMonthlyObligationsRupees: null,
@@ -212,6 +227,8 @@ export function canonicalFactsForLeadInformation(
     return { ok: true, facts: { ...NULL_WRITE } };
   }
 
+  const age = parseBorrowerAgeYears(form.borrowerAgeYears);
+  if (!age.ok) return { ok: false, field: "borrowerAgeYears", message: age.message };
   const tenure = parsePositiveIntegerMonths(form.requestedTenureMonths, "requested tenure");
   if (!tenure.ok) return { ok: false, field: "requestedTenureMonths", message: tenure.message };
   const obligations = parseMoney(form.existingMonthlyObligationsRupees, "monthly obligations", true);
@@ -239,6 +256,7 @@ export function canonicalFactsForLeadInformation(
 
   const facts: CanonicalRecommendationFactWrite = {
     ...NULL_WRITE,
+    borrowerAgeYears: age.value as number | null,
     requestedTenureMonths: tenure.value as number | null,
     monthlyIncomeRupees: income.value as number | null,
     existingMonthlyObligationsRupees: obligations.value as number | null,
@@ -275,6 +293,7 @@ export function canonicalFactsForLeadInformation(
 }
 
 const PATCH_KEYS: CanonicalFactField[] = [
+  "borrowerAgeYears",
   "requestedTenureMonths",
   "monthlyIncomeRupees",
   "existingMonthlyObligationsRupees",
@@ -306,7 +325,8 @@ export function parseCanonicalRecommendationFactBody(
   for (const key of present) {
     const raw = body[key];
     let parsed: ParseResult;
-    if (key === "requestedTenureMonths") parsed = parsePositiveIntegerMonths(raw, "requested tenure");
+    if (key === "borrowerAgeYears") parsed = parseBorrowerAgeYears(raw);
+    else if (key === "requestedTenureMonths") parsed = parsePositiveIntegerMonths(raw, "requested tenure");
     else if (key === "remainingTenureMonths") parsed = parsePositiveIntegerMonths(raw, "remaining tenure");
     else if (key === "monthlyIncomeRupees") parsed = parseMoney(raw, "monthly income", false);
     else if (key === "existingMonthlyObligationsRupees") {
@@ -341,6 +361,7 @@ export function storedCanonicalNumber(value: number | null | undefined): string 
 }
 
 const CHANAKYA_PATCH_KEYS = [
+  "borrowerAgeYears",
   "requestedTenureMonths",
   "monthlyIncomeRupees",
   "existingMonthlyObligationsRupees",
@@ -356,6 +377,8 @@ const CHANAKYA_PATCH_KEYS = [
   "delayedEmiCount",
   "requestedAmount",
   "employmentTypeCode",
+  "cityLabel",
+  "stateLabel",
 ] as const;
 
 /**

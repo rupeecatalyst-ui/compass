@@ -85,6 +85,7 @@ export function mapFinalizedAssessmentFactsToCanonical(
     employmentFamily: employmentFamily === "salaried" || employmentFamily === "unknown" ? employmentFamily : "unknown",
     employmentType: knownValue(facts.borrower.employmentTypeCode),
     residency: knownValue(facts.borrower.residency),
+    ageYears: knownInteger(facts.borrower.ageYears),
     dateOfBirth: knownValue(facts.borrower.dateOfBirth),
     constitution: knownValue(facts.borrower.constitution),
     city: knownValue(facts.property.propertyCity),
@@ -127,6 +128,7 @@ export function mapFinalizedAssessmentFactsToCanonical(
 
   provenance(fieldProvenance, "requiredAmountRupees", facts.loanRequirement.requestedAmount, "loanRequirement.requestedAmount");
   provenance(fieldProvenance, "propertyValueRupees", facts.property.propertyValue, "property.propertyValue");
+  provenance(fieldProvenance, "ageYears", facts.borrower.ageYears, "borrower.ageYears");
   provenance(fieldProvenance, "residency", facts.borrower.residency, "borrower.residency");
   provenance(fieldProvenance, "city", facts.property.propertyCity, "property.propertyCity");
   provenance(fieldProvenance, "monthlyIncomeRupees", facts.incomeAndObligations.monthlyIncome, "incomeAndObligations.monthlyIncome");

@@ -3208,6 +3208,8 @@ model EnterpriseOpportunity {
   loanStartDate             DateTime?                   @map("loan_start_date") @db.Date
   repaymentTrack            String?                     @map("repayment_track")
   delayedEmiCount           Int?                        @map("delayed_emi_count")
+  /// CHANAKYA — borrower age in completed years. Null = not answered. Not derived from Contact date of birth.
+  borrowerAgeYears          Int?                        @map("borrower_age_years")
   priority                  DealPriority                @default(medium)
   sourceCode                String?                     @map("source_code")
   sourceContactId           String?                     @map("source_contact_id")

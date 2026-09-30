@@ -3,23 +3,16 @@ import type { FilterFactBag } from "./evaluate";
 
 type Customer = CanonicalLenderRecommendationRequest["customer"];
 
-function ageYearsFromCustomer(customer: Customer, asOf: Date): number | undefined {
+function ageYearsFromCustomer(customer: Customer): number | undefined {
   if (typeof customer.ageYears === "number" && Number.isFinite(customer.ageYears) && customer.ageYears > 0) {
     return customer.ageYears;
   }
-  const dob = customer.dateOfBirth;
-  if (typeof dob !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return undefined;
-  const date = new Date(`${dob}T00:00:00Z`);
-  if (!Number.isFinite(date.getTime())) return undefined;
-  let years = asOf.getUTCFullYear() - date.getUTCFullYear();
-  const monthDelta = asOf.getUTCMonth() - date.getUTCMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && asOf.getUTCDate() < date.getUTCDate())) years -= 1;
-  return years > 0 ? years : undefined;
+  return undefined;
 }
 
 /** Maps governed customer assessment fields onto canonical filter field IDs. Does not invent values. */
-export function customerFactsForAdditionalFilters(customer: Customer, asOf: Date): FilterFactBag {
-  const ageYears = ageYearsFromCustomer(customer, asOf);
+export function customerFactsForAdditionalFilters(customer: Customer, _asOf: Date): FilterFactBag {
+  const ageYears = ageYearsFromCustomer(customer);
   const facts: Record<string, unknown> = {
     "assessment:property.constructionStatus": customer.constructionStatus,
     constructionStatus: customer.constructionStatus,

@@ -337,10 +337,9 @@ function assessOneProgramme(
   const roi = programmeRoi(program);
   const programmeMax = programmeMaxAmount(program);
   const applicantAgeMonths =
-    ageInMonthsFromDateOfBirth(customer.dateOfBirth, now) ??
-    (customer.ageYears != null && Number.isFinite(customer.ageYears) && customer.ageYears > 0
+    customer.ageYears != null && Number.isFinite(customer.ageYears) && customer.ageYears > 0
       ? Math.round(customer.ageYears * 12)
-      : null);
+      : null;
   const coAgeMonths = ageInMonthsFromDateOfBirth(customer.coApplicant?.dateOfBirth, now);
   const tenure = calculateEffectiveTenureMonths({
     programmeMaxTenureMonths: program.maxTenureMonths ?? null,
