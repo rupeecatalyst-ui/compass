@@ -4,6 +4,7 @@
  */
 
 import { isHlbtCanonicalFactJourney } from "@/lib/lead-information/canonical-recommendation-facts";
+import { PROGRAMME_CONSTITUTION_ID_SET } from "@/constants/product-programme-operations/controlled-masters";
 import { resolveContextCustomerFamily } from "@/lib/context-aware-data-collection";
 import { emptyOpportunityAssessmentFacts } from "@/lib/opportunity-assessment/empty-facts";
 import { parseExactMoney, parseExactPercent } from "@/lib/product-programme-operations/money";
@@ -42,6 +43,7 @@ export type CanonicalAssessmentSources = {
   cityLabel?: string | null;
   stateLabel?: string | null;
   borrowerAgeYears?: number | null;
+  borrowerLegalConstitution?: string | null;
   dateOfBirth?: string | null;
   contactId?: string | null;
   approxCibilScore?: string | null;
@@ -285,6 +287,16 @@ export function buildCanonicalAssessmentSnapshot(
       "EnterpriseOpportunity",
       opportunityId,
       "borrowerAgeYears",
+    );
+  }
+
+  const constitution = sources.borrowerLegalConstitution?.trim() ?? "";
+  if (constitution && (PROGRAMME_CONSTITUTION_ID_SET as ReadonlySet<string>).has(constitution)) {
+    facts.borrower.constitution = known(
+      constitution,
+      "EnterpriseOpportunity",
+      opportunityId,
+      "borrowerLegalConstitution",
     );
   }
 

@@ -214,7 +214,18 @@ export function ChanakyaRecommendationWorkspace({
           {model?.panel === "unsupported" ? (
             <p className="mt-3 text-sm text-foreground">{model.guidance}</p>
           ) : null}
-          {model?.panel === "blocked" ? (
+          {model?.workspaceState === "UNSUPPORTED_CANONICAL_FACT" ? (
+            <div className="mt-3 space-y-2">
+              <p className="text-sm text-foreground">{model.guidance}</p>
+              {model.blockers.length > 0 ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
+                  {model.blockers.map((item) => (
+                    <li key={item.factKey}>{item.displayLabel}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : model?.panel === "blocked" ? (
             <p className="mt-3 text-sm text-foreground">{model.guidance}</p>
           ) : null}
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
@@ -243,7 +254,18 @@ export function ChanakyaRecommendationWorkspace({
               <RecommendationGroup label="Additional options" rows={presentation.additional} />
             </div>
           ) : null}
-          {!busy && model?.panel === "blocked" ? (
+          {!busy && model?.workspaceState === "UNSUPPORTED_CANONICAL_FACT" ? (
+            <div className="mt-3 space-y-2">
+              <p className="text-sm text-foreground">{model.guidance}</p>
+              {model.blockers.length > 0 ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
+                  {model.blockers.map((item) => (
+                    <li key={item.factKey}>{item.displayLabel}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : !busy && model?.panel === "blocked" ? (
             <p className="mt-3 text-sm text-muted-foreground">{model.guidance}</p>
           ) : null}
         </section>

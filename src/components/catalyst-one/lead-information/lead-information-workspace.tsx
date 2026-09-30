@@ -71,7 +71,7 @@ import {
   isHomeLoanCanonicalFactProduct,
   isSalariedEmployment,
 } from "@/lib/lead-information/canonical-recommendation-facts";
-import { PROGRAMME_RESIDENCY } from "@/constants/product-programme-operations/controlled-masters";
+import { PROGRAMME_LEGAL_CONSTITUTIONS, PROGRAMME_RESIDENCY } from "@/constants/product-programme-operations/controlled-masters";
 import { resolveBusinessSourceContactLookup } from "@/constants/opportunity-business-source";
 import {
   isApproxCibilScoreBand,
@@ -788,6 +788,24 @@ export function LeadInformationWorkspace() {
                   placeholder="e.g. 36"
                   onChange={(e) => patchForm("borrowerAgeYears", e.target.value)}
                 />
+              </Field>
+              <Field label="Legal Constitution" error={errors.borrowerLegalConstitution}>
+                <Select
+                  value={selectValue(form.borrowerLegalConstitution)}
+                  onValueChange={(v) => patchForm("borrowerLegalConstitution", fromSelectValue(v))}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Not Selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
+                    {PROGRAMME_LEGAL_CONSTITUTIONS.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field
                 label="Requested Tenure (months)"

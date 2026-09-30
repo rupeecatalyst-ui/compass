@@ -3210,6 +3210,8 @@ model EnterpriseOpportunity {
   delayedEmiCount           Int?                        @map("delayed_emi_count")
   /// CHANAKYA — borrower age in completed years. Null = not answered. Not derived from Contact date of birth.
   borrowerAgeYears          Int?                        @map("borrower_age_years")
+  /// CHANAKYA — borrower legal constitution. Null = not answered. ProgrammeLegalConstitutionId. Not copied from company constitution.
+  borrowerLegalConstitution String?                     @map("borrower_legal_constitution")
   priority                  DealPriority                @default(medium)
   sourceCode                String?                     @map("source_code")
   sourceContactId           String?                     @map("source_contact_id")

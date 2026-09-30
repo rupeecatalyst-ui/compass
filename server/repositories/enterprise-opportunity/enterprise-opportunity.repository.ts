@@ -100,6 +100,7 @@ export type UpdateEnterpriseOpportunityInput = {
   priority?: DealPriority;
   requestedAmount?: Prisma.Decimal | number | null;
   borrowerAgeYears?: number | null;
+  borrowerLegalConstitution?: string | null;
   requestedTenureMonths?: number | null;
   monthlyIncomeRupees?: Prisma.Decimal | number | null;
   existingMonthlyObligationsRupees?: Prisma.Decimal | number | null;
@@ -638,6 +639,9 @@ export class EnterpriseOpportunityRepository {
     if (input.priority !== undefined) data.priority = input.priority;
     if (input.requestedAmount !== undefined) data.requestedAmount = input.requestedAmount;
     if (input.borrowerAgeYears !== undefined) data.borrowerAgeYears = input.borrowerAgeYears;
+    if (input.borrowerLegalConstitution !== undefined) {
+      data.borrowerLegalConstitution = input.borrowerLegalConstitution;
+    }
     if (input.requestedTenureMonths !== undefined) {
       data.requestedTenureMonths = input.requestedTenureMonths;
     }

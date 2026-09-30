@@ -175,8 +175,42 @@ export async function runChanakyaProgrammeAwareFactProof() {
   assert.ok(delayed.askPaths.includes("balanceTransfer.delayedEmiCount"));
   assert.equal(delayed.askPaths.some((path) => path.includes("remainingTenure")), false);
 
+  const constitutionNeeds = collectProgrammeFactNeeds(
+    [mapped("HOME_LOAN", { legalConstitutions: ["individual"] })],
+    customer(),
+  );
+  assert.equal(constitutionNeeds.unsupportedKeys.includes("borrower.constitution"), false);
+  assert.ok(constitutionNeeds.askPaths.includes("borrower.constitution"));
+  const constitutionKnown = collectProgrammeFactNeeds(
+    [mapped("HOME_LOAN", { legalConstitutions: ["individual"] })],
+    customer({ borrowerLegalConstitution: "individual" }),
+  );
+  assert.equal(constitutionKnown.askPaths.includes("borrower.constitution"), false);
+  assert.equal(constitutionKnown.unsupportedKeys.includes("borrower.constitution"), false);
+
+  const dobFilter = {
+    additionalEligibilityFilters: {
+      version: 1,
+      root: {
+        kind: "group",
+        id: "dob",
+        combinator: "AND",
+        children: [{ kind: "predicate", id: "dob-leaf", fieldId: "borrower.dateOfBirth", operator: "IS_NOT_EMPTY" }],
+      },
+    },
+  };
+  const dobAsk = collectProgrammeFactNeeds(
+    [mapped("HOME_LOAN", dobFilter)],
+    customer({ borrowerAgeYears: null }),
+  );
+  assert.ok(dobAsk.askPaths.includes("borrower.ageYears"));
+  assert.equal(dobAsk.unsupportedKeys.includes("borrower.dateOfBirth"), false);
+  assert.equal(dobAsk.askPaths.includes("borrower.dateOfBirth"), false);
+  const dobKnown = collectProgrammeFactNeeds([mapped("HOME_LOAN", dobFilter)], customer());
+  assert.equal(dobKnown.askPaths.includes("borrower.ageYears"), false);
+  assert.equal(dobKnown.unsupportedKeys.includes("borrower.dateOfBirth"), false);
+
   const blockers: Array<[Record<string, unknown>, string]> = [
-    [{ legalConstitutions: ["individual"] }, "borrower.constitution"],
     [{ policyAssessmentJson: { allowedPropertyKinds: ["flat"] } }, "property.propertyKind"],
     [{ policyAssessmentJson: { allowedOccupancy: ["self"] } }, "property.occupancy"],
     [{ policyAssessmentJson: { allowedPossession: ["yes"] } }, "property.possessionStatus"],
@@ -216,15 +250,31 @@ export async function runChanakyaProgrammeAwareFactProof() {
   assert.ok(missing.missingFactKeys.includes("borrower.residency"));
   assert.equal(missing.recommendationExecuted, false);
 
-  const blocked = await project(
+  const askedConstitution = await project(
     { opportunityId: "opp-constitution" },
     [row("HOME_LOAN", { legalConstitutions: ["individual"] })],
     async () => result("ready"),
   );
+  assert.equal(askedConstitution.workspaceState, "INFORMATION_REQUIRED");
+  assert.equal(askedConstitution.failureCode, null);
+  assert.ok(askedConstitution.missingFactKeys.includes("borrower.constitution"));
+  assert.ok(askedConstitution.missingLabels.includes("Legal Constitution"));
+  assert.equal(askedConstitution.recommendationExecuted, false);
+  assert.equal(askedConstitution.guidance.includes("no canonical Opportunity store"), false);
+
+  const blocked = await project(
+    { opportunityId: "opp-property-kind" },
+    [row("HOME_LOAN", { policyAssessmentJson: { allowedPropertyKinds: ["flat"] } })],
+    async () => result("ready"),
+  );
   assert.equal(blocked.workspaceState, "UNSUPPORTED_CANONICAL_FACT");
   assert.equal(blocked.failureCode, "CANONICAL_FACT_STORAGE_NOT_AVAILABLE");
-  assert.ok(blocked.missingFactKeys.includes("borrower.constitution"));
-  assert.equal(blocked.guidance.includes("No eligible lender programme"), false);
+  assert.ok(blocked.missingFactKeys.includes("property.propertyKind"));
+  assert.ok(blocked.guidance.includes("Property Kind"));
+  assert.equal(blocked.guidance.includes("no canonical Opportunity store"), false);
+  assert.equal(blocked.blockers[0]?.factKey, "property.propertyKind");
+  assert.equal(blocked.blockers[0]?.displayLabel, "Property Kind");
+  assert.equal(blocked.blockers[0]?.reasonCategory, "CANONICAL_STORAGE_NOT_AVAILABLE");
 
   const none = await project({ opportunityId: "opp-none" }, [row("HOME_LOAN")], async () => result("no_eligible_programmes", "ELIGIBILITY_NOT_MET"));
   assert.equal(none.workspaceState, "NO_ELIGIBLE_PROGRAMMES");
@@ -277,5 +327,5 @@ export async function runChanakyaProgrammeAwareFactProof() {
   assert.equal(workspace.includes("Complete Assessment"), false);
   assert.equal(workspace.includes("Save draft"), false);
 
-  console.log("CHANAKYA_PROGRAMME_AWARE_FACT_PROOF checks=43 failed=0");
+  console.log("CHANAKYA_PROGRAMME_AWARE_FACT_PROOF checks=62 failed=0");
 }

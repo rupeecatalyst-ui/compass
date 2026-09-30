@@ -15,6 +15,13 @@ export type ChanakyaWorkspaceState =
   | "CONFIGURATION_BLOCKED"
   | "UNSUPPORTED_METHODOLOGY";
 
+export type ChanakyaUnsupportedFactBlocker = {
+  factKey: string;
+  displayLabel: string;
+  reasonCategory: "CANONICAL_STORAGE_NOT_AVAILABLE";
+  programmes?: ReadonlyArray<{ code: string; name: string }>;
+};
+
 export type ChanakyaRecommendationWorkspaceDto = {
   opportunityId: string;
   assessmentId: string | null;
@@ -24,6 +31,7 @@ export type ChanakyaRecommendationWorkspaceDto = {
   failureCode: string | null;
   missingFactKeys: string[];
   missingLabels: string[];
+  blockers: ChanakyaUnsupportedFactBlocker[];
   panel: ChanakyaWorkspacePanel;
   workspaceState: ChanakyaWorkspaceState;
   executionAllowed: boolean;

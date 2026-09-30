@@ -9,6 +9,7 @@ import type { LeadInformationFormState } from "@/constants/lead-information-work
 import { GOVERNED_PROPERTY_CATEGORIES } from "@/constants/product-journey/property-category";
 import {
   PROGRAMME_CONSTRUCTION_STATUSES,
+  PROGRAMME_LEGAL_CONSTITUTIONS,
   PROGRAMME_RESIDENCY,
 } from "@/constants/product-programme-operations/controlled-masters";
 
@@ -21,6 +22,7 @@ export const CANONICAL_RESIDENCY_VALUES = PROGRAMME_RESIDENCY.map((item) => item
 
 export const CANONICAL_PROPERTY_CATEGORIES = GOVERNED_PROPERTY_CATEGORIES;
 export const CANONICAL_CONSTRUCTION_STATUSES = PROGRAMME_CONSTRUCTION_STATUSES.map((item) => item.id);
+export const CANONICAL_LEGAL_CONSTITUTION_IDS = PROGRAMME_LEGAL_CONSTITUTIONS.map((item) => item.id);
 
 /** Same answers as Opportunity Assessment repayment track. */
 export const CANONICAL_REPAYMENT_TRACKS = ["yes", "no", "not_sure"] as const;
@@ -30,6 +32,7 @@ const ROI_STORAGE_MAX = 9999.9999;
 
 export type CanonicalRecommendationFactWrite = {
   borrowerAgeYears: number | null;
+  borrowerLegalConstitution: string | null;
   requestedTenureMonths: number | null;
   monthlyIncomeRupees: number | null;
   existingMonthlyObligationsRupees: number | null;
@@ -205,6 +208,7 @@ function parseLoanStartDate(raw: unknown): ParseResult {
 
 const NULL_WRITE: CanonicalRecommendationFactWrite = {
   borrowerAgeYears: null,
+  borrowerLegalConstitution: null,
   requestedTenureMonths: null,
   monthlyIncomeRupees: null,
   existingMonthlyObligationsRupees: null,
@@ -247,6 +251,12 @@ export function canonicalFactsForLeadInformation(
   if (!construction.ok) return { ok: false, field: "constructionStatus", message: construction.message };
   const residency = parseControlled(form.residency, CANONICAL_RESIDENCY_VALUES, "residency");
   if (!residency.ok) return { ok: false, field: "residency", message: residency.message };
+  const constitution = parseControlled(
+    form.borrowerLegalConstitution,
+    CANONICAL_LEGAL_CONSTITUTION_IDS,
+    "legal constitution",
+  );
+  if (!constitution.ok) return { ok: false, field: "borrowerLegalConstitution", message: constitution.message };
 
   let income: ParseResult = { ok: true, value: null };
   if (isSalariedEmployment(form.employmentTypeCode)) {
@@ -264,6 +274,7 @@ export function canonicalFactsForLeadInformation(
     propertyCategory: category.value as string | null,
     constructionStatus: construction.value as string | null,
     residency: residency.value as string | null,
+    borrowerLegalConstitution: constitution.value as string | null,
   };
 
   if (!isHlbtCanonicalFactJourney(form.productCode, form.transactionType)) {
@@ -294,6 +305,7 @@ export function canonicalFactsForLeadInformation(
 
 const PATCH_KEYS: CanonicalFactField[] = [
   "borrowerAgeYears",
+  "borrowerLegalConstitution",
   "requestedTenureMonths",
   "monthlyIncomeRupees",
   "existingMonthlyObligationsRupees",
@@ -326,6 +338,9 @@ export function parseCanonicalRecommendationFactBody(
     const raw = body[key];
     let parsed: ParseResult;
     if (key === "borrowerAgeYears") parsed = parseBorrowerAgeYears(raw);
+    else if (key === "borrowerLegalConstitution") {
+      parsed = parseControlled(raw, CANONICAL_LEGAL_CONSTITUTION_IDS, "legal constitution");
+    }
     else if (key === "requestedTenureMonths") parsed = parsePositiveIntegerMonths(raw, "requested tenure");
     else if (key === "remainingTenureMonths") parsed = parsePositiveIntegerMonths(raw, "remaining tenure");
     else if (key === "monthlyIncomeRupees") parsed = parseMoney(raw, "monthly income", false);
@@ -362,6 +377,7 @@ export function storedCanonicalNumber(value: number | null | undefined): string 
 
 const CHANAKYA_PATCH_KEYS = [
   "borrowerAgeYears",
+  "borrowerLegalConstitution",
   "requestedTenureMonths",
   "monthlyIncomeRupees",
   "existingMonthlyObligationsRupees",

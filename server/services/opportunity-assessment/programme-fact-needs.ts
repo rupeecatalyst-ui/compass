@@ -1,5 +1,6 @@
 import type { CanonicalAssessmentProgramme } from "@server/services/lender-recommendation/programme-assessment-adapter";
 import { programmeRequiresMorePreciseCibil } from "@server/services/lender-recommendation/canonical-governed-eligibility";
+import type { ChanakyaUnsupportedFactBlocker } from "@/types/chanakya-recommendation-workspace";
 import type { CanonicalLenderRecommendationRequest } from "@/types/canonical-lender-recommendation";
 import type { AdditionalEligibilityFilters, AdditionalFilterNode } from "@/lib/product-programme-operations/additional-eligibility-filters";
 
@@ -8,7 +9,9 @@ type Customer = CanonicalLenderRecommendationRequest["customer"];
 const ASK_BY_FILTER: Record<string, string> = {
   age: "borrower.ageYears",
   ageyears: "borrower.ageYears",
+  dateofbirth: "borrower.ageYears",
   residency: "borrower.residency",
+  constitution: "borrower.constitution",
   propertycategory: "property.propertyCategory",
   constructionstatus: "property.constructionStatus",
   city: "property.propertyCity",
@@ -26,13 +29,19 @@ const ASK_BY_FILTER: Record<string, string> = {
 };
 
 const UNSUPPORTED_BY_FILTER: Record<string, string> = {
-  constitution: "borrower.constitution",
   propertykind: "property.propertyKind",
   occupancy: "property.occupancy",
   possession: "property.possessionStatus",
   registration: "property.registrationStatus",
   coapplicant: "coApplicant",
-  dateofbirth: "borrower.dateOfBirth",
+};
+
+const UNSUPPORTED_LABELS: Record<string, string> = {
+  "property.propertyKind": "Property Kind",
+  "property.occupancy": "Occupancy",
+  "property.possessionStatus": "Possession Status",
+  "property.registrationStatus": "Registration Status",
+  coApplicant: "Co-applicant",
 };
 
 function filterLeaf(fieldId: string): string {
@@ -50,6 +59,7 @@ function agePresent(customer: Customer): boolean {
 
 function factSatisfied(path: string, customer: Customer): boolean {
   if (path === "borrower.ageYears") return agePresent(customer);
+  if (path === "borrower.constitution") return text(customer.constitution);
   if (path === "borrower.residency") return text(customer.residency);
   if (path === "borrower.employmentFamily") return text(customer.employmentType) || customer.employmentFamily === "salaried";
   if (path === "property.propertyCategory") return text(customer.propertyType);
@@ -83,9 +93,18 @@ function filterIds(filters: AdditionalEligibilityFilters | null | undefined): st
   return ids;
 }
 
+function programmeIdentity(programme: CanonicalAssessmentProgramme): { code: string; name: string } | null {
+  const row = programme as CanonicalAssessmentProgramme & { code?: unknown; label?: unknown };
+  const code = typeof row.code === "string" ? row.code.trim() : "";
+  const name = typeof row.label === "string" ? row.label.trim() : "";
+  if (!code && !name) return null;
+  return { code, name };
+}
+
 export type ProgrammeFactNeeds = {
   askPaths: string[];
   unsupportedKeys: string[];
+  blockers: ChanakyaUnsupportedFactBlocker[];
 };
 
 /** Facts required by viable programmes only. Savings-only BT comparison fields are not included. */
@@ -95,6 +114,18 @@ export function collectProgrammeFactNeeds(
 ): ProgrammeFactNeeds {
   const ask = new Set<string>();
   const unsupported = new Set<string>();
+  const owners = new Map<string, Array<{ code: string; name: string }>>();
+
+  const block = (key: string, programme: CanonicalAssessmentProgramme) => {
+    unsupported.add(key);
+    const identity = programmeIdentity(programme);
+    const list = owners.get(key) ?? [];
+    if (identity && !list.some((item) => item.code === identity.code && item.name === identity.name)) {
+      list.push(identity);
+    }
+    owners.set(key, list);
+  };
+
   for (const programme of programmes) {
     const constraints = programme.canonicalConstraints;
     if ((constraints.minAge != null || constraints.maxAge != null || programme.maxAgeAtMaturityYears != null) && !agePresent(customer)) {
@@ -109,12 +140,12 @@ export function collectProgrammeFactNeeds(
     if (constraints.eligibleCities?.length && !text(customer.city)) ask.add("property.propertyCity");
     if (constraints.eligibleStates?.length && !text(customer.state)) ask.add("property.propertyState");
     if (programmeRequiresMorePreciseCibil(programme, customer)) ask.add("cibil.kind");
-    if (constraints.legalConstitutions?.length) unsupported.add("borrower.constitution");
-    if (programme.allowedPropertyKinds?.length) unsupported.add("property.propertyKind");
-    if (programme.allowedOccupancy?.length) unsupported.add("property.occupancy");
-    if (programme.allowedPossession?.length) unsupported.add("property.possessionStatus");
-    if (programme.allowedRegistration?.length) unsupported.add("property.registrationStatus");
-    if (programme.ageGoverningParty && programme.ageGoverningParty !== "applicant") unsupported.add("coApplicant");
+    if (constraints.legalConstitutions?.length && !text(customer.constitution)) ask.add("borrower.constitution");
+    if (programme.allowedPropertyKinds?.length) block("property.propertyKind", programme);
+    if (programme.allowedOccupancy?.length) block("property.occupancy", programme);
+    if (programme.allowedPossession?.length) block("property.possessionStatus", programme);
+    if (programme.allowedRegistration?.length) block("property.registrationStatus", programme);
+    if (programme.ageGoverningParty && programme.ageGoverningParty !== "applicant") block("coApplicant", programme);
     if (programme.canonicalProduct === "HOME_LOAN_BT") {
       if (programme.requiredSeasoningMonths != null && !factSatisfied("balanceTransfer.loanStartDate", customer)) {
         ask.add("balanceTransfer.loanStartDate");
@@ -130,12 +161,12 @@ export function collectProgrammeFactNeeds(
       const leaf = filterLeaf(fieldId);
       const blocked = UNSUPPORTED_BY_FILTER[leaf];
       if (blocked) {
-        unsupported.add(blocked);
+        block(blocked, programme);
         continue;
       }
       const path = ASK_BY_FILTER[leaf];
       if (!path) {
-        unsupported.add(fieldId);
+        block(fieldId, programme);
         continue;
       }
       if (path === "cibil.kind") {
@@ -145,5 +176,16 @@ export function collectProgrammeFactNeeds(
       if (!factSatisfied(path, customer)) ask.add(path);
     }
   }
-  return { askPaths: [...ask], unsupportedKeys: [...unsupported] };
+
+  const blockers = [...unsupported].map((factKey) => {
+    const contributed = owners.get(factKey) ?? [];
+    return {
+      factKey,
+      displayLabel: UNSUPPORTED_LABELS[factKey] ?? factKey,
+      reasonCategory: "CANONICAL_STORAGE_NOT_AVAILABLE" as const,
+      ...(contributed.length === 1 ? { programmes: contributed } : {}),
+    };
+  });
+
+  return { askPaths: [...ask], unsupportedKeys: [...unsupported], blockers };
 }

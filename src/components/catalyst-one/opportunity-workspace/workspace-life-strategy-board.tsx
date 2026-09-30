@@ -528,7 +528,9 @@ export function WorkspaceLifeStrategyBoard() {
   const chanakyaEmptyText = chanakyaLoading && !chanakya
     ? "Assessing published programmes..."
     : chanakya?.workspaceState === "INFORMATION_REQUIRED"
-      ? "CHANAKYA needs additional information before lender strategy can be completed."
+      ? chanakya.missingLabels.length > 0
+        ? `Additional information required: ${chanakya.missingLabels.join(", ")}`
+        : "CHANAKYA needs additional information before lender strategy can be completed."
       : chanakya?.workspaceState === "UNSUPPORTED_METHODOLOGY" ||
           chanakya?.workspaceState === "UNSUPPORTED_CANONICAL_FACT" ||
           chanakya?.workspaceState === "NO_PROGRAMME_INVENTORY" ||

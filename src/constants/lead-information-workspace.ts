@@ -69,6 +69,8 @@ export type LeadInformationFormState = {
   btAmount: string;
   /** Absolute months. Empty = not answered. */
   borrowerAgeYears: string;
+  /** Programme legal constitution id. Empty = not answered. Independent of employment type. */
+  borrowerLegalConstitution: string;
   requestedTenureMonths: string;
   /** Salaried monthly income, absolute rupees. Empty = not answered. */
   monthlyIncomeRupees: string;
@@ -109,6 +111,7 @@ export function emptyLeadInformationForm(): LeadInformationFormState {
     btInstitutionName: "",
     btAmount: "",
     borrowerAgeYears: "",
+    borrowerLegalConstitution: "",
     requestedTenureMonths: "",
     monthlyIncomeRupees: "",
     existingMonthlyObligationsRupees: "",

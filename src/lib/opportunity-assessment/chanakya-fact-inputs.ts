@@ -6,7 +6,10 @@ import {
   CANONICAL_REPAYMENT_TRACKS,
   CANONICAL_RESIDENCY_VALUES,
 } from "@/lib/lead-information/canonical-recommendation-facts";
-import { PROGRAMME_RESIDENCY } from "@/constants/product-programme-operations/controlled-masters";
+import {
+  PROGRAMME_LEGAL_CONSTITUTIONS,
+  PROGRAMME_RESIDENCY,
+} from "@/constants/product-programme-operations/controlled-masters";
 
 export type ChanakyaFactControl = "money" | "money_or_zero" | "months" | "count" | "date" | "text" | "select" | "age" | "city";
 
@@ -22,6 +25,12 @@ export const CHANAKYA_FACT_INPUTS: Record<string, ChanakyaFactInput> = {
     label: "Age",
     patchKey: "borrowerAgeYears",
     control: "age",
+  },
+  "borrower.constitution": {
+    label: "Legal Constitution",
+    patchKey: "borrowerLegalConstitution",
+    control: "select",
+    options: PROGRAMME_LEGAL_CONSTITUTIONS.map((item) => ({ value: item.id, label: item.label })),
   },
   "borrower.residency": {
     label: "Residency",

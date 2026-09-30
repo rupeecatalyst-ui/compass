@@ -2,6 +2,7 @@ import { OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY } from "@/constants/opportun
 import type { CanonicalLenderRecommendationResult } from "@/types/canonical-lender-recommendation";
 import type {
   ChanakyaRecommendationWorkspaceDto,
+  ChanakyaUnsupportedFactBlocker,
   ChanakyaWorkspaceState,
 } from "@/types/chanakya-recommendation-workspace";
 import { loadMappedCanonicalProgrammes } from "@server/services/lender-recommendation/canonical-lender-recommendation.service";
@@ -17,18 +18,23 @@ import { collectProgrammeFactNeeds } from "./programme-fact-needs";
 import { OpportunityAssessmentService } from "./opportunity-assessment.service";
 import type { OpportunityAssessmentActorContext } from "./types";
 
+function unsupportedFactGuidance(labels: readonly string[]): string {
+  const names = [...new Set(labels.map((item) => item.trim()).filter(Boolean))];
+  if (names.length === 0) return "Additional information required for lender evaluation.";
+  return `Additional information required for lender evaluation: ${names.join(", ")}`;
+}
+
 function guidanceFor(
   state: ChanakyaWorkspaceState,
   failureCode: string | null,
   resultStatus: string | null,
+  labels: readonly string[],
 ): string {
   if (state === "INFORMATION_REQUIRED") return "Enter the missing details to get a lender recommendation.";
   if (state === "UNSUPPORTED_METHODOLOGY") {
     return OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.SELF_EMPLOYED_ASSESSMENT_UNSUPPORTED;
   }
-  if (state === "UNSUPPORTED_CANONICAL_FACT") {
-    return OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.CANONICAL_FACT_STORAGE_NOT_AVAILABLE;
-  }
+  if (state === "UNSUPPORTED_CANONICAL_FACT") return unsupportedFactGuidance(labels);
   if (state === "NO_PROGRAMME_INVENTORY") return OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.NO_PROGRAMME_INVENTORY;
   if (state === "NO_ELIGIBLE_PROGRAMMES") return OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.NO_ELIGIBLE_PROGRAMMES;
   if (state === "CONFIGURATION_BLOCKED") return OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.CONFIGURATION_ERROR;
@@ -68,6 +74,7 @@ export async function projectChanakyaRecommendationWorkspace(
   let executionAllowed = evaluation.executable;
   let missingFactKeys = evaluation.missingFactKeys;
   let missingLabels = evaluation.missingLabels;
+  let blockers: ChanakyaUnsupportedFactBlocker[] = [];
   let workspaceState: ChanakyaWorkspaceState = evaluation.panel === "unsupported"
     ? "UNSUPPORTED_METHODOLOGY"
     : evaluation.panel === "information_required"
@@ -110,7 +117,8 @@ export async function projectChanakyaRecommendationWorkspace(
         panel = "blocked";
         failureCode = "CANONICAL_FACT_STORAGE_NOT_AVAILABLE";
         missingFactKeys = needs.unsupportedKeys;
-        missingLabels = needs.unsupportedKeys;
+        missingLabels = needs.blockers.map((item) => item.displayLabel);
+        blockers = needs.blockers;
         executionAllowed = false;
         workspaceState = "UNSUPPORTED_CANONICAL_FACT";
       } else if (needs.askPaths.length > 0) {
@@ -186,12 +194,13 @@ export async function projectChanakyaRecommendationWorkspace(
     failureCode,
     missingFactKeys,
     missingLabels,
+    blockers,
     panel,
     workspaceState,
     executionAllowed,
     recommendationExecuted,
     resultStatus,
-    guidance: guidanceFor(workspaceState, failureCode, resultStatus),
+    guidance: guidanceFor(workspaceState, failureCode, resultStatus, missingLabels),
     result,
   };
 }
