@@ -21,7 +21,6 @@ import { ChanakyaOpportunityRecommendationPanel } from "@/components/catalyst-on
 import { OpportunityLoanStructureTab } from "@/components/catalyst-one/credit-bench/opportunity-loan-structure-tab";
 import { ModifyLoanDetailsSheet } from "@/components/catalyst-one/credit-bench/modify-loan-details-sheet";
 import { CreditBenchDocumentRequestsHost } from "@/components/catalyst-one/credit-bench/credit-bench-document-requests-host";
-import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
 import {
   journeyContextFromLoanFile,
   loadOpportunityJourneyRuntime,
@@ -59,10 +58,8 @@ import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import { ROUTES } from "@/constants/routes";
-import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { buildDealWorkspaceHref, buildLeadInformationHref } from "@/lib/loan-journey/adr-018-routing";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
-import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
-import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,7 +80,6 @@ import { cn } from "@/lib/utils";
 import { useRequirementCapturedGate } from "@/lib/loan-journey/use-requirement-captured-gate";
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
 import type { LoanFile } from "@/types/catalyst-one";
-import type { EcmContact } from "@/types/enterprise-contact-master";
 import { toast } from "sonner";
 
 const CONSTITUTION_OPTIONS = listEcmMasterOptions("constitution").filter(
@@ -97,7 +93,6 @@ const CONSTITUTION_OPTIONS = listEcmMasterOptions("constitution").filter(
 export function CreditBenchWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuthContext();
   const fileParam = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
   const dashboardEntry = isDashboardNavEntry(searchParams);
@@ -124,8 +119,6 @@ export function CreditBenchWorkspace() {
   const [editingFinancial, setEditingFinancial] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState(false);
   const [editingProperty, setEditingProperty] = useState(false);
-  const [contactEditOpen, setContactEditOpen] = useState(false);
-  const [editContact, setEditContact] = useState<EcmContact | null>(null);
   const [loanDetailsOpen, setLoanDetailsOpen] = useState(false);
 
   const reloadRuntime = useCallback(async () => {
@@ -179,7 +172,7 @@ export function CreditBenchWorkspace() {
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
   const profile = useMemo(
     () => (file ? businessProfileFromLoanFile(file) : null),
-    [file, stated.statedNatureOfBusiness, contactEditOpen],
+    [file, stated.statedNatureOfBusiness],
   );
   const categoryCtx = useMemo(
     () => getContextAwareVisibility(file?.employmentType),
@@ -257,20 +250,6 @@ export function CreditBenchWorkspace() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed.");
     }
-  };
-
-  const openCustomerModify = () => {
-    if (!file?.customerId) {
-      toast.error("No Contact linked to this Opportunity yet.");
-      return;
-    }
-    const contact = findOperationalEcmContactById(file.customerId);
-    if (!contact) {
-      toast.error("Contact not found in Enterprise Contact Registry.");
-      return;
-    }
-    setEditContact(contact);
-    setContactEditOpen(true);
   };
 
   const applyParticipants = (nextParticipants: import("@/types/loan-participant").LoanParticipant[]) => {
@@ -502,7 +481,14 @@ export function CreditBenchWorkspace() {
               <Panel
                 title="Customer Information"
                 description="Identity context captured once — reused across Document Center and Credit Workbench."
-                headerAction={modifyButton(false, openCustomerModify)}
+                headerAction={modifyButton(false, () => {
+                  if (!planningCanModify) return;
+                  if (!resolveOppId) {
+                    toast.error("Opportunity id missing — cannot modify Customer Information.");
+                    return;
+                  }
+                  router.push(buildLeadInformationHref(resolveOppId));
+                })}
               >
                 <div className="grid gap-3 sm:grid-cols-2">
                   <ReadOnly label="Customer Name" value={displayOpportunityText(file.customerName)} />
@@ -884,23 +870,6 @@ export function CreditBenchWorkspace() {
           </div>
         </div>
       </LeadOpportunityJourneyChrome>
-
-      <ContactWorkspaceModal
-        open={contactEditOpen}
-        contact={editContact}
-        mode="edit"
-        actorId={user?.id ?? "ui"}
-        onOpenChange={(open) => {
-          setContactEditOpen(open);
-          if (!open) setEditContact(null);
-        }}
-        onSaved={async () => {
-          setContactEditOpen(false);
-          setEditContact(null);
-          await reloadRuntime();
-          toast.success("Customer information updated.");
-        }}
-      />
 
       {resolveOppId ? (
         <ModifyLoanDetailsSheet
