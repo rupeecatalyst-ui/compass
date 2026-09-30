@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import {
   enterpriseOpportunityApiClient,
@@ -16,6 +17,8 @@ import {
 import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import { formatOpportunitySourceDisplay } from "@/constants/opportunity-business-source";
 import { opportunityLifecycleLabel } from "@/constants/opportunity-lifecycle";
+import { buildLeadInformationHref } from "@/lib/loan-journey/adr-018-routing";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
@@ -179,10 +182,17 @@ export function OpportunityCreationStage({
           </section>
 
           <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-foreground">Customer Information</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Linked Contact — identity remains in Contacts; do not re-enter person data here.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-foreground">Customer Information</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Linked Contact — identity remains in Contacts; do not re-enter person data here.
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm" className="h-8 shrink-0">
+                <Link href={buildLeadInformationHref(opp.id)}>Edit Lead Information</Link>
+              </Button>
+            </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <Field label="Customer Name">
                 <Input readOnly value={customerName} className="h-9 text-xs" />
