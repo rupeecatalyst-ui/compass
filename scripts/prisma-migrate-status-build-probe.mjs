@@ -12,6 +12,7 @@ const APPROVED = new Set([
   "20260929180000_field_control_employment_applicability",
   "20260930153000_opportunity_canonical_recommendation_facts",
   "20260930223000_opportunity_borrower_age_years",
+  "20261001003000_opportunity_borrower_legal_constitution",
 ]);
 const MIGRATION_NAME = /^\d{14}_[a-z0-9_]+$/;
 const PREFIX = "[prisma-status-probe]";

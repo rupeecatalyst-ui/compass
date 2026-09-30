@@ -16,6 +16,7 @@ const similarCanonicalFactsMigration = "20260930153000_opportunity_canonical_rec
 const canonicalFactsPrefixMigration = "20260930153000_opportunity_canonical_recommendation";
 const canonicalFactsSuffixMigration = "20260930153000_opportunity_canonical_recommendation_facts_v2";
 const borrowerAgeMigration = "20260930223000_opportunity_borrower_age_years";
+const legalConstitutionMigration = "20261001003000_opportunity_borrower_legal_constitution";
 const borrowerAgeDifferentTimestamp = "20260930223001_opportunity_borrower_age_years";
 const borrowerAgeSuffixMigration = "20260930223000_opportunity_borrower_age_years_extra";
 const borrowerAgeRenamedTimestamp = "20261001120000_opportunity_borrower_age_years";
@@ -34,6 +35,7 @@ const known = [
   canonicalFactsPrefixMigration,
   canonicalFactsSuffixMigration,
   borrowerAgeMigration,
+  legalConstitutionMigration,
   borrowerAgeDifferentTimestamp,
   borrowerAgeSuffixMigration,
   borrowerAgeRenamedTimestamp,
@@ -109,6 +111,7 @@ test("approved set is exactly the reviewed migration names", () => {
     employmentApplicabilityMigration,
     canonicalFactsMigration,
     borrowerAgeMigration,
+    legalConstitutionMigration,
   ]);
   assert.equal(probeSource.includes(`${customFieldMigration.slice(0, 8)}*`), false);
   assert.equal(probeSource.includes(`${placementValueMigration.slice(0, 8)}*`), false);
@@ -188,6 +191,13 @@ test("a canonical facts prefix or suffix does not pass", () => {
   );
 });
 
+test("exact pending legal constitution migration returns approved pending only", () => {
+  assert.deepEqual(classifyStatus(pendingOutput([legalConstitutionMigration]), 1, known), {
+    kind: "APPROVED_PENDING_ONLY",
+    pending: [legalConstitutionMigration],
+  });
+});
+
 test("exact pending borrower age migration returns approved pending only", () => {
   assert.deepEqual(classifyStatus(pendingOutput([borrowerAgeMigration]), 1, known), {
     kind: "APPROVED_PENDING_ONLY",
@@ -228,6 +238,7 @@ test("previously approved migrations stay allowed and unknown migrations stay re
     employmentApplicabilityMigration,
     canonicalFactsMigration,
     borrowerAgeMigration,
+    legalConstitutionMigration,
   ]) {
     assert.equal(classifyStatus(pendingOutput([name]), 1, known).kind, "APPROVED_PENDING_ONLY");
   }
