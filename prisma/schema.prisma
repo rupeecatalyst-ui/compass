@@ -3191,6 +3191,23 @@ model EnterpriseOpportunity {
   stateLabel                String?                     @map("state_label")
   currencyCode              String                      @default("INR") @map("currency_code")
   requestedAmount           Decimal?                    @map("requested_amount") @db.Decimal(18, 2)
+  /// CHANAKYA Phase A — customer requested tenure in absolute months. Null = not answered.
+  requestedTenureMonths     Int?                        @map("requested_tenure_months")
+  /// Salaried monthly income only. Null = not answered. Not a self-employed methodology.
+  monthlyIncomeRupees       Decimal?                    @map("monthly_income_rupees") @db.Decimal(18, 2)
+  /// Null = not answered. Zero = customer declared no monthly obligations.
+  existingMonthlyObligationsRupees Decimal?             @map("existing_monthly_obligations_rupees") @db.Decimal(18, 2)
+  propertyValueRupees       Decimal?                    @map("property_value_rupees") @db.Decimal(18, 2)
+  propertyCategory          String?                     @map("property_category")
+  constructionStatus        String?                     @map("construction_status")
+  residency                 String?                     @map("residency")
+  /// HOME_LOAN_BT customer facts. Null on an ordinary Home Loan.
+  currentRoiPercent         Decimal?                    @map("current_roi_percent") @db.Decimal(8, 4)
+  currentHomeLoanEmiRupees  Decimal?                    @map("current_home_loan_emi_rupees") @db.Decimal(18, 2)
+  remainingTenureMonths     Int?                        @map("remaining_tenure_months")
+  loanStartDate             DateTime?                   @map("loan_start_date")
+  repaymentTrack            String?                     @map("repayment_track")
+  delayedEmiCount           Int?                        @map("delayed_emi_count")
   priority                  DealPriority                @default(medium)
   sourceCode                String?                     @map("source_code")
   sourceContactId           String?                     @map("source_contact_id")

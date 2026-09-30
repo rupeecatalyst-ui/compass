@@ -62,6 +62,16 @@ import {
   absoluteRupeesFromStoredString,
   absoluteRupeesToStoredString,
 } from "@/lib/enterprise-financial-input";
+import {
+  CANONICAL_CONSTRUCTION_STATUSES,
+  CANONICAL_PROPERTY_CATEGORIES,
+  CANONICAL_REPAYMENT_TRACKS,
+  CANONICAL_RESIDENCY_VALUES,
+  isHlbtCanonicalFactJourney,
+  isHomeLoanCanonicalFactProduct,
+  isSalariedEmployment,
+} from "@/lib/lead-information/canonical-recommendation-facts";
+import { PROGRAMME_RESIDENCY } from "@/constants/product-programme-operations/controlled-masters";
 import { resolveBusinessSourceContactLookup } from "@/constants/opportunity-business-source";
 import {
   isApproxCibilScoreBand,
@@ -706,7 +716,14 @@ export function LeadInformationWorkspace() {
             <Field label="Employment Type">
               <Select
                 value={selectValue(form.employmentTypeCode)}
-                onValueChange={(v) => patchForm("employmentTypeCode", fromSelectValue(v))}
+                onValueChange={(v) => {
+                  const next = fromSelectValue(v);
+                  setForm((prev) => ({
+                    ...prev,
+                    employmentTypeCode: next,
+                    monthlyIncomeRupees: next === "salaried" ? prev.monthlyIncomeRupees : "",
+                  }));
+                }}
               >
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Not Specified" />
@@ -720,6 +737,11 @@ export function LeadInformationWorkspace() {
                   ))}
                 </SelectContent>
               </Select>
+              {form.employmentTypeCode.startsWith("self-employed") ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  CHANAKYA recommendation is not available for self-employed income in this phase.
+                </p>
+              ) : null}
             </Field>
             <ApproxCibilScoreField
               id="opportunity-expected-cibil-score"
@@ -746,6 +768,190 @@ export function LeadInformationWorkspace() {
             ) : null}
           </div>
         </section>
+
+        {isHomeLoanCanonicalFactProduct(form.productCode) ? (
+          <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-foreground">Borrower and property</h2>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Customer facts for this Home Loan. Lender eligibility is not decided here.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Requested Tenure (months)"
+                error={errors.requestedTenureMonths}
+                hint="Stored in months. 20 years = 240."
+              >
+                <Input
+                  className="h-9"
+                  inputMode="numeric"
+                  value={form.requestedTenureMonths}
+                  placeholder="e.g. 240"
+                  onChange={(e) => patchForm("requestedTenureMonths", e.target.value)}
+                />
+              </Field>
+              {isSalariedEmployment(form.employmentTypeCode) ? (
+                <Field
+                  label="Monthly Income (₹)"
+                  error={errors.monthlyIncomeRupees}
+                  hint="Salaried income only"
+                >
+                  <EnterpriseFinancialInput
+                    value={absoluteRupeesFromStoredString(form.monthlyIncomeRupees)}
+                    onChange={(absolute) =>
+                      patchForm("monthlyIncomeRupees", absoluteRupeesToStoredString(absolute))
+                    }
+                    placeholder="e.g. 80"
+                    defaultUnit="thousand"
+                  />
+                </Field>
+              ) : null}
+              <Field
+                label="Existing Monthly Obligations (₹)"
+                error={errors.existingMonthlyObligationsRupees}
+                hint="Leave blank if not answered. Enter 0 if there are none."
+              >
+                <Input
+                  className="h-9"
+                  inputMode="decimal"
+                  value={form.existingMonthlyObligationsRupees}
+                  placeholder="0"
+                  onChange={(e) => patchForm("existingMonthlyObligationsRupees", e.target.value)}
+                />
+              </Field>
+              <Field label="Property Value (₹)" error={errors.propertyValueRupees}>
+                <EnterpriseFinancialInput
+                  value={absoluteRupeesFromStoredString(form.propertyValueRupees)}
+                  onChange={(absolute) =>
+                    patchForm("propertyValueRupees", absoluteRupeesToStoredString(absolute))
+                  }
+                  placeholder="e.g. 80"
+                  defaultUnit="lakh"
+                />
+              </Field>
+              <Field label="Property Category" error={errors.propertyCategory}>
+                <Select
+                  value={selectValue(form.propertyCategory)}
+                  onValueChange={(v) => patchForm("propertyCategory", fromSelectValue(v))}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Not Selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
+                    {CANONICAL_PROPERTY_CATEGORIES.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Construction Status" error={errors.constructionStatus}>
+                <Select
+                  value={selectValue(form.constructionStatus)}
+                  onValueChange={(v) => patchForm("constructionStatus", fromSelectValue(v))}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Not Selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
+                    {CANONICAL_CONSTRUCTION_STATUSES.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value === "under_construction" ? "Under Construction" : "Ready"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Residency" error={errors.residency}>
+                <Select
+                  value={selectValue(form.residency)}
+                  onValueChange={(v) => patchForm("residency", fromSelectValue(v))}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Not Selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
+                    {CANONICAL_RESIDENCY_VALUES.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {PROGRAMME_RESIDENCY.find((item) => item.id === value)?.label ?? value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            {isHlbtCanonicalFactJourney(form.productCode, form.transactionType) ? (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Current ROI (%)" error={errors.currentRoiPercent}>
+                  <Input
+                    className="h-9"
+                    inputMode="decimal"
+                    value={form.currentRoiPercent}
+                    placeholder="e.g. 8.5"
+                    onChange={(e) => patchForm("currentRoiPercent", e.target.value)}
+                  />
+                </Field>
+                <Field label="Current Home Loan EMI (₹)" error={errors.currentHomeLoanEmiRupees}>
+                  <Input
+                    className="h-9"
+                    inputMode="decimal"
+                    value={form.currentHomeLoanEmiRupees}
+                    onChange={(e) => patchForm("currentHomeLoanEmiRupees", e.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Remaining Tenure (months)"
+                  error={errors.remainingTenureMonths}
+                >
+                  <Input
+                    className="h-9"
+                    inputMode="numeric"
+                    value={form.remainingTenureMonths}
+                    onChange={(e) => patchForm("remainingTenureMonths", e.target.value)}
+                  />
+                </Field>
+                <Field label="Loan Start Date" error={errors.loanStartDate}>
+                  <Input
+                    className="h-9"
+                    type="date"
+                    value={form.loanStartDate}
+                    onChange={(e) => patchForm("loanStartDate", e.target.value)}
+                  />
+                </Field>
+                <Field label="Repayment Track" error={errors.repaymentTrack}>
+                  <Select
+                    value={selectValue(form.repaymentTrack)}
+                    onValueChange={(v) => patchForm("repaymentTrack", fromSelectValue(v))}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Not Selected" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
+                      {CANONICAL_REPAYMENT_TRACKS.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value === "not_sure" ? "Not sure" : value === "yes" ? "Yes" : "No"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Delayed EMI Count" error={errors.delayedEmiCount}>
+                  <Input
+                    className="h-9"
+                    inputMode="numeric"
+                    value={form.delayedEmiCount}
+                    placeholder="0"
+                    onChange={(e) => patchForm("delayedEmiCount", e.target.value)}
+                  />
+                </Field>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground">Optional</h2>

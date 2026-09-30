@@ -38,6 +38,7 @@ import { syncContactIdentityPatchToEcm } from "@server/services/ecm/contact-ssot
 import { emitOpportunityLifecycleToEarBestEffort } from "@server/services/enterprise-activity/opportunity-lifecycle-ear";
 import { propagateOpportunityRcEmployeeToInheritedDeals } from "@server/services/enterprise-deal/rc-employee-assignment.service";
 import { resolveRcEmployee } from "@/lib/enterprise-deal/rc-employee-assignment";
+import { parseCanonicalRecommendationFactBody } from "@/lib/lead-information/canonical-recommendation-facts";
 import {
   assertNonEmpty,
   assertOpportunityLifecycle,
@@ -778,6 +779,17 @@ export class EnterpriseOpportunityService {
       patch.lifecycleStatus = nextLifecycle as OpportunityLifecycleStatus;
     }
     if (body.requestedAmount !== undefined) patch.requestedAmount = nextAmount;
+    const canonicalEmployment =
+      body.employmentTypeCode !== undefined
+        ? body.employmentTypeCode
+          ? String(body.employmentTypeCode)
+          : null
+        : existing.employmentTypeCode;
+    const canonicalFacts = parseCanonicalRecommendationFactBody(body, canonicalEmployment);
+    if (!canonicalFacts.ok) {
+      throw new OpportunityValidationError(canonicalFacts.message);
+    }
+    Object.assign(patch, canonicalFacts.patch);
     if (body.primaryContactName !== undefined) {
       patch.primaryContactName = body.primaryContactName
         ? String(body.primaryContactName)

@@ -4,6 +4,7 @@
  */
 
 import type { LeadInformationFormState } from "@/constants/lead-information-workspace";
+import { canonicalFactsForLeadInformation } from "@/lib/lead-information/canonical-recommendation-facts";
 import {
   isOpportunityParticipationRoleCode,
   resolveBusinessSourceContactLookup,
@@ -126,6 +127,11 @@ export function validateLeadInformationForm(
   const participationOk =
     !contactLookup.participationRoleMandatory ||
     isOpportunityParticipationRoleCode(form.participationRole);
+  const canonical = canonicalFactsForLeadInformation(form);
+  if (!canonical.ok) {
+    errors[canonical.field] = canonical.message;
+  }
+
   const requirementReady =
     productOk &&
     amountOk &&

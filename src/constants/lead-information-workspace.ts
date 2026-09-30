@@ -67,6 +67,23 @@ export type LeadInformationFormState = {
   btInstitutionName: string;
   /** Balance Transfer — outstanding amount as entered (numeric string / empty) */
   btAmount: string;
+  /** Absolute months. Empty = not answered. */
+  requestedTenureMonths: string;
+  /** Salaried monthly income, absolute rupees. Empty = not answered. */
+  monthlyIncomeRupees: string;
+  /** Empty = not answered. "0" = customer declared no monthly obligations. */
+  existingMonthlyObligationsRupees: string;
+  propertyValueRupees: string;
+  propertyCategory: string;
+  constructionStatus: string;
+  residency: string;
+  currentRoiPercent: string;
+  currentHomeLoanEmiRupees: string;
+  remainingTenureMonths: string;
+  /** YYYY-MM-DD or empty. */
+  loanStartDate: string;
+  repaymentTrack: string;
+  delayedEmiCount: string;
 };
 
 export function emptyLeadInformationForm(): LeadInformationFormState {
@@ -90,6 +107,19 @@ export function emptyLeadInformationForm(): LeadInformationFormState {
     btInstitutionId: "",
     btInstitutionName: "",
     btAmount: "",
+    requestedTenureMonths: "",
+    monthlyIncomeRupees: "",
+    existingMonthlyObligationsRupees: "",
+    propertyValueRupees: "",
+    propertyCategory: "",
+    constructionStatus: "",
+    residency: "",
+    currentRoiPercent: "",
+    currentHomeLoanEmiRupees: "",
+    remainingTenureMonths: "",
+    loanStartDate: "",
+    repaymentTrack: "",
+    delayedEmiCount: "",
   };
 }
 

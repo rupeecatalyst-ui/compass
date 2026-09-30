@@ -99,6 +99,19 @@ export type UpdateEnterpriseOpportunityInput = {
   primaryOwnerUserId?: string | null;
   priority?: DealPriority;
   requestedAmount?: Prisma.Decimal | number | null;
+  requestedTenureMonths?: number | null;
+  monthlyIncomeRupees?: Prisma.Decimal | number | null;
+  existingMonthlyObligationsRupees?: Prisma.Decimal | number | null;
+  propertyValueRupees?: Prisma.Decimal | number | null;
+  propertyCategory?: string | null;
+  constructionStatus?: string | null;
+  residency?: string | null;
+  currentRoiPercent?: Prisma.Decimal | number | null;
+  currentHomeLoanEmiRupees?: Prisma.Decimal | number | null;
+  remainingTenureMonths?: number | null;
+  loanStartDate?: Date | null;
+  repaymentTrack?: string | null;
+  delayedEmiCount?: number | null;
   currencyCode?: string;
   snapshot?: Prisma.InputJsonValue | null;
   lendingExtension?: Prisma.InputJsonValue | null;
@@ -623,6 +636,27 @@ export class EnterpriseOpportunityRepository {
     }
     if (input.priority !== undefined) data.priority = input.priority;
     if (input.requestedAmount !== undefined) data.requestedAmount = input.requestedAmount;
+    if (input.requestedTenureMonths !== undefined) {
+      data.requestedTenureMonths = input.requestedTenureMonths;
+    }
+    if (input.monthlyIncomeRupees !== undefined) data.monthlyIncomeRupees = input.monthlyIncomeRupees;
+    if (input.existingMonthlyObligationsRupees !== undefined) {
+      data.existingMonthlyObligationsRupees = input.existingMonthlyObligationsRupees;
+    }
+    if (input.propertyValueRupees !== undefined) data.propertyValueRupees = input.propertyValueRupees;
+    if (input.propertyCategory !== undefined) data.propertyCategory = input.propertyCategory;
+    if (input.constructionStatus !== undefined) data.constructionStatus = input.constructionStatus;
+    if (input.residency !== undefined) data.residency = input.residency;
+    if (input.currentRoiPercent !== undefined) data.currentRoiPercent = input.currentRoiPercent;
+    if (input.currentHomeLoanEmiRupees !== undefined) {
+      data.currentHomeLoanEmiRupees = input.currentHomeLoanEmiRupees;
+    }
+    if (input.remainingTenureMonths !== undefined) {
+      data.remainingTenureMonths = input.remainingTenureMonths;
+    }
+    if (input.loanStartDate !== undefined) data.loanStartDate = input.loanStartDate;
+    if (input.repaymentTrack !== undefined) data.repaymentTrack = input.repaymentTrack;
+    if (input.delayedEmiCount !== undefined) data.delayedEmiCount = input.delayedEmiCount;
     if (input.currencyCode !== undefined) data.currencyCode = input.currencyCode;
     if (input.snapshot !== undefined) data.snapshot = input.snapshot ?? Prisma.JsonNull;
     if (input.lendingExtension !== undefined) {
