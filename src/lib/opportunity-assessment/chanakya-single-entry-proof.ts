@@ -3,7 +3,7 @@
  * No database. No production access.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildChanakyaCanonicalUpdateBody, parseCanonicalRecommendationFactBody } from "@/lib/lead-information/canonical-recommendation-facts";
@@ -17,6 +17,7 @@ import {
 import { projectChanakyaRecommendationWorkspace } from "@server/services/opportunity-assessment/chanakya-workspace";
 import { mapFinalizedAssessmentFactsToCanonical } from "@server/services/opportunity-assessment/map-to-canonical";
 import { persistCanonicalAssessmentSnapshot } from "@server/services/opportunity-assessment/persist-canonical-snapshot";
+import { getOpportunityAssessmentRecommendation } from "@server/services/opportunity-assessment/recommendation-http";
 import { createOpportunityAssessmentService } from "@server/services/opportunity-assessment/runtime";
 import type { OpportunityAssessmentActorContext } from "@server/services/opportunity-assessment/types";
 import type { CanonicalLenderRecommendationResult } from "@/types/canonical-lender-recommendation";
@@ -204,6 +205,70 @@ export async function runChanakyaSingleEntryProof() {
   assert.equal(opened.executionAllowed, true);
   assert.equal(seenIncome, 500000);
   assert.equal(opened.panel, "complete");
+  assert.equal(opened.guidance.includes("Assessment incomplete"), false);
+
+  const lifeSame = await projectChanakyaRecommendationWorkspace(
+    service,
+    ACTOR,
+    salaried({ opportunityId: "opp-run" }),
+    { recommend: async () => result("ready") },
+  );
+  assert.equal(lifeSame.revisionId, opened.revisionId);
+  assert.equal(lifeSame.panel, opened.panel);
+  assert.equal(lifeSame.resultStatus, opened.resultStatus);
+  assert.equal(lifeSame.guidance.includes("Assessment incomplete"), false);
+  assert.equal(lifeSame.guidance.includes("Finalize"), false);
+
+  const missingOpen = await projectChanakyaRecommendationWorkspace(
+    service,
+    ACTOR,
+    salaried({ opportunityId: "opp-life-gap", monthlyIncomeRupees: null }),
+    { recommend: async () => result("ready") },
+  );
+  assert.equal(missingOpen.panel, "information_required");
+  assert.ok(missingOpen.missingLabels.includes("Monthly Income"));
+  assert.equal(missingOpen.guidance.includes("Finalize"), false);
+  const incomeBody = buildChanakyaCanonicalUpdateBody({ monthlyIncomeRupees: 500000 });
+  const incomeParsed = parseCanonicalRecommendationFactBody(incomeBody, "salaried");
+  assert.equal(incomeParsed.ok, true);
+  if (!incomeParsed.ok) throw new Error("monthly income writeback");
+  assert.equal(incomeParsed.patch.monthlyIncomeRupees, 500000);
+  const afterIncome = await projectChanakyaRecommendationWorkspace(
+    service,
+    ACTOR,
+    salaried({
+      opportunityId: "opp-life-gap",
+      monthlyIncomeRupees: incomeParsed.patch.monthlyIncomeRupees,
+      rowVersion: 6,
+    }),
+    { recommend: async () => result("ready") },
+  );
+  assert.equal(afterIncome.revisionKind, "FINALIZED");
+  assert.equal(afterIncome.panel, "complete");
+  const lifeAfterIncome = await projectChanakyaRecommendationWorkspace(
+    service,
+    ACTOR,
+    salaried({
+      opportunityId: "opp-life-gap",
+      monthlyIncomeRupees: incomeParsed.patch.monthlyIncomeRupees,
+      rowVersion: 6,
+    }),
+    { recommend: async () => result("ready") },
+  );
+  assert.equal(lifeAfterIncome.revisionId, afterIncome.revisionId);
+  assert.equal(lifeAfterIncome.panel, afterIncome.panel);
+  assert.equal(lifeAfterIncome.resultStatus, afterIncome.resultStatus);
+
+  const legacy = harness();
+  const legacyAssessment = await legacy.service.getOrCreateAssessment(ACTOR, "opp-legacy-get");
+  const legacyGet = await getOpportunityAssessmentRecommendation(legacy.service, ACTOR, "opp-legacy-get");
+  assert.equal(legacyGet.body.data?.recommendationExecuted, false);
+  assert.equal(legacyGet.body.data?.recommendationRunCreated, false);
+  const legacyRead = await legacy.service.readCurrentAssessment(ACTOR, {
+    assessmentId: legacyAssessment.id,
+    opportunityId: "opp-legacy-get",
+  });
+  assert.equal(legacyRead.currentRevision, null);
 
   const none = await projectChanakyaRecommendationWorkspace(
     service,
@@ -222,6 +287,21 @@ export async function runChanakyaSingleEntryProof() {
   const assessment = reads("src/components/catalyst-one/opportunity-workspace/workspace-opportunity-assessment-panel.tsx");
   const snapshot = reads("server/services/opportunity-assessment/canonical-snapshot.ts");
   const route = reads("src/app/api/enterprise-opportunities/[opportunityId]/chanakya-recommendation/route.ts");
+  const life = reads("src/components/catalyst-one/opportunity-workspace/workspace-life-strategy-board.tsx");
+  const componentFiles = (dir: string): string[] => {
+    const found: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) found.push(...componentFiles(full));
+      else if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) found.push(full);
+    }
+    return found;
+  };
+  const relative = (file: string) => path.relative(root, file).replaceAll("\\", "/");
+  const hookUsers = componentFiles(path.join(root, "src/components"))
+    .filter((file) => readFileSync(file, "utf8").includes("useChanakyaCanonicalRecommendations"))
+    .map(relative)
+    .sort();
   assert.equal(panel.includes("Complete Assessment"), false);
   assert.equal(/Chanakya Recommendation/.test(bench), false);
   assert.equal(workspace.includes("AnalyzeDealTriggerButton"), false);
@@ -237,6 +317,19 @@ export async function runChanakyaSingleEntryProof() {
   assert.equal(route.includes("updateOpportunity"), true);
   assert.equal(route.includes("buildChanakyaCanonicalUpdateBody"), true);
   assert.equal(route.includes("factsJson"), false);
+  assert.equal(life.includes("/chanakya-recommendation"), true);
+  assert.equal(life.includes("ChanakyaRecommendationWorkspace"), true);
+  assert.equal(life.includes("CHANAKYA needs additional information before lender strategy can be completed."), true);
+  assert.equal(life.includes("useChanakyaCanonicalRecommendations"), false);
+  assert.equal(life.includes("opportunity-assessment/recommendation"), false);
+  assert.equal(life.includes("Assessment incomplete"), false);
+  assert.equal(life.includes("Finalize the Opportunity Assessment"), false);
+  assert.equal(life.includes("Complete Assessment"), false);
+  assert.equal(life.includes("Submit & Get Recommendation"), false);
+  assert.deepEqual(hookUsers, [
+    "src/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel.tsx",
+  ]);
+  assert.equal(bench.includes("ChanakyaOpportunityRecommendationPanel"), false);
 
-  console.log("CHANAKYA_SINGLE_ENTRY_PROOF checks=79 failed=0");
+  console.log("CHANAKYA_SINGLE_ENTRY_PROOF checks=109 failed=0");
 }

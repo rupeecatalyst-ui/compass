@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
-import { useChanakyaCanonicalRecommendations } from "@/hooks/use-chanakya-canonical-recommendations";
+import { ChanakyaRecommendationWorkspace } from "@/components/catalyst-one/chanakya/chanakya-recommendation-workspace";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import { selectStandardRecommendationPresentation } from "@/lib/opportunity-assessment/standard-presentation";
-import { resolveStatedDraftForFile } from "@/lib/lead-opportunity-journey/stated-draft";
-import { resolveOpportunityRuntimeCaseSync } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
+import type { ChanakyaRecommendationWorkspaceDto } from "@/types/chanakya-recommendation-workspace";
 import { getExcludedCompetitionKeys } from "@/lib/strategic-competition";
 import {
   isCanonicalDealLenderOption,
@@ -92,6 +92,10 @@ export function WorkspaceLifeStrategyBoard() {
   const [competitionTick, setCompetitionTick] = useState(0);
   const [moveToDealOpen, setMoveToDealOpen] = useState(false);
   const [moveToDealBusy, setMoveToDealBusy] = useState(false);
+  const [chanakya, setChanakya] = useState<ChanakyaRecommendationWorkspaceDto | null>(null);
+  const [chanakyaLoading, setChanakyaLoading] = useState(false);
+  const [chanakyaOpen, setChanakyaOpen] = useState(false);
+  const [chanakyaReload, setChanakyaReload] = useState(0);
 
   const reloadQueue = () => {
     if (!opportunityId) {
@@ -197,17 +201,38 @@ export function WorkspaceLifeStrategyBoard() {
     };
   }, [opportunityId, debouncedSearch, competitionTick]);
 
-  const recommendationFile = leadCaseFile ?? resolveOpportunityRuntimeCaseSync({ opportunityId }) ?? null;
-  const canonical = useChanakyaCanonicalRecommendations(
-    opportunityId, recommendationFile,
-    recommendationFile ? resolveStatedDraftForFile(recommendationFile) : undefined,
-    refreshKey,
-  );
+  useEffect(() => {
+    if (!opportunityId) {
+      setChanakya(null);
+      return;
+    }
+    let cancelled = false;
+    setChanakyaLoading(true);
+    void (async () => {
+      try {
+        const response = await authenticatedJsonFetch(
+          `/api/enterprise-opportunities/${encodeURIComponent(opportunityId)}/chanakya-recommendation`,
+        );
+        const body = (await response.json()) as {
+          success?: boolean;
+          data?: ChanakyaRecommendationWorkspaceDto;
+        };
+        if (!cancelled) setChanakya(response.ok && body.success && body.data ? body.data : null);
+      } catch {
+        if (!cancelled) setChanakya(null);
+      } finally {
+        if (!cancelled) setChanakyaLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [opportunityId, refreshKey, chanakyaReload]);
+
   const chanakyaResult = useMemo(() => ({
-    ready: canonical.result?.status === "ready",
-    guidance: [canonical.guidance],
-    recommendations: canonical.result?.recommendations ?? [],
-  }), [canonical.result, canonical.guidance]);
+    ready: chanakya?.panel === "complete" && chanakya.result?.status === "ready",
+    recommendations: chanakya?.result?.recommendations ?? [],
+  }), [chanakya]);
 
   const queueKeys = useMemo(
     () => new Set(queue.map((q) => normalizeLenderKey(q.lenderRef || q.lenderName))),
@@ -220,7 +245,7 @@ export function WorkspaceLifeStrategyBoard() {
     const rows: BoardInstitution[] = [];
     const visible = selectStandardRecommendationPresentation(
       chanakyaResult.recommendations,
-      canonical.result?.presentation,
+      chanakya?.result?.presentation,
     );
     for (const r of [...visible.recommended, ...visible.additional]) {
       if (excluded.has(normalizeLenderKey(`lender:${r.lenderId}`))) continue;
@@ -251,7 +276,7 @@ export function WorkspaceLifeStrategyBoard() {
     return rows;
   // Competition exclusions live in external storage; its event counter invalidates this list.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opportunityId, chanakyaResult, canonical.result, queueKeys, competitionTick]);
+  }, [opportunityId, chanakya, chanakyaResult, queueKeys, competitionTick]);
 
   const manualPool = useMemo(() => {
     return registryManual.filter((i) => !queueKeys.has(normalizeLenderKey(i.lenderRef)));
@@ -496,16 +521,23 @@ export function WorkspaceLifeStrategyBoard() {
     refresh();
   };
 
-  const chanakyaEmptyText = canonical.assessmentNotReady
-    ? canonical.guidance
-    : canonical.noEligibleLender
-      ? canonical.guidance
-      : !chanakyaResult.ready
-        ? chanakyaResult.guidance[0] ??
-          "Open CHANAKYA Recommendation to review lender options for this Opportunity."
-        : recommendations.length === 0
-          ? "No open recommendations. Adjust competition or clear the Execution Queue."
-          : "";
+  const needsChanakyaWorkspace =
+    chanakya?.panel === "information_required" ||
+    chanakya?.panel === "unsupported" ||
+    chanakya?.panel === "blocked";
+  const chanakyaEmptyText = chanakyaLoading && !chanakya
+    ? "Assessing published programmes..."
+    : chanakya?.panel === "information_required"
+      ? "CHANAKYA needs additional information before lender strategy can be completed."
+      : chanakya?.panel === "unsupported" || chanakya?.panel === "blocked"
+        ? chanakya.guidance
+        : chanakya?.resultStatus === "no_eligible_programmes"
+          ? chanakya.guidance
+          : !chanakyaResult.ready
+            ? "Open CHANAKYA Recommendation to review lender options for this Opportunity."
+            : recommendations.length === 0
+              ? "No open recommendations. Adjust competition or clear the Execution Queue."
+              : "";
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-1.5">
@@ -533,7 +565,19 @@ export function WorkspaceLifeStrategyBoard() {
           accent="amber"
         >
           {recommendations.length === 0 ? (
-            <EmptyHint text={chanakyaEmptyText} />
+            <div className="space-y-2">
+              <EmptyHint text={chanakyaEmptyText} />
+              {needsChanakyaWorkspace && opportunityId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 w-full text-[11px]"
+                  onClick={() => setChanakyaOpen(true)}
+                >
+                  CHANAKYA Recommendation
+                </Button>
+              ) : null}
+            </div>
           ) : (
             recommendations.map((inst) => (
               <LenderCard
@@ -684,6 +728,16 @@ export function WorkspaceLifeStrategyBoard() {
         busy={moveToDealBusy}
         onConfirm={confirmMoveToDeal}
       />
+      {opportunityId ? (
+        <ChanakyaRecommendationWorkspace
+          opportunityId={opportunityId}
+          open={chanakyaOpen}
+          onClose={() => {
+            setChanakyaOpen(false);
+            setChanakyaReload((value) => value + 1);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
