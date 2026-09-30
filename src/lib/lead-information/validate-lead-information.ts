@@ -8,7 +8,12 @@ import {
   isOpportunityParticipationRoleCode,
   resolveBusinessSourceContactLookup,
 } from "@/constants/opportunity-business-source";
-import { assertRequestedAmountWithinProductLimit } from "@/constants/enterprise-product-master";
+
+/**
+ * Requested Amount is the customer's financing requirement.
+ * Lead Information has no product-specific business maximum.
+ * Fundability and lender/programme limits are evaluated downstream.
+ */
 
 export type LeadInformationValidation = {
   valid: boolean;
@@ -21,7 +26,9 @@ export function parseRequestedAmountInput(raw: string): number | null {
   if (!trimmed) return null;
   const n = Number(trimmed);
   if (!Number.isFinite(n) || Number.isNaN(n) || n < 0) return null;
-  return Math.round(n);
+  const rounded = Math.round(n);
+  if (!Number.isSafeInteger(rounded)) return null;
+  return rounded;
 }
 
 export function validateLeadInformationForm(
@@ -35,15 +42,6 @@ export function validateLeadInformationForm(
   const productOk = Boolean(form.productCode.trim() || form.productLabel.trim());
   const amount = parseRequestedAmountInput(form.requestedAmount);
   const amountOk = amount != null && amount > 0;
-  if (amountOk && form.productCode.trim()) {
-    const limit = assertRequestedAmountWithinProductLimit({
-      enterpriseProductCode: form.productCode,
-      amountRupees: amount,
-    });
-    if (!limit.ok) {
-      errors.requestedAmount = limit.message;
-    }
-  }
   const isBalanceTransfer = form.transactionType === "balance_transfer";
   const transactionOk =
     form.transactionType === "fresh" || form.transactionType === "balance_transfer";
