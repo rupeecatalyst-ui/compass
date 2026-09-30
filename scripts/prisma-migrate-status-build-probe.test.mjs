@@ -11,6 +11,10 @@ const propertyMigration = "20260920160000_co_hl_property_model";
 const customFieldMigration = "20260927193000_field_control_classification_custom_field";
 const placementValueMigration = "20260928140000_field_control_custom_placement_value";
 const employmentApplicabilityMigration = "20260929180000_field_control_employment_applicability";
+const canonicalFactsMigration = "20260930153000_opportunity_canonical_recommendation_facts";
+const similarCanonicalFactsMigration = "20260930153000_opportunity_canonical_recommendation_facts_extra";
+const canonicalFactsPrefixMigration = "20260930153000_opportunity_canonical_recommendation";
+const canonicalFactsSuffixMigration = "20260930153000_opportunity_canonical_recommendation_facts_v2";
 const similarEmploymentMigration = "20260929180000_field_control_employment_applicability_extra";
 const similarPlacementMigration = "20260928140000_field_control_custom_placement_value_extra";
 const placementPrefixMigration = "20260928140000_field_control_custom_placement";
@@ -21,6 +25,10 @@ const known = [
   customFieldMigration,
   placementValueMigration,
   employmentApplicabilityMigration,
+  canonicalFactsMigration,
+  similarCanonicalFactsMigration,
+  canonicalFactsPrefixMigration,
+  canonicalFactsSuffixMigration,
   similarEmploymentMigration,
   similarPlacementMigration,
   placementPrefixMigration,
@@ -91,6 +99,7 @@ test("approved set is exactly the reviewed migration names", () => {
     customFieldMigration,
     placementValueMigration,
     employmentApplicabilityMigration,
+    canonicalFactsMigration,
   ]);
   assert.equal(probeSource.includes(`${customFieldMigration.slice(0, 8)}*`), false);
   assert.equal(probeSource.includes(`${placementValueMigration.slice(0, 8)}*`), false);
@@ -138,6 +147,35 @@ test("employment applicability migration beside an unknown migration fails close
   assert.equal(
     classifyStatus(pendingOutput([employmentApplicabilityMigration, unknownMigration]), 1, known).kind,
     "OTHER_PENDING",
+  );
+});
+
+test("exact pending canonical facts migration returns approved pending only", () => {
+  assert.deepEqual(classifyStatus(pendingOutput([canonicalFactsMigration]), 1, known), {
+    kind: "APPROVED_PENDING_ONLY",
+    pending: [canonicalFactsMigration],
+  });
+});
+
+test("canonical facts migration beside an unknown migration fails closed", () => {
+  assert.equal(
+    classifyStatus(pendingOutput([canonicalFactsMigration, unknownMigration]), 1, known).kind,
+    "OTHER_PENDING",
+  );
+});
+
+test("a similarly named canonical facts migration does not pass", () => {
+  assert.equal(classifyStatus(pendingOutput([similarCanonicalFactsMigration]), 1, known).kind, "OTHER_PENDING");
+});
+
+test("a canonical facts prefix or suffix does not pass", () => {
+  assert.equal(classifyStatus(pendingOutput([canonicalFactsPrefixMigration]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(classifyStatus(pendingOutput([canonicalFactsSuffixMigration]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(
+    approvedNames(probeSource).some(
+      (name) => name.startsWith("20260930153000") && name !== canonicalFactsMigration,
+    ),
+    false,
   );
 });
 
