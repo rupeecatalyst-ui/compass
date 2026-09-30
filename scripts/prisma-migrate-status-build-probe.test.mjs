@@ -15,6 +15,10 @@ const canonicalFactsMigration = "20260930153000_opportunity_canonical_recommenda
 const similarCanonicalFactsMigration = "20260930153000_opportunity_canonical_recommendation_facts_extra";
 const canonicalFactsPrefixMigration = "20260930153000_opportunity_canonical_recommendation";
 const canonicalFactsSuffixMigration = "20260930153000_opportunity_canonical_recommendation_facts_v2";
+const borrowerAgeMigration = "20260930223000_opportunity_borrower_age_years";
+const borrowerAgeDifferentTimestamp = "20260930223001_opportunity_borrower_age_years";
+const borrowerAgeSuffixMigration = "20260930223000_opportunity_borrower_age_years_extra";
+const borrowerAgeRenamedTimestamp = "20261001120000_opportunity_borrower_age_years";
 const similarEmploymentMigration = "20260929180000_field_control_employment_applicability_extra";
 const similarPlacementMigration = "20260928140000_field_control_custom_placement_value_extra";
 const placementPrefixMigration = "20260928140000_field_control_custom_placement";
@@ -29,6 +33,10 @@ const known = [
   similarCanonicalFactsMigration,
   canonicalFactsPrefixMigration,
   canonicalFactsSuffixMigration,
+  borrowerAgeMigration,
+  borrowerAgeDifferentTimestamp,
+  borrowerAgeSuffixMigration,
+  borrowerAgeRenamedTimestamp,
   similarEmploymentMigration,
   similarPlacementMigration,
   placementPrefixMigration,
@@ -100,6 +108,7 @@ test("approved set is exactly the reviewed migration names", () => {
     placementValueMigration,
     employmentApplicabilityMigration,
     canonicalFactsMigration,
+    borrowerAgeMigration,
   ]);
   assert.equal(probeSource.includes(`${customFieldMigration.slice(0, 8)}*`), false);
   assert.equal(probeSource.includes(`${placementValueMigration.slice(0, 8)}*`), false);
@@ -177,6 +186,55 @@ test("a canonical facts prefix or suffix does not pass", () => {
     ),
     false,
   );
+});
+
+test("exact pending borrower age migration returns approved pending only", () => {
+  assert.deepEqual(classifyStatus(pendingOutput([borrowerAgeMigration]), 1, known), {
+    kind: "APPROVED_PENDING_ONLY",
+    pending: [borrowerAgeMigration],
+  });
+});
+
+test("a borrower age migration with a different timestamp does not pass", () => {
+  assert.equal(classifyStatus(pendingOutput([borrowerAgeDifferentTimestamp]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(classifyStatus(pendingOutput([borrowerAgeRenamedTimestamp]), 1, known).kind, "OTHER_PENDING");
+});
+
+test("a borrower age prefix or suffix does not pass", () => {
+  assert.equal(classifyStatus(pendingOutput([borrowerAgeSuffixMigration]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(
+    approvedNames(probeSource).some(
+      (name) => name.startsWith("20260930223000") && name !== borrowerAgeMigration,
+    ),
+    false,
+  );
+  assert.equal(probeSource.includes("20260930223000*"), false);
+  assert.equal(probeSource.includes("opportunity_borrower_age_years*"), false);
+});
+
+test("borrower age migration beside an unknown migration fails closed", () => {
+  assert.equal(
+    classifyStatus(pendingOutput([borrowerAgeMigration, unknownMigration]), 1, known).kind,
+    "OTHER_PENDING",
+  );
+});
+
+test("previously approved migrations stay allowed and unknown migrations stay rejected", () => {
+  for (const name of [
+    policyMigration,
+    propertyMigration,
+    customFieldMigration,
+    placementValueMigration,
+    employmentApplicabilityMigration,
+    canonicalFactsMigration,
+    borrowerAgeMigration,
+  ]) {
+    assert.equal(classifyStatus(pendingOutput([name]), 1, known).kind, "APPROVED_PENDING_ONLY");
+  }
+  assert.equal(classifyStatus(pendingOutput([unknownMigration]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(classifyStatus(pendingOutput([similarCanonicalFactsMigration]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(classifyStatus(pendingOutput([similarEmploymentMigration]), 1, known).kind, "OTHER_PENDING");
+  assert.equal(classifyStatus(pendingOutput([similarPlacementMigration]), 1, known).kind, "OTHER_PENDING");
 });
 
 test("a similarly named employment applicability migration does not pass", () => {
