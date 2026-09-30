@@ -3205,7 +3205,7 @@ model EnterpriseOpportunity {
   currentRoiPercent         Decimal?                    @map("current_roi_percent") @db.Decimal(8, 4)
   currentHomeLoanEmiRupees  Decimal?                    @map("current_home_loan_emi_rupees") @db.Decimal(18, 2)
   remainingTenureMonths     Int?                        @map("remaining_tenure_months")
-  loanStartDate             DateTime?                   @map("loan_start_date")
+  loanStartDate             DateTime?                   @map("loan_start_date") @db.Date
   repaymentTrack            String?                     @map("repayment_track")
   delayedEmiCount           Int?                        @map("delayed_emi_count")
   priority                  DealPriority                @default(medium)

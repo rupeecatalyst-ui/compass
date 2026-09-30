@@ -11,6 +11,7 @@ import { validateLeadInformationForm } from "@/lib/lead-information/validate-lea
 import {
   canonicalFactsForLeadInformation,
   parseCanonicalRecommendationFactBody,
+  storedCanonicalDate,
 } from "@/lib/lead-information/canonical-recommendation-facts";
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
 
@@ -188,6 +189,39 @@ check("zero remaining tenure rejected", !validateLeadInformationForm({ ...hlbtFo
 check("zero delayed emi accepted", validateLeadInformationForm({ ...hlbtForm, delayedEmiCount: "0" }).valid);
 check("negative delayed emi rejected", !validateLeadInformationForm({ ...hlbtForm, delayedEmiCount: "-1" }).valid);
 
+function calendarDateRoundTrip(iso: string): boolean {
+  const form = { ...hlbtForm, loanStartDate: iso };
+  if (!validateLeadInformationForm(form).valid) return false;
+  const patch = buildLeadInformationPatchBody(form, 1, {});
+  if (patch.loanStartDate !== iso) return false;
+  const server = parseCanonicalRecommendationFactBody({ loanStartDate: iso }, "salaried");
+  if (!server.ok || !(server.patch.loanStartDate instanceof Date)) return false;
+  const [year, month, day] = iso.split("-").map(Number);
+  const stored = server.patch.loanStartDate;
+  const utcMatches =
+    stored.getUTCFullYear() === year &&
+    stored.getUTCMonth() === month - 1 &&
+    stored.getUTCDate() === day &&
+    stored.toISOString().slice(0, 10) === iso;
+  const reopened = formFromOpportunity({
+    id: "opp-date",
+    productCode: "HOME_LOAN_BT",
+    loanStartDate: patch.loanStartDate,
+    lendingExtension: {},
+  } as EnterpriseOpportunityApiRecord).loanStartDate;
+  const reopenedFromUtcMidnight = storedCanonicalDate(stored);
+  return utcMatches && reopened === iso && reopenedFromUtcMidnight === iso;
+}
+
+check("calendar date 2026-01-01", calendarDateRoundTrip("2026-01-01"));
+check("calendar date 2026-02-28", calendarDateRoundTrip("2026-02-28"));
+check("calendar date 2028-02-29", calendarDateRoundTrip("2028-02-29"));
+check(
+  "invalid calendar date 2026-02-30 rejected",
+  !validateLeadInformationForm({ ...hlbtForm, loanStartDate: "2026-02-30" }).valid &&
+    parseCanonicalRecommendationFactBody({ loanStartDate: "2026-02-30" }, "salaried").ok === false,
+);
+
 const serverZero = parseCanonicalRecommendationFactBody({ requestedTenureMonths: 0 }, "salaried");
 const serverNeg = parseCanonicalRecommendationFactBody({ requestedTenureMonths: -1 }, "salaried");
 const serverDec = parseCanonicalRecommendationFactBody({ requestedTenureMonths: 240.5 }, "salaried");
@@ -239,6 +273,13 @@ check(
     !migrationUpper.includes("UPDATE ") &&
     !migrationUpper.includes("DEFAULT") &&
     !migration.includes("NOT NULL"),
+);
+const opportunitySchema = readFileSync(path.join(repoRoot, "prisma/schema.prisma"), "utf8");
+check(
+  "loan start date column is calendar DATE",
+  migrationSql.includes('"loan_start_date" DATE') &&
+    !migrationSql.includes("TIMESTAMP") &&
+    /loanStartDate\s+DateTime\?\s+@map\("loan_start_date"\)\s+@db\.Date/.test(opportunitySchema),
 );
 check(
   "migration does not touch assessment recommendation programme fcm or compass",

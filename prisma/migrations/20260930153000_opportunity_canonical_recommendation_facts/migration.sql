@@ -15,6 +15,6 @@ ALTER TABLE "enterprise_opportunities"
     ADD COLUMN "current_roi_percent" DECIMAL(8,4),
     ADD COLUMN "current_home_loan_emi_rupees" DECIMAL(18,2),
     ADD COLUMN "remaining_tenure_months" INTEGER,
-    ADD COLUMN "loan_start_date" TIMESTAMP(3),
+    ADD COLUMN "loan_start_date" DATE,
     ADD COLUMN "repayment_track" TEXT,
     ADD COLUMN "delayed_emi_count" INTEGER;
