@@ -11,11 +11,22 @@ export type CanonicalLenderRecommendationRequest = {
   asOf?: Date;
 };
 
+export type EligibilityCriterionOutcome = "PASS" | "FAIL" | "INFORMATION_REQUIRED";
+
+export type EligibilityCriterionTrace = {
+  criterion: string;
+  applicantValue: string | number | null;
+  requirement: string | number | null;
+  outcome: EligibilityCriterionOutcome;
+  reasonCode: string;
+};
+
 export type CanonicalProgrammeRejection = {
   programmeId: string;
   code: string;
   reason: string;
   missingInputs?: CanonicalAssessmentField[];
+  criteria?: EligibilityCriterionTrace[];
 };
 
 /** Fixed public vocabulary only; never policy payloads, database errors or borrower values. */

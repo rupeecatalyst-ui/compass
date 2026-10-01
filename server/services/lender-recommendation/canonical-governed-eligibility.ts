@@ -1,5 +1,10 @@
 import type { CanonicalAssessmentProgramme } from "./programme-assessment-adapter";
-import type { CanonicalAssessmentField, CanonicalLenderRecommendationRequest } from "@/types/canonical-lender-recommendation";
+import type {
+  CanonicalAssessmentField,
+  CanonicalLenderRecommendationRequest,
+  EligibilityCriterionTrace,
+} from "@/types/canonical-lender-recommendation";
+import { applicantStateMatchesProgramme } from "@/lib/product-programme-operations/pan-india-geography";
 import { calculateReducingBalanceEmi } from "@/lib/home-loan-recommendation/tenure";
 import { calculateSalariedFoir } from "@/lib/home-loan-recommendation/foir";
 import { contributingCoApplicantIncomeRupees } from "@/lib/product-recommendation/home-loan-inputs";
@@ -32,14 +37,22 @@ function mapFilterFieldsToAssessment(fieldIds: string[]): CanonicalAssessmentFie
     .filter((item): item is CanonicalAssessmentField => item != null);
   return mapped.length ? mapped : [];
 }
-export type GovernedVerdict = { reason: string; missingInputs: CanonicalAssessmentField[] };
+export type GovernedVerdict = {
+  reason: string;
+  missingInputs: CanonicalAssessmentField[];
+  criteria: EligibilityCriterionTrace[];
+};
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const positive = (v: unknown): v is number => finite(v) && v > 0;
 const nonnegative = (v: unknown): v is number => finite(v) && v >= 0;
 const number = (v: string | number | null | undefined) => v == null ? null : Number(v);
 const within = (value: number, min: string | number | null | undefined, max: string | number | null | undefined) =>
   (min == null || value >= Number(min)) && (max == null || value <= Number(max));
-const rejected = (reason: string, missingInputs: CanonicalAssessmentField[] = []): GovernedVerdict => ({ reason, missingInputs });
+const rejected = (
+  reason: string,
+  missingInputs: CanonicalAssessmentField[] = [],
+  criteria: EligibilityCriterionTrace[] = [],
+): GovernedVerdict => ({ reason, missingInputs, criteria });
 
 /** Calendar-valid completed months at the assessment clock; no age inference. */
 function monthsSince(value: unknown, asOf: Date): number | null {
@@ -93,18 +106,52 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   if (programme.canonicalProduct === "HOME_LOAN" && c.transactionTypes?.length) return rejected("UNSUPPORTED_GOVERNED_RULE");
 
   const missing = new Set<CanonicalAssessmentField>();
+  const criteria: EligibilityCriterionTrace[] = [];
   let mismatch = false;
-  function allowed(value: string | null | undefined, values: string[] | null | undefined, field: CanonicalAssessmentField) {
+  function note(
+    criterion: string,
+    applicantValue: string | number | null,
+    requirement: string | number | null,
+    outcome: EligibilityCriterionTrace["outcome"],
+    reasonCode: string,
+  ) {
+    criteria.push({ criterion, applicantValue, requirement, outcome, reasonCode });
+  }
+  function allowed(
+    value: string | null | undefined,
+    values: string[] | null | undefined,
+    field: CanonicalAssessmentField,
+    criterion = field,
+  ) {
     if (!values?.length) return;
-    if (!value?.trim()) missing.add(field);
-    else if (!values.includes(value)) mismatch = true;
+    const requirement = values.join("|");
+    if (!value?.trim()) {
+      missing.add(field);
+      note(criterion, null, requirement, "INFORMATION_REQUIRED", `${criterion}_REQUIRED`);
+    } else if (!values.includes(value)) {
+      mismatch = true;
+      note(criterion, value, requirement, "FAIL", `${criterion}_NOT_ELIGIBLE`);
+    } else {
+      note(criterion, value, requirement, "PASS", `${criterion}_ELIGIBLE`);
+    }
   }
   allowed(customer.residency, c.residency, "residency");
   allowed(customer.employmentType, c.employmentTypes, "employment");
   allowed(customer.constitution, c.legalConstitutions, "constitution");
   allowed(customer.city, c.eligibleCities, "city");
-  allowed(customer.state, c.eligibleStates, "state");
-  allowed(customer.propertyType, c.propertyCategories, "propertyType");
+  if (c.eligibleStates?.length) {
+    const requirement = c.eligibleStates.join("|");
+    if (!customer.state?.trim()) {
+      missing.add("state");
+      note("state", null, requirement, "INFORMATION_REQUIRED", "STATE_REQUIRED");
+    } else if (applicantStateMatchesProgramme(customer.state, c.eligibleStates)) {
+      note("state", customer.state, requirement, "PASS", "STATE_ELIGIBLE");
+    } else {
+      mismatch = true;
+      note("state", customer.state, requirement, "FAIL", "STATE_NOT_ELIGIBLE");
+    }
+  }
+  allowed(customer.propertyType, c.propertyCategories, "propertyType", "propertyCategory");
   allowed(customer.constructionStatus, c.constructionStatuses, "constructionStatus");
   allowed(customer.propertyKind, programme.allowedPropertyKinds, "propertyType");
   allowed(customer.constructionStatus, programme.allowedConstructionStatuses, "constructionStatus");
@@ -114,29 +161,71 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
 
   const interval = cibilInterval(customer.cibilBand);
   const ranges = [{ minimum: c.minCibil, maximum: c.maxCibil }, ...programme.parsedPolicyRules.cibilRanges];
-  if (interval == null) missing.add("cibil");
-  else if (interval === "unknown") {
-    if (ranges.some(r => r.minimum != null || r.maximum != null)) missing.add("cibil");
-  } else {
-    for (const range of ranges) {
-      if ((range.minimum != null && interval[1] < range.minimum) || (range.maximum != null && interval[0] > range.maximum)) mismatch = true;
-      else if (!within(interval[0], range.minimum, null) || !within(interval[1], null, range.maximum)) missing.add("cibil");
+  const cibilRequirement = ranges.map((range) => `${range.minimum ?? ""}-${range.maximum ?? ""}`).join("|");
+  if (interval == null) {
+    missing.add("cibil");
+    note("cibil", null, cibilRequirement, "INFORMATION_REQUIRED", "CIBIL_REQUIRED");
+  } else if (interval === "unknown") {
+    if (ranges.some(r => r.minimum != null || r.maximum != null)) {
+      missing.add("cibil");
+      note("cibil", customer.cibilBand ?? null, cibilRequirement, "INFORMATION_REQUIRED", "CIBIL_MORE_PRECISE");
     }
+  } else {
+    let cibilOutside = false;
+    let cibilPartial = false;
+    for (const range of ranges) {
+      if ((range.minimum != null && interval[1] < range.minimum) || (range.maximum != null && interval[0] > range.maximum)) cibilOutside = true;
+      else if (!within(interval[0], range.minimum, null) || !within(interval[1], null, range.maximum)) cibilPartial = true;
+    }
+    if (cibilOutside) mismatch = true;
+    if (cibilPartial) missing.add("cibil");
+    note(
+      "cibil",
+      typeof customer.cibilBand === "number" ? customer.cibilBand : customer.cibilBand ?? null,
+      cibilRequirement,
+      cibilPartial ? "INFORMATION_REQUIRED" : cibilOutside ? "FAIL" : "PASS",
+      cibilPartial ? "CIBIL_MORE_PRECISE" : cibilOutside ? "CIBIL_NOT_ELIGIBLE" : "CIBIL_ELIGIBLE",
+    );
   }
-  if (!programme.lenderCategory || !resolveHomeLoanCibilCategoryUniverse(customer.cibilBand).permittedCategories.includes(programme.lenderCategory)) mismatch = true;
+  const permittedCategories = resolveHomeLoanCibilCategoryUniverse(customer.cibilBand).permittedCategories;
+  const categoryPermitted = Boolean(programme.lenderCategory && permittedCategories.includes(programme.lenderCategory));
+  note(
+    "lenderCategory",
+    programme.lenderCategory ?? null,
+    permittedCategories.join("|"),
+    categoryPermitted ? "PASS" : "FAIL",
+    categoryPermitted ? "LENDER_CATEGORY_PERMITTED" : "LENDER_CATEGORY_NOT_PERMITTED",
+  );
+  if (!categoryPermitted) mismatch = true;
 
   const tenure = customer.customerSelectedTenureMonths;
+  const tenureRequirement = `${c.minTenureMonths ?? ""}-${c.maxTenureMonths ?? ""}`;
   // Required for EMI/FOIR calculation even when no programme tenure bound is populated.
-  if (!positive(tenure) || !Number.isInteger(tenure)) missing.add("requestedTenure");
-  else if (!within(tenure, c.minTenureMonths, c.maxTenureMonths)) mismatch = true;
+  if (!positive(tenure) || !Number.isInteger(tenure)) {
+    missing.add("requestedTenure");
+    note("tenure", tenure ?? null, tenureRequirement, "INFORMATION_REQUIRED", "TENURE_REQUIRED");
+  } else if (!within(tenure, c.minTenureMonths, c.maxTenureMonths)) {
+    mismatch = true;
+    note("tenure", tenure, tenureRequirement, "FAIL", "TENURE_NOT_ELIGIBLE");
+  } else {
+    note("tenure", tenure, tenureRequirement, "PASS", "TENURE_ELIGIBLE");
+  }
   // Opportunity age is authoritative. Contact date of birth is not a lending age.
   const ageMonths =
     customer.ageYears != null && Number.isFinite(customer.ageYears) && customer.ageYears > 0
       ? Math.round(customer.ageYears * 12)
       : null;
   if (c.minAge != null || c.maxAge != null || programme.maxAgeAtMaturityYears != null) {
-    if (ageMonths == null) missing.add("age");
-    else if (!within(ageMonths, c.minAge == null ? null : c.minAge * 12, c.maxAge == null ? null : c.maxAge * 12)) mismatch = true;
+    const ageRequirement = `${c.minAge ?? ""}-${c.maxAge ?? ""}`;
+    if (ageMonths == null) {
+      missing.add("age");
+      note("age", null, ageRequirement, "INFORMATION_REQUIRED", "AGE_REQUIRED");
+    } else if (!within(ageMonths, c.minAge == null ? null : c.minAge * 12, c.maxAge == null ? null : c.maxAge * 12)) {
+      mismatch = true;
+      note("age", customer.ageYears ?? null, ageRequirement, "FAIL", "AGE_NOT_ELIGIBLE");
+    } else {
+      note("age", customer.ageYears ?? null, ageRequirement, "PASS", "AGE_ELIGIBLE");
+    }
   }
   const maturity = programme.maxAgeAtMaturityYears ?? null;
   if (maturity != null) {
@@ -147,13 +236,38 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
     // It is not an automatic programme exclusion. Age months = completed years × 12.
   }
 
-  if (customer.employmentFamily !== "salaried") missing.add("employment");
-  if (!positive(customer.monthlyIncomeRupees)) missing.add("monthlyIncome");
-  else if (!within(customer.monthlyIncomeRupees, c.minIncomeRupees, c.maxIncomeRupees)) mismatch = true;
-  if (!nonnegative(customer.existingMonthlyEmiRupees)) missing.add("obligations");
-  if (!positive(customer.propertyValueRupees)) missing.add("propertyValue");
-  if (!positive(customer.requiredAmountRupees)) missing.add("requestedAmount");
-  else if (!within(customer.requiredAmountRupees, c.minLoanAmountRupees, c.maxLoanAmountRupees)) mismatch = true;
+  if (customer.employmentFamily !== "salaried") {
+    missing.add("employment");
+    note("employment", customer.employmentFamily ?? null, "salaried", "INFORMATION_REQUIRED", "EMPLOYMENT_REQUIRED");
+  }
+  const incomeRequirement = `${c.minIncomeRupees ?? ""}-${c.maxIncomeRupees ?? ""}`;
+  if (!positive(customer.monthlyIncomeRupees)) {
+    missing.add("monthlyIncome");
+    note("monthlyIncome", null, incomeRequirement, "INFORMATION_REQUIRED", "MONTHLY_INCOME_REQUIRED");
+  } else if (!within(customer.monthlyIncomeRupees, c.minIncomeRupees, c.maxIncomeRupees)) {
+    mismatch = true;
+    note("monthlyIncome", customer.monthlyIncomeRupees, incomeRequirement, "FAIL", "MONTHLY_INCOME_NOT_ELIGIBLE");
+  } else {
+    note("monthlyIncome", customer.monthlyIncomeRupees, incomeRequirement, "PASS", "MONTHLY_INCOME_ELIGIBLE");
+  }
+  if (!nonnegative(customer.existingMonthlyEmiRupees)) {
+    missing.add("obligations");
+    note("obligations", null, null, "INFORMATION_REQUIRED", "OBLIGATIONS_REQUIRED");
+  }
+  if (!positive(customer.propertyValueRupees)) {
+    missing.add("propertyValue");
+    note("propertyValue", null, null, "INFORMATION_REQUIRED", "PROPERTY_VALUE_REQUIRED");
+  }
+  const amountRequirement = `${c.minLoanAmountRupees ?? ""}-${c.maxLoanAmountRupees ?? ""}`;
+  if (!positive(customer.requiredAmountRupees)) {
+    missing.add("requestedAmount");
+    note("requestedAmount", null, amountRequirement, "INFORMATION_REQUIRED", "REQUESTED_AMOUNT_REQUIRED");
+  } else if (!within(customer.requiredAmountRupees, c.minLoanAmountRupees, c.maxLoanAmountRupees)) {
+    mismatch = true;
+    note("requestedAmount", customer.requiredAmountRupees, amountRequirement, "FAIL", "REQUESTED_AMOUNT_NOT_ELIGIBLE");
+  } else {
+    note("requestedAmount", customer.requiredAmountRupees, amountRequirement, "PASS", "REQUESTED_AMOUNT_ELIGIBLE");
+  }
   if (customer.coApplicantDecision === "yes" && !customer.coApplicant) missing.add("coApplicant");
   if (customer.coApplicantDecision === "yes" && customer.coApplicant) {
     if (!nonnegative(customer.coApplicant.existingMonthlyEmiRupees)) missing.add("coApplicant");
@@ -183,8 +297,8 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   } else if (programme.requiredSeasoningMonths != null || programme.repaymentCleanRequired === true || programme.maxDelayedEmis != null) {
     return rejected("UNSUPPORTED_GOVERNED_RULE");
   }
-  if (missing.size) return rejected("ASSESSMENT_INPUT_REQUIRED", [...missing]);
-  if (mismatch) return rejected("ELIGIBILITY_NOT_MET");
+  if (missing.size) return rejected("ASSESSMENT_INPUT_REQUIRED", [...missing], criteria);
+  if (mismatch) return rejected("ELIGIBILITY_NOT_MET", [], criteria);
   const additional = evaluateAdditionalEligibilityFilters({
     filters: programme.additionalEligibilityFilters,
     facts: customerFactsForAdditionalFilters(customer, asOf),

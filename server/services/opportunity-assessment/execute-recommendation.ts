@@ -339,6 +339,7 @@ export async function executeFinalizedAssessmentRecommendation(
     rejectedProgrammeCodesJson: result.rejectedProgrammes.map((row) => ({
       programmeId: row.programmeId,
       reason: row.reason,
+      ...(row.criteria?.length ? { criteria: row.criteria } : {}),
     })),
     acceptedProgrammeIdsJson: result.recommendations.map((card) => ({
       programmeId: card.programmeId,

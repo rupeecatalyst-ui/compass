@@ -4,7 +4,7 @@
  */
 
 import type { ApproxCibilScoreBand } from "@/types/cibil-score-master";
-import type { CanonicalAssessmentField } from "@/types/canonical-lender-recommendation";
+import type { CanonicalAssessmentField, EligibilityCriterionTrace } from "@/types/canonical-lender-recommendation";
 import type { ExactDecimal } from "@/lib/product-programme-operations/money";
 
 export const OPPORTUNITY_ASSESSMENT_FACTS_SCHEMA_VERSION = "opportunity-assessment-facts.v1" as const;
@@ -227,6 +227,7 @@ export type OpportunityAssessmentSourceFingerprint = {
 export type OpportunityAssessmentRejectedProgrammeCode = {
   programmeId: string;
   reason: string;
+  criteria?: EligibilityCriterionTrace[];
 };
 
 export type OpportunityAssessmentAcceptedProgrammeId = {
