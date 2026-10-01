@@ -108,9 +108,9 @@ const anotherLender = row({
 assert.doesNotThrow(() => mapCanonicalProgramme({ row: anotherLender, product: "HOME_LOAN", lenderCategory: "B", asOf: now }));
 assert.equal(validateCanonicalPolicyLink(row({ policyVersion: policy({ status: "draft" }) }), "HOME_LOAN", now), "POLICY_NOT_PUBLISHED");
 
-// Static safety assertions: bounded +1 detection, no writes, exact database product predicate.
+// Static safety assertions: bounded +1 detection, no writes, shared canonical product identity.
 const repository = readFileSync(new URL("../server/services/lender-recommendation/recommendation-programme.repository.ts", import.meta.url), "utf8");
-assert.match(repository, /productCode: input\.product/);
+assert.match(repository, /canonicalInventoryProductCodes\(input\.product\)/);
 assert.match(repository, /PROGRAMME_SAFETY_LIMIT \+ 1/);
 assert.match(repository, /programmes\.length > PROGRAMME_SAFETY_LIMIT/);
 assert.doesNotMatch(repository, /\.(create|update|upsert|delete|deleteMany|updateMany)\s*\(/);

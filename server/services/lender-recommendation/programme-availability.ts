@@ -1,3 +1,4 @@
+import { canonicalInventoryProductCodes } from "@/constants/enterprise-product-master";
 import type { CanonicalRecommendationProduct } from "@/types/canonical-lender-recommendation";
 
 export type CanonicalProgrammeAvailabilityFields = {
@@ -31,7 +32,8 @@ export function isCanonicalProgrammeAvailable(input: {
   const now = input.asOf.getTime();
   return (
     programme.organizationId === input.organizationId &&
-    programme.productCode === input.product &&
+    programme.productCode != null &&
+    canonicalInventoryProductCodes(input.product).includes(programme.productCode) &&
     !programme.isDeleted &&
     programme.enabled === true &&
     programme.isLivePublished === true &&

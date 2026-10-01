@@ -1,5 +1,6 @@
 import type { AssessableProgramme } from "@/lib/home-loan-recommendation/engine";
 import type { RecommendationLenderCategory } from "@/lib/home-loan-recommendation/cibil-category";
+import { canonicalInventoryProductCodes } from "@/constants/enterprise-product-master";
 import { productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 import type { CanonicalRecommendationProduct } from "@/types/canonical-lender-recommendation";
 import { parseCanonicalPolicyRules, type ParsedCanonicalPolicyRules } from "./policy-rule-parser";
@@ -111,7 +112,9 @@ export function mapCanonicalProgramme(input: {
   asOf: Date;
 }): CanonicalAssessmentProgramme {
   const { row, product, asOf } = input;
-  if (row.productCode !== product) throw new Error("PROGRAMME_PRODUCT_MISMATCH");
+  if (!row.productCode || !canonicalInventoryProductCodes(product).includes(row.productCode)) {
+    throw new Error("PROGRAMME_PRODUCT_MISMATCH");
+  }
   const policyError = validateCanonicalPolicyLink(row, product, asOf);
   if (policyError) throw new Error(policyError);
 
