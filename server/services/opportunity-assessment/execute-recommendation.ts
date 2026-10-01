@@ -11,8 +11,17 @@ import {
 } from "@/constants/opportunity-assessment-recommendation";
 import type { OpportunityAssessmentRecommendationDto } from "@/types/opportunity-assessment-recommendation";
 import type { AssessmentReuseSources } from "@/lib/opportunity-assessment/reuse-opportunity-facts";
+import { loadActiveRecommendationRuleSet } from "@server/services/lender-recommendation/load-active-rule-set";
+import { loadCanonicalProgrammeInventory } from "@server/services/lender-recommendation/recommendation-programme.repository";
+import type { ActiveRecommendationRuleSet } from "@/lib/product-recommendation/types";
 import { hashOpportunityAssessmentCommand } from "./content-hash";
 import { OpportunityAssessmentError } from "./errors";
+import {
+  recommendationAsOfCalendarDay,
+  recommendationInventoryFingerprint,
+  recommendationReuseKey,
+  recommendationRuleSetFingerprint,
+} from "./recommendation-run-identity";
 import { overlayOpportunityAssessmentFacts } from "./http";
 import { collectOpportunityAssessmentMissingLabels } from "./missing-labels";
 import { mapFinalizedAssessmentFactsToCanonical } from "./map-to-canonical";
@@ -78,6 +87,14 @@ function sanitizeResult(result: CanonicalLenderRecommendationResult): CanonicalL
   };
 }
 
+const REUSABLE_RUN_STATUSES = new Set<AssessmentRunResultStatus>([
+  "ready",
+  "no_eligible_programmes",
+  "configuration_error",
+  "assessment_input_required",
+  "unsupported",
+]);
+
 function requestHashFor(input: {
   organizationId: string;
   opportunityId: string;
@@ -97,6 +114,44 @@ function requestHashFor(input: {
     customer: input.customer,
     asOf: input.asOf,
   });
+}
+
+async function durableRecommendationIdentity(input: {
+  organizationId: string;
+  product: "HOME_LOAN" | "HOME_LOAN_BT";
+  asOf: Date;
+  dependencies: ExecuteFinalizedAssessmentRecommendationDependencies;
+}) {
+  const loadInventory = input.dependencies.loadInventory ?? loadCanonicalProgrammeInventory;
+  const inventory = await loadInventory({
+    organizationId: input.organizationId,
+    product: input.product,
+    asOf: input.asOf,
+  });
+  const ruleSet = input.dependencies.resolveActiveRuleSet
+    ? await input.dependencies.resolveActiveRuleSet({
+        organizationId: input.organizationId,
+        productCode: input.product,
+      })
+    : input.dependencies.recommend
+      ? null
+      : await publishedRuleSet(input.organizationId, input.product);
+  if (ruleSet === "AMBIGUOUS" || ruleSet === "INVALID") return null;
+  return {
+    inventoryFingerprint: recommendationInventoryFingerprint(inventory),
+    ruleSetFingerprint: recommendationRuleSetFingerprint(ruleSet),
+  };
+}
+
+async function publishedRuleSet(
+  organizationId: string,
+  productCode: string,
+): Promise<ActiveRecommendationRuleSet | null | "AMBIGUOUS" | "INVALID"> {
+  const resolved = await loadActiveRecommendationRuleSet({ organizationId, productCode });
+  if (resolved.status === "resolved") return resolved.ruleSet;
+  if (resolved.status === "missing") return null;
+  if (resolved.status === "ambiguous") return "AMBIGUOUS";
+  return "INVALID";
 }
 
 function incompleteGuidance(missingLabels: string[], failureCode: string | null, status: AssessmentRunResultStatus | null) {
@@ -244,7 +299,7 @@ export async function executeFinalizedAssessmentRecommendation(
 
   const asOfDate = input.asOf ? new Date(input.asOf) : (dependencies.now?.() ?? new Date());
   const asOf = asOfDate.toISOString();
-  const hash = requestHashFor({
+  const timestampHash = requestHashFor({
     organizationId: actor.organizationId,
     opportunityId: input.opportunityId,
     revision: read.currentRevision,
@@ -252,6 +307,49 @@ export async function executeFinalizedAssessmentRecommendation(
     customer: mapped.customer,
     asOf,
   });
+  let hash = timestampHash;
+  if (persist) {
+    let identity: Awaited<ReturnType<typeof durableRecommendationIdentity>> = null;
+    try {
+      identity = await durableRecommendationIdentity({
+        organizationId: actor.organizationId,
+        product: mapped.product,
+        asOf: asOfDate,
+        dependencies,
+      });
+    } catch {
+      identity = null;
+    }
+    if (identity) {
+      hash = recommendationReuseKey({
+        organizationId: actor.organizationId,
+        opportunityId: input.opportunityId,
+        revisionId: read.currentRevision.id,
+        contentHash: read.currentRevision.contentHash,
+        mapperVersion: OPPORTUNITY_ASSESSMENT_MAPPER_VERSION,
+        factsSchemaVersion: OPPORTUNITY_ASSESSMENT_FACTS_SCHEMA_VERSION,
+        product: mapped.product,
+        customer: mapped.customer,
+        asOfCalendarDay: recommendationAsOfCalendarDay(asOfDate),
+        inventoryFingerprint: identity.inventoryFingerprint,
+        ruleSetFingerprint: identity.ruleSetFingerprint,
+      });
+      const runs = await service.listRecommendationRuns(actor, created.id);
+      const existing = reusableRun(runs, read.currentRevision.id, hash);
+      if (existing) {
+        return dtoFromRead(input.opportunityId, read, {
+          executionAllowed: true,
+          recommendationExecuted: true,
+          recommendationRunCreated: false,
+          runId: existing.id,
+          requestHash: existing.requestHash,
+          resultStatus: existing.resultStatus,
+          failureCode: existing.failureCode,
+          result: await safeEvaluate(read, existing.asOf, actor.organizationId, dependencies),
+        });
+      }
+    }
+  }
   const requestId = input.requestId?.trim() || dependencies.nextRequestId?.() || crypto.randomUUID();
 
   if (!persist) {
@@ -390,6 +488,21 @@ function assertRevisionUnchanged(
   if (!revision || revision.id !== revisionId || revision.contentHash !== contentHash) {
     throw new OpportunityAssessmentError("ASSESSMENT_CONFLICT");
   }
+}
+
+function reusableRun(
+  runs: OpportunityAssessmentRecommendationRunRecord[],
+  revisionId: string,
+  requestHash: string,
+) {
+  return [...runs]
+    .filter((row) =>
+      row.revisionId === revisionId &&
+      row.requestHash === requestHash &&
+      REUSABLE_RUN_STATUSES.has(row.resultStatus),
+    )
+    .sort((a, b) => a.assessedAt.localeCompare(b.assessedAt))
+    .at(-1) ?? null;
 }
 
 function latestRunForRevision(
