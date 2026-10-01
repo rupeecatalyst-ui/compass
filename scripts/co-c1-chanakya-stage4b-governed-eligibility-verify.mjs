@@ -34,7 +34,7 @@ function programme(id = "base", product = "HOME_LOAN", patch = {}) {
 }
 const customer = { journeyKind: "home_loan", requiredAmountRupees: 1000000, propertyValueRupees: 4000000,
   employmentFamily: "salaried", employmentType: "salaried", monthlyIncomeRupees: 200000, existingMonthlyEmiRupees: 5000,
-  residency: "resident", cibilBand: 780, dateOfBirth: "1990-01-01", customerSelectedTenureMonths: 240,
+  residency: "resident", cibilBand: 780, ageYears: 36, dateOfBirth: "1990-01-01", customerSelectedTenureMonths: 240,
   coApplicantDecision: "no", propertyType: "residential", constructionStatus: "ready", state: "test-state", city: "test-city" };
 const hl = programme();
 let cases = 0;
@@ -97,10 +97,12 @@ policyRange.policyVersion.creditRules = { rules: [{ type: "cibil_range", minimum
 await check("PARSED_POLICY_RANGE_ENFORCED", 0, customer, [policyRange]);
 await check("PARSED_POLICY_RANGE_SATISFIED", 1, { ...customer, cibilBand: 820 }, [policyRange]);
 await check("AGE_WITHIN_POLICY", 1);
-await check("AGE_TOO_YOUNG", 0, { ...customer, dateOfBirth: "2010-01-01" });
-await check("AGE_AT_MATURITY_REDUCES_TENURE", 1, { ...customer, dateOfBirth: "1970-01-01" });
-await check("MISSING_DOB", 0, { ...customer, dateOfBirth: null }, [hl], "HOME_LOAN", "A", "dateOfBirth");
-await check("INVALID_CALENDAR_DOB", 0, { ...customer, dateOfBirth: "1990-02-30" }, [hl], "HOME_LOAN", "A", "dateOfBirth");
+await check("AGE_TOO_YOUNG", 0, { ...customer, ageYears: 20 });
+await check("DOB_DOES_NOT_SUPPLY_LENDING_AGE", 1, { ...customer, dateOfBirth: "2010-01-01" });
+await check("AGE_AT_MATURITY_REDUCES_TENURE", 1, { ...customer, ageYears: 56, dateOfBirth: "1970-01-01" });
+await check("DOB_ABSENT_AGE_PRESENT", 1, { ...customer, dateOfBirth: null });
+await check("MISSING_CANONICAL_AGE", 0, { ...customer, ageYears: null }, [hl], "HOME_LOAN", "A", "age");
+await check("INVALID_CALENDAR_DOB_DOES_NOT_BLOCK", 1, { ...customer, dateOfBirth: "1990-02-30" });
 await check("TENURE_WITHIN_MAXIMUM", 1, { ...customer, customerSelectedTenureMonths: 180 });
 await check("TENURE_ABOVE_MAXIMUM", 0, { ...customer, customerSelectedTenureMonths: 241 });
 await check("TENURE_BELOW_MINIMUM", 0, { ...customer, customerSelectedTenureMonths: 12 });
@@ -208,7 +210,7 @@ await check("MISSING_REQUESTED_AMOUNT", 0, { ...customer, requiredAmountRupees: 
 await check("MISSING_EMPLOYMENT_NOT_SALARIED", 0, { ...customer, employmentFamily: "unknown" }, [hl], "HOME_LOAN", "A", "employment");
 await check("MISSING_CONSTRUCTION", 0, { ...customer, constructionStatus: null }, [{ ...hl, constructionStatuses: ["ready"] }], "HOME_LOAN", "A", "constructionStatus");
 await check("BT_LATE_EMI_LIMIT", 0, { ...btCustomer, delayedEmiCount: 1 }, [bt], "HOME_LOAN_BT");
-await check("COAPPLICANT_AGE_CANNOT_FALLBACK", 0, customer, [{ ...hl, policyAssessmentJson: { ageGoverningParty: "younger" } }], "HOME_LOAN", "A", "coApplicant");
+await check("COAPPLICANT_AGE_CANNOT_FALLBACK", 0, customer, [{ ...hl, policyAssessmentJson: { ageGoverningParty: "younger", maxAgeAtMaturityYears: 70 } }], "HOME_LOAN", "A", "coApplicant");
 
 const hyphenPolicy = { ...hl.policyVersion, policy: { ...hl.policyVersion.policy, productCode: "HOME-LOAN" } };
 assert.equal(validateCanonicalPolicyLink({ ...hl, policyVersion: hyphenPolicy }, "HOME_LOAN", now), null, "HOME-LOAN equivalent to HOME_LOAN");
