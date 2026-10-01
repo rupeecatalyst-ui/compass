@@ -121,7 +121,7 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
     value: string | null | undefined,
     values: string[] | null | undefined,
     field: CanonicalAssessmentField,
-    criterion = field,
+    criterion: string = field,
   ) {
     if (!values?.length) return;
     const requirement = values.join("|");
