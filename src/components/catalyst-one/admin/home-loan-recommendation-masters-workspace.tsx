@@ -38,6 +38,8 @@ import {
   resolveMatchPercentDisplayedRow,
 } from "@/lib/product-recommendation/weight-review";
 import { AUTHORISED_CIBIL_CATEGORY_RULES } from "@/lib/home-loan-recommendation/cibil-category";
+import { LENDER_CATEGORY_BAND_DEFINITIONS } from "@/lib/home-loan-recommendation/lender-category-governance";
+import { searchActiveLenders } from "@/lib/deal-workspace/lender-program-api";
 import {
   AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS,
   AUTHORISED_INDIVIDUAL_HOUSING_LTV_SOURCE,
@@ -114,15 +116,8 @@ function lenderName(row: MasterRow): string {
   return row.lender?.displayName || row.lender?.label || row.lender?.code || "Lender";
 }
 
-function workingCategoryAssignments(rows: MasterRow[]): MasterRow[] {
-  const byLender = new Map<string, MasterRow[]>();
-  for (const row of rows) {
-    const key = row.lenderId ?? row.id;
-    const list = byLender.get(key) ?? [];
-    list.push(row);
-    byLender.set(key, list);
-  }
-  return [...byLender.values()].map((list) => list.find((row) => row.lifecycleStatus === "draft") ?? list[0]);
+function activeCategoryAssignments(rows: MasterRow[]): MasterRow[] {
+  return rows.filter((row) => row.lifecycleStatus === "active" && (row.category === "A" || row.category === "B" || row.category === "C"));
 }
 
 export function HomeLoanRecommendationMastersWorkspace() {
@@ -166,6 +161,11 @@ export function HomeLoanRecommendationMastersWorkspace() {
   const [addCriterionId, setAddCriterionId] = useState("");
   const [addCriterionQuery, setAddCriterionQuery] = useState("");
   const [dragVisibleIndex, setDragVisibleIndex] = useState<number | null>(null);
+  const [lenderQuery, setLenderQuery] = useState("");
+  const [lenderOptions, setLenderOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedLender, setSelectedLender] = useState<{ id: string; label: string } | null>(null);
+  const [selectedBand, setSelectedBand] = useState<"" | "A" | "B" | "C">("");
+  const [lenderSearchOpen, setLenderSearchOpen] = useState(false);
 
   const reload = async () => {
     const res = await authenticatedJsonFetch("/api/admin/home-loan-recommendation-masters");
@@ -288,7 +288,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
   const cibilRules = data?.authorisedCibilRules ?? AUTHORISED_CIBIL_CATEGORY_RULES;
   const ltvSlabs = data?.libraryLtvDefault?.slabs ?? AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS;
   const categoryGroups = useMemo(() => {
-    const working = workingCategoryAssignments(data?.categories ?? []);
+    const working = activeCategoryAssignments(data?.categories ?? []);
     return {
       A: working.filter((row) => row.category === "A"),
       B: working.filter((row) => row.category === "B"),
@@ -319,6 +319,36 @@ export function HomeLoanRecommendationMastersWorkspace() {
     const source = journeyFieldSource?.fieldsJson ?? data?.bootstrap?.[productCode] ?? [];
     setDraftFields(parseProductJourneyFields(source));
   }, [journeyFieldSource?.id, journeyFieldSource?.fieldsJson, data?.bootstrap, productCode]);
+
+  useEffect(() => {
+    if (area !== "categories") return;
+    const query = lenderQuery.trim();
+    if (query.length < 2 || (selectedLender && selectedLender.label === query)) {
+      setLenderOptions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchActiveLenders({ search: query, pageSize: 8 })
+        .then((items) => {
+          if (cancelled) return;
+          setLenderOptions(
+            items.slice(0, 8).map((item) => ({
+              id: item.id,
+              label: item.displayName || item.legalName || item.label || item.code,
+            })),
+          );
+          setLenderSearchOpen(true);
+        })
+        .catch(() => {
+          if (!cancelled) setLenderOptions([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [area, lenderQuery, selectedLender]);
 
   const post = async (payload: Record<string, unknown>, success = "Saved.") => {
     setBusy(true);
@@ -393,7 +423,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
     rows,
   }: {
     title: string;
-    kind: "weights" | "cibil" | "ltv" | null;
+    kind: "weights" | "cibil" | "ltv" | "category" | null;
     rows?: MasterRow[];
   }) => (
     <details className="rounded-md border border-border p-3">
@@ -402,7 +432,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
       {(rows ?? []).length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No versions yet.</p> : null}
       {(rows ?? []).map((row) => (
         <div key={row.id} className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>{productLabel(row.productCode)}</span>
+          <span>{kind === "category" ? `${lenderName(row)} · ${row.category ?? "unassigned"}` : productLabel(row.productCode)}</span>
           <span>Version {row.versionNumber ?? 1}</span>
           <span>{row.lifecycleStatus}</span>
           {row.labelledUnapproved ? <span>Demonstration draft</span> : null}
@@ -440,6 +470,16 @@ export function HomeLoanRecommendationMastersWorkspace() {
               onClick={() => void post({ intent: "transition", kind, id: row.id, action: "activate" }, "Activated.")}
             >
               Activate
+            </Button>
+          ) : null}
+          {kind === "category" && (row.lifecycleStatus === "checker_review" || row.lifecycleStatus === "approved") ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void post({ intent: "transition", kind, id: row.id, action: "reject" }, "Rejected. The version is retained.")}
+            >
+              Reject
             </Button>
           ) : null}
         </div>
@@ -1050,24 +1090,88 @@ export function HomeLoanRecommendationMastersWorkspace() {
           <div>
             <h2 className="text-base font-semibold">Lender Categories</h2>
             <p className="text-sm text-muted-foreground">
-              Existing Category A / B / C assignments. This screen does not change category logic.
+              Credit appetite candidate universe for one lender at a time. A = {LENDER_CATEGORY_BAND_DEFINITIONS.A}. B = {LENDER_CATEGORY_BAND_DEFINITIONS.B}. C = {LENDER_CATEGORY_BAND_DEFINITIONS.C}. Categories do not rank lenders and do not change Match %, CIBIL rules, or Product Programme rows.
             </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(12rem,0.8fr)_auto] md:items-end">
+            <div className="relative space-y-1">
+              <p className="text-sm font-medium">Lender</p>
+              <Input
+                value={lenderQuery}
+                placeholder="Search the Enterprise Lender Registry"
+                onChange={(event) => {
+                  setLenderQuery(event.target.value);
+                  setSelectedLender(null);
+                  setLenderSearchOpen(true);
+                }}
+                onFocus={() => setLenderSearchOpen(true)}
+              />
+              {lenderSearchOpen && lenderOptions.length > 0 ? (
+                <div className="absolute z-20 mt-1 max-h-40 w-full overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
+                  {lenderOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        setSelectedLender(option);
+                        setLenderQuery(option.label);
+                        setLenderOptions([]);
+                        setLenderSearchOpen(false);
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Category</p>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={selectedBand}
+                onChange={(event) => setSelectedBand(event.target.value as "" | "A" | "B" | "C")}
+              >
+                <option value="">Select A, B, or C</option>
+                <option value="A">A — {LENDER_CATEGORY_BAND_DEFINITIONS.A}</option>
+                <option value="B">B — {LENDER_CATEGORY_BAND_DEFINITIONS.B}</option>
+                <option value="C">C — {LENDER_CATEGORY_BAND_DEFINITIONS.C}</option>
+              </select>
+            </div>
+            <Button
+              size="sm"
+              disabled={busy || !selectedLender || !selectedBand}
+              onClick={() => {
+                if (!selectedLender || !selectedBand) {
+                  setMessage("Select one lender and category A, B, or C. No default is applied.");
+                  return;
+                }
+                void post(
+                  { intent: "create_category_draft", lenderId: selectedLender.id, category: selectedBand },
+                  "Category draft saved. Submit it for checker review before activation.",
+                );
+              }}
+            >
+              Create draft
+            </Button>
           </div>
           {(["A", "B", "C"] as const).map((band) => (
             <div key={band} className="space-y-1">
-              <p className="text-sm font-medium">Category {band}</p>
+              <p className="text-sm font-medium">Active Category {band}</p>
+              <p className="text-xs text-muted-foreground">{LENDER_CATEGORY_BAND_DEFINITIONS[band]}</p>
               {categoryGroups[band].length === 0 ? (
                 <p className="text-sm text-muted-foreground">No lenders assigned to Category {band}.</p>
               ) : (
                 categoryGroups[band].map((row) => (
                   <p key={row.id} className="text-sm">
-                    {lenderName(row)}
+                    {lenderName(row)} · active · version {row.versionNumber ?? 1}
                   </p>
                 ))
               )}
             </div>
           ))}
-          <VersionList title="Lender category versions" kind={null} rows={data?.categories} />
+          <VersionList title="Lender category versions" kind="category" rows={data?.categories} />
         </Card>
       ) : null}
 

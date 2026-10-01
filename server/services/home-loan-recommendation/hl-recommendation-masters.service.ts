@@ -1,4 +1,9 @@
 import { AUTHORISED_CIBIL_CATEGORY_RULES } from "@/lib/home-loan-recommendation/cibil-category";
+import {
+  planLenderCategoryDraft,
+  planLenderCategoryTransition,
+  type LenderCategoryAssignmentRow,
+} from "@/lib/home-loan-recommendation/lender-category-governance";
 import { AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS, AUTHORISED_INDIVIDUAL_HOUSING_LTV_SOURCE } from "@/constants/home-loan-recommendation/rbi-ltv-slabs";
 import { runHomeLoanRecommendationEngine } from "@/lib/home-loan-recommendation/engine";
 import type { CustomerAssessmentInput } from "@/lib/home-loan-recommendation/assisted-offer";
@@ -70,7 +75,7 @@ export async function listHlRecommendationMasters(organizationId: string) {
     prisma.hlRecommendationLenderCategoryAssignment.findMany({
       where: { organizationId, isDeleted: false },
       orderBy: { updatedAt: "desc" },
-      take: 50,
+      take: 200,
       include: { lender: { select: { code: true, label: true, displayName: true } } },
     }),
     prisma.hlProductRecommendationRuleSet.findMany({
@@ -298,14 +303,183 @@ export async function saveWeightDraft(input: {
   });
 }
 
+function asCategoryRow(row: {
+  id: string;
+  lenderId: string;
+  category: "A" | "B" | "C";
+  lineageId: string;
+  versionNumber: number;
+  previousVersionId: string | null;
+  lifecycleStatus: string;
+  makerUserId: string;
+  isDeleted: boolean;
+}): LenderCategoryAssignmentRow {
+  return {
+    id: row.id,
+    lenderId: row.lenderId,
+    category: row.category,
+    lineageId: row.lineageId,
+    versionNumber: row.versionNumber,
+    previousVersionId: row.previousVersionId,
+    lifecycleStatus: row.lifecycleStatus,
+    makerUserId: row.makerUserId,
+    isDeleted: row.isDeleted,
+  };
+}
+
+export async function createLenderCategoryDraft(input: {
+  organizationId: string;
+  lenderId: string;
+  category: unknown;
+  makerUserId: string;
+  reason?: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const lenderId = typeof input.lenderId === "string" ? input.lenderId.trim() : "";
+    if (!lenderId) throw new Error("Select one lender. Bulk assignment is not available.");
+    const lockKey = `hl-lender-category:${lenderId}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${input.organizationId}), hashtext(${lockKey}))`;
+    const lender = await tx.enterpriseLender.findFirst({
+      where: { id: lenderId, organizationId: input.organizationId, isDeleted: false },
+      select: { id: true },
+    });
+    if (!lender) throw new Error("Select an Enterprise Lender from the registry.");
+    const existing = await tx.hlRecommendationLenderCategoryAssignment.findMany({
+      where: { organizationId: input.organizationId, lenderId, isDeleted: false },
+    });
+    const plan = planLenderCategoryDraft({
+      lenderId,
+      category: input.category,
+      existing: existing.map(asCategoryRow),
+    });
+    if (plan.action === "refuse") throw new Error(plan.reason);
+    if (plan.action === "reuse_draft") {
+      const current = existing.find((row) => row.id === plan.row.id);
+      if (!current) throw new Error("Category draft could not be reloaded.");
+      return current;
+    }
+    if (plan.action === "revise_draft") {
+      const current = existing.find((row) => row.id === plan.row.id);
+      if (!current || current.lifecycleStatus !== "draft") throw new Error("Only Draft versions can be revised.");
+      const audit = Array.isArray(current.auditJson) ? [...(current.auditJson as object[])] : [];
+      audit.push({
+        event: "revise_draft_category",
+        actorUserId: input.makerUserId,
+        from: current.category,
+        to: plan.category,
+        at: new Date().toISOString(),
+      });
+      return tx.hlRecommendationLenderCategoryAssignment.update({
+        where: { id: current.id },
+        data: {
+          category: plan.category,
+          reason: input.reason?.trim() || current.reason,
+          auditJson: audit,
+        },
+      });
+    }
+    return tx.hlRecommendationLenderCategoryAssignment.create({
+      data: {
+        organizationId: input.organizationId,
+        lenderId,
+        category: plan.category,
+        lineageId: plan.lineageId || randomUUID(),
+        versionNumber: plan.versionNumber,
+        previousVersionId: plan.previousVersionId,
+        lifecycleStatus: "draft",
+        reason: input.reason?.trim() || null,
+        makerUserId: input.makerUserId,
+        auditJson: [
+          {
+            event: "created_category_draft",
+            actorUserId: input.makerUserId,
+            lenderId,
+            category: plan.category,
+            at: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+  });
+}
+
 export async function transitionHlMaster(input: {
   organizationId: string;
-  kind: "weights" | "cibil" | "ltv";
+  kind: "weights" | "cibil" | "ltv" | "category";
   id: string;
   action: "submit_review" | "approve" | "reject" | "activate";
   actorUserId: string;
   comment?: string;
 }) {
+  if (input.kind === "category") {
+    return prisma.$transaction(async (tx) => {
+      const load = await tx.hlRecommendationLenderCategoryAssignment.findFirst({
+        where: { id: input.id, organizationId: input.organizationId, isDeleted: false },
+      });
+      if (!load) throw new Error("Master version not found.");
+      const lockKey = `hl-lender-category:${load.lenderId}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${input.organizationId}), hashtext(${lockKey}))`;
+      const locked = await tx.hlRecommendationLenderCategoryAssignment.findFirst({
+        where: { id: input.id, organizationId: input.organizationId, isDeleted: false },
+      });
+      if (!locked) throw new Error("Master version not found.");
+      const siblings = await tx.hlRecommendationLenderCategoryAssignment.findMany({
+        where: {
+          organizationId: input.organizationId,
+          lenderId: locked.lenderId,
+          isDeleted: false,
+          lifecycleStatus: "active",
+        },
+      });
+      const plan = planLenderCategoryTransition({
+        row: asCategoryRow(locked),
+        action: input.action,
+        actorUserId: input.actorUserId,
+        activeSiblingIds: siblings.map((row) => row.id),
+      });
+      if ("error" in plan) throw new Error(plan.error);
+      const now = new Date();
+      for (const id of plan.supersedeIds) {
+        const prior = siblings.find((row) => row.id === id);
+        const priorAudit = prior && Array.isArray(prior.auditJson) ? [...(prior.auditJson as object[])] : [];
+        priorAudit.push({
+          event: "superseded",
+          actorUserId: input.actorUserId,
+          supersededById: locked.id,
+          retainedCategory: prior?.category ?? null,
+          at: now.toISOString(),
+        });
+        await tx.hlRecommendationLenderCategoryAssignment.update({
+          where: { id },
+          data: {
+            lifecycleStatus: "superseded",
+            effectiveUntil: now,
+            auditJson: priorAudit,
+          },
+        });
+      }
+      const audit = Array.isArray(locked.auditJson) ? [...(locked.auditJson as object[])] : [];
+      audit.push({
+        event: input.action,
+        actorUserId: input.actorUserId,
+        comment: input.comment ?? null,
+        category: locked.category,
+        at: now.toISOString(),
+      });
+      return tx.hlRecommendationLenderCategoryAssignment.update({
+        where: { id: locked.id },
+        data: {
+          lifecycleStatus: plan.lifecycleStatus,
+          checkerUserId: plan.checkerUserId,
+          approvedAt: plan.setApprovedAt ? now : plan.clearApprovedAt ? null : undefined,
+          activatedAt: plan.setActivatedAt ? now : undefined,
+          effectiveFrom: plan.setActivatedAt ? (locked.effectiveFrom ?? now) : undefined,
+          auditJson: audit,
+        },
+      });
+    });
+  }
+
   if (input.kind === "weights") {
     return prisma.$transaction(async (tx) => {
       const load = await tx.hlProductRecommendationRuleSet.findFirst({

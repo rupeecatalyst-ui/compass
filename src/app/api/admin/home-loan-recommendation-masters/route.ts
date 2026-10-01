@@ -7,6 +7,7 @@ import {
 import type { ApiResponse } from "@/types/api";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import {
+  createLenderCategoryDraft,
   createUnapprovedDraftMasters,
   ensureProductWeightDraft,
   listHlRecommendationMasters,
@@ -53,10 +54,13 @@ export async function POST(request: Request) {
     const organizationId = await resolvePilotOrganizationId();
     const body = (await request.json().catch(() => ({}))) as {
       intent?: string;
-      kind?: "weights" | "cibil" | "ltv";
+      kind?: "weights" | "cibil" | "ltv" | "category";
       id?: string;
       action?: "submit_review" | "approve" | "reject" | "activate";
       comment?: string;
+      lenderId?: string;
+      category?: unknown;
+      reason?: string;
       customer?: CustomerAssessmentInput;
       productCode?: string;
       weightsJson?: Record<string, number>;
@@ -116,6 +120,16 @@ export async function POST(request: Request) {
         id: body.id,
         actorUserId: actor.userId,
         weightsJson: body.weightsJson,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "create_category_draft") {
+      const data = await createLenderCategoryDraft({
+        organizationId,
+        lenderId: body.lenderId ?? "",
+        category: body.category,
+        makerUserId: actor.userId,
+        reason: body.reason,
       });
       return successResponse(data);
     }
