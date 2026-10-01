@@ -3,6 +3,7 @@ import {
   planLenderCategoryDraft,
   planLenderCategoryTransition,
   type LenderCategoryAssignmentRow,
+  type PublicationLenderCategoryInput,
 } from "@/lib/home-loan-recommendation/lender-category-governance";
 import { AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS, AUTHORISED_INDIVIDUAL_HOUSING_LTV_SOURCE } from "@/constants/home-loan-recommendation/rbi-ltv-slabs";
 import { runHomeLoanRecommendationEngine } from "@/lib/home-loan-recommendation/engine";
@@ -568,6 +569,29 @@ export async function transitionHlMaster(input: {
     return prisma.hlCibilCategoryRule.update({ where: { id: input.id }, data: patch });
   }
   return prisma.hlRegulatoryLtvRule.update({ where: { id: input.id }, data: patch });
+}
+
+export async function readPublicationLenderCategory(input: {
+  organizationId: string;
+  lenderId: string;
+}): Promise<Omit<PublicationLenderCategoryInput, "now"> | null> {
+  const row = await prisma.hlRecommendationLenderCategoryAssignment.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      lenderId: input.lenderId,
+      isDeleted: false,
+      lifecycleStatus: "active",
+    },
+    orderBy: [{ versionNumber: "desc" }, { updatedAt: "desc" }],
+  });
+  if (!row) return null;
+  return {
+    category: row.category,
+    lifecycleStatus: row.lifecycleStatus,
+    isDeleted: row.isDeleted,
+    effectiveFrom: row.effectiveFrom,
+    effectiveUntil: row.effectiveUntil,
+  };
 }
 
 export function simulateHomeLoanRecommendation(customer: CustomerAssessmentInput) {

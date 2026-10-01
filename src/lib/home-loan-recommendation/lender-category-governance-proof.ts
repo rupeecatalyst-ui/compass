@@ -2,9 +2,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  AUTHORISED_CIBIL_CATEGORY_RULES,
+} from "@/lib/home-loan-recommendation/cibil-category";
+import {
   LENDER_CATEGORY_BAND_DEFINITIONS,
+  LENDER_CATEGORY_PUBLICATION_REQUIRED,
   planLenderCategoryDraft,
   planLenderCategoryTransition,
+  publicationLenderCategoryDecision,
   type LenderCategoryAssignmentRow,
 } from "@/lib/home-loan-recommendation/lender-category-governance";
 
@@ -199,4 +204,62 @@ export function runLenderCategoryGovernanceProof(): void {
   assert.match(otherMasters, /Maker and checker cannot be the same user/);
   const weights = readFileSync(resolve(root, "src/lib/product-recommendation/weight-lineage.ts"), "utf8");
   assert.match(weights, /Maker and checker cannot be the same user/);
+
+  const now = new Date("2026-10-02T00:00:00.000Z");
+  const publicationBlocked = [
+    { category: null, lifecycleStatus: null },
+    { category: "A", lifecycleStatus: "draft" },
+    { category: "A", lifecycleStatus: "checker_review" },
+    { category: "B", lifecycleStatus: "approved" },
+    { category: "C", lifecycleStatus: "rejected" },
+    { category: "A", lifecycleStatus: "active", isDeleted: true },
+    { category: "D", lifecycleStatus: "active" },
+    { category: null, lifecycleStatus: "active" },
+  ];
+  for (const sample of publicationBlocked) {
+    const decision = publicationLenderCategoryDecision({ ...sample, now });
+    assert.equal(decision.ok, false);
+    if (!decision.ok) assert.equal(decision.reason, LENDER_CATEGORY_PUBLICATION_REQUIRED);
+  }
+  for (const category of ["A", "B", "C"] as const) {
+    const decision = publicationLenderCategoryDecision({ category, lifecycleStatus: "active", now });
+    assert.deepEqual(decision, { ok: true, category });
+  }
+  const future = publicationLenderCategoryDecision({
+    category: "A",
+    lifecycleStatus: "active",
+    effectiveFrom: "2026-12-01T00:00:00.000Z",
+    now,
+  });
+  assert.equal(future.ok, false);
+
+  assert.deepEqual(AUTHORISED_CIBIL_CATEGORY_RULES, {
+    notKnownCategories: ["A"],
+    below700Categories: ["C"],
+    atOrAbove700Categories: ["A", "B", "C"],
+    belowThreshold: 700,
+  });
+
+  const publishSource = readFileSync(
+    resolve(root, "server/services/product-programme-operations/programme.service.ts"),
+    "utf8",
+  );
+  const completenessCheck = publishSource.indexOf("if (!completeness.complete)");
+  const categoryCheck = publishSource.indexOf("publicationLenderCategoryDecision({");
+  const publishWrite = publishSource.indexOf("publishApprovedProgram");
+  assert.ok(completenessCheck >= 0 && categoryCheck > completenessCheck && publishWrite > categoryCheck);
+  assert.match(publishSource, /LENDER_CATEGORY_PUBLICATION_REQUIRED/);
+  const governanceSource = readFileSync(
+    resolve(root, "src/lib/home-loan-recommendation/lender-category-governance.ts"),
+    "utf8",
+  );
+  assert.match(governanceSource, /Lender Category is required before this programme can be published/);
+  assert.doesNotMatch(publishSource, /category:\s*"A"/);
+  assert.doesNotMatch(publishSource, /createLenderCategoryDraft/);
+
+  const eligibility = readFileSync(
+    resolve(root, "server/services/lender-recommendation/canonical-governed-eligibility.ts"),
+    "utf8",
+  );
+  assert.match(eligibility, /LENDER_CATEGORY_NOT_PERMITTED/);
 }

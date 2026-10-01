@@ -22,6 +22,11 @@ import {
 import { evaluateProgrammeCompleteness } from "@/lib/product-programme-operations/completeness";
 import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
 import { durablePolicyRepository } from "@server/repositories/credit-risk-policy/durable-policy.repository";
+import {
+  LENDER_CATEGORY_PUBLICATION_REQUIRED,
+  publicationLenderCategoryDecision,
+} from "@/lib/home-loan-recommendation/lender-category-governance";
+import { readPublicationLenderCategory } from "@server/services/home-loan-recommendation/hl-recommendation-masters.service";
 
 async function assertPublishedPolicyVersion(policyVersionId: string | null, organizationId: string): Promise<void> {
   if (policyVersionId === null) return;
@@ -316,6 +321,23 @@ export const productProgrammeOperationsService = {
       throw new ProgrammeValidationError("Programme is not complete enough to publish", completeness.errors);
     }
     await assertPublishedPolicyVersion(existing.policyVersionId ?? null, input.organizationId);
+    const categoryAssignment = await readPublicationLenderCategory({
+      organizationId: input.organizationId,
+      lenderId: existing.lenderId,
+    });
+    const categoryGate = publicationLenderCategoryDecision({
+      category: categoryAssignment?.category ?? null,
+      lifecycleStatus: categoryAssignment?.lifecycleStatus ?? null,
+      isDeleted: categoryAssignment?.isDeleted,
+      effectiveFrom: categoryAssignment?.effectiveFrom,
+      effectiveUntil: categoryAssignment?.effectiveUntil,
+      now: new Date(),
+    });
+    if (!categoryGate.ok) {
+      throw new ProgrammeValidationError(LENDER_CATEGORY_PUBLICATION_REQUIRED, [
+        { field: "lenderCategory", message: LENDER_CATEGORY_PUBLICATION_REQUIRED },
+      ]);
+    }
     const updated = await lenderRegistryRepository.publishApprovedProgram(input.programId, input.actorUserId);
     await lenderRegistryRepository.recordProgramAudit({
       organizationId: input.organizationId,

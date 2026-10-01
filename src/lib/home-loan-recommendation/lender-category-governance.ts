@@ -161,3 +161,40 @@ export function planLenderCategoryTransition(input: {
     setActivatedAt: true,
   };
 }
+
+export const LENDER_CATEGORY_PUBLICATION_REQUIRED =
+  "Lender Category is required before this programme can be published.";
+
+export type PublicationLenderCategoryInput = {
+  category: string | null;
+  lifecycleStatus: string | null;
+  isDeleted?: boolean;
+  effectiveFrom?: Date | string | null;
+  effectiveUntil?: Date | string | null;
+  now: Date;
+};
+
+function publicationInstant(value: Date | string | null | undefined): Date | null {
+  if (value == null || value === "") return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+/**
+ * Publication gate only. Does not create, default, or derive a category.
+ * Draft, submitted, and approved-but-inactive assignments fail closed.
+ */
+export function publicationLenderCategoryDecision(
+  input: PublicationLenderCategoryInput,
+): { ok: true; category: LenderCategoryBand } | { ok: false; reason: typeof LENDER_CATEGORY_PUBLICATION_REQUIRED } {
+  const fail = { ok: false as const, reason: LENDER_CATEGORY_PUBLICATION_REQUIRED };
+  if (input.isDeleted === true) return fail;
+  if (input.lifecycleStatus !== "active") return fail;
+  const category = parseLenderCategoryBand(input.category);
+  if (!category) return fail;
+  const from = publicationInstant(input.effectiveFrom);
+  const until = publicationInstant(input.effectiveUntil);
+  if (from && from > input.now) return fail;
+  if (until && until < input.now) return fail;
+  return { ok: true, category };
+}
