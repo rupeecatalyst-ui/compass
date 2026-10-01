@@ -17,6 +17,11 @@ import { RecommendationGroup } from "@/components/catalyst-one/credit-bench/chan
 import { CitySelect } from "@/components/catalyst-one/shared/city-select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
+  chanakyaContextIdentityFromOpportunity,
+  formatChanakyaOpportunityContextLine,
+} from "@/lib/chanakya/opportunity-context-line";
+import { enterpriseOpportunityService } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import {
   CHANAKYA_FACT_INPUTS,
   chanakyaSubmitValue,
 } from "@/lib/opportunity-assessment/chanakya-fact-inputs";
@@ -39,6 +44,7 @@ export function ChanakyaRecommendationWorkspace({
   onClose: () => void;
 }) {
   const [model, setModel] = useState<ChanakyaRecommendationWorkspaceDto | null>(null);
+  const [contextLine, setContextLine] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,6 +75,25 @@ export function ChanakyaRecommendationWorkspace({
     if (!open) return;
     void load();
   }, [open, load]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void enterpriseOpportunityService
+      .getOpportunity(opportunityId)
+      .then((opportunity) => {
+        if (cancelled) return;
+        setContextLine(
+          formatChanakyaOpportunityContextLine(chanakyaContextIdentityFromOpportunity(opportunity)),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setContextLine(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, opportunityId]);
 
   if (!open) return null;
 
@@ -135,12 +160,17 @@ export function ChanakyaRecommendationWorkspace({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background" role="dialog" aria-label="CHANAKYA Recommendation">
-      <header className="flex items-center justify-between gap-3 border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-teal-700" />
-          <h2 className="text-sm font-semibold">CHANAKYA Recommendation</h2>
+      <header className="flex items-start justify-between gap-3 border-b px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 shrink-0 text-teal-700" />
+            <h2 className="text-sm font-semibold">CHANAKYA Recommendation</h2>
+          </div>
+          {contextLine ? (
+            <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">{contextLine}</p>
+          ) : null}
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={onClose} aria-label="Close">
+        <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={onClose} aria-label="Close">
           <X className="h-4 w-4" />
           Close
         </Button>
