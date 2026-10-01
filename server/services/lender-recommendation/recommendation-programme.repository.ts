@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@server/lib/prisma";
 import type { RecommendationLenderCategory } from "@/lib/home-loan-recommendation/cibil-category";
+import { canonicalInventoryProductCodes } from "@/constants/enterprise-product-master";
 import type { CanonicalRecommendationProduct } from "@/types/canonical-lender-recommendation";
 import type { CanonicalProgrammeRow } from "./programme-assessment-adapter";
 
@@ -28,7 +29,7 @@ export async function loadCanonicalProgrammeInventory(input: {
     prisma.enterpriseLenderProgram.findMany({
       where: {
         organizationId: input.organizationId,
-        productCode: input.product,
+        productCode: { in: canonicalInventoryProductCodes(input.product) },
         isDeleted: false,
         enabled: true,
         isLivePublished: true,

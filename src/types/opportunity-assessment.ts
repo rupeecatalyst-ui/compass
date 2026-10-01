@@ -238,6 +238,11 @@ export type OpportunityAssessmentAcceptedProgrammeId = {
   matchPercent?: number | null;
   matchRank?: number | null;
   ruleSetVersion?: string | null;
+  matchState?: string | null;
+  bindingConstraint?: "LTV" | "FOIR" | "PROGRAMME_MAX" | "OTHER_POLICY" | null;
+  requestedAmountRupees?: number | null;
+  assessedOfferRupees?: number | null;
+  shortfallRupees?: number | null;
   criterionContributions?: Array<{
     criterionKey: string;
     criterionScore: number | null;

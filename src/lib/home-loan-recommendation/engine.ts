@@ -7,7 +7,7 @@ import {
   principalFromEmi,
 } from "./tenure";
 import { applyCibilCategoryGate, type RecommendationLenderCategory } from "./cibil-category";
-import { calculateTentativeOffer } from "./tentative-offer";
+import { calculateTentativeOffer, type TentativeOfferResult } from "./tentative-offer";
 import { buildTwoLineReason } from "./reason-codes";
 import { isProgrammeAvailableForPublicRecommendation } from "./programme-gate";
 import {
@@ -43,6 +43,9 @@ export type AssessableProgramme = EnterpriseLenderProgramRecord & {
   topUpPurposeRequired?: boolean;
 };
 
+/** Why the assessed offer is below the requested amount. Null when the request is fully supported. */
+export type OfferBindingConstraint = "LTV" | "FOIR" | "PROGRAMME_MAX" | "OTHER_POLICY" | null;
+
 export type ProgrammeAssessmentCard = {
   lenderId: string;
   lenderName: string;
@@ -50,6 +53,8 @@ export type ProgrammeAssessmentCard = {
   programmeVersion: number;
   programmeCode: string;
   matchState: EligibilityMatchState;
+  /** closest_feasible_option is carried by matchState. This names the cap that set the offer. */
+  bindingConstraint: OfferBindingConstraint;
   tentativeOfferRupees: number | null;
   requiredAmountRupees: number | null;
   shortfallRupees: number | null;
@@ -113,6 +118,22 @@ function programmeMaxAmount(program: AssessableProgramme): number | null {
   return toNumber(program.maxLoanAmountExact) ?? toNumber(program.maxFundingAmount);
 }
 
+function bindingConstraintFromOffer(offer: TentativeOfferResult): OfferBindingConstraint {
+  if (offer.shortfallRupees == null || offer.shortfallRupees <= 0) return null;
+  switch (offer.bindingCap) {
+    case "ltvSupportedAmountRupees":
+      return "LTV";
+    case "incomeSupportedAmountRupees":
+      return "FOIR";
+    case "programmeMaxAmountRupees":
+      return "PROGRAMME_MAX";
+    case "otherPolicyCapRupees":
+      return "OTHER_POLICY";
+    default:
+      return null;
+  }
+}
+
 function programmeRoi(program: AssessableProgramme): { percent: number | null; indicative: boolean } {
   const exact = toNumber(program.minRoiExact) ?? toNumber(program.roiPercent) ?? toNumber(program.minRoiPercent);
   if (exact == null) return { percent: null, indicative: true };
@@ -143,8 +164,6 @@ export function runHomeLoanRecommendationEngine(input: {
   });
 
   const cards: ProgrammeAssessmentCard[] = [];
-  let anyExactOrStandard = false;
-  let anyWouldBenefitFromCoApplicant = false;
 
   for (const program of available) {
     const card = assessOneProgramme(program, input.customer, regulatory, input.now);
@@ -153,17 +172,6 @@ export function runHomeLoanRecommendationEngine(input: {
       card.matchState === "assisted_assessment"
     ) {
       continue;
-    }
-    if (card.matchState === "exact_match" || card.matchState === "standard_match") {
-      anyExactOrStandard = true;
-    }
-    if (
-      input.customer.employmentFamily === "salaried" &&
-      !input.customer.coApplicant &&
-      card.matchState !== "exact_match" &&
-      card.matchState !== "standard_match"
-    ) {
-      anyWouldBenefitFromCoApplicant = true;
     }
     cards.push(card);
   }
@@ -188,37 +196,27 @@ export function runHomeLoanRecommendationEngine(input: {
           tenureMonths: card.tenureMonths,
           indicativeEmiRupees: card.indicativeEmiRupees,
           tentativeOfferRupees: card.tentativeOfferRupees,
+          shortfallRupees: card.shortfallRupees,
           lenderScore: card.lenderScore,
         });
       }
     }
   }
 
+  const foirIsBindingShortfall = cards.some(
+    (card) => card.bindingConstraint === "FOIR" && (card.shortfallRupees ?? 0) > 0,
+  );
+  const fullRequestSupported = cards.some(
+    (card) => card.matchState === "exact_match" || card.matchState === "standard_match",
+  );
+  // Income can raise a FOIR-capped offer. It does not raise an LTV, programme-maximum,
+  // or other non-income cap. A shortfall alone is not a co-applicant requirement.
   const needsCoApplicantPrompt =
     input.customer.employmentFamily === "salaried" &&
     !input.customer.coApplicant &&
     input.customer.coApplicantDecision == null &&
-    !anyExactOrStandard &&
-    anyWouldBenefitFromCoApplicant;
-
-  if (needsCoApplicantPrompt) {
-    return {
-      outcome: "assisted_offer",
-      journeyKind: input.customer.journeyKind,
-      cards: [],
-      needsCoApplicantPrompt: true,
-      assisted: null,
-      versions: {
-        calculationVersion: CALCULATION_VERSION,
-        ruleSetVersion: input.ruleSetVersion ?? null,
-        categoryRuleVersion: input.categoryRuleVersion ?? null,
-        lenderScoreVersion: null,
-        ltvMasterVersion: input.ltvMasterVersion ?? null,
-      },
-      cibilNotKnownDisclaimer: !cibilGate.cibilKnown,
-      analyzedAt,
-    };
-  }
+    foirIsBindingShortfall &&
+    !fullRequestSupported;
 
   const isBt = input.customer.journeyKind !== "home_loan";
   const copy = isBt ? ASSISTED_BALANCE_TRANSFER_COPY : ASSISTED_HOME_LOAN_COPY;
@@ -262,7 +260,7 @@ export function runHomeLoanRecommendationEngine(input: {
     outcome: "lender_offers",
     journeyKind: input.customer.journeyKind,
     cards,
-    needsCoApplicantPrompt: false,
+    needsCoApplicantPrompt,
     assisted: null,
     versions: {
       calculationVersion: CALCULATION_VERSION,
@@ -505,6 +503,7 @@ function assessOneProgramme(
     programmeVersion: program.versionNumber,
     programmeCode: program.code,
     matchState,
+    bindingConstraint: bindingConstraintFromOffer(offer),
     tentativeOfferRupees: offer.tentativeOfferRupees,
     requiredAmountRupees: required,
     shortfallRupees: offer.shortfallRupees,
@@ -526,6 +525,7 @@ function assessOneProgramme(
       tenureMonths: tenure.effectiveTenureMonths,
       indicativeEmiRupees: emi,
       tentativeOfferRupees: offer.tentativeOfferRupees,
+      shortfallRupees: offer.shortfallRupees,
       lenderScore: program.lenderScore ?? null,
     }),
     lenderScore: program.lenderScore ?? null,

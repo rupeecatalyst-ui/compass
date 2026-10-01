@@ -108,6 +108,21 @@ export function ChanakyaOpportunityRecommendationPanel({
   );
 }
 
+function bindingConstraintLabel(value: CanonicalRecommendationCard["bindingConstraint"]): string {
+  switch (value) {
+    case "LTV":
+      return "LTV";
+    case "FOIR":
+      return "FOIR";
+    case "PROGRAMME_MAX":
+      return "Programme maximum";
+    case "OTHER_POLICY":
+      return "Programme policy";
+    default:
+      return "Not available";
+  }
+}
+
 function formatInr(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "Not available";
   return new Intl.NumberFormat("en-IN", {
@@ -144,7 +159,14 @@ export function RecommendationGroup({
           </p>
           <p className="mt-1.5 text-xs">Match %: {formatPercent(row.matchPercent)}</p>
           <p className="text-xs">Applicable ROI: {formatPercent(row.applicableRoiPercent)}</p>
+          <p className="text-xs">Requested amount: {formatInr(row.requiredAmountRupees)}</p>
           <p className="text-xs">Assessed offer: {formatInr(row.tentativeOfferRupees)}</p>
+          {(row.shortfallRupees ?? 0) > 0 ? (
+            <>
+              <p className="text-xs">Shortfall: {formatInr(row.shortfallRupees)}</p>
+              <p className="text-xs">Constraint: {bindingConstraintLabel(row.bindingConstraint)}</p>
+            </>
+          ) : null}
           <p className="mt-1.5 text-xs">{row.customerExplanation}</p>
           <p className="mt-1 text-xs text-muted-foreground">Lender score: unavailable</p>
         </article>

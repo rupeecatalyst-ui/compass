@@ -418,6 +418,29 @@ export function normalizeProductLabelKey(label: string): string {
   return label.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+export const CANONICAL_PRODUCT_CODE_PUBLICATION_REQUIRED =
+  "Product Programme must use the canonical Product Master code before it can be published.";
+
+/**
+ * Inventory may read a canonical code or a catalog alias.
+ * Publication must store the canonical code so an alias cannot stay invisible
+ * to an exact product query.
+ */
+export function canonicalInventoryProductCodes(productCode: string): string[] {
+  const canonical = getCanonicalProductByCode(productCode);
+  if (!canonical) return [productCode];
+  return [...new Set([canonical.code, ...(canonical.aliases ?? [])])];
+}
+
+export function canonicalProductPublicationDecision(productCode: string | null | undefined):
+  | { ok: true; canonicalCode: string | null }
+  | { ok: false; canonicalCode: string } {
+  const canonical = getCanonicalProductByCode(productCode);
+  if (!canonical) return { ok: true, canonicalCode: null };
+  if (productCode?.trim() === canonical.code) return { ok: true, canonicalCode: canonical.code };
+  return { ok: false, canonicalCode: canonical.code };
+}
+
 export function getCanonicalProductByCode(code: string | null | undefined) {
   const resolved = resolveCanonicalProductCode(code);
   if (!resolved) return null;

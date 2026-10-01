@@ -27,6 +27,10 @@ import {
   publicationLenderCategoryDecision,
 } from "@/lib/home-loan-recommendation/lender-category-governance";
 import { readPublicationLenderCategory } from "@server/services/home-loan-recommendation/hl-recommendation-masters.service";
+import {
+  CANONICAL_PRODUCT_CODE_PUBLICATION_REQUIRED,
+  canonicalProductPublicationDecision,
+} from "@/constants/enterprise-product-master";
 
 async function assertPublishedPolicyVersion(policyVersionId: string | null, organizationId: string): Promise<void> {
   if (policyVersionId === null) return;
@@ -336,6 +340,12 @@ export const productProgrammeOperationsService = {
     if (!categoryGate.ok) {
       throw new ProgrammeValidationError(LENDER_CATEGORY_PUBLICATION_REQUIRED, [
         { field: "lenderCategory", message: LENDER_CATEGORY_PUBLICATION_REQUIRED },
+      ]);
+    }
+    const productIdentity = canonicalProductPublicationDecision(existing.productCode);
+    if (!productIdentity.ok) {
+      throw new ProgrammeValidationError(CANONICAL_PRODUCT_CODE_PUBLICATION_REQUIRED, [
+        { field: "productCode", message: CANONICAL_PRODUCT_CODE_PUBLICATION_REQUIRED },
       ]);
     }
     const updated = await lenderRegistryRepository.publishApprovedProgram(input.programId, input.actorUserId);

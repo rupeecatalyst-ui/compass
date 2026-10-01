@@ -39,14 +39,18 @@ export function buildTwoLineReason(codes: string[], context: ReasonContext = {})
       case "AGE_LIMIT_REDUCED_TENURE":
         lines.push(
           context.tenureMonths
-            ? `Based on your age, this lender permits an indicative tenure of up to ${context.tenureMonths} months. A co-applicant or lower loan amount may improve the eligibility.`
-            : "Based on your age, this lender reduces the indicative tenure. A co-applicant or lower loan amount may improve eligibility.",
+            ? `Based on your age, this lender permits an indicative tenure of up to ${context.tenureMonths} months.`
+            : "Based on your age, this lender reduces the indicative tenure.",
         );
         break;
       case "LTV_CAPPED_OFFER":
         lines.push(
           context.tentativeOfferRupees
-            ? `The tentative offer is capped at ₹${context.tentativeOfferRupees.toLocaleString("en-IN")} by the applicable LTV ceiling. Final amount depends on the permitted valuation basis.`
+            ? `The closest feasible offer is ₹${context.tentativeOfferRupees.toLocaleString("en-IN")} under the applicable LTV ceiling${
+                context.shortfallRupees
+                  ? `, which is ₹${context.shortfallRupees.toLocaleString("en-IN")} below the requested amount`
+                  : ""
+              }. Final amount depends on the permitted valuation basis.`
             : "The tentative offer is limited by the applicable LTV ceiling. Final amount depends on the permitted valuation basis.",
         );
         break;

@@ -218,7 +218,13 @@ const coAppPrompt = runHomeLoanRecommendationEngine({
     },
   ],
 });
-check("co-applicant asked only when salaried assessment cannot support request", coAppPrompt.needsCoApplicantPrompt === true);
+check(
+  "LTV shortfall does not ask for a co-applicant",
+  coAppPrompt.needsCoApplicantPrompt === false &&
+    coAppPrompt.outcome === "lender_offers" &&
+    coAppPrompt.cards.length === 1 &&
+    coAppPrompt.cards[0].bindingConstraint === "LTV",
+);
 
 const qualifies = runHomeLoanRecommendationEngine({
   customer: {
