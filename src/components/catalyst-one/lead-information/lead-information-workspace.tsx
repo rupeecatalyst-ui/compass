@@ -824,15 +824,14 @@ export function LeadInformationWorkspace() {
                 <Field
                   label="Monthly Income (₹)"
                   error={errors.monthlyIncomeRupees}
-                  hint="Salaried income only"
+                  hint="Absolute rupees. Enter 250000 for ₹2,50,000. Salaried income only."
                 >
-                  <EnterpriseFinancialInput
-                    value={absoluteRupeesFromStoredString(form.monthlyIncomeRupees)}
-                    onChange={(absolute) =>
-                      patchForm("monthlyIncomeRupees", absoluteRupeesToStoredString(absolute))
-                    }
-                    placeholder="e.g. 80"
-                    defaultUnit="thousand"
+                  <Input
+                    className="h-9"
+                    inputMode="decimal"
+                    value={form.monthlyIncomeRupees}
+                    placeholder="250000"
+                    onChange={(e) => patchForm("monthlyIncomeRupees", e.target.value)}
                   />
                 </Field>
               ) : null}
