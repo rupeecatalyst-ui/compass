@@ -20,7 +20,7 @@ import {
   chanakyaContextIdentityFromOpportunity,
   formatChanakyaOpportunityContextLine,
 } from "@/lib/chanakya/opportunity-context-line";
-import { enterpriseOpportunityService } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import {
   CHANAKYA_FACT_INPUTS,
   chanakyaSubmitValue,
@@ -79,8 +79,7 @@ export function ChanakyaRecommendationWorkspace({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void enterpriseOpportunityService
-      .getOpportunity(opportunityId)
+    void enterpriseOpportunityApiClient.getOpportunity(opportunityId)
       .then((opportunity) => {
         if (cancelled) return;
         setContextLine(

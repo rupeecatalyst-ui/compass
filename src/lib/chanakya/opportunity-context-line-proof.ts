@@ -53,7 +53,8 @@ export function runChanakyaOpportunityContextLineProof() {
     assert.equal(text.includes("updateOpportunity"), false);
   }
   assert.equal(formatter.includes("Home Loan"), false);
-  assert.equal(workspace.includes("getOpportunity"), true);
+  assert.equal(workspace.includes("enterpriseOpportunityApiClient.getOpportunity"), true);
+  assert.equal(workspace.includes("enterpriseOpportunityService"), false);
   assert.equal(workspace.includes("formatChanakyaOpportunityContextLine"), true);
   assert.equal(workspace.includes("break-words"), true);
   assert.equal(workspace.includes("truncate"), false);
