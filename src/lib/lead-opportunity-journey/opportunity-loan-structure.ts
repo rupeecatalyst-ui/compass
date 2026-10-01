@@ -4,8 +4,10 @@
  * Downstream modules read via Opportunity runtime projection → LoanFile.participants.
  */
 
-import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
-import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
+import {
+  resolveOpportunityBorrowerIdentity,
+  type BorrowerIdentitySource,
+} from "@/lib/enterprise-borrower-identity";
 import type { LoanParticipant } from "@/types/loan-participant";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 
@@ -37,9 +39,13 @@ export function readOpportunityParticipantsFromExtension(
     .map((p) => ({ ...p, status: p.status ?? "active" }));
 }
 
+type OpportunityLoanStructureSource = BorrowerIdentitySource & {
+  lendingExtension?: unknown;
+};
+
 /** Ensure primary borrower is present; merge stored loan structure participants. */
 export function resolveOpportunityLoanStructureParticipants(
-  opp: EnterpriseOpportunityApiRecord,
+  opp: OpportunityLoanStructureSource,
   contact?: EcmContact | null,
 ): LoanParticipant[] {
   const stored = readOpportunityParticipantsFromExtension(opp.lendingExtension);

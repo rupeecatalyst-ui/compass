@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma, isDatabaseAvailable } from "@server/lib/prisma";
-import { readOpportunityParticipantsFromExtension } from "@/lib/lead-opportunity-journey/opportunity-loan-structure";
+import { resolveOpportunityLoanStructureParticipants } from "@/lib/lead-opportunity-journey/opportunity-loan-structure";
 import {
   defaultLinkedPartyKey,
   mergeLinkedParties,
@@ -119,13 +119,23 @@ async function loadLinkedPartiesForAuthorised(
   const organizationId = authorised.organizationId;
   const opportunity = await prisma.enterpriseOpportunity.findFirst({
     where: { id: authorised.opportunityId, organizationId, isDeleted: false },
-    select: { id: true, lendingExtension: true },
+    select: {
+      id: true,
+      lendingExtension: true,
+      primaryBorrowerKind: true,
+      companyId: true,
+      companyName: true,
+      primaryContactId: true,
+      primaryContactName: true,
+      primaryContactMobile: true,
+      primaryContactEmail: true,
+    },
   });
   if (!opportunity) {
     portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
   }
 
-  const opportunityParticipants = readOpportunityParticipantsFromExtension(opportunity.lendingExtension);
+  const opportunityParticipants = resolveOpportunityLoanStructureParticipants(opportunity);
   let dealParticipants: DealParticipantSnapshot[] = [];
   const dealId = authorised.dealId?.trim() || "";
   if (dealId) {
