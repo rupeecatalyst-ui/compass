@@ -12,6 +12,7 @@ import {
 } from "@server/repositories/opportunity-assessment/contract";
 import { hashOpportunityAssessmentRevisionContent } from "./content-hash";
 import { OpportunityAssessmentError } from "./errors";
+import { projectPersistedAssessmentInspection } from "./persisted-assessment-inspection";
 import { applyTrustedActorToFacts, validateOpportunityAssessmentProvenance } from "./provenance";
 import { assertFinalizationReadiness, deriveOpportunityAssessmentReadiness } from "./readiness";
 import type {
@@ -266,6 +267,29 @@ export class OpportunityAssessmentService {
   async listRecommendationRuns(actor: OpportunityAssessmentActorContext, assessmentId: string) {
     this.assertTrustedOrganization(actor.organizationId);
     return this.repo.listRuns(actor.organizationId, assessmentId);
+  }
+
+  /**
+   * Pure read of an assessment that already exists.
+   * Does not call getOrCreateAssessment and does not insert a revision or run.
+   */
+  async inspectPersistedAssessment(actor: OpportunityAssessmentActorContext, opportunityId: string) {
+    this.assertTrustedOrganization(actor.organizationId);
+    const id = opportunityId.trim();
+    if (!id) return null;
+    const assessment = await this.repo.findPersistedAssessmentByOpportunity({
+      organizationId: actor.organizationId,
+      opportunityId: id,
+    });
+    if (!assessment) return null;
+    const revisions = await this.repo.listRevisions(actor.organizationId, assessment.id);
+    const runs = await this.repo.listRuns(actor.organizationId, assessment.id);
+    return projectPersistedAssessmentInspection({
+      opportunityId: id,
+      assessment,
+      revisions,
+      runs,
+    });
   }
 
   private staleReasons(

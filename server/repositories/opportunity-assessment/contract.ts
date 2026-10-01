@@ -27,6 +27,11 @@ export type OpportunityAssessmentRepository = {
     actorUserId: string | null;
     channel: AssessmentUpdatedChannel;
   }): Promise<OpportunityAssessmentRecord>;
+  /** SELECT only. Null when no assessment row exists. Never creates. */
+  findPersistedAssessmentByOpportunity(input: {
+    organizationId: string;
+    opportunityId: string;
+  }): Promise<OpportunityAssessmentRecord | null>;
   getAssessment(organizationId: string, assessmentId: string): Promise<OpportunityAssessmentRecord>;
   getRevision(organizationId: string, revisionId: string): Promise<OpportunityAssessmentRevisionRecord>;
   findRevisionByCommand(organizationId: string, commandId: string): Promise<OpportunityAssessmentRevisionRecord | null>;

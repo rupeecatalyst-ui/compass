@@ -124,6 +124,20 @@ export class MemoryOpportunityAssessmentRepository implements OpportunityAssessm
     return structuredClone(created);
   }
 
+  async findPersistedAssessmentByOpportunity(input: {
+    organizationId: string;
+    opportunityId: string;
+  }): Promise<OpportunityAssessmentRecord | null> {
+    const existingId = this.store.assessmentsByOpportunity.get(
+      opportunityKey(input.organizationId, input.opportunityId),
+    );
+    if (!existingId) return null;
+    const existing = this.store.assessments.get(existingId);
+    if (!existing) return null;
+    this.assertOrganization(existing.organizationId, input.organizationId);
+    return structuredClone(existing);
+  }
+
   async getAssessment(organizationId: string, assessmentId: string): Promise<OpportunityAssessmentRecord> {
     const row = this.store.assessments.get(assessmentId);
     if (!row) throw new OpportunityAssessmentError("ASSESSMENT_NOT_FOUND");

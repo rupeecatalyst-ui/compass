@@ -1,5 +1,9 @@
 export { OpportunityAssessmentError, OPPORTUNITY_ASSESSMENT_ERROR_CODES } from "./errors";
 export { OpportunityAssessmentService } from "./opportunity-assessment.service";
+export {
+  projectPersistedAssessmentInspection,
+  type PersistedAssessmentInspection,
+} from "./persisted-assessment-inspection";
 export { hashOpportunityAssessmentCommand, hashOpportunityAssessmentRevisionContent } from "./content-hash";
 export { deriveOpportunityAssessmentReadiness } from "./readiness";
 export { createOpportunityAssessmentService, resolveOpportunityAssessmentRepository } from "./runtime";

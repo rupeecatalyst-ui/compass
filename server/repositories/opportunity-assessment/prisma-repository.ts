@@ -82,6 +82,21 @@ export class PrismaOpportunityAssessmentRepository implements OpportunityAssessm
     }
   }
 
+  async findPersistedAssessmentByOpportunity(input: {
+    organizationId: string;
+    opportunityId: string;
+  }): Promise<OpportunityAssessmentRecord | null> {
+    const row = await this.prismaCall(() =>
+      this.prisma.enterpriseOpportunityAssessment.findUnique({
+        where: { opportunityId: input.opportunityId },
+      }),
+    );
+    if (!row) return null;
+    const mapped = mapAssessmentRow(row);
+    this.assertOrganization(mapped.organizationId, input.organizationId);
+    return mapped;
+  }
+
   async getAssessment(organizationId: string, assessmentId: string): Promise<OpportunityAssessmentRecord> {
     const row = await this.prismaCall(() =>
       this.prisma.enterpriseOpportunityAssessment.findUnique({ where: { id: assessmentId } }),

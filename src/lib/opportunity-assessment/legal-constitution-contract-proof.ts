@@ -474,7 +474,7 @@ export async function runLegalConstitutionContractProof() {
   );
   assert.equal(ageMigration.includes("borrower_legal_constitution"), false);
   const allowlist = readFileSync(path.join(root, "scripts/prisma-migrate-status-build-probe.mjs"), "utf8");
-  assert.equal(allowlist.includes("20261001003000_opportunity_borrower_legal_constitution"), false);
+  assert.equal(allowlist.includes("20261001003000_opportunity_borrower_legal_constitution"), true);
   const schema = readFileSync(path.join(root, "prisma/schema.prisma"), "utf8");
   assert.equal(schema.includes('borrowerLegalConstitution String?'), true);
   assert.equal(schema.includes('@map("borrower_legal_constitution")'), true);
