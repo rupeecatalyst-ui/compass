@@ -94,42 +94,72 @@ export function runLenderCategoryGovernanceProof(): void {
     assert.deepEqual(submitted.supersedeIds, []);
   }
 
-  const ownApproval = planLenderCategoryTransition({
-    row: row({ id: "r", lifecycleStatus: "checker_review", makerUserId: "maker-1" }),
+  const admin = "admin-1";
+  const priorActive = row({ id: "prior-active", lifecycleStatus: "active", category: "B", makerUserId: "earlier-admin" });
+  let current = row({
+    id: "next",
+    lifecycleStatus: "draft",
+    makerUserId: admin,
+    versionNumber: 2,
+    previousVersionId: priorActive.id,
+    category: "A",
+  });
+  const audit: Array<{ event: string; actorUserId: string }> = [
+    { event: "created_category_draft", actorUserId: admin },
+  ];
+  for (const action of ["submit_review", "approve", "activate"] as const) {
+    const plan = planLenderCategoryTransition({
+      row: current,
+      action,
+      actorUserId: admin,
+      activeSiblingIds: action === "activate" ? [priorActive.id, current.id, priorActive.id] : [],
+    });
+    if ("error" in plan) assert.fail(plan.error);
+    audit.push({ event: action, actorUserId: admin });
+    current = {
+      ...current,
+      lifecycleStatus: plan.lifecycleStatus,
+    };
+    if (action === "approve") {
+      assert.equal(plan.lifecycleStatus, "approved");
+      assert.equal(plan.checkerUserId, admin);
+      assert.equal(plan.setApprovedAt, true);
+      assert.deepEqual(plan.supersedeIds, []);
+    }
+    if (action === "activate") {
+      assert.equal(plan.lifecycleStatus, "active");
+      assert.equal(plan.checkerUserId, admin);
+      assert.equal(plan.setActivatedAt, true);
+      assert.deepEqual(plan.supersedeIds, [priorActive.id]);
+    }
+  }
+  assert.equal(current.lifecycleStatus, "active");
+  assert.equal(current.category, "A");
+  assert.equal(priorActive.lifecycleStatus, "active");
+  assert.equal(priorActive.category, "B");
+  assert.deepEqual(audit.map((entry) => entry.actorUserId), [admin, admin, admin, admin]);
+
+  const approveDraft = planLenderCategoryTransition({
+    row: row({ id: "d", lifecycleStatus: "draft", makerUserId: admin }),
     action: "approve",
-    actorUserId: "maker-1",
+    actorUserId: admin,
     activeSiblingIds: [],
   });
-  assert.deepEqual(ownApproval, { error: "Maker and checker cannot be the same user." });
-
-  const approved = planLenderCategoryTransition({
-    row: row({ id: "r", lifecycleStatus: "checker_review", makerUserId: "maker-1" }),
-    action: "approve",
-    actorUserId: "checker-2",
-    activeSiblingIds: ["r"],
-  });
-  if ("error" in approved) assert.fail(approved.error);
-  assert.equal(approved.lifecycleStatus, "approved");
-  assert.deepEqual(approved.supersedeIds, []);
-
-  const activated = planLenderCategoryTransition({
-    row: row({ id: "next", lifecycleStatus: "approved", makerUserId: "maker-1" }),
+  assert.deepEqual(approveDraft, { error: "Only Checker Review versions can be approved." });
+  const activateReview = planLenderCategoryTransition({
+    row: row({ id: "r", lifecycleStatus: "checker_review", makerUserId: admin }),
     action: "activate",
-    actorUserId: "checker-2",
-    activeSiblingIds: ["prior-active", "next", "prior-active"],
-  });
-  if ("error" in activated) assert.fail(activated.error);
-  assert.equal(activated.lifecycleStatus, "active");
-  assert.deepEqual(activated.supersedeIds, ["prior-active"]);
-  assert.equal(activated.setActivatedAt, true);
-
-  const makerActivate = planLenderCategoryTransition({
-    row: row({ id: "next", lifecycleStatus: "approved", makerUserId: "maker-1" }),
-    action: "activate",
-    actorUserId: "maker-1",
+    actorUserId: admin,
     activeSiblingIds: [],
   });
-  assert.deepEqual(makerActivate, { error: "Maker and checker cannot be the same user." });
+  assert.deepEqual(activateReview, { error: "Only Approved versions can be activated." });
+  const submitActive = planLenderCategoryTransition({
+    row: row({ id: "a", lifecycleStatus: "active", makerUserId: admin }),
+    action: "submit_review",
+    actorUserId: admin,
+    activeSiblingIds: [],
+  });
+  assert.deepEqual(submitActive, { error: "Only Draft versions can be submitted." });
 
   const root = resolve(process.cwd());
   const route = readFileSync(resolve(root, "src/app/api/admin/home-loan-recommendation-masters/route.ts"), "utf8");
@@ -150,4 +180,23 @@ export function runLenderCategoryGovernanceProof(): void {
   assert.match(workspace, /create_category_draft/);
   assert.match(workspace, /LENDER_CATEGORY_BAND_DEFINITIONS/);
   assert.match(workspace, /searchActiveLenders/);
+
+  const roleGate = route.indexOf("WRITE_ROLES.has(actor.role)");
+  const categoryIntent = route.indexOf('intent === "create_category_draft"');
+  assert.ok(roleGate >= 0 && categoryIntent > roleGate);
+  assert.match(route, /Administrator access is required/);
+
+  const categoryBranch = service.slice(
+    service.indexOf('if (input.kind === "category")'),
+    service.indexOf('if (input.kind === "weights")'),
+  );
+  const otherMasters = service.slice(service.indexOf('if (input.kind === "weights")'));
+  assert.doesNotMatch(categoryBranch, /Maker and checker cannot be the same user/);
+  assert.match(categoryBranch, /actorUserId: input.actorUserId/);
+  assert.match(categoryBranch, /at: now.toISOString\(\)/);
+  assert.match(categoryBranch, /lifecycleStatus: "superseded"/);
+  assert.match(categoryBranch, /effectiveUntil: now/);
+  assert.match(otherMasters, /Maker and checker cannot be the same user/);
+  const weights = readFileSync(resolve(root, "src/lib/product-recommendation/weight-lineage.ts"), "utf8");
+  assert.match(weights, /Maker and checker cannot be the same user/);
 }

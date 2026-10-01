@@ -142,9 +142,6 @@ export function planLenderCategoryTransition(input: {
           : "Only Checker Review or Approved versions can be rejected.",
       };
     }
-    if (input.row.makerUserId === input.actorUserId) {
-      return { error: "Maker and checker cannot be the same user." };
-    }
     return {
       lifecycleStatus: input.action === "approve" ? "approved" : "rejected",
       supersedeIds: [],
@@ -155,9 +152,6 @@ export function planLenderCategoryTransition(input: {
     };
   }
   if (input.row.lifecycleStatus !== "approved") return { error: "Only Approved versions can be activated." };
-  if (input.row.makerUserId === input.actorUserId) {
-    return { error: "Maker and checker cannot be the same user." };
-  }
   return {
     lifecycleStatus: "active",
     supersedeIds,
