@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Gem, Landmark, LineChart, Target } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { GoalTransitionCard } from "@/components/platform/goal-transition-card";
@@ -16,6 +17,11 @@ const iconMap = {
 /** Level 2 — Invest goal selection. Same orchestration philosophy as Borrow. */
 export function InvestPageContent() {
   const reduceMotion = useReducedMotion();
+  const [goal, setGoal] = useState<string | null>(null);
+
+  useEffect(() => {
+    setGoal(new URLSearchParams(window.location.search).get("goal"));
+  }, []);
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#05070c]">
@@ -54,6 +60,12 @@ export function InvestPageContent() {
             );
           })}
         </div>
+
+        {goal ? (
+          <p className="mx-auto mt-8 max-w-xl rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-center text-sm text-muted-foreground">
+            This investment journey is not available yet. It does not open a loan application.
+          </p>
+        ) : null}
 
         <motion.p
           initial={reduceMotion ? false : { opacity: 0 }}

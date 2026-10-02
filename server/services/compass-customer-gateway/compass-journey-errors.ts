@@ -31,6 +31,10 @@ export function toCompassGatewayFailure(error: unknown, fallbackCode: string, fa
       httpStatus: 503,
     };
   }
-  const message = error instanceof Error && error.message ? error.message : fallbackMessage;
-  return { code: fallbackCode, message, httpStatus: 400 };
+  console.error(
+    "[compass-gateway]",
+    fallbackCode,
+    error instanceof Error ? error.message : "unknown",
+  );
+  return { code: fallbackCode, message: fallbackMessage, httpStatus: 500 };
 }

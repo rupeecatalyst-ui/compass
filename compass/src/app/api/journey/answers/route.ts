@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { catalystOneGateway } from "@/lib/catalyst-one-gateway/server";
+import { customerSafeError, rejectCrossOrigin } from "@/lib/public-request-guard";
 
 function readToken(request: Request): string | null {
   const auth = request.headers.get("authorization")?.trim();
@@ -8,6 +9,8 @@ function readToken(request: Request): string | null {
 }
 
 export async function PATCH(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const token = readToken(request);
   if (!token) return NextResponse.json({ error: "Missing journey session" }, { status: 401 });
   try {
@@ -15,7 +18,7 @@ export async function PATCH(request: Request) {
     const data = await catalystOneGateway.patchAnswers(token, body);
     return NextResponse.json(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to save answers.";
+    const message = customerSafeError(error, "Unable to save answers.");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

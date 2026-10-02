@@ -1,7 +1,7 @@
 import type { DiscoveryAnswers } from "@/components/home-loan-experience/discovery/discovery-context";
 import {
   getPersistedDiscoveryAnswerKeys,
-  type CompassProductCode,
+  isCompassCatalogProduct,
 } from "@/config/compass-lending-products";
 import type {
   CompassDocumentUploadResponse,
@@ -19,18 +19,16 @@ function initials(name: string): string {
   return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
-function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswers) {
+function answersPayload(productCode: string, answers: DiscoveryAnswers) {
   const raw: Record<string, string | number | boolean | undefined> = {
     propertyType: answers.propertyType,
     propertyUsage: answers.propertyUsage,
     loanAmount: answers.loanAmount,
     propertyValue: answers.propertyValue,
-    displayName: answers.displayName,
     mobile: answers.mobile,
-    personalEmail: answers.personalEmail,
     otpVerified: answers.otpVerified,
     incomeType: answers.incomeType,
-    employmentTypeCode: answers.incomeType,
+    employmentTypeCode: answers.fieldAnswers?.employmentTypeCode || answers.incomeType,
     monthlyIncome: answers.monthlyIncome,
     existingEmi: answers.existingEmi,
     city: answers.city,
@@ -43,73 +41,26 @@ function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswe
     currentLender: answers.currentLender,
     outstandingLoanAmount: answers.outstandingLoanAmount,
     approxCibilScore: answers.approxCibilScore,
-    builderSource: answers.builderSource,
-    constructionStatus: answers.constructionStatus,
-    occupancy: answers.occupancy,
-    dateOfBirth: answers.dateOfBirth,
-    residency: answers.residency,
-    topUpChoice: answers.topUpChoice,
-    topUpAmount: answers.topUpAmount,
-    currentRoi: answers.currentRoi,
-    currentEmi: answers.currentEmi,
-    remainingTenureMonths: answers.remainingTenureMonths,
-    repaymentTrack: answers.repaymentTrack,
-    delayedEmiCount: answers.delayedEmiCount,
-    delayedEmiCountCertainty: answers.delayedEmiCountCertainty,
-    originalSanctionedAmount: answers.originalSanctionedAmount,
-    originalSanctionedCertainty: answers.originalSanctionedCertainty,
-    outstandingCertainty: answers.outstandingCertainty,
-    loanStartDate: answers.loanStartDate,
-    loanStartDateCertainty: answers.loanStartDateCertainty,
-    currentRoiCertainty: answers.currentRoiCertainty,
-    rateType: answers.rateType,
-    currentEmiCertainty: answers.currentEmiCertainty,
-    remainingTenureCertainty: answers.remainingTenureCertainty,
-    originalTenureMonths: answers.originalTenureMonths,
-    originalTenureCertainty: answers.originalTenureCertainty,
-    pincode: answers.pincode,
-    pincodeCertainty: answers.pincodeCertainty,
-    propertyKind: answers.propertyKind,
-    propertyValueCertainty: answers.propertyValueCertainty,
-    possessionStatus: answers.possessionStatus,
-    registrationStatus: answers.registrationStatus,
-    topUpAmountCertainty: answers.topUpAmountCertainty,
-    topUpPurpose: answers.topUpPurpose,
-    coApplicantDecision: answers.coApplicantDecision,
-    coApplicantRelationship: answers.coApplicantRelationship,
-    coApplicantDob: answers.coApplicantDob,
-    coApplicantEmployment: answers.coApplicantEmployment,
-    coApplicantIncome: answers.coApplicantIncome,
-    coApplicantExistingEmi: answers.coApplicantExistingEmi,
+    displayName: answers.displayName,
+    personalEmail: answers.personalEmail,
+    ...answers.fieldAnswers,
   };
-  const allowed = new Set(getPersistedDiscoveryAnswerKeys(productCode));
-  const unknownCertainties: Array<[string, string | undefined]> = [
-    ["propertyValue", answers.propertyValueCertainty],
-    ["outstandingLoanAmount", answers.outstandingCertainty],
-    ["originalSanctionedAmount", answers.originalSanctionedCertainty],
-    ["currentRoi", answers.currentRoiCertainty],
-    ["currentEmi", answers.currentEmiCertainty],
-    ["remainingTenureMonths", answers.remainingTenureCertainty],
-    ["originalTenureMonths", answers.originalTenureCertainty],
-    ["topUpAmount", answers.topUpAmountCertainty],
-    ["loanStartDate", answers.loanStartDateCertainty],
-    ["pincode", answers.pincodeCertainty],
-    ["delayedEmiCount", answers.delayedEmiCountCertainty],
-  ];
-  const omitValues = new Set(
-    unknownCertainties.filter(([, certainty]) => certainty === "not_known").map(([key]) => key),
+  const allowed = new Set(
+    isCompassCatalogProduct(productCode) ? getPersistedDiscoveryAnswerKeys(productCode) : [],
   );
+  allowed.add("displayName");
+  allowed.add("personalEmail");
+  for (const key of Object.keys(answers.fieldAnswers ?? {})) allowed.add(key);
   const payload: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (!allowed.has(key) || value == null) continue;
-    if (omitValues.has(key)) continue;
     if (typeof value === "string" && !value.trim()) continue;
     payload[key] = value;
   }
   return payload;
 }
 
-async function patchAnswers(token: string, productCode: CompassProductCode, answers: DiscoveryAnswers) {
+async function patchAnswers(token: string, productCode: string, answers: DiscoveryAnswers) {
   const response = await fetch("/api/journey/answers", {
     method: "PATCH",
     headers: {
@@ -124,24 +75,48 @@ async function patchAnswers(token: string, productCode: CompassProductCode, answ
   }
 }
 
+export async function persistCompassAnswers(
+  token: string,
+  productCode: string,
+  answers: DiscoveryAnswers,
+): Promise<void> {
+  await patchAnswers(token, productCode, answers);
+}
+
+export async function fetchCompassResume(token: string): Promise<{
+  opportunityRef: string;
+  mobileVerified: boolean;
+  displayName: string | null;
+  personalEmail: string | null;
+  answers: Record<string, string | number | boolean | null>;
+  journeyVersion?: number | null;
+}> {
+  const response = await fetch("/api/journey/resume", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error("We could not restore your application.");
+  }
+  return response.json();
+}
+
 export async function startCompassJourney(input: {
-  productCode: CompassProductCode;
-  displayName: string;
+  productCode: string;
   mobile: string;
-  personalEmail?: string;
   city?: string;
   consentAccepted?: boolean;
+  otpVerificationToken?: string;
 }): Promise<JourneyStartResponse> {
   const response = await fetch("/api/journey/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       productCode: input.productCode,
-      displayName: input.displayName,
       mobile: input.mobile,
-      personalEmail: input.personalEmail,
       city: input.city,
       consentAccepted: input.consentAccepted ?? true,
+      otpVerificationToken: input.otpVerificationToken,
     }),
   });
   if (!response.ok) {
@@ -152,10 +127,20 @@ export async function startCompassJourney(input: {
 }
 
 export async function fetchCompassJourneyConfig(
-  productCode: CompassProductCode,
+  productCode: string,
+  journeyVersion?: number | null,
 ): Promise<CompassJourneyConfig> {
+  const version =
+    journeyVersion && journeyVersion > 0 ? `&journeyVersion=${encodeURIComponent(String(journeyVersion))}` : "";
+  const params = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
+  const campaign = params.get("campaign");
+  const campaignQuery = campaign ? `&campaign=${encodeURIComponent(campaign)}` : "";
+  const requirePublished =
+    typeof window !== "undefined" && window.location.pathname.replace(/\/$/, "").startsWith("/apply/")
+      ? "&requirePublished=1"
+      : "";
   const response = await fetch(
-    `/api/journey/config?productCode=${encodeURIComponent(productCode)}`,
+    `/api/journey/config?productCode=${encodeURIComponent(productCode)}${version}${campaignQuery}${requirePublished}`,
     { cache: "no-store" },
   );
   if (!response.ok) {
@@ -165,7 +150,7 @@ export async function fetchCompassJourneyConfig(
 }
 
 export async function fetchDiscoveryIntelligence(input: {
-  product: CompassProductCode;
+  product: string;
   answers: DiscoveryAnswers;
   journeySessionToken: string;
 }): Promise<DiscoveryIntelligenceResult> {
@@ -178,7 +163,6 @@ export async function fetchDiscoveryIntelligence(input: {
       Authorization: `Bearer ${input.journeySessionToken}`,
     },
     body: JSON.stringify({}),
-    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -190,10 +174,6 @@ export async function fetchDiscoveryIntelligence(input: {
     recommendations: {
       status: DiscoveryIntelligenceResult["recommendationsStatus"];
       message: string;
-      needsCoApplicant?: boolean;
-      needsCoApplicantPrompt?: boolean;
-      assistedOffer?: DiscoveryIntelligenceResult["assistedOffer"];
-      cibilNotKnownDisclaimer?: boolean;
       cards: Array<{
         lenderRef: string;
         displayName: string;
@@ -204,22 +184,14 @@ export async function fetchDiscoveryIntelligence(input: {
         processingTimeLabel: string | null;
         reasons: string[];
         benefits: string[];
-        tentativeOfferLabel?: string | null;
-        requestedAmountLabel?: string | null;
-        shortfallLabel?: string | null;
-        tenureLabel?: string | null;
-        foirLabel?: string | null;
-        whyThisRecommendation?: string | null;
-        matchState?: string | null;
       }>;
     };
     sarathiMessages: string[];
-    expertSla?: DiscoveryIntelligenceResult["expertSla"];
   };
 
   const lenders: DiscoveryIntelligenceResult["lenders"] = analysis.recommendations.cards.map(
     (card) => ({
-      id: card.lenderRef,
+      id: `option-${card.rank}`,
       name: card.displayName,
       logoUrl: null,
       initials: initials(card.displayName),
@@ -230,13 +202,6 @@ export async function fetchDiscoveryIntelligence(input: {
       processingTime: card.processingTimeLabel || "Advisor-assisted",
       reasons: card.reasons,
       benefits: card.benefits,
-      tentativeOffer: card.tentativeOfferLabel ?? null,
-      requestedAmount: card.requestedAmountLabel ?? null,
-      shortfall: card.shortfallLabel ?? null,
-      tenure: card.tenureLabel ?? null,
-      foir: card.foirLabel ?? null,
-      whyThisRecommendation: card.whyThisRecommendation ?? null,
-      matchState: card.matchState ?? null,
     }),
   );
 
@@ -246,12 +211,6 @@ export async function fetchDiscoveryIntelligence(input: {
     lenders,
     recommendationsStatus: analysis.recommendations.status,
     recommendationsMessage: analysis.recommendations.message,
-    needsCoApplicant: Boolean(
-      analysis.recommendations.needsCoApplicantPrompt ?? analysis.recommendations.needsCoApplicant,
-    ),
-    assistedOffer: analysis.recommendations.assistedOffer ?? null,
-    cibilNotKnownDisclaimer: Boolean(analysis.recommendations.cibilNotKnownDisclaimer),
-    expertSla: analysis.expertSla ?? null,
     sarathi: { messages: analysis.sarathiMessages },
     journeySessionToken: input.journeySessionToken,
   };
@@ -317,33 +276,4 @@ export async function submitCompassApplication(
     throw new Error(body?.error || "Submission failed.");
   }
   return response.json() as Promise<CompassSubmitResponse>;
-}
-
-export async function requestCompassTalkToExpert(
-  journeySessionToken: string,
-): Promise<NonNullable<DiscoveryIntelligenceResult["expertSla"]>> {
-  const response = await fetch("/api/journey/expert", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${journeySessionToken}`,
-    },
-    body: JSON.stringify({}),
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error || "Unable to request a Home Loan Specialist.");
-  }
-  const data = (await response.json()) as {
-    borrowerCopy?: string;
-    sla?: { expectedContactAtIso: string; remainingWorkingMs: number; state: string; deadlineIso?: string };
-    expertSla?: DiscoveryIntelligenceResult["expertSla"];
-  };
-  if (data.expertSla) return data.expertSla;
-  return {
-    borrowerCopy: data.borrowerCopy || "Our Home Loan Specialist will contact you within one working hour.",
-    expectedContactAtIso: data.sla?.expectedContactAtIso || "",
-    remainingWorkingMs: data.sla?.remainingWorkingMs ?? 0,
-    state: data.sla?.state || "working_sla_active",
-  };
 }

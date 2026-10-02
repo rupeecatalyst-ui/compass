@@ -38,10 +38,13 @@ export type CompassJourneyFieldDef = {
   mandatoryForRecommendation?: boolean;
   applicability?: "all" | "salaried" | "self_employed";
   captureStepId?: string | null;
+  purpose?: "identity" | "recommendation" | "application" | "document" | "enrichment";
+  purposeSource?: "configured" | "legacy_key";
+  stageId?: string;
 };
 
 export type CompassJourneyConfigDto = {
-  productCode: CompassProductCode;
+  productCode: string;
   enterpriseProductCode: string;
   productLabel: string;
   transactionType: "fresh" | "balance_transfer";
@@ -49,25 +52,40 @@ export type CompassJourneyConfigDto = {
   borrowerKind: CompassBorrowerKind;
   configVersion: string;
   fields: CompassJourneyFieldDef[];
+  stages: string[];
+  journeyVersion?: number;
+  journeyUnavailable?: boolean;
+  journeyStages?: { stageId: string; kind: string; label: string; sequence: number }[];
+  advantageEnabled?: boolean;
+  consentVersion?: string;
+  confirmation?: { title: string; body: string };
+  mobileCapture?: "required" | "optional" | "off";
+  otpVerification?: "on" | "off";
+  /** True only when the published journey requires OTP and a provider can send it. */
   otpEnabled: boolean;
+  campaignHandoff?: {
+    valid: boolean;
+    emailOnFile: boolean;
+    emailIndependentlyVerified: false;
+    campaignId?: string;
+    sourceCode?: string;
+    campaignLabel?: string;
+  };
   /** Approved maximum requested amount in integer rupees. Null when no ceiling is approved. */
   requestedAmountMax: number | null;
   /** Customer-facing “up to” copy from Product Library. Null when no ceiling is approved. */
   requestedAmountMaxLabel: string | null;
-  dtoSource: "enterprise_initial_data_collection";
+  dtoSource: "enterprise_initial_data_collection" | "published_product_journey";
 };
 
 export type CompassJourneyStartRequest = {
   productCode: CompassProductCode;
   mobile: string;
-  /** Enterprise IDC customer-capture key — Contact `name`. Mandatory for new journeys. */
   displayName?: string;
-  /** ECM Contact `personalEmail`. Optional; omit or blank when not supplied. */
-  personalEmail?: string;
-  /** Alias accepted by the start contract; stored as `personalEmail`. */
-  email?: string;
   city?: string;
   consentAccepted: boolean;
+  otpVerificationToken?: string;
+  campaignToken?: string;
 };
 
 export type CompassJourneyStartResponse = {
@@ -76,6 +94,8 @@ export type CompassJourneyStartResponse = {
   contactRef: string;
   opportunityRef: string;
   otpRequired: boolean;
+  mobileVerified: boolean;
+  campaignEmail?: { value: string; independentlyVerified: false } | null;
   dtoSource: "enterprise_compass_journey";
 };
 
@@ -127,37 +147,13 @@ export type CompassRecommendationCardDto = {
   processingTimeLabel: string | null;
   reasons: string[];
   benefits: string[];
-  tentativeOfferLabel?: string | null;
-  tentativeOfferRupees?: number | null;
-  requestedAmountLabel?: string | null;
-  shortfallLabel?: string | null;
-  tenureLabel?: string | null;
-  foirLabel?: string | null;
-  compassAdvantageLabel?: string | null;
-  whyThisRecommendation?: string | null;
-  matchState?: string | null;
-  programmeVersion?: number | null;
   dtoSource: "enterprise_compass_recommendations";
-};
-
-export type CompassAssistedOfferDto = {
-  headline: string;
-  body: string;
-  requestedAmountRupees: number | null;
-  ltvSupportedAmountRupees: number | null;
-  incomeSupportedAmountRupees: number | null;
-  eligibilityGapRupees: number | null;
-  enhancementRoutes: string[];
-  specialistReviewRequired: true;
 };
 
 export type CompassRecommendationsDto = {
   status: "ready" | "pending" | "unavailable";
   message: string;
   cards: CompassRecommendationCardDto[];
-  assistedOffer?: CompassAssistedOfferDto | null;
-  needsCoApplicantPrompt?: boolean;
-  cibilNotKnownDisclaimer?: boolean;
   dtoSource: "enterprise_compass_recommendations";
 };
 
@@ -188,13 +184,7 @@ export type CompassAnalysisDto = {
   sarathiMessages: string[];
   requestedAmount: number | null;
   requestedAmountMax: number | null;
-  expertSla?: {
-    deadlineIso: string;
-    expectedContactAtIso: string;
-    remainingWorkingMs: number;
-    state: string;
-    borrowerCopy: string;
-  } | null;
+  missingPublicFieldKeys?: string[];
   dtoSource: "enterprise_compass_analysis";
 };
 

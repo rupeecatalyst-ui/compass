@@ -23,6 +23,10 @@ export type CompassJourneyConfigField = {
   mandatoryForRecommendation?: boolean;
   applicability?: "all" | "salaried" | "self_employed";
   captureStepId?: string | null;
+  sequence?: number;
+  purpose?: "identity" | "recommendation" | "application" | "document" | "enrichment";
+  purposeSource?: "configured" | "legacy_key";
+  stageId?: string;
 };
 
 export type CompassJourneyConfig = {
@@ -32,6 +36,17 @@ export type CompassJourneyConfig = {
   borrowerKind: "individual" | "company";
   configVersion: string;
   fields: CompassJourneyConfigField[];
+  stages?: string[];
+  journeyVersion?: number;
+  journeyUnavailable?: boolean;
+  journeyStages?: { stageId: string; kind: string; label: string; sequence: number }[];
+  mobileCapture?: "required" | "optional" | "off";
+  otpVerification?: "on" | "off";
+  campaignHandoff?: {
+    valid: boolean;
+    emailOnFile: boolean;
+    emailIndependentlyVerified: false;
+  };
   requestedAmountMax?: number | null;
   requestedAmountMaxLabel?: string | null;
   dtoSource: string;
@@ -43,6 +58,24 @@ export function findJourneyField(
 ): CompassJourneyConfigField | undefined {
   if (!config?.fields?.length) return undefined;
   return config.fields.find((field) => ids.includes(field.fieldId));
+}
+
+/**
+ * Stage order comes from the published Journey Definition.
+ * A product code only selects which definition to render.
+ * When no published version is present, the caller keeps the legacy sequence.
+ */
+export function publicStageOrder(
+  _productCode: string,
+  config: CompassJourneyConfig | null | undefined,
+): string[] | null {
+  if (!config?.journeyVersion) return null;
+  const stages = (config.stages ?? []).filter((stageId) => {
+    if (stageId === "otp" && config.otpVerification !== "on") return false;
+    if (stageId === "mobile" && config.mobileCapture === "off") return false;
+    return true;
+  });
+  return stages.length ? stages : null;
 }
 
 export function formatJourneyInrLabel(amount: number): string {
@@ -131,7 +164,12 @@ function hasFilledValue(value: string | number | boolean | null | undefined): bo
 
 export function isMonthlyIncomeStepRequired(
   config: CompassJourneyConfig | null | undefined,
-  answers: Record<string, string | number | boolean | null | undefined>,
+  answers: {
+    incomeType?: string;
+    employmentTypeCode?: string;
+    annualTurnover?: number | string | null;
+    annualTurnoverLabel?: string | null;
+  },
 ): boolean {
   const field = findJourneyField(config, "monthlyIncomeLabel", "monthlyIncome", "assessment:incomeAndObligations.monthlyIncome");
   if (!field) return false;
@@ -146,7 +184,12 @@ export function isMonthlyIncomeStepRequired(
     );
   }
   const turnoverFilled = (field.notRequiredWhenFilled ?? ["annualTurnover", "annualTurnoverLabel"]).some(
-    (key) => hasFilledValue(answers[key]),
+    (key) =>
+      key === "annualTurnover"
+        ? hasFilledValue(answers.annualTurnover)
+        : key === "annualTurnoverLabel"
+          ? hasFilledValue(answers.annualTurnoverLabel)
+          : false,
   );
   if (employment === "salaried") return true;
   if (

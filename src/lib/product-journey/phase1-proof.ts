@@ -24,7 +24,7 @@ import {
   setCapturedPropertyCategory,
 } from "@/lib/opportunity-assessment/capture-facts";
 import { deriveOpportunityAssessmentReadiness } from "@server/services/opportunity-assessment/readiness";
-import { buildCompassJourneyConfig } from "@server/services/compass-customer-gateway/compass-journey-config.service";
+import { buildCompassJourneyConfigFromRows } from "@server/services/compass-customer-gateway/compass-journey-config.service";
 import { parseCriterionWeights, assertActivateableWeights } from "@/lib/product-recommendation";
 import { rankByMatchPercent } from "@/lib/product-recommendation/rank";
 import { resolveVisibleIdcSections } from "@/lib/enterprise-initial-data-collection";
@@ -90,7 +90,7 @@ export async function runProductJourneyPhase1Proof() {
   assert.ok(parsed.some((row) => row.fieldId === "assessment:selfEmployedEvidence.vintage"));
   console.log("E NO_RECOMMENDATION_REGISTRY: PASS");
 
-  const compass = buildCompassJourneyConfig("home-loan", hl);
+  const compass = buildCompassJourneyConfigFromRows("home-loan", hl);
   assert.ok(compass.fields.some((field) => field.captureStepId === "loanAmount" || field.fieldId.includes("loan") || field.fieldId.includes("Amount") || field.captureStepId === "monthlyIncome"));
   assert.ok(!compass.fields.some((field) => field.captureStepId === "occupancy" || field.fieldId === "propertyUsage"));
   console.log("F COMPASS_GOVERNED_QUESTIONS: PASS");

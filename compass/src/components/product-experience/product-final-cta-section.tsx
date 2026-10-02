@@ -17,8 +17,10 @@ interface ProductFinalCtaSectionProps {
 
 export function ProductFinalCtaSection({ landing, productId }: ProductFinalCtaSectionProps) {
   const { finalCta } = landing;
-  const productPath = (productId ? PRODUCT_ROUTE_BY_COACH_SLUG[productId] : ROUTES.HOME_LOAN) as (typeof ROUTES)[keyof typeof ROUTES];
-  const onDiscoverClick = useDiscoverClick(productPath);
+  const productPath = (productId ? PRODUCT_ROUTE_BY_COACH_SLUG[productId] : undefined) as
+    | (typeof ROUTES)[keyof typeof ROUTES]
+    | undefined;
+  const onDiscoverClick = useDiscoverClick(productPath ?? ROUTES.CONTACT);
 
   return (
     <SectionReveal id="journey-cta" spacing="related" className="pb-20 sm:pb-24">

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootstrapProductJourneyFields } from "@/constants/product-journey/bootstrap";
-import { buildCompassJourneyConfig } from "@server/services/compass-customer-gateway/compass-journey-config.service";
+import { buildCompassJourneyConfigFromRows } from "@server/services/compass-customer-gateway/compass-journey-config.service";
 import { listAdditionalEligibilityFilterFields } from "@/lib/product-programme-operations/additional-eligibility-filters";
 import {
   captureJourneyFields,
@@ -222,7 +222,7 @@ export async function runProductJourneyUatRemediationProof() {
       reread.map((row) => row.fieldId),
       moved.map((row) => row.fieldId),
     );
-    const compass = buildCompassJourneyConfig("home-loan", reread);
+    const compass = buildCompassJourneyConfigFromRows("home-loan", reread);
     const sequences = compass.fields
       .filter((field) => field.captureStepId === "incomeType" || field.captureStepId === "loanAmount" || field.fieldId.includes("employment") || field.fieldId.includes("loan"))
       .map((field) => field.sequence);

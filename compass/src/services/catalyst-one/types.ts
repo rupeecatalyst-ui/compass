@@ -15,9 +15,7 @@ export type DiscoveryAnswersPayload = {
   propertyUsage?: string;
   loanAmount: number;
   propertyValue?: number;
-  displayName?: string;
   mobile: string;
-  personalEmail?: string;
   otpVerified: boolean;
   incomeType?: string;
   monthlyIncome?: number;
@@ -48,7 +46,6 @@ export type CompassAdvantageResult = {
   status?: "not_available" | "ready" | "ineligible";
   disclaimer: string;
   reason?: string | null;
-  requestedLoanAmount?: string | null;
   percentageBenefitAmount?: string | null;
   fixedBenefitComponents?: CompassAdvantageFixedComponent[];
   totalFixedBenefitAmount?: string | null;
@@ -79,13 +76,6 @@ export type LenderRecommendationResult = {
   reasons: string[];
   benefits: string[];
   rank: number;
-  tentativeOffer?: string | null;
-  requestedAmount?: string | null;
-  shortfall?: string | null;
-  tenure?: string | null;
-  foir?: string | null;
-  whyThisRecommendation?: string | null;
-  matchState?: string | null;
 };
 
 export type SarathiIntelligenceResult = {
@@ -93,23 +83,11 @@ export type SarathiIntelligenceResult = {
 };
 
 export type DiscoveryIntelligenceResult = {
-  product: CompassProductCode;
+  product: string;
   advantage: CompassAdvantageResult | null;
   lenders: LenderRecommendationResult[];
   recommendationsStatus: "ready" | "pending" | "unavailable";
   recommendationsMessage: string;
-  needsCoApplicant?: boolean;
-  assistedOffer?: {
-    headline: string;
-    body: string;
-    requestedAmountRupees: number | null;
-    ltvSupportedAmountRupees: number | null;
-    incomeSupportedAmountRupees: number | null;
-    eligibilityGapRupees: number | null;
-    enhancementRoutes: string[];
-  } | null;
-  cibilNotKnownDisclaimer?: boolean;
-  expertSla?: { borrowerCopy: string; expectedContactAtIso: string; remainingWorkingMs: number; state: string } | null;
   sarathi: SarathiIntelligenceResult;
   journeySessionToken?: string;
   opportunityRef?: string;
@@ -121,6 +99,8 @@ export type JourneyStartResponse = {
   contactRef: string;
   opportunityRef: string;
   otpRequired: boolean;
+  mobileVerified?: boolean;
+  campaignEmail?: { value: string; independentlyVerified: false } | null;
 };
 
 export type CompassLodItemDto = {
@@ -159,7 +139,7 @@ export type CompassSubmitResponse = {
 };
 
 export type DiscoveryIntelligenceRequest = {
-  product: CompassProductCode;
+  product: string;
   answers: DiscoveryAnswersPayload;
   journeySessionToken?: string;
 };

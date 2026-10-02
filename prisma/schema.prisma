@@ -183,6 +183,7 @@ model Organization {
   productCategories         EnterpriseProductCategory[]
   productGroups             EnterpriseProductGroup[]
   products                  EnterpriseProduct[]
+  productJourneys           EnterpriseProductJourney[]
   documentTypes             EnterpriseDocumentType[]
   documentDefinitions       EnterpriseDocumentDefinition[]
   lenderCategories          EnterpriseLenderCategory[]
@@ -2396,6 +2397,7 @@ model EnterpriseProduct {
   parentProduct EnterpriseProduct?       @relation("ProductParent", fields: [parentProductId], references: [id], onDelete: SetNull)
   childProducts EnterpriseProduct[]      @relation("ProductParent")
   lenderPrograms EnterpriseLenderProgram[]
+  productJourneys EnterpriseProductJourney[]
   opportunities  EnterpriseOpportunity[]
   deals          EnterpriseDeal[]
   /// CO-MASTER-005A — Lender Program Portal invite product scope
@@ -2408,6 +2410,86 @@ model EnterpriseProduct {
   @@index([organizationId, sortOrder], map: "eprod_org_sort_idx")
   @@index([parentProductId], map: "eprod_parent_idx")
   @@map("enterprise_products")
+}
+
+/// Customer Product Journey. Not Product Master, not a Lender Programme, not a Policy Version.
+enum ProductJourneyValidationStatus {
+  draft
+  validated
+}
+
+enum ProductJourneyVersionLifecycle {
+  published
+  superseded
+  retired
+}
+
+model EnterpriseProductJourney {
+  id                     String    @id @default(cuid())
+  organizationId         String    @map("organization_id")
+  productId              String?   @map("product_id")
+  productCode            String    @map("product_code")
+  publicLabel            String    @map("public_label")
+  publiclyEnabled        Boolean   @default(false) @map("publicly_enabled")
+  effectiveVersionNumber Int?      @map("effective_version_number")
+  bookRevision           Int       @default(0) @map("book_revision")
+  createdBy              String    @map("created_by")
+  modifiedBy             String    @map("modified_by")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product      EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  draft        EnterpriseProductJourneyDraft?
+  versions     EnterpriseProductJourneyVersion[]
+
+  @@unique([organizationId, productCode], map: "epj_org_product_key")
+  @@index([organizationId, publiclyEnabled], map: "epj_org_enabled_idx")
+  @@map("enterprise_product_journeys")
+}
+
+model EnterpriseProductJourneyDraft {
+  id               String                         @id @default(cuid())
+  journeyId        String                         @unique @map("journey_id")
+  organizationId   String                         @map("organization_id")
+  revision         Int                            @default(1)
+  validationStatus ProductJourneyValidationStatus @default(draft) @map("validation_status")
+  previewed        Boolean                        @default(false)
+  definition       Json
+  createdBy        String                         @map("created_by")
+  updatedBy        String                         @map("updated_by")
+  createdAt        DateTime                       @default(now()) @map("created_at")
+  updatedAt        DateTime                       @updatedAt @map("updated_at")
+
+  journey EnterpriseProductJourney @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId], map: "epjd_org_idx")
+  @@map("enterprise_product_journey_drafts")
+}
+
+model EnterpriseProductJourneyVersion {
+  id                 String                          @id @default(cuid())
+  journeyId          String                          @map("journey_id")
+  organizationId     String                          @map("organization_id")
+  productCode        String                          @map("product_code")
+  versionNumber      Int                             @map("version_number")
+  lifecycle          ProductJourneyVersionLifecycle
+  effectiveFrom      DateTime                        @map("effective_from")
+  publishedBy        String                          @map("published_by")
+  publishedAt        DateTime                        @map("published_at")
+  supersededAt       DateTime?                       @map("superseded_at")
+  retiredAt          DateTime?                       @map("retired_at")
+  configurationHash  String                          @map("configuration_hash")
+  sourceReference    String?                         @map("source_reference")
+  definition         Json
+  createdAt          DateTime                        @default(now()) @map("created_at")
+
+  journey EnterpriseProductJourney @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, productCode, versionNumber], map: "epjv_org_product_version_key")
+  @@unique([journeyId, versionNumber], map: "epjv_journey_version_key")
+  @@index([journeyId, lifecycle], map: "epjv_journey_lifecycle_idx")
+  @@map("enterprise_product_journey_versions")
 }
 
 // =============================================================================

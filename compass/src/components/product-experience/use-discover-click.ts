@@ -11,7 +11,7 @@ export function scrollToConversation(event?: React.MouseEvent<HTMLAnchorElement>
   event?.preventDefault();
 }
 
-export function useDiscoverClick(productPath: ProductRoute = ROUTES.HOME_LOAN) {
+export function useDiscoverClick(productPath: ProductRoute) {
   const launchDiscovery = useLaunchDiscovery(productPath);
   const reduceMotion = useReducedMotion();
 

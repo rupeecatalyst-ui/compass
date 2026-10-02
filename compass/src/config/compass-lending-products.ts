@@ -47,32 +47,18 @@ export const COMPASS_PATH_TO_PRODUCT: Record<string, CompassProductCode> = {
 
 const HL_STEPS = [
   "welcome",
-  "loanPurpose",
-  "builderSource",
-  "constructionStatus",
+  "propertyType",
   "loanAmount",
   "propertyValue",
-  "city",
-  "occupancy",
-  "displayName",
-  "dateOfBirth",
-  "incomeType",
-  "residency",
-  "approxCibilScore",
   "mobile",
+  "incomeType",
   "monthlyIncome",
   "existingEmi",
+  "city",
+  "approxCibilScore",
   "analysing",
-  "coApplicant",
-  "coApplicantRelationship",
-  "coApplicantDob",
-  "coApplicantEmployment",
-  "coApplicantIncome",
-  "coApplicantExistingEmi",
-  "reanalyse",
   "advantage",
   "lenders",
-  "email",
   "documents",
   "review",
   "confirmation",
@@ -82,7 +68,6 @@ export type DiscoveryStepId = (typeof HL_STEPS)[number] | ExtraDiscoveryStepId;
 
 type ExtraDiscoveryStepId =
   | "approxCibilScore"
-  | "propertyType"
   | "propertyUsage"
   | "loanPurpose"
   | "companyName"
@@ -92,36 +77,11 @@ type ExtraDiscoveryStepId =
   | "projectCost"
   | "currentLender"
   | "outstandingLoanAmount"
-  | "builderSource"
-  | "constructionStatus"
-  | "occupancy"
+  | "otp"
   | "displayName"
-  | "dateOfBirth"
-  | "residency"
-  | "coApplicant"
-  | "coApplicantRelationship"
-  | "coApplicantDob"
-  | "coApplicantEmployment"
-  | "coApplicantIncome"
-  | "coApplicantExistingEmi"
-  | "reanalyse"
+  | "recommendation"
   | "email"
-  | "topUpChoice"
-  | "topUpAmount"
-  | "currentRoi"
-  | "currentEmi"
-  | "remainingTenureMonths"
-  | "repaymentTrack"
-  | "delayedEmiCount"
-  | "originalSanctionedAmount"
-  | "loanStartDate"
-  | "rateType"
-  | "originalTenureMonths"
-  | "pincode"
-  | "propertyKind"
-  | "possessionStatus"
-  | "registrationStatus"
-  | "topUpPurpose";
+  | "application";
 
 const TAIL = ["approxCibilScore", "analysing", "lenders", "documents", "review", "confirmation"] as const;
 
@@ -132,47 +92,20 @@ export function getDiscoveryStepOrder(productCode: CompassProductCode): Discover
     case "home-loan-balance-transfer":
       return [
         "welcome",
-        "currentLender",
-        "originalSanctionedAmount",
-        "outstandingLoanAmount",
-        "loanStartDate",
-        "currentRoi",
-        "rateType",
-        "currentEmi",
-        "remainingTenureMonths",
-        "originalTenureMonths",
-        "repaymentTrack",
-        "delayedEmiCount",
+        "propertyType",
+        "loanAmount",
         "propertyValue",
-        "city",
-        "pincode",
-        "propertyKind",
-        "constructionStatus",
-        "occupancy",
-        "possessionStatus",
-        "registrationStatus",
-        "topUpChoice",
-        "topUpAmount",
-        "topUpPurpose",
-        "displayName",
-        "dateOfBirth",
-        "incomeType",
-        "residency",
-        "approxCibilScore",
+        "currentLender",
+        "outstandingLoanAmount",
         "mobile",
+        "incomeType",
         "monthlyIncome",
         "existingEmi",
+        "city",
+        "approxCibilScore",
         "analysing",
-        "coApplicant",
-        "coApplicantRelationship",
-        "coApplicantDob",
-        "coApplicantEmployment",
-        "coApplicantIncome",
-        "coApplicantExistingEmi",
-        "reanalyse",
         "advantage",
         "lenders",
-        "email",
         "documents",
         "review",
         "confirmation",
@@ -246,8 +179,6 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
   const keys = new Set<string>([
     "loanAmount",
     "mobile",
-    "displayName",
-    "personalEmail",
     "otpVerified",
     "city",
     "approxCibilScore",
@@ -260,18 +191,6 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("incomeType");
       keys.add("monthlyIncome");
       keys.add("existingEmi");
-      keys.add("loanPurpose");
-      keys.add("builderSource");
-      keys.add("constructionStatus");
-      keys.add("occupancy");
-      keys.add("dateOfBirth");
-      keys.add("residency");
-      keys.add("coApplicantDecision");
-      keys.add("coApplicantRelationship");
-      keys.add("coApplicantDob");
-      keys.add("coApplicantEmployment");
-      keys.add("coApplicantIncome");
-      keys.add("coApplicantExistingEmi");
       break;
     case "home-loan-balance-transfer":
       keys.add("propertyType");
@@ -281,43 +200,6 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("incomeType");
       keys.add("monthlyIncome");
       keys.add("existingEmi");
-      keys.add("topUpChoice");
-      keys.add("topUpAmount");
-      keys.add("topUpAmountCertainty");
-      keys.add("topUpPurpose");
-      keys.add("originalSanctionedAmount");
-      keys.add("originalSanctionedCertainty");
-      keys.add("outstandingCertainty");
-      keys.add("loanStartDate");
-      keys.add("loanStartDateCertainty");
-      keys.add("currentRoi");
-      keys.add("currentRoiCertainty");
-      keys.add("rateType");
-      keys.add("currentEmi");
-      keys.add("currentEmiCertainty");
-      keys.add("remainingTenureMonths");
-      keys.add("remainingTenureCertainty");
-      keys.add("originalTenureMonths");
-      keys.add("originalTenureCertainty");
-      keys.add("repaymentTrack");
-      keys.add("delayedEmiCount");
-      keys.add("delayedEmiCountCertainty");
-      keys.add("constructionStatus");
-      keys.add("occupancy");
-      keys.add("pincode");
-      keys.add("pincodeCertainty");
-      keys.add("propertyKind");
-      keys.add("propertyValueCertainty");
-      keys.add("possessionStatus");
-      keys.add("registrationStatus");
-      keys.add("dateOfBirth");
-      keys.add("residency");
-      keys.add("coApplicantDecision");
-      keys.add("coApplicantRelationship");
-      keys.add("coApplicantDob");
-      keys.add("coApplicantEmployment");
-      keys.add("coApplicantIncome");
-      keys.add("coApplicantExistingEmi");
       break;
     case "personal-loan":
       keys.add("incomeType");
@@ -355,7 +237,7 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
   return [...keys];
 }
 
-export function productShowsPropertyPreview(productCode: CompassProductCode): boolean {
+export function productShowsPropertyPreview(productCode: string): boolean {
   return (
     productCode === "home-loan" ||
     productCode === "home-loan-balance-transfer" ||
@@ -363,28 +245,45 @@ export function productShowsPropertyPreview(productCode: CompassProductCode): bo
   );
 }
 
-export function productShowsAdvantage(productCode: CompassProductCode): boolean {
+export function productShowsAdvantage(productCode: string): boolean {
   return productCode === "home-loan" || productCode === "home-loan-balance-transfer";
 }
 
-export function readProductCodeFromPathname(
-  pathname: string,
-  search: string,
-): CompassProductCode {
+export function isCompassCatalogProduct(code: string): code is CompassProductCode {
+  return (COMPASS_GATEWAY_PRODUCTS as readonly string[]).includes(code);
+}
+
+const APPLY_PRODUCT_ALIASES: Record<string, string> = {
+  home_loan: "home-loan",
+  home_loan_bt: "home-loan-balance-transfer",
+  personal_loan: "personal-loan",
+  business_loan: "business-loan",
+  loan_against_property: "loan-against-property",
+  working_capital: "working-capital",
+  construction_finance: "construction-finance",
+  project_finance: "project-finance",
+};
+
+export function readProductCodeFromPathname(pathname: string, search: string): string | null {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const queried = params.get("product");
   if (queried === "home-loan-balance-transfer") return "home-loan-balance-transfer";
   if (queried === "project-finance") return "project-finance";
   const path = pathname.replace(/\/$/, "") || "/";
-  return COMPASS_PATH_TO_PRODUCT[path] ?? "home-loan";
+  const published = path.match(/^\/apply\/([a-z0-9-]{2,64})$/i);
+  if (published) {
+    const raw = published[1].trim().toLowerCase();
+    return APPLY_PRODUCT_ALIASES[raw.replace(/-/g, "_")] ?? raw;
+  }
+  return COMPASS_PATH_TO_PRODUCT[path] ?? null;
 }
 
-export function productCodeFromRoute(route: string): CompassProductCode {
+export function productCodeFromRoute(route: string): string | null {
   const [path, query = ""] = route.split("?");
   return readProductCodeFromPathname(path, query);
 }
 
-export function resolveLaunchProductCode(productPath: string): CompassProductCode {
+export function resolveLaunchProductCode(productPath: string): string | null {
   if (typeof window !== "undefined") {
     const pathOnly = productPath.split("?")[0];
     const current = window.location.pathname.replace(/\/$/, "") || "/";
@@ -509,53 +408,4 @@ export function getCompassProductHref(code: CompassProductCode): string {
 
 export function getCompassProductExploreHref(code: CompassProductCode): string {
   return appendDiscoveryLaunch(getCompassProductHref(code));
-}
-
-export function shouldShowDiscoveryStep(
-  step: DiscoveryStepId,
-  answers: {
-    loanPurpose?: string;
-    builderSource?: string;
-    topUpChoice?: string;
-    repaymentTrack?: string;
-    coApplicantDecision?: string;
-    needsCoApplicant?: boolean;
-    remainingTenureMonths?: number;
-    remainingTenureCertainty?: string;
-    possessionStatus?: string;
-    constructionStatus?: string;
-  },
-  productCode: CompassProductCode,
-): boolean {
-  if (productCode !== "home-loan" && productCode !== "home-loan-balance-transfer") return true;
-  if (step === "builderSource") return answers.loanPurpose === "purchase_home";
-  if (step === "constructionStatus") {
-    return productCode === "home-loan-balance-transfer" || answers.builderSource === "builder";
-  }
-  if (step === "topUpAmount") return answers.topUpChoice === "with_topup";
-  if (step === "topUpPurpose") return false;
-  if (step === "originalTenureMonths") {
-    return answers.remainingTenureCertainty === "not_known" || answers.remainingTenureMonths == null;
-  }
-  if (step === "delayedEmiCount") return answers.repaymentTrack === "no";
-  if (step === "registrationStatus") {
-    return (
-      answers.possessionStatus === "possessed" ||
-      answers.constructionStatus === "ready"
-    );
-  }
-  if (step === "coApplicant") {
-    return Boolean(answers.needsCoApplicant) || Boolean(answers.coApplicantDecision);
-  }
-  if (
-    step === "coApplicantRelationship" ||
-    step === "coApplicantDob" ||
-    step === "coApplicantEmployment" ||
-    step === "coApplicantIncome" ||
-    step === "coApplicantExistingEmi"
-  ) {
-    return answers.coApplicantDecision === "yes";
-  }
-  if (step === "reanalyse") return Boolean(answers.coApplicantDecision);
-  return true;
 }

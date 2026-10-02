@@ -13,7 +13,7 @@ import { staggerContainer, staggerItem } from "@/lib/animations";
 
 export function HeroSection() {
   const { hero } = homeLoanLanding;
-  const onDiscoverClick = useDiscoverClick();
+  const onDiscoverClick = useDiscoverClick(ROUTES.HOME_LOAN);
 
   return (
     <section className="relative overflow-hidden pt-8 sm:pt-12 lg:pt-16 pb-9 sm:pb-11 lg:pb-12">
