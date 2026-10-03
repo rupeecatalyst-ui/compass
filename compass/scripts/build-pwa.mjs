@@ -15,6 +15,36 @@ const swTemplate = path.join(root, "public/sw.template.js");
 const swOut = path.join(root, "public/sw.js");
 const offlineHtml = path.join(root, "public/offline.html");
 
+/**
+ * One cache identity per deployment. A calendar date is not a release id:
+ * two builds on the same day would keep the previous static cache and could
+ * serve the last release's JavaScript.
+ */
+function resolvePwaCacheVersion() {
+  const candidates = [
+    process.env.COMPASS_PWA_BUILD_ID,
+    process.env.VERCEL_DEPLOYMENT_ID,
+    process.env.VERCEL_GIT_COMMIT_SHA,
+    process.env.GITHUB_SHA,
+    process.env.CI_COMMIT_SHA,
+  ];
+  for (const raw of candidates) {
+    const id = sanitizeBuildId(raw);
+    if (id) return `compass-pwa-${id}`;
+  }
+  return `compass-pwa-${Date.now().toString(36)}`;
+}
+
+function sanitizeBuildId(value) {
+  if (value == null) return "";
+  const cleaned = String(value)
+    .trim()
+    .replace(/[^A-Za-z0-9._-]/g, "")
+    .slice(0, 80);
+  if (!cleaned || /^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return "";
+  return cleaned;
+}
+
 const THEME_BG = "#06080d";
 const ICON_SIZES = [72, 96, 128, 144, 152, 180, 192, 384, 512];
 
@@ -106,7 +136,7 @@ if (!fs.existsSync(offlineHtml)) {
   );
 }
 
-const cacheVersion = `compass-pwa-${process.env.COMPASS_PWA_BUILD_ID || new Date().toISOString().slice(0, 10)}`;
+const cacheVersion = resolvePwaCacheVersion();
 const template = fs.readFileSync(swTemplate, "utf8");
 fs.writeFileSync(swOut, template.replaceAll("__PWA_CACHE_VERSION__", cacheVersion));
 

@@ -17,6 +17,7 @@ import {
   fetchCompassResume,
   fetchDiscoveryIntelligence,
   persistCompassAnswers,
+  requestCompassTalkToExpert,
   startCompassJourney,
   submitCompassApplication,
   uploadCompassDocuments,
@@ -139,6 +140,7 @@ type DiscoveryContextValue = {
     declarationsAccepted: boolean;
     lenderShareAccepted: boolean;
   }) => Promise<void>;
+  requestTalkToExpert: () => Promise<DiscoveryIntelligenceResult["expertSla"]>;
   activateSarathi: () => void;
 };
 
@@ -501,6 +503,21 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     [journeySessionToken],
   );
 
+  const requestTalkToExpert = useCallback(async () => {
+    if (!journeySessionToken) {
+      setIntelligenceError("Your session could not be verified. Please restart the journey.");
+      return null;
+    }
+    try {
+      const sla = await requestCompassTalkToExpert(journeySessionToken);
+      setIntelligence((prev) => (prev ? { ...prev, expertSla: sla } : prev));
+      return sla;
+    } catch (err) {
+      setIntelligenceError(err instanceof Error ? err.message : "Unable to request a specialist right now.");
+      return null;
+    }
+  }, [journeySessionToken]);
+
   const activateSarathi = useCallback(() => {
     setJourneyComplete(true);
     setSarathiActivated(true);
@@ -550,6 +567,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       loadLod,
       uploadDocumentFiles,
       submitApplication,
+      requestTalkToExpert,
       activateSarathi,
     }),
     [
@@ -590,6 +608,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       loadLod,
       uploadDocumentFiles,
       submitApplication,
+      requestTalkToExpert,
       activateSarathi,
     ],
   );

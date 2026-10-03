@@ -1,10 +1,10 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { DISCOVERY_STAGES, stepToStageIndex, type DiscoveryStepId } from "@/config/home-loan-discovery";
+import { DISCOVERY_STAGES, stepToStageIndex } from "@/config/home-loan-discovery";
 import { cn } from "@/lib/utils";
 
-export function DiscoveryProgress({ step }: { step: DiscoveryStepId }) {
+export function DiscoveryProgress({ step }: { step: string }) {
   const current = stepToStageIndex(step);
 
   return (

@@ -6,7 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
-import { productShowsPropertyPreview } from "@/config/compass-lending-products";
+import { isCompassCatalogProduct, productShowsPropertyPreview } from "@/config/compass-lending-products";
 import { cibilFieldOptions, findJourneyField } from "@/lib/journey-config";
 import { journeyConsent } from "@/config/legal";
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,9 @@ export function DiscoveryReviewStep() {
             {c.productLabel}
           </h3>
           <p className="mt-2 text-lg font-medium text-foreground">
-            {COMPASS_PRODUCT_LABELS[productCode]}
+            {isCompassCatalogProduct(productCode)
+              ? COMPASS_PRODUCT_LABELS[productCode]
+              : journeyConfig?.productLabel || productCode}
           </p>
           {opportunityRef ? (
             <p className="mt-1 text-xs text-muted-foreground">Reference draft · {opportunityRef}</p>
@@ -80,7 +82,7 @@ export function DiscoveryReviewStep() {
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Full name</dt>
-              <dd className="font-medium">{answers.displayName.trim() || "Not Specified"}</dd>
+              <dd className="font-medium">{(answers.displayName ?? "").trim() || "Not Specified"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Mobile</dt>
@@ -89,7 +91,7 @@ export function DiscoveryReviewStep() {
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Email</dt>
               <dd className="font-medium">
-                {answers.personalEmail.trim() ? answers.personalEmail.trim() : "Not Specified"}
+                {(answers.personalEmail ?? "").trim() || "Not Specified"}
               </dd>
             </div>
             <div className="flex justify-between gap-4">

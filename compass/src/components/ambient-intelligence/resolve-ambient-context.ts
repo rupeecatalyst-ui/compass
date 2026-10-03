@@ -1,9 +1,8 @@
 import type { DiscoveryAnswers } from "@/components/home-loan-experience/discovery/discovery-context";
-import type { DiscoveryStepId } from "@/config/home-loan-discovery";
 import type { AmbientContext } from "@/config/ambient-intelligence";
 
 export function resolveAmbientContext(
-  step: DiscoveryStepId | null,
+  step: string | null,
   answers: DiscoveryAnswers,
   sarathiActivated: boolean,
 ): AmbientContext {

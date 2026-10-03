@@ -1059,4 +1059,14 @@ export const compassJourneyService = {
       dtoSource: "enterprise_compass_submission",
     };
   },
+
+  async talkToExpert(token: string) {
+    const claims = verifyCompassJourneyToken(token);
+    const { organizationId, row } = await verifySessionClaims(claims);
+    const { requestTalkToExpert } = await import("./compass-expert-sla.service");
+    return requestTalkToExpert({
+      organizationId,
+      opportunityId: row.id,
+    });
+  },
 };

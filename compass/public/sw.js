@@ -1,5 +1,5 @@
 /* COMPASS PWA service worker — public assets only. Never cache API or customer data. */
-const CACHE_VERSION = "compass-pwa-2026-08-30";
+const CACHE_VERSION = "compass-pwa-musfcg1a";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 
@@ -46,7 +46,11 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => !key.startsWith(CACHE_VERSION)).map((key) => caches.delete(key))),
+        Promise.all(
+          keys
+            .filter((key) => key !== STATIC_CACHE && key !== PAGES_CACHE)
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   );

@@ -182,6 +182,10 @@ export async function fetchDiscoveryIntelligence(input: {
     recommendations: {
       status: DiscoveryIntelligenceResult["recommendationsStatus"];
       message: string;
+      needsCoApplicant?: boolean;
+      needsCoApplicantPrompt?: boolean;
+      assistedOffer?: DiscoveryIntelligenceResult["assistedOffer"];
+      cibilNotKnownDisclaimer?: boolean;
       cards: Array<{
         lenderRef: string;
         displayName: string;
@@ -192,14 +196,22 @@ export async function fetchDiscoveryIntelligence(input: {
         processingTimeLabel: string | null;
         reasons: string[];
         benefits: string[];
+        tentativeOfferLabel?: string | null;
+        requestedAmountLabel?: string | null;
+        shortfallLabel?: string | null;
+        tenureLabel?: string | null;
+        foirLabel?: string | null;
+        whyThisRecommendation?: string | null;
+        matchState?: string | null;
       }>;
     };
     sarathiMessages: string[];
+    expertSla?: DiscoveryIntelligenceResult["expertSla"];
   };
 
   const lenders: DiscoveryIntelligenceResult["lenders"] = analysis.recommendations.cards.map(
     (card) => ({
-      id: `option-${card.rank}`,
+      id: card.lenderRef,
       name: card.displayName,
       logoUrl: null,
       initials: initials(card.displayName),
@@ -210,6 +222,13 @@ export async function fetchDiscoveryIntelligence(input: {
       processingTime: card.processingTimeLabel || "Advisor-assisted",
       reasons: card.reasons,
       benefits: card.benefits,
+      tentativeOffer: card.tentativeOfferLabel ?? null,
+      requestedAmount: card.requestedAmountLabel ?? null,
+      shortfall: card.shortfallLabel ?? null,
+      tenure: card.tenureLabel ?? null,
+      foir: card.foirLabel ?? null,
+      whyThisRecommendation: card.whyThisRecommendation ?? null,
+      matchState: card.matchState ?? null,
     }),
   );
 
@@ -219,6 +238,12 @@ export async function fetchDiscoveryIntelligence(input: {
     lenders,
     recommendationsStatus: analysis.recommendations.status,
     recommendationsMessage: analysis.recommendations.message,
+    needsCoApplicant: Boolean(
+      analysis.recommendations.needsCoApplicantPrompt ?? analysis.recommendations.needsCoApplicant,
+    ),
+    assistedOffer: analysis.recommendations.assistedOffer ?? null,
+    cibilNotKnownDisclaimer: Boolean(analysis.recommendations.cibilNotKnownDisclaimer),
+    expertSla: analysis.expertSla ?? null,
     sarathi: { messages: analysis.sarathiMessages },
     journeySessionToken: input.journeySessionToken,
   };
@@ -284,4 +309,33 @@ export async function submitCompassApplication(
     throw new Error(body?.error || "Submission failed.");
   }
   return response.json() as Promise<CompassSubmitResponse>;
+}
+
+export async function requestCompassTalkToExpert(
+  journeySessionToken: string,
+): Promise<NonNullable<DiscoveryIntelligenceResult["expertSla"]>> {
+  const response = await fetch("/api/journey/expert", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${journeySessionToken}`,
+    },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || "Unable to request a Home Loan Specialist.");
+  }
+  const data = (await response.json()) as {
+    borrowerCopy?: string;
+    sla?: { expectedContactAtIso: string; remainingWorkingMs: number; state: string; deadlineIso?: string };
+    expertSla?: DiscoveryIntelligenceResult["expertSla"];
+  };
+  if (data.expertSla) return data.expertSla;
+  return {
+    borrowerCopy: data.borrowerCopy || "Our Home Loan Specialist will contact you within one working hour.",
+    expectedContactAtIso: data.sla?.expectedContactAtIso || "",
+    remainingWorkingMs: data.sla?.remainingWorkingMs ?? 0,
+    state: data.sla?.state || "working_sla_active",
+  };
 }
