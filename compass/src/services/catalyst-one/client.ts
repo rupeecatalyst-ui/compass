@@ -101,6 +101,12 @@ export async function fetchCompassResume(token: string): Promise<{
   return response.json();
 }
 
+function readOpaqueCampaignToken(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const token = new URLSearchParams(window.location.search).get("campaign")?.trim();
+  return token || undefined;
+}
+
 export async function startCompassJourney(input: {
   productCode: string;
   mobile: string;
@@ -108,6 +114,7 @@ export async function startCompassJourney(input: {
   consentAccepted?: boolean;
   otpVerificationToken?: string;
 }): Promise<JourneyStartResponse> {
+  const campaignToken = readOpaqueCampaignToken();
   const response = await fetch("/api/journey/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -117,6 +124,7 @@ export async function startCompassJourney(input: {
       city: input.city,
       consentAccepted: input.consentAccepted ?? true,
       otpVerificationToken: input.otpVerificationToken,
+      ...(campaignToken ? { campaignToken } : {}),
     }),
   });
   if (!response.ok) {

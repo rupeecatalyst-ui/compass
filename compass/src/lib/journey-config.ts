@@ -42,6 +42,8 @@ export type CompassJourneyConfig = {
   journeyStages?: { stageId: string; kind: string; label: string; sequence: number }[];
   mobileCapture?: "required" | "optional" | "off";
   otpVerification?: "on" | "off";
+  /** True only when the published journey requires OTP and a provider can send it. */
+  otpEnabled?: boolean;
   campaignHandoff?: {
     valid: boolean;
     emailOnFile: boolean;
@@ -58,6 +60,18 @@ export function findJourneyField(
 ): CompassJourneyConfigField | undefined {
   if (!config?.fields?.length) return undefined;
   return config.fields.find((field) => ids.includes(field.fieldId));
+}
+
+/**
+ * OTP off skips the stage. OTP on without a provider must stop, not skip.
+ * Returning "blocked" means the OTP screen must not be shown and the journey must not continue.
+ */
+export function mobileOtpProgression(
+  config: CompassJourneyConfig | null | undefined,
+): "skip" | "verify" | "blocked" {
+  if (config?.otpVerification !== "on") return "skip";
+  if (config.otpEnabled === true) return "verify";
+  return "blocked";
 }
 
 /**

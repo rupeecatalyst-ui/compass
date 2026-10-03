@@ -25,6 +25,7 @@ import {
   cibilFieldOptions,
   findJourneyField,
   formatJourneyInrLabel,
+  mobileOtpProgression,
   resolveMonthlyIncomeBounds,
   resolveRequestedAmountBounds,
 } from "@/lib/journey-config";
@@ -82,13 +83,13 @@ function MiniHomePreview({ scale }: { scale: number }) {
 }
 
 function MobileStep() {
-  const { answers, setAnswer, goNext, nudgeCompass, startJourneySession, otpRequired, journeyConfig } =
+  const { answers, setAnswer, goNext, nudgeCompass, startJourneySession, journeyConfig } =
     useDiscovery();
   const [phase, setPhase] = useState<"form" | "success" | "starting">("form");
   const [error, setError] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.mobile;
-  const otpVerificationOn = journeyConfig?.otpVerification === "on";
+  const otpProgression = mobileOtpProgression(journeyConfig);
 
   const canSend = answers.mobile.length >= 10;
 
@@ -108,7 +109,11 @@ function MobileStep() {
 
   const sendOtp = () => {
     if (!canSend) return;
-    if (otpVerificationOn) {
+    if (otpProgression === "blocked") {
+      setError("Mobile verification is required, but it is not available right now.");
+      return;
+    }
+    if (otpProgression === "verify") {
       nudgeCompass();
       goNext();
       return;
@@ -135,7 +140,7 @@ function MobileStep() {
                 />
               </label>
               <Button size="lg" className="mt-4 h-12 w-full" disabled={!canSend} onClick={sendOtp}>
-                {otpRequired ? c.cta : "Continue"}
+                {otpProgression === "verify" ? c.cta : "Continue"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
               {error ? <p className="text-center text-sm text-muted-foreground">{error}</p> : null}
@@ -506,6 +511,17 @@ export function DiscoveryJourney() {
         return <MobileStep />;
 
       case "otp":
+        if (mobileOtpProgression(journeyConfig) !== "verify") {
+          return (
+            <DiscoveryScreen stepKey="otp">
+              <p className="text-center text-sm text-muted-foreground">
+                {journeyConfig?.otpVerification === "on"
+                  ? "Mobile verification is required, but it is not available right now."
+                  : "This step is not part of this journey."}
+              </p>
+            </DiscoveryScreen>
+          );
+        }
         return <OtpStep />;
 
       case "displayName":

@@ -106,5 +106,36 @@ assert.ok(investBlock.includes("ROUTES.INVEST}?goal=mutual-funds"));
 const pathname = readFileSync("compass/src/config/compass-lending-products.ts", "utf8");
 assert.equal(pathname.includes('?? "home-loan"'), false);
 assert.ok(pathname.includes("?? null"));
+const journeyConfig = readFileSync("compass/src/lib/journey-config.ts", "utf8");
+assert.ok(journeyConfig.includes('if (config?.otpVerification !== "on") return "skip"'));
+assert.ok(journeyConfig.includes('if (config.otpEnabled === true) return "verify"'));
+assert.ok(journeyConfig.includes('return "blocked"'));
+const discovery = readFileSync(
+  "compass/src/components/home-loan-experience/discovery/discovery-journey.tsx",
+  "utf8",
+);
+assert.ok(discovery.includes('otpProgression === "blocked"'));
+assert.ok(discovery.includes("mobileOtpProgression(journeyConfig) !== \"verify\""));
+
+const startClient = readFileSync("compass/src/services/catalyst-one/client.ts", "utf8");
+const startFn = startClient.slice(startClient.indexOf("function readOpaqueCampaignToken"));
+assert.ok(startFn.includes('get("campaign")'));
+assert.ok(startFn.includes("campaignToken"));
+assert.equal(startFn.includes("campaignId:"), false);
+assert.equal(startFn.includes("sourceCode:"), false);
+assert.equal(startFn.includes("campaignLabel:"), false);
+const startRoute = readFileSync("compass/src/app/api/journey/start/route.ts", "utf8");
+assert.ok(startRoute.includes("governedJourneyStartBody"));
+assert.equal(startRoute.includes("startJourney(body)"), false);
+assert.equal(startRoute.includes("body.campaignId"), false);
+assert.equal(startRoute.includes("body.sourceCode"), false);
+assert.equal(startRoute.includes("body.campaignLabel"), false);
+assert.ok(startRoute.includes("campaignToken"));
+const startService = readFileSync(
+  "server/services/compass-customer-gateway/compass-journey.service.ts",
+  "utf8",
+);
+assert.ok(startService.includes("resolveCampaignForStart(input.campaignToken"));
+assert.ok(startService.includes('error.code === "IDENTITY_CONFLICT"') || startService.includes('"IDENTITY_CONFLICT"'));
 
 console.log("STAGE_1B_REFINEMENT_PROOF pass");
