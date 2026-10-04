@@ -111,12 +111,32 @@ const publishedNewPropertyModel = {
   publicationState: "published",
   completenessState: "complete",
 };
+const collectedProgrammeFacts = {
+  employmentType: "salaried",
+  constitution: "individual",
+  residency: "resident",
+  state: "MH",
+  transactionType: "fresh",
+  loanAmountExact: "2500000.00",
+  cibil: 750,
+  age: 35,
+};
 assert.equal(
   matchPublishedProgramme(publishedNewPropertyModel, {
+    ...collectedProgrammeFacts,
     propertyCategory: "residential",
     constructionStatus: "ready",
   }).matched,
   true,
+);
+assert.equal(
+  matchPublishedProgramme(publishedNewPropertyModel, {
+    ...collectedProgrammeFacts,
+    age: null,
+    propertyCategory: "residential",
+    constructionStatus: "ready",
+  }).matched,
+  false,
 );
 assert.equal(
   matchPublishedProgramme(publishedNewPropertyModel, {
@@ -141,7 +161,10 @@ const publishedLegacyPropertyModel = {
   completenessState: "complete",
 };
 assert.equal(
-  matchPublishedProgramme(publishedLegacyPropertyModel, { propertyType: "ready" }).matched,
+  matchPublishedProgramme(publishedLegacyPropertyModel, {
+    ...collectedProgrammeFacts,
+    propertyType: "ready",
+  }).matched,
   true,
   "legacy matching behavior remains unchanged",
 );

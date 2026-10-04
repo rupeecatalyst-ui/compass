@@ -34,6 +34,13 @@ function inExactRange(value: string | null | undefined, min: string | null | und
   return true;
 }
 
+function unverified(fact: string): { matched: false; reason: string } {
+  return {
+    matched: false,
+    reason: `${fact} was not available, so this programme rule was not verified.`,
+  };
+}
+
 export function matchPublishedProgramme(
   program: EnterpriseLenderProgramRecord,
   input: ProgrammeMatchInput,
@@ -44,7 +51,8 @@ export function matchPublishedProgramme(
   if (input.productCode && !productCodesEquivalent(program.productCode, input.productCode)) {
     return { matched: false, reason: "Product does not match the published programme." };
   }
-  if (input.employmentType && (program.employmentTypes ?? []).length > 0) {
+  if ((program.employmentTypes ?? []).length > 0) {
+    if (!input.employmentType?.trim()) return unverified("Employment type");
     const wanted = input.employmentType;
     const ok =
       program.employmentTypes?.includes(wanted) ||
@@ -53,47 +61,67 @@ export function matchPublishedProgramme(
         program.employmentTypes?.some((id) => id.startsWith("self-employed")));
     if (!ok) return { matched: false, reason: "Employment profile is outside programme eligibility." };
   }
-  if (input.constitution && (program.legalConstitutions ?? []).length > 0 && !program.legalConstitutions?.includes(input.constitution)) {
-    return { matched: false, reason: "Legal constitution is outside programme eligibility." };
+  if ((program.legalConstitutions ?? []).length > 0) {
+    if (!input.constitution?.trim()) return unverified("Legal constitution");
+    if (!program.legalConstitutions?.includes(input.constitution)) {
+      return { matched: false, reason: "Legal constitution is outside programme eligibility." };
+    }
   }
-  if (input.residency && (program.residencyEligibility ?? []).length > 0 && !program.residencyEligibility?.includes(input.residency)) {
-    return { matched: false, reason: "Residency is outside programme eligibility." };
+  if ((program.residencyEligibility ?? []).length > 0) {
+    if (!input.residency?.trim()) return unverified("Residency");
+    if (!program.residencyEligibility?.includes(input.residency)) {
+      return { matched: false, reason: "Residency is outside programme eligibility." };
+    }
   }
-  if (input.state && (program.eligibleStates ?? []).length > 0 && !program.eligibleStates?.includes(input.state)) {
-    return { matched: false, reason: "Geography is outside programme coverage." };
+  if ((program.eligibleStates ?? []).length > 0) {
+    if (!input.state?.trim()) return unverified("State");
+    if (!program.eligibleStates?.includes(input.state)) {
+      return { matched: false, reason: "Geography is outside programme coverage." };
+    }
   }
-  if (input.transactionType && (program.transactionTypes ?? []).length > 0 && !program.transactionTypes?.includes(input.transactionType)) {
-    return { matched: false, reason: "Transaction type is outside programme eligibility." };
+  if ((program.transactionTypes ?? []).length > 0) {
+    if (!input.transactionType?.trim()) return unverified("Transaction type");
+    if (!program.transactionTypes?.includes(input.transactionType)) {
+      return { matched: false, reason: "Transaction type is outside programme eligibility." };
+    }
   }
   const usesNewPropertyModel =
     (program.propertyCategories ?? []).length > 0 ||
     (program.constructionStatuses ?? []).length > 0;
   if (usesNewPropertyModel) {
-    if (
-      input.propertyCategory &&
-      (program.propertyCategories ?? []).length > 0 &&
-      !program.propertyCategories?.includes(input.propertyCategory)
-    ) {
-      return { matched: false, reason: "Property category is outside programme eligibility." };
+    if ((program.propertyCategories ?? []).length > 0) {
+      if (!input.propertyCategory?.trim()) return unverified("Property category");
+      if (!program.propertyCategories?.includes(input.propertyCategory)) {
+        return { matched: false, reason: "Property category is outside programme eligibility." };
+      }
     }
-    if (
-      input.constructionStatus &&
-      (program.constructionStatuses ?? []).length > 0 &&
-      !program.constructionStatuses?.includes(input.constructionStatus)
-    ) {
-      return { matched: false, reason: "Construction status is outside programme eligibility." };
+    if ((program.constructionStatuses ?? []).length > 0) {
+      if (!input.constructionStatus?.trim()) return unverified("Construction status");
+      if (!program.constructionStatuses?.includes(input.constructionStatus)) {
+        return { matched: false, reason: "Construction status is outside programme eligibility." };
+      }
     }
   }
   // Legacy published records retain their existing propertyTypes data and matching behavior.
   // Do not reinterpret legacy values as either a category or a construction status.
-  if (!inRange(input.cibil, program.minCibil, program.maxCibil)) {
-    return { matched: false, reason: "CIBIL is outside programme range." };
+  // Property value, tenure, obligations, and age are not invented here.
+  if (program.minCibil != null || program.maxCibil != null) {
+    if (input.cibil == null) return unverified("CIBIL");
+    if (!inRange(input.cibil, program.minCibil, program.maxCibil)) {
+      return { matched: false, reason: "CIBIL is outside programme range." };
+    }
   }
-  if (!inRange(input.age, program.minAge, program.maxAge)) {
-    return { matched: false, reason: "Age is outside programme range." };
+  if (program.minAge != null || program.maxAge != null) {
+    if (input.age == null) return unverified("Age");
+    if (!inRange(input.age, program.minAge, program.maxAge)) {
+      return { matched: false, reason: "Age is outside programme range." };
+    }
   }
-  if (!inExactRange(input.loanAmountExact, program.minLoanAmountExact, program.maxLoanAmountExact)) {
-    return { matched: false, reason: "Loan amount is outside programme range." };
+  if (program.minLoanAmountExact || program.maxLoanAmountExact) {
+    if (!input.loanAmountExact?.trim()) return unverified("Requested amount");
+    if (!inExactRange(input.loanAmountExact, program.minLoanAmountExact, program.maxLoanAmountExact)) {
+      return { matched: false, reason: "Loan amount is outside programme range." };
+    }
   }
   return { matched: true, reason: `Matched published programme ${program.code} v${program.versionNumber}.` };
 }

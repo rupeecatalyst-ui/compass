@@ -188,11 +188,43 @@ const ranked = recommendPublishedLendersFromOptions([lenderOption()], {
   file: fileShape(),
   programmes: [active],
 });
-record("BAT-16", ranked[0]?.programmeId === active.id && ranked[0]?.score === 88, ranked[0]?.reason ?? "no rank");
+record(
+  "BAT-16",
+  ranked.length === 0,
+  ranked[0]?.reason ?? "programme age, residency, and state rules were not treated as passed",
+);
 resetOpportunityCompassRecommendations();
 const compass = recommendOpportunityFromPublishedProgramme({ contextRef: "opp-bat", program: active });
 record("BAT-17", Boolean(compass?.message.includes(active.code)), compass?.message ?? "missing");
-record("BAT-18", matchPublishedProgramme(active, { productCode: "HL_STD", employmentType: "salaried", cibil: 740 }).matched, "alias matching");
+record(
+  "BAT-18",
+  matchPublishedProgramme(active, {
+    productCode: "HL_STD",
+    employmentType: "salaried",
+    constitution: "individual",
+    residency: "resident",
+    state: "MH",
+    transactionType: "fresh",
+    loanAmountExact: "2500000.00",
+    cibil: 740,
+    age: 35,
+  }).matched,
+  "alias matching",
+);
+record(
+  "BAT-18A",
+  !matchPublishedProgramme(active, {
+    productCode: "HL_STD",
+    employmentType: "salaried",
+    constitution: "individual",
+    residency: "resident",
+    state: "MH",
+    transactionType: "fresh",
+    loanAmountExact: "2500000.00",
+    cibil: 740,
+  }).matched,
+  "age not collected",
+);
 
 const lod = mergeEdieAndProgrammeLod({
   edieTypeRefs: ["doc:identity:aadhaar"],

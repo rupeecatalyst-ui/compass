@@ -91,12 +91,12 @@ const RECOMMENDATION_KEYS = new Set([
 
 const ENRICHMENT_KEYS = new Set(["remarks"]);
 
-export const GOVERNED_CUSTOMER_RECOMMENDATION = {
-  connected: false,
-  source: "unavailable",
-  blocker:
-    "The governed CHANAKYA customer eligibility service is not available on this baseline. No lender recommendation is shown.",
-} as const;
+/**
+ * COMPASS customer recommendations execute the published-programme matcher.
+ * The stored journey stamp `governed_chanakya` means that matcher.
+ * It does not mean canonical Opportunity Assessment eligibility.
+ */
+export const PUBLIC_CUSTOMER_RECOMMENDATION_EXECUTOR = "published_programme_matcher" as const;
 
 export function journeyRoleSource(field: {
   journeyRole?: PublicFieldPurpose | null;

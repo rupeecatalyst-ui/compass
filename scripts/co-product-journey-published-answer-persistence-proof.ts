@@ -9,6 +9,8 @@ import { join } from "node:path";
 import { buildIdcJourneyDraft, projectPublicEqualsGate } from "../server/services/compass-customer-gateway/compass-journey-config.service";
 import { answersToSnapshotFields } from "../server/services/compass-customer-gateway/compass-opportunity-projection";
 import { projectRegistryProgrammeRecommendations } from "../server/services/compass-customer-gateway/compass-recommendations.service";
+import { matchPublishedProgramme } from "../src/lib/product-programme-operations/match-published";
+import { resolvePublicRecommendationExecutor } from "../src/lib/product-journey/publication";
 import {
   parseCompassDisplayName,
   shouldPersistContactName,
@@ -21,6 +23,8 @@ import {
 import { sanitizeCompassJourneyAnswers } from "../src/constants/compass-customer-gateway/snapshot-answers";
 import type { JourneyDraft } from "../src/lib/product-journey/publication";
 import type { PartnerOpportunityDetailDto } from "../src/types/enterprise-partner-business";
+import type { EnterpriseLenderProgramRecord } from "../src/types/enterprise-lender-registry";
+import type { PublishedLenderOption } from "../src/lib/enterprise-lender-registry/published-directory";
 
 function questionsFrom(draft: JourneyDraft): PublicQuestionField[] {
   return draft.fields.map((field) => {
@@ -173,6 +177,124 @@ async function main() {
   assert.deepEqual(recommendation.cards, []);
   assert.match(recommendation.message, /No published programme matches/);
   assert.doesNotMatch(recommendation.message, /still needed/);
+  assert.equal(home.recommendationBinding, "governed_chanakya");
+  assert.equal(resolvePublicRecommendationExecutor(home.recommendationBinding), "published_programme_matcher");
+  assert.equal(resolvePublicRecommendationExecutor("unavailable"), "none");
+  assert.equal(resolvePublicRecommendationExecutor(null), "published_programme_matcher");
+  assert.deepEqual(
+    home.fields.map((field) => field.fieldId),
+    [
+      "employmentTypeCode",
+      "employerName",
+      "occupation",
+      "monthlyIncomeLabel",
+      "annualTurnoverLabel",
+      "approxCibilScore",
+      "propertyCategory",
+      "constructionStatus",
+      "propertyValueLabel",
+      "requestedAmountLabel",
+    ],
+  );
+  assert.equal(home.fields.find((field) => field.fieldId === "propertyValueLabel")?.required, false);
+  for (const absent of ["requestedTenureMonths", "existingMonthlyObligations", "ageYears", "dateOfBirth", "propertyCity"]) {
+    assert.equal(home.fields.some((field) => field.fieldId === absent), false, absent);
+  }
+
+  const salariedAnswers = { ...governed.answers };
+  for (const [label, key] of [
+    ["employment", "employmentTypeCode"],
+    ["income", "monthlyIncomeLabel"],
+    ["cibil", "approxCibilScore"],
+    ["property category", "propertyCategory"],
+    ["construction status", "constructionStatus"],
+    ["requested amount", "requestedAmountLabel"],
+  ] as const) {
+    const without = { ...salariedAnswers };
+    delete without[key];
+    const pending = recommendationReadiness(questions, without);
+    assert.equal(pending.ready, false, label);
+    assert.ok(pending.missingPublicFieldKeys.includes(key), label);
+    assert.equal(pending.missingPublicFieldKeys.includes("propertyValueLabel"), false, label);
+  }
+
+  const selfEmployed = recommendationReadiness(questions, {
+    employmentTypeCode: "self-employed-professional",
+    approxCibilScore: "750_799",
+    propertyCategory: "residential",
+    constructionStatus: "ready",
+    requestedAmountLabel: "5000000",
+  });
+  assert.equal(selfEmployed.ready, true);
+  assert.equal(selfEmployed.missingPublicFieldKeys.includes("monthlyIncomeLabel"), false);
+
+  const lender: PublishedLenderOption = {
+    id: "registry-proof-lender",
+    code: "PROOFBANK",
+    displayName: "Proof Bank",
+    legalName: "Proof Bank",
+    institutionCategory: "bank",
+    aliases: [],
+    source: "api",
+    published: true,
+    active: true,
+  };
+  const programme = {
+    id: "prog-proof",
+    code: "HL-PROOF",
+    lenderId: lender.id,
+    productCode: "HOME_LOAN",
+    enabled: true,
+    isDeleted: false,
+    isLivePublished: true,
+    publicationState: "published",
+    completenessState: "complete",
+    employmentTypes: ["salaried"],
+    propertyCategories: ["residential"],
+    constructionStatuses: ["ready"],
+    versionNumber: 1,
+  } as EnterpriseLenderProgramRecord;
+  const salariedDetail = {
+    opportunityId: "opp-proof",
+    reference: "OPP-PROOF",
+    customerId: "ctc-proof",
+    customerDisplayName: "Stage1b E2e Test",
+    ownerLabel: "",
+    createdAt: new Date().toISOString(),
+    productCode: "HOME_LOAN",
+    productLabel: "Home Loan",
+    requiredAmountLabel: "5000000",
+    borrowerFields: mapped.borrowerFields,
+    productFields: {
+      ...mapped.productFields,
+      lendingType: "secured",
+      transactionType: "fresh",
+    },
+  } as PartnerOpportunityDetailDto;
+  const matched = projectRegistryProgrammeRecommendations({
+    detail: salariedDetail,
+    lenders: [lender],
+    programs: [programme],
+  });
+  assert.equal(matched.status, "ready");
+  assert.equal(matched.cards.length, 1);
+  assert.doesNotMatch(matched.message, /still needed/);
+  assert.doesNotMatch(matched.cards[0]?.reasons.join(" ") ?? "", /property value|LTV|tenure|obligation/i);
+
+  const ageBound = matchPublishedProgramme(
+    { ...programme, minAge: 21, maxAge: 65 },
+    {
+      productCode: "HOME_LOAN",
+      employmentType: "salaried",
+      propertyCategory: "residential",
+      constructionStatus: "ready",
+      loanAmountExact: "5000000.00",
+      cibil: 750,
+    },
+  );
+  assert.equal(ageBound.matched, false);
+  assert.match(ageBound.reason, /Age was not available/);
+  assert.doesNotMatch(ageBound.reason, /outside programme range/);
 
   const parsedName = parseCompassDisplayName(accepted.displayName);
   assert.equal(parsedName.ok, true);
@@ -203,6 +325,18 @@ async function main() {
   assert.ok(analyzeStart > 0);
   assert.ok(pendingAt > analyzeStart);
   assert.ok(advantageAt > pendingAt);
+  assert.match(journey, /resolvePublicRecommendationExecutor/);
+  assert.match(journey, /projectRegistryProgrammeRecommendations/);
+  assert.doesNotMatch(journey, /evaluateCanonicalEligibility/);
+  assert.doesNotMatch(journey, /recommendLendersCanonical/);
+  const canonical = readFileSync(
+    join(__dirname, "../server/services/lender-recommendation/canonical-governed-eligibility.ts"),
+    "utf8",
+  );
+  assert.match(canonical, /TENURE_REQUIRED/);
+  assert.match(canonical, /OBLIGATIONS_REQUIRED/);
+  assert.match(canonical, /PROPERTY_VALUE_REQUIRED/);
+  assert.match(canonical, /Opportunity age is authoritative/);
   const commit = readFileSync(
     join(__dirname, "../server/services/compass-advantage/commit-opportunity-advantage.ts"),
     "utf8",

@@ -74,7 +74,12 @@ import {
   normalizeCompanyNameKey,
 } from "@/lib/enterprise-company-master/name-normalize";
 import { buildCompassJourneyConfig, buildPublishedProductJourneyConfig } from "./compass-journey-config.service";
-import { journeyPublicationState, recordMissingJourneyPin, resolvePublishedJourney } from "@/lib/product-journey/publication";
+import {
+  journeyPublicationState,
+  recordMissingJourneyPin,
+  resolvePublicRecommendationExecutor,
+  resolvePublishedJourney,
+} from "@/lib/product-journey/publication";
 import { ProductJourneyStoreError } from "@/lib/product-journey/store";
 import { computeCompassAdvantage } from "./compass-advantage.service";
 import { pinAdvantageOnOpportunity } from "@server/services/compass-advantage/compass-advantage-commercial.service";
@@ -827,22 +832,38 @@ export const compassJourneyService = {
     });
 
     let recommendations: CompassAnalysisDto["recommendations"];
-    try {
-      const lenders = await listCompassGatewayPublishedLenderOptions(organizationId);
-      const listed = await lenderRegistryService.queryPrograms({ pageSize: 500, enabled: true });
-      const programs = listed.items.filter(isPublishedCommercialProgram);
-      recommendations = projectRegistryProgrammeRecommendations({
-        detail,
-        lenders,
-        programs,
-      });
-    } catch {
+    const published =
+      pin == null
+        ? null
+        : await resolvePublishedJourney(organizationId, definition.enterpriseProductCode, pin);
+    const executor = resolvePublicRecommendationExecutor(
+      pin == null ? null : (published?.recommendationBinding ?? "unavailable"),
+    );
+    if (executor === "none") {
       recommendations = {
         status: "unavailable",
-        message: "Published lender programmes are temporarily unavailable.",
+        message: "Published programme guidance is not configured for this application.",
         cards: [],
         dtoSource: "enterprise_compass_recommendations",
       };
+    } else {
+      try {
+        const lenders = await listCompassGatewayPublishedLenderOptions(organizationId);
+        const listed = await lenderRegistryService.queryPrograms({ pageSize: 500, enabled: true });
+        const programs = listed.items.filter(isPublishedCommercialProgram);
+        recommendations = projectRegistryProgrammeRecommendations({
+          detail,
+          lenders,
+          programs,
+        });
+      } catch {
+        recommendations = {
+          status: "unavailable",
+          message: "Published lender programmes are temporarily unavailable.",
+          cards: [],
+          dtoSource: "enterprise_compass_recommendations",
+        };
+      }
     }
 
     return sanitizePublicPayload({

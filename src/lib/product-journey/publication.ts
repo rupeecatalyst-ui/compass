@@ -134,6 +134,7 @@ export type JourneyDraft = {
   publiclyEnabled: boolean;
   effectiveFrom?: string;
   advantageEnabled: boolean;
+  /** Stored stamp. Runtime meaning: `resolvePublicRecommendationExecutor`. */
   recommendationBinding: "governed_chanakya" | "unavailable";
   consentVersion: string;
   lodSource: "opportunity_lod";
@@ -203,6 +204,7 @@ export type PublishedJourneyDefinition = {
   retiredAt?: string;
   publiclyEnabled: boolean;
   advantageEnabled: boolean;
+  /** Same stored stamp as the draft. Runtime meaning: `resolvePublicRecommendationExecutor`. */
   recommendationBinding: "governed_chanakya" | "unavailable";
   consentVersion: string;
   lodSource: "opportunity_lod";
@@ -212,6 +214,21 @@ export type PublishedJourneyDefinition = {
   stages: JourneyStageDraft[];
   fields: JourneyFieldDraft[];
 };
+
+/**
+ * Public COMPASS customer recommendation executor.
+ * `governed_chanakya` is the existing stored stamp for the published-programme
+ * matcher (`matchPublishedProgramme`). A missing stamp is the unpinned legacy
+ * session, which already uses that same matcher.
+ * `unavailable` configures no customer recommendation.
+ * Neither value calls `recommendLendersCanonical` or `evaluateCanonicalEligibility`.
+ */
+export function resolvePublicRecommendationExecutor(
+  binding: "governed_chanakya" | "unavailable" | null | undefined,
+): "published_programme_matcher" | "none" {
+  if (binding == null || binding === "governed_chanakya") return "published_programme_matcher";
+  return "none";
+}
 
 export function hashJourneyDefinition(
   draft: Pick<JourneyDraft, "stages" | "fields" | "consentVersion" | "lodSource" | "mobileCapture" | "otpVerification">,

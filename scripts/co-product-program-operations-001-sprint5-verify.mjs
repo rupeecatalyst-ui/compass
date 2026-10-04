@@ -88,10 +88,27 @@ const matchOk = matchPublishedProgramme(published, {
   productCode: "HL_STD",
   employmentType: "salaried",
   constitution: "individual",
+  residency: "resident",
+  state: "MH",
+  transactionType: "fresh",
+  loanAmountExact: "2500000.00",
+  cibil: 750,
+  age: 35,
+});
+if (!matchOk.matched) throw new Error(matchOk.reason);
+const ageUnavailable = matchPublishedProgramme(published, {
+  productCode: "HL_STD",
+  employmentType: "salaried",
+  constitution: "individual",
+  residency: "resident",
+  state: "MH",
+  transactionType: "fresh",
   loanAmountExact: "2500000.00",
   cibil: 750,
 });
-if (!matchOk.matched) throw new Error(matchOk.reason);
+if (ageUnavailable.matched || !ageUnavailable.reason.includes("Age was not available")) {
+  throw new Error(ageUnavailable.reason);
+}
 
 const matchFail = matchPublishedProgramme(published, { employmentType: "self-employed-business" });
 if (matchFail.matched) throw new Error("Self-employed should not match salaried programme");
@@ -128,8 +145,8 @@ const ranked = recommendPublishedLendersFromOptions(
   [{ id: "lender-1", code: "L1", displayName: "Fixture Bank", legalName: "Fixture Bank", institutionCategory: "private_sector_bank", classification: "private_sector_bank", source: "api" }],
   { file, programmes: [published] },
 );
-if (ranked.length !== 1 || ranked[0].score !== 88 || ranked[0].programmeId !== published.id) {
-  throw new Error(`Ranker did not use published programme: ${JSON.stringify(ranked)}`);
+if (ranked.length !== 0) {
+  throw new Error(`Ranker treated an unverified programme rule as passed: ${JSON.stringify(ranked)}`);
 }
 
 const snapshot = stampDealProgrammeSelection({ snapshot: { existing: true }, program: published });
