@@ -15,7 +15,6 @@ function governedJourneyStartBody(raw: unknown): Record<string, unknown> {
     mobile: body.mobile,
     ...(typeof body.displayName === "string" ? { displayName: body.displayName } : {}),
     ...(typeof body.city === "string" ? { city: body.city } : {}),
-    consentAccepted: body.consentAccepted === true,
     ...(typeof body.otpVerificationToken === "string"
       ? { otpVerificationToken: body.otpVerificationToken }
       : {}),

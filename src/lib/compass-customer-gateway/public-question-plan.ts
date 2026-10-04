@@ -50,6 +50,8 @@ export const LEGACY_JOURNEY_ROLE_FALLBACK = {
     "existingEmi",
     "existingEmiLabel",
     "employerName",
+    "propertyCategory",
+    "constructionStatus",
   ],
   enrichment: ["remarks"],
   documentPrefix: "document",
@@ -83,6 +85,8 @@ const RECOMMENDATION_KEYS = new Set([
   "existingEmi",
   "existingEmiLabel",
   "employerName",
+  "propertyCategory",
+  "constructionStatus",
 ]);
 
 const ENRICHMENT_KEYS = new Set(["remarks"]);

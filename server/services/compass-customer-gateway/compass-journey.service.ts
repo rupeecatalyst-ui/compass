@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readCompassOtpConfig } from "@/lib/compass-otp/adapter";
 import {
-  GOVERNED_CUSTOMER_RECOMMENDATION,
   omitSensitiveResumeAnswers,
   quarantineInapplicableAnswers,
   recommendationReadiness,
@@ -83,6 +82,10 @@ import {
 } from "./compass-opportunity-projection";
 import { selectReusableDraft } from "@/lib/compass-customer-gateway/draft-reuse";
 import { projectCompassLod } from "./compass-lod.service";
+import { listCompassGatewayPublishedLenderOptions } from "./compass-lender-options";
+import { projectRegistryProgrammeRecommendations } from "./compass-recommendations.service";
+import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
+import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
 import {
   compassContactRef,
   issueCompassJourneyToken,
@@ -459,9 +462,6 @@ export const compassJourneyService = {
   },
 
   async startJourney(input: CompassJourneyStartRequest): Promise<CompassJourneyStartResponse> {
-    if (!input.consentAccepted) {
-      throw new CompassJourneyError("CONSENT_REQUIRED", "Consent is required to begin the journey.", 400);
-    }
     assertCompassCustomerRateLimit(input.mobile || "anonymous");
     const organizationIdForJourney = await resolveCompassGatewayOrganizationId();
     const definition = getCompassProductDefinition(input.productCode);
@@ -817,15 +817,29 @@ export const compassJourneyService = {
       advantage,
     });
 
-    return sanitizePublicPayload({
-      recommendations: {
-        status: "unavailable" as const,
-        message: GOVERNED_CUSTOMER_RECOMMENDATION.blocker,
+    let recommendations: CompassAnalysisDto["recommendations"];
+    try {
+      const lenders = await listCompassGatewayPublishedLenderOptions(organizationId);
+      const listed = await lenderRegistryService.queryPrograms({ pageSize: 500, enabled: true });
+      const programs = listed.items.filter(isPublishedCommercialProgram);
+      recommendations = projectRegistryProgrammeRecommendations({
+        detail,
+        lenders,
+        programs,
+      });
+    } catch {
+      recommendations = {
+        status: "unavailable",
+        message: "Published lender programmes are temporarily unavailable.",
         cards: [],
-        dtoSource: "enterprise_compass_recommendations" as const,
-      },
+        dtoSource: "enterprise_compass_recommendations",
+      };
+    }
+
+    return sanitizePublicPayload({
+      recommendations,
       advantage,
-      sarathiMessages: [GOVERNED_CUSTOMER_RECOMMENDATION.blocker],
+      sarathiMessages: [],
       requestedAmount,
       requestedAmountMax,
       missingPublicFieldKeys: [],
@@ -954,10 +968,10 @@ export const compassJourneyService = {
   },
 
   async submit(token: string, input: CompassSubmitRequest): Promise<CompassSubmitResponse> {
-    if (!input.consentAccepted || !input.declarationsAccepted) {
+    if (!input.consentAccepted || !input.lenderShareAccepted || !input.declarationsAccepted) {
       throw new CompassJourneyError(
         "CONSENT_REQUIRED",
-        "Consent and declarations are required to submit.",
+        "Privacy, lender share, and declarations are required to submit.",
         400,
       );
     }
@@ -1015,6 +1029,7 @@ export const compassJourneyService = {
       ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
       compassSubmittedAt: new Date().toISOString(),
       compassSubmissionConsent: true,
+      compassConsentVersion: "compass-consent-v1",
       ...(alreadyHandedOff ? {} : { [COMPASS_OPERATIONAL_HANDOFF_SNAPSHOT_KEY]: new Date().toISOString() }),
     };
 

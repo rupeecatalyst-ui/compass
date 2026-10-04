@@ -21,6 +21,10 @@ import {
 } from "@/constants/enterprise-initial-data-collection";
 import { APPROX_CIBIL_SCORE_OPTIONS } from "@/constants/cibil-score-master";
 import { PROPERTY_TYPES } from "@/constants/loan-stage-master";
+import {
+  PROGRAMME_CONSTRUCTION_STATUSES,
+  PROGRAMME_PROPERTY_CATEGORIES,
+} from "@/constants/product-programme-operations/controlled-masters";
 import { getOccupancyMaster } from "@/constants/occupancy-master";
 import { PARTNER_RECOMMENDATION_PRESENTATION } from "@/constants/enterprise-partner-recommendations";
 import {
@@ -189,6 +193,14 @@ export function buildPartnerOpportunityJourneyConfig(): PartnerOpportunityJourne
       industry: ecmDomainOptions("industry"),
       lendingType: optionsFromPairs([...LEAD_INFORMATION_LENDING_TYPE_OPTIONS]),
       transactionType: optionsFromPairs([...LEAD_INFORMATION_TRANSACTION_OPTIONS]),
+      propertyCategory: PROGRAMME_PROPERTY_CATEGORIES.map((item) => ({
+        value: item.id,
+        label: item.label,
+      })),
+      constructionStatus: PROGRAMME_CONSTRUCTION_STATUSES.map((item) => ({
+        value: item.id,
+        label: item.label,
+      })),
       propertyType: [...PROPERTY_TYPES]
         .slice()
         .sort((a, b) => a.localeCompare(b))

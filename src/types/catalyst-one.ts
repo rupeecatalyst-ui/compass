@@ -702,6 +702,10 @@ export interface LoanFile {
   createdAt: string;
   /** CRC-10.2C — Secured product qualification (LTV / eligibility ready). */
   propertyType?: string;
+  /** Governed programme property category. Legacy propertyType remains separate. */
+  propertyCategory?: string;
+  /** Governed programme construction status. */
+  constructionStatus?: string;
   /** CRC-10.3 — Occupancy master id (Decision Engine: property acceptance, LTV, eligibility). */
   occupancyId?: string;
   approxPropertyValue?: number;

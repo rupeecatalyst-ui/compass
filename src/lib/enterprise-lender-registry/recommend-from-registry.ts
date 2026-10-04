@@ -52,6 +52,8 @@ function scoreLender(
       city: file.city ?? null,
       transactionType: file.transactionType ?? null,
       propertyType: file.propertyType ?? null,
+      propertyCategory: file.propertyCategory ?? null,
+      constructionStatus: file.constructionStatus ?? null,
     });
     if (!match.matched) {
       return { score: 0, reason: match.reason };
@@ -164,6 +166,8 @@ function scoreAndRank(
           city: file.city ?? null,
           transactionType: file.transactionType ?? null,
           propertyType: file.propertyType ?? null,
+          propertyCategory: file.propertyCategory ?? null,
+          constructionStatus: file.constructionStatus ?? null,
         }).matched;
       }) ?? null;
     const { score, reason } = scoreLender(lender, file, programme);

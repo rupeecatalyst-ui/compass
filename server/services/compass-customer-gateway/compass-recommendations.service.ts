@@ -4,6 +4,7 @@ import type {
   CompassRecommendationsDto,
 } from "@/types/compass-customer-gateway";
 import { deriveChanakyaOpportunityRecommendationsFromOptions } from "@/lib/chanakya-opportunity-recommendations";
+import { recommendPublishedLendersFromOptions } from "@/lib/enterprise-lender-registry/recommend-from-registry";
 import { buildPartnerRecommendationLoanFile } from "@/lib/enterprise-partner-recommendations/project";
 import type { PartnerOpportunityDetailDto } from "@/types/enterprise-partner-business";
 import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/published-directory";
@@ -86,6 +87,45 @@ export function projectHlBtEngineRecommendations(
     assistedOffer: null,
     needsCoApplicantPrompt: false,
     cibilNotKnownDisclaimer: result.cibilNotKnownDisclaimer,
+    dtoSource: "enterprise_compass_recommendations",
+  };
+}
+
+/**
+ * Public journey ranker. Reuses recommendPublishedLendersFromRegistry's
+ * option entry and the published-programme matcher. An empty legitimate
+ * match stays an empty result.
+ */
+export function projectRegistryProgrammeRecommendations(input: {
+  detail: PartnerOpportunityDetailDto;
+  lenders: PublishedLenderOption[];
+  programs: EnterpriseLenderProgramRecord[];
+}): CompassRecommendationsDto {
+  const file = buildPartnerRecommendationLoanFile(input.detail);
+  const ranked = recommendPublishedLendersFromOptions(input.lenders, {
+    file,
+    programmes: input.programs,
+    limit: 8,
+  });
+  const cards: CompassRecommendationCardDto[] = ranked.map((row) => ({
+    lenderRef: row.lenderRef,
+    displayName: row.lenderName,
+    rank: row.rank,
+    tier: tierForRank(row.rank),
+    interestRateLabel: null,
+    estimatedEmiLabel: null,
+    processingTimeLabel: null,
+    reasons: [row.reason].filter(Boolean),
+    benefits: [],
+    programmeVersion: row.programmeVersion,
+    dtoSource: "enterprise_compass_recommendations" as const,
+  }));
+  return {
+    status: "ready",
+    message: cards.length
+      ? "Published programme matches for this requirement."
+      : "No published programme matches this requirement.",
+    cards,
     dtoSource: "enterprise_compass_recommendations",
   };
 }

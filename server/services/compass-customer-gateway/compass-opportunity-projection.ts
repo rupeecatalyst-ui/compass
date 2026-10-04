@@ -143,17 +143,21 @@ export function answersToSnapshotFields(
     "currentLendingInstitution",
     "outstandingLoanAmount",
     "outstandingLoanAmountLabel",
+    "propertyCategory",
+    "constructionStatus",
   ]);
 
   for (const [key, raw] of Object.entries(answers)) {
     if (raw == null) continue;
     const value = String(raw).trim();
     if (!value) continue;
-    if (key === "loanAmount") {
+    if (key === "loanAmount" || key === "requestedAmountLabel") {
       const n = toIntegerRupees(raw);
       if (n != null) {
         requestedAmount = n;
         productFields.requestedAmountLabel = String(n);
+      } else if (key === "requestedAmountLabel") {
+        productFields.requestedAmountLabel = value;
       }
       continue;
     }
@@ -171,7 +175,7 @@ export function answersToSnapshotFields(
       borrowerFields.approxCibilScore = value;
       continue;
     }
-    if (key === "monthlyIncome") {
+    if (key === "monthlyIncome" || key === "monthlyIncomeLabel") {
       borrowerFields.monthlyIncomeLabel = value;
       continue;
     }
@@ -179,7 +183,7 @@ export function answersToSnapshotFields(
       borrowerFields.existingEmiLabel = value;
       continue;
     }
-    if (key === "annualTurnover") {
+    if (key === "annualTurnover" || key === "annualTurnoverLabel") {
       borrowerFields.annualTurnoverLabel = value;
       continue;
     }

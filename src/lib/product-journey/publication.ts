@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { canonicalizeProductCode } from "@/lib/product-programme-operations/product-aliases";
 import {
   getProductJourneyStore,
   ProductJourneyStoreError,
@@ -92,6 +93,7 @@ export type JourneyFieldDraft = {
   purpose: "" | "identity" | "recommendation" | "application" | "document" | "enrichment";
   visibleWhen?: JourneyCondition;
   requiredWhen?: JourneyCondition;
+  notRequiredWhenFilled?: string[];
   includeOnReview?: boolean;
   min?: number;
   max?: number;
@@ -226,8 +228,10 @@ export function hashJourneyDefinition(
     .digest("hex");
 }
 
+/** One publication book per canonical product. Aliases share that book. */
 function key(productCode: string): string {
-  return productCode.trim().toLowerCase();
+  const canonical = canonicalizeProductCode(productCode) ?? productCode.trim();
+  return canonical.trim().toLowerCase();
 }
 
 function emptyBook(organizationId: string, productCode: string): JourneyBook {
@@ -818,6 +822,7 @@ type ProjectedJourneyField = {
   visibleWhenValues?: string[];
   requiredWhenField?: string;
   requiredWhenValues?: string[];
+  notRequiredWhenFilled?: string[];
   min?: number;
   max?: number;
 };
@@ -881,6 +886,7 @@ export function buildJourneyDraftFromProjection(input: {
       purpose: field.purpose ?? "",
       visibleWhen,
       requiredWhen,
+      notRequiredWhenFilled: field.notRequiredWhenFilled,
       includeOnReview: true,
       min: field.min,
       max: field.max,
@@ -893,7 +899,7 @@ export function buildJourneyDraftFromProjection(input: {
     previewed: false,
     publiclyEnabled: true,
     advantageEnabled: input.advantageEnabled,
-    recommendationBinding: "unavailable",
+    recommendationBinding: "governed_chanakya",
     consentVersion: "compass-consent-v1",
     lodSource: "opportunity_lod",
     mobileCapture: "required",
