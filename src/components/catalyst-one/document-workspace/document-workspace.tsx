@@ -1,0 +1,1982 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import {
+  FolderUp,
+  PanelRight,
+  Upload,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  DOCUMENT_WORKSPACE_CHANGE_TRANSACTION,
+  DOCUMENT_WORKSPACE_DRAFT_WARNING,
+  DOCUMENT_WORKSPACE_STALE_CONTEXT,
+  DOCUMENT_WORKSPACE_SUBTITLE,
+  DOCUMENT_WORKSPACE_TITLE,
+  type DocumentWorkspaceActionId,
+  type DocumentWorkspaceOwnerTabId,
+} from "@/constants/document-workspace";
+import {
+  DOCUMENT_WORKSPACE_EMAIL_DOCUMENT_LABEL,
+  DOCUMENT_WORKSPACE_MARK_RECEIVED_LABEL,
+  DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL,
+} from "@/constants/document-workspace-contact-centric";
+import { DOCUMENT_REGISTRY_ACCEPT } from "@/constants/document-registry";
+import { useAuthContext } from "@/components/providers/auth-provider";
+import { DocumentWorkspaceSwitcher } from "@/components/catalyst-one/document-workspace/document-workspace-switcher";
+import { DocumentWorkspacePreview } from "@/components/catalyst-one/document-workspace/document-workspace-preview";
+import { DocumentWorkspaceActionDrawer } from "@/components/catalyst-one/document-workspace/document-workspace-action-drawer";
+import { EmailContextWorkspace } from "@/components/catalyst-one/action-center/workspaces/email-context-workspace";
+import { WhatsAppContextWorkspace } from "@/components/catalyst-one/action-center/workspaces/whatsapp-context-workspace";
+import { EnterpriseActivityComposer } from "@/components/catalyst-one/action-center/workspaces/enterprise-activity-composer";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
+import {
+  buildEntityLinksFromLoanFile,
+  canDeleteDocuments,
+  canReplaceDocuments,
+  canReviewDocuments,
+  canUploadDocuments,
+  deleteDocumentFromRegistry,
+  hydrateDocumentRegistryFromServer,
+  listDocumentsForOpportunityRuntime,
+  reclassifyDocumentRegistryRecord,
+  replaceDocumentInRegistry,
+  stampDocumentReview,
+  subscribeDocumentRegistryUpdated,
+  uploadDocumentToRegistry,
+} from "@/lib/document-registry";
+import {
+  addCustomDocumentRequirement,
+  buildCustomerUploadPortalPath,
+  createOrRegenerateUploadSession,
+  deriveOpportunityDocumentReadiness,
+  getDocumentRequestState,
+  hydrateDocumentRequestStateFromServer,
+  markItemRemarks,
+  refreshDocumentRequestFromRegistry,
+  requestDocumentItems,
+  setDocumentRequestItemReview,
+  subscribeDocumentRequestsUpdated,
+} from "@/lib/document-requests";
+import {
+  buildGroupedDocumentRequestBody,
+  countDocumentWorkspaceReviews,
+  documentWorkspaceReviewLabel,
+  groupDocumentRequestItemsByOwner,
+  listUnclassifiedReceivedDocuments,
+  mergeDocumentWorkspaceRows,
+  queueDocumentLenderPack,
+  recordDocumentWorkspaceRequestBatch,
+  selectedRequestRefs,
+  type DocumentWorkspaceRow,
+} from "@/lib/document-workspace";
+import { mapDealLenderRecipients } from "@/lib/document-workspace/lender-pack";
+import { fetchDocumentWorkspaceContext } from "@/lib/document-workspace/context-client";
+import {
+  buildDocumentWorkspaceHref,
+  composerMustRefuseStaleContext,
+  documentWorkspaceFingerprint,
+  documentWorkspaceTransientUiAfterFingerprintChange,
+  filterRegistryRecordsForLockedContext,
+  hasUnsavedDocumentWorkspaceDraft,
+  lockMatchesCurrentDocumentWorkspaceRequest,
+  parseDocumentWorkspaceSearchParams,
+  parseOwnerTabParam,
+  readDocumentWorkspaceRestore,
+  writeDocumentWorkspaceRestore,
+} from "@/lib/document-workspace/context-lock";
+import type { DocumentRequestItemState } from "@/types/document-requests";
+import type {
+  DocumentWorkspaceContextInput,
+  DocumentWorkspaceLockFailure,
+  DocumentWorkspaceResolvedContext,
+} from "@/types/document-workspace-context";
+import { resolveLoanParticipants } from "@/lib/loan-participants";
+import { loadOpportunityJourneyRuntime } from "@/lib/lead-opportunity-journey/load-context";
+import { buildOpportunityWorkspaceEntryHref } from "@/lib/loan-journey/adr-018-routing";
+import { displayOpportunityText } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { cn } from "@/lib/utils";
+import { resolveLoanCommunicationParticipants, queueOutboxMessage, pauseOutboxCountdown } from "@/lib/enterprise-action-center";
+import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
+import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
+import type { LoanFile } from "@/types/catalyst-one";
+import { uploadFolderAsDocumentPackage } from "@/lib/document-package";
+import { DocumentWorkspaceOpsBar, DocumentWorkspaceRowDialogs } from "@/components/catalyst-one/document-workspace/document-workspace-ops-bar";
+import { DocumentWorkspaceLinkedParties } from "@/components/catalyst-one/document-workspace/document-workspace-linked-parties";
+import { DocumentWorkspaceMailbox } from "@/components/catalyst-one/document-workspace/document-workspace-mailbox";
+import { DocumentWorkspaceSelectionBar } from "@/components/catalyst-one/document-workspace/document-workspace-selection-bar";
+import { DocumentWorkspaceInboundReview, type DocumentWorkspaceInboundReviewItem } from "@/components/catalyst-one/document-workspace/document-workspace-inbound-review";
+import { DocumentWorkspaceChecklistShareDialog } from "@/components/catalyst-one/document-workspace/document-workspace-checklist-share";
+import {
+  buildContact360Href,
+  groupDocumentWorkspaceRowsByCategory,
+} from "@/lib/document-workspace";
+import {
+  defaultLinkedPartyKey,
+  mergeLinkedParties,
+  partyMatchesRow,
+  type DocumentWorkspaceLinkedParty,
+} from "@/lib/document-workspace/linked-parties";
+import { validateLockedDocumentSelection } from "@/lib/document-workspace/selection";
+import { mapReviewStatusToRequestable } from "@/lib/document-workspace/checklist-selection";
+import { inboundEmailVersionKey } from "@/lib/document-workspace/inbound-email-new";
+import { downloadTemporaryDocumentWorkspaceZip } from "@/lib/document-workspace/temporary-zip";
+import { DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE, DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL, DOCUMENT_WORKSPACE_SENDER_CC_MISSING, DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL, DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION, DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE, DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME, DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME } from "@/constants/document-workspace-refinement-014";
+import {
+  DOCUMENT_WORKSPACE_DELETED_DOCUMENTS_LABEL,
+  DOCUMENT_WORKSPACE_MOVE_TO_DELETED_LABEL,
+  DOCUMENT_WORKSPACE_NEWER_VERSION_CURRENT,
+  DOCUMENT_WORKSPACE_RESTORE_LABEL,
+  DOCUMENT_WORKSPACE_RESTORE_REASON_REQUIRED,
+} from "@/constants/document-workspace-lifecycle";
+import { Textarea } from "@/components/ui/textarea";
+import { authenticatedJsonFetch } from "@/lib/api-client";
+import { Mail } from "lucide-react";
+import type { OutboxMessage } from "@/types/enterprise-action-center";
+import { restoreDocumentWorkspaceViewDocumentsFocus } from "@/lib/document-workspace/transaction-card-grid";
+
+export function DocumentWorkspace() {
+  const { user } = useAuthContext();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const request = useMemo(
+    () => parseDocumentWorkspaceSearchParams(searchParams),
+    [searchParams],
+  );
+  const opportunityId = request.opportunityId?.trim() || "";
+  const dealIdFromUrl = request.dealId?.trim() || "";
+  const contextKey = documentWorkspaceFingerprint(request);
+  const actor =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || "RM";
+
+  const [lock, setLock] = useState<DocumentWorkspaceResolvedContext | null>(null);
+  const [lockError, setLockError] = useState<DocumentWorkspaceLockFailure | null>(null);
+  const [file, setFile] = useState<LoanFile | null>(null);
+  const [loading, setLoading] = useState(Boolean(opportunityId || dealIdFromUrl));
+  const [registryTick, setRegistryTick] = useState(0);
+  const [requestTick, setRequestTick] = useState(0);
+  const [ownerTab, setOwnerTab] = useState<DocumentWorkspaceOwnerTabId>(
+    parseOwnerTabParam(request.ownerTab),
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [previewId, setPreviewId] = useState<string | null>(request.documentId ?? null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [actionOpen, setActionOpen] = useState(false);
+  const [composer, setComposer] = useState<"email" | "whatsapp" | "followup" | null>(null);
+  const [composerFingerprint, setComposerFingerprint] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState<OutboxMessage | null>(null);
+  const [deals, setDeals] = useState<EnterpriseDealApiRecord[]>([]);
+  const [lenderRecipientId, setLenderRecipientId] = useState("");
+  const [coverSubject, setCoverSubject] = useState("Document pack for review");
+  const [coverBody, setCoverBody] = useState("");
+  const [groupedDraft, setGroupedDraft] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [secureLink, setSecureLink] = useState("");
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [pendingSwitch, setPendingSwitch] = useState<DocumentWorkspaceContextInput | null>(null);
+  const [linkedParties, setLinkedParties] = useState<DocumentWorkspaceLinkedParty[]>([]);
+  const [activePartyKey, setActivePartyKey] = useState("primary");
+  const [mailbox, setMailbox] = useState<"request" | "send" | null>(null);
+  const [inboundNewIds, setInboundNewIds] = useState<string[]>([]);
+  const [inboundReviewItems, setInboundReviewItems] = useState<DocumentWorkspaceInboundReviewItem[]>([]);
+  const [inboundNewByOwner, setInboundNewByOwner] = useState<Record<string, number>>({});
+  const [whatsappShareOpen, setWhatsappShareOpen] = useState(false);
+  const [rowDialog, setRowDialog] = useState<{
+    row: DocumentWorkspaceRow;
+    mode: "replace" | "remove" | "email" | "note";
+  } | null>(null);
+  const [deletedOpen, setDeletedOpen] = useState(false);
+  const [deletedItems, setDeletedItems] = useState<
+    Array<{
+      id: string;
+      originalFilename: string;
+      typeRef: string;
+      status: string;
+      deletionReason: string | null;
+      deletedAt: string | null;
+      retentionUntil: string | null;
+      eligibleForPurge: boolean;
+    }>
+  >([]);
+  const [restoreReason, setRestoreReason] = useState("");
+  const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const savedScroll = useRef(0);
+  const previousContextKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    return subscribeDocumentRegistryUpdated(() => setRegistryTick((n) => n + 1));
+  }, []);
+  useEffect(() => {
+    return subscribeDocumentRequestsUpdated(() => setRequestTick((n) => n + 1));
+  }, []);
+
+  useEffect(() => {
+    if (!opportunityId && !dealIdFromUrl) {
+      setLock(null);
+      setLockError(null);
+      setFile(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLock(null);
+    setFile(null);
+    setDeals([]);
+    setLoading(true);
+    void (async () => {
+      const current = parseDocumentWorkspaceSearchParams(searchParams);
+      const locked = await fetchDocumentWorkspaceContext(current);
+      if (cancelled) return;
+      if (!locked.ok) {
+        setLock(null);
+        setLockError(locked);
+        setFile(null);
+        setDeals([]);
+        setLoading(false);
+        return;
+      }
+      setLock(locked.context);
+      setLockError(null);
+      const runtime = await loadOpportunityJourneyRuntime(null, locked.context.opportunityId, {
+        dashboardEntry: false,
+      });
+      if (cancelled) return;
+      setFile(runtime);
+      await hydrateDocumentRegistryFromServer({
+        opportunityId: locked.context.opportunityId,
+        opportunityNumber: runtime?.opportunityNumber,
+      });
+      refreshDocumentRequestFromRegistry(locked.context.opportunityId, runtime?.id);
+      try {
+        const listed = await enterpriseDealApiClient.listDealsByOpportunity(locked.context.opportunityId);
+        if (!cancelled) setDeals(listed.items);
+      } catch {
+        if (!cancelled) setDeals([]);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [contextKey, opportunityId, dealIdFromUrl, searchParams]);
+
+  useEffect(() => {
+    if (!lock?.opportunityId) {
+      setLinkedParties([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await authenticatedJsonFetch(
+          `/api/document-workspace/refinement-014?opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
+        );
+        const json = await res.json().catch(() => ({}));
+        const data = json?.data ?? json;
+        if (cancelled || !data?.parties) return;
+        setLinkedParties(data.parties as DocumentWorkspaceLinkedParty[]);
+        setActivePartyKey((current) =>
+          (data.parties as DocumentWorkspaceLinkedParty[]).some((p) => p.key === current)
+            ? current
+            : data.defaultKey || defaultLinkedPartyKey(data.parties),
+        );
+      } catch {
+        if (!cancelled) {
+          const fallback = mergeLinkedParties({
+            opportunityParticipants: [],
+            lockKind: lock.dealId ? "deal" : "opportunity",
+          });
+          setLinkedParties(fallback);
+          setActivePartyKey(defaultLinkedPartyKey(fallback));
+        }
+      }
+      try {
+        const inbound = await authenticatedJsonFetch(
+          `/api/document-workspace/refinement-014?view=inbound-new&opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
+        );
+        const json = await inbound.json().catch(() => ({}));
+        const unseen = (json?.data?.unseen ?? []) as Array<{ documentId: string; ownerEntityId?: string | null; contactId?: string | null }>;
+        if (!cancelled) {
+          setInboundNewIds(unseen.map((row) => row.documentId));
+          const byOwner: Record<string, number> = {};
+          for (const row of unseen) {
+            const owner = row.ownerEntityId || row.contactId;
+            if (!owner) continue;
+            byOwner[owner] = (byOwner[owner] ?? 0) + 1;
+          }
+          setInboundNewByOwner(byOwner);
+        }
+      } catch {
+        if (!cancelled) {
+          setInboundNewIds([]);
+          setInboundNewByOwner({});
+        }
+      }
+      try {
+        const review = await authenticatedJsonFetch(
+          `/api/document-workspace/refinement-014?view=inbound-review&opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
+        );
+        const json = await review.json().catch(() => ({}));
+        if (!cancelled) setInboundReviewItems((json?.data?.items ?? []) as DocumentWorkspaceInboundReviewItem[]);
+      } catch {
+        if (!cancelled) setInboundReviewItems([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lock?.opportunityId, lock?.dealId]);
+
+  useEffect(() => {
+    const transition = documentWorkspaceTransientUiAfterFingerprintChange({
+      previousFingerprint: previousContextKey.current,
+      nextFingerprint: contextKey,
+    });
+    previousContextKey.current = contextKey;
+    if (transition.switched) {
+      setSelectedIds(transition.selectedIds);
+      setPreviewId(transition.previewId);
+      setFullscreen(transition.fullscreen);
+      setActionOpen(transition.actionOpen);
+      setComposer(transition.composer);
+      setComposerFingerprint(transition.composerFingerprint);
+      setEditingMessage(transition.editingMessage);
+      setGroupedDraft(transition.groupedDraft);
+      setCoverBody(transition.coverBody);
+      setSecureLink(transition.secureLink);
+      setLenderRecipientId(transition.lenderRecipientId);
+      setMailbox(transition.mailbox);
+    }
+    const restored = contextKey ? readDocumentWorkspaceRestore(contextKey) : null;
+    setOwnerTab(parseOwnerTabParam(request.ownerTab || restored?.ownerTab));
+    if (!transition.switched) {
+      setPreviewId(request.documentId || restored?.documentId || null);
+      if (restored?.selectedIds?.length) setSelectedIds(restored.selectedIds);
+      requestAnimationFrame(() => {
+        if (tableScrollRef.current && restored?.tableScroll) {
+          tableScrollRef.current.scrollTop = restored.tableScroll;
+        }
+      });
+    }
+  }, [contextKey, request.documentId, request.ownerTab]);
+
+  const persistRestore = useCallback(() => {
+    if (!contextKey) return;
+    writeDocumentWorkspaceRestore(contextKey, {
+      ownerTab,
+      documentId: previewId,
+      selectedIds,
+      tableScroll: tableScrollRef.current?.scrollTop ?? savedScroll.current,
+      actionOpen,
+      previewOpen: Boolean(previewId),
+    });
+  }, [actionOpen, contextKey, ownerTab, previewId, selectedIds]);
+
+  useEffect(() => {
+    persistRestore();
+  }, [persistRestore]);
+
+  useEffect(() => {
+    if (!composer) return;
+    if (
+      composerMustRefuseStaleContext({
+        openedFingerprint: composerFingerprint,
+        currentFingerprint: lock?.fingerprint || contextKey,
+        authorised: Boolean(lock) && !lockError,
+      })
+    ) {
+      setComposer(null);
+      setEditingMessage(null);
+      toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+    }
+  }, [composer, composerFingerprint, contextKey, lock, lockError]);
+
+  const participants = useMemo(
+    () => (file ? resolveLoanParticipants(file) : []),
+    [file],
+  );
+  const lockMatchesRequest = lockMatchesCurrentDocumentWorkspaceRequest(lock, request);
+  const lockedOpportunityId = lockMatchesRequest
+    ? lock?.opportunityId || opportunityId
+    : "";
+  const dealId = lockMatchesRequest ? lock?.dealId || "" : "";
+  const requestState = lockedOpportunityId ? getDocumentRequestState(lockedOpportunityId) : null;
+
+  const loadDeletedDocuments = useCallback(async () => {
+    if (!lockedOpportunityId) return;
+    const params = new URLSearchParams({ view: "deleted", opportunityId: lockedOpportunityId });
+    if (dealId) params.set("dealId", dealId);
+    const res = await authenticatedJsonFetch(`/api/document-workspace/refinement-014?${params.toString()}`);
+    const body = (await res.json()) as {
+      success?: boolean;
+      data?: { items?: typeof deletedItems };
+    };
+    if (res.ok && body.success && Array.isArray(body.data?.items)) {
+      setDeletedItems(body.data.items);
+    }
+  }, [lockedOpportunityId, dealId]);
+
+  useEffect(() => {
+    if (!lockedOpportunityId) return;
+    let cancelled = false;
+    void (async () => {
+      const params = new URLSearchParams({
+        view: "lod-checklist",
+        opportunityId: lockedOpportunityId,
+      });
+      if (dealId) params.set("dealId", dealId);
+      const res = await authenticatedJsonFetch(
+        `/api/document-workspace/refinement-014?${params.toString()}`,
+      );
+      const body = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          items?: Array<{
+            requestRef: string;
+            typeRef: string;
+            label: string;
+            status: string;
+            mandatory: boolean;
+            ownerLabel: string;
+            ownerKind: string;
+          }>;
+          lodVersionId?: string | null;
+        };
+      };
+      if (cancelled || !res.ok || !body.success || !Array.isArray(body.data?.items)) return;
+      hydrateDocumentRequestStateFromServer(
+        lockedOpportunityId,
+        body.data.items.map((item) => ({
+          requestRef: item.requestRef,
+          typeRef: item.typeRef,
+          label: item.label,
+          category: "journey",
+          moduleId: "server_ssot",
+          moduleLabel: "Document Request",
+          mandatory: item.mandatory,
+          critical: false,
+          ownerName: item.ownerLabel,
+          ownerRoleLabel: item.ownerKind,
+          status: item.status as DocumentRequestItemState["status"],
+        })),
+        body.data.lodVersionId,
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedOpportunityId, dealId]);
+  const records = useMemo(
+    () =>
+      listLockedWorkspaceRegistryRecords({
+        lockMatchesRequest,
+        lockedOpportunityId,
+        dealId,
+        file,
+        storeRevision: registryTick + requestTick,
+      }),
+    [lockMatchesRequest, lockedOpportunityId, dealId, file, registryTick, requestTick],
+  );
+
+  const rows = useMemo(
+    () =>
+      mergeDocumentWorkspaceRows({
+        records,
+        lodItems: requestState?.lodItems ?? [],
+        participants,
+      }),
+    [records, requestState?.lodItems, participants],
+  );
+  const counts = useMemo(() => countDocumentWorkspaceReviews(rows), [rows]);
+  const readiness = useMemo(
+    () => deriveOpportunityDocumentReadiness(requestState?.lodItems ?? []),
+    [requestState?.lodItems],
+  );
+  const unclassified = useMemo(() => listUnclassifiedReceivedDocuments(records), [records]);
+  const parties = useMemo(
+    () =>
+      linkedParties.length
+        ? linkedParties
+        : mergeLinkedParties({
+            opportunityParticipants: participants,
+            lockKind: dealId ? "deal" : "opportunity",
+          }),
+    [linkedParties, participants, dealId],
+  );
+  const activeParty = parties.find((p) => p.key === activePartyKey) ?? parties.find((p) => p.selectable) ?? null;
+  const tabRows = useMemo(
+    () =>
+      rows.filter((row) =>
+        activeParty
+          ? partyMatchesRow({
+              party: activeParty,
+              ownerTab: row.ownerTab,
+            ownerEntityId: row.record?.links.ownerEntityId || row.record?.links.contactId || row.record?.links.companyId,
+            participantRowId: row.record?.links.participantId || row.lodItem?.participantId,
+            participantRole: row.record?.links.participantRole,
+              contactId: row.record?.links.contactId,
+              companyId: row.record?.links.companyId,
+            })
+          : row.ownerTab === ownerTab,
+      ),
+    [rows, activeParty, ownerTab],
+  );
+  const previewRow = rows.find((row) => row.id === previewId) || null;
+  const selectedRows = rows.filter((row) => selectedIds.includes(row.id));
+  const commParticipants = file ? resolveLoanCommunicationParticipants(file) : [];
+
+  const applyLockedHref = (next: DocumentWorkspaceContextInput) => {
+    router.replace(
+      buildDocumentWorkspaceHref({
+        ...next,
+        organizationId: next.organizationId || lock?.organizationId,
+        ownerTab,
+      }),
+    );
+  };
+
+  const selectTransaction = (next: DocumentWorkspaceContextInput) => {
+    if (
+      hasUnsavedDocumentWorkspaceDraft({
+        groupedDraft,
+        coverBody,
+        composerOpen: Boolean(composer),
+      })
+    ) {
+      setPendingSwitch(next);
+      return;
+    }
+    setSwitcherOpen(false);
+    applyLockedHref(next);
+  };
+
+  const openPreview = (id: string) => {
+    savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
+    setPreviewId(id);
+    const row = rows.find((item) => item.id === id);
+    if (row?.record && inboundNewIds.includes(row.record.id)) {
+      const version = row.record.versions.find((v) => v.isCurrent) ?? row.record.versions[0];
+      void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "mark_seen",
+          documentId: row.record.id,
+          versionKey: inboundEmailVersionKey({
+            versionId: version?.id,
+            versionNumber: version?.version,
+            uploadedAt: version?.uploadedAt,
+          }),
+        }),
+      }).then(() => {
+        setInboundNewIds((ids) => ids.filter((item) => item !== row.record?.id));
+      });
+    }
+  };
+  const closePreview = () => {
+    setPreviewId(null);
+    setFullscreen(false);
+    persistRestore();
+    requestAnimationFrame(() => {
+      if (tableScrollRef.current) tableScrollRef.current.scrollTop = savedScroll.current;
+    });
+  };
+
+  const uploadToRow = async (row: DocumentWorkspaceRow, files: FileList | File[]) => {
+    if (!file || !canUploadDocuments(user)) {
+      toast.error("You do not have permission to upload documents.");
+      return;
+    }
+    const list = Array.from(files);
+    for (const uploaded of list) {
+      await uploadDocumentToRegistry({
+        file: uploaded,
+        typeRef: row.typeRef,
+        categoryLabel: row.categoryLabel,
+        uploadedBy: actor,
+        uploadedByUserId: user?.id,
+        links: {
+          ...buildEntityLinksFromLoanFile(file, {
+            participantId: row.lodItem?.participantId || activeParty?.participantRowId,
+            ownerEntityId:
+              activeParty?.key === "shared" || activeParty?.key === "property"
+                ? undefined
+                : activeParty?.entityId || lock?.contactId,
+            documentScope:
+              row.ownerTab === "shared" || row.ownerTab === "property" || activeParty?.key === "shared" || activeParty?.key === "property"
+                ? "shared"
+                : "applicant",
+          }),
+          opportunityId: lockedOpportunityId,
+          dealId: dealId || undefined,
+          contactId:
+            activeParty?.key === "shared" || activeParty?.key === "property"
+              ? undefined
+              : activeParty?.entityId || lock?.contactId || undefined,
+          companyId: lock?.companyId || undefined,
+          participantRole: activeParty?.entityKind === "context" ? undefined : activeParty?.role,
+          ownerEntityId: activeParty?.entityKind === "context" ? undefined : activeParty?.entityId || undefined,
+        },
+        replaceRecordId: row.registryRecordId,
+        uploadSource: "manual_upload",
+      });
+    }
+    refreshDocumentRequestFromRegistry(lockedOpportunityId, file.id);
+    toast.success("Stored in Enterprise Document Registry.");
+  };
+
+  const applyReview = (
+    row: DocumentWorkspaceRow,
+    status: "accepted" | "rejected" | "replacement_requested",
+    remarks?: string,
+  ) => {
+    if (!canReviewDocuments(user)) {
+      toast.error("Analyst role required to review documents.");
+      return;
+    }
+    if (row.record) {
+      stampDocumentReview({
+        recordId: row.record.id,
+        reviewStatus: status,
+        reviewedBy: actor,
+        remarks,
+      });
+    }
+    if (row.requestRef) {
+      setDocumentRequestItemReview({
+        opportunityId: lockedOpportunityId,
+        requestRef: row.requestRef,
+        status:
+          status === "accepted"
+            ? "verified"
+            : status === "rejected"
+              ? "rejected"
+              : "re_upload_required",
+        remarks,
+      });
+    }
+    toast.success("Review recorded on the shared registry record.");
+  };
+
+  const buildGrouped = (source: DocumentWorkspaceRow[]) => {
+    const items = source.map((row) => row.lodItem).filter(Boolean);
+    const blocks = groupDocumentRequestItemsByOwner(items as NonNullable<DocumentWorkspaceRow["lodItem"]>[]);
+    return buildGroupedDocumentRequestBody({
+      customerName: displayOpportunityText(file?.customerName),
+      opportunityReference: file?.opportunityNumber || opportunityId,
+      product: displayOpportunityText(file?.loanProduct),
+      uploadUrl: secureLink || undefined,
+      dueDateLabel: dueDate || undefined,
+      blocks,
+    });
+  };
+
+  const onAction = (id: DocumentWorkspaceActionId) => {
+    if (
+      composerMustRefuseStaleContext({
+        openedFingerprint: lock?.fingerprint,
+        currentFingerprint: contextKey,
+        authorised: Boolean(lock) && !lockError,
+      })
+    ) {
+      toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+      return;
+    }
+    const requestable = rows.filter((row) => mapReviewStatusToRequestable(row.reviewStatus));
+    const pending = requestable;
+    const target = id === "request_all_pending" ? pending : selectedRows.filter((row) => mapReviewStatusToRequestable(row.reviewStatus));
+    if (id === "request_selected" || id === "request_all_pending") {
+      const refs = selectedRequestRefs(target.map((row) => row.lodItem!).filter(Boolean));
+      if (refs.length) requestDocumentItems(lockedOpportunityId, refs);
+      const draft = buildGrouped(target);
+      setGroupedDraft(draft);
+      const session = createOrRegenerateUploadSession({
+        opportunityId: lockedOpportunityId,
+        opportunityReference: lock?.opportunityNumber || file?.opportunityNumber || lockedOpportunityId,
+        customerName: lock?.customerName || file?.customerName || "Customer",
+        loanProduct: lock?.product || file?.loanProduct || "Loan",
+        borrowerTypeLabel: "Individual",
+        constitutionLabel: "Not Specified",
+        rmName: lock?.assignedEmployeeName || file?.relationshipManager,
+        actor,
+        lockedDealId: dealId || null,
+        lockedContactId: lock?.contactId,
+        lockedCompanyId: lock?.companyId,
+        lockedRequestRefs: refs,
+      });
+      const link = `${window.location.origin}${buildCustomerUploadPortalPath(session.uploadSession!.token)}`;
+      setSecureLink(link);
+      void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "create_request",
+          opportunityId: lockedOpportunityId,
+          dealId: dealId || null,
+          partyEntityId: activeParty?.entityId || lock?.contactId || "",
+          partyEntityKind: activeParty?.entityKind === "company" ? "company" : "contact",
+          participantRowId: activeParty?.participantRowId,
+          participantRole: activeParty?.role,
+          items: target.map((row) => ({
+            typeRef: row.typeRef,
+            categoryLabel: row.categoryLabel,
+            requestRef: row.requestRef || row.typeRef,
+          })),
+        }),
+      })
+        .then(async (res) => {
+          const json = await res.json().catch(() => ({}));
+          const data = json?.data ?? json;
+          if (data?.uploadPath) {
+            setSecureLink(`${window.location.origin}${data.uploadPath}`);
+          }
+        })
+        .catch(() => undefined);
+      recordDocumentWorkspaceRequestBatch({
+        opportunityId: lockedOpportunityId,
+        dealId: dealId || null,
+        contactId: lock?.contactId,
+        companyId: lock?.companyId,
+        recipientName: lock?.customerName || file?.customerName || "Customer",
+        channel: "email",
+        requestRefs: refs,
+        requester: actor,
+        dueAt: dueDate || undefined,
+        groupedBody: draft,
+        uploadToken: session.uploadSession?.token,
+      });
+      toast.message("Request drafted. Nothing has been sent.");
+      setMailbox("request");
+      return;
+    }
+    if (id === "custom_email" || id === "template_email") {
+      const selection = validateLockedDocumentSelection({
+        organizationId: lock?.organizationId || "",
+        opportunityId: lockedOpportunityId,
+        dealId: dealId || null,
+        selected: selectedRows.map((row) => ({
+          id: row.id,
+          organizationId: lock?.organizationId,
+          opportunityId: row.record?.links.opportunityId || lockedOpportunityId,
+          dealId: row.record?.links.dealId || dealId || null,
+        })),
+      });
+      if (selectedRows.length && !selection.ok) {
+        toast.error("Selection must stay inside this locked transaction.");
+        return;
+      }
+      setMailbox("send");
+      return;
+    }
+    if (id === "whatsapp") {
+      const refs = selectedRequestRefs(
+        selectedRows
+          .filter((row) => mapReviewStatusToRequestable(row.reviewStatus) && row.lodItem)
+          .map((row) => row.lodItem!),
+      );
+      if (!refs.length) {
+        toast.error("Select pending, rejected or expired requirements to share.");
+        return;
+      }
+      setWhatsappShareOpen(true);
+      return;
+    }
+    if (id === "schedule_followup") {
+      setComposerFingerprint(lock?.fingerprint || contextKey);
+      setComposer("followup");
+      return;
+    }
+    if (id === "download_selected" || id === "download_pack") {
+      const pack = (id === "download_pack" ? rows : selectedRows).filter((row) => row.record);
+      const records = pack.map((row) => row.record!).filter(Boolean);
+      if (!records.length) {
+        toast.error("Select documents that already have files.");
+        return;
+      }
+      void downloadTemporaryDocumentWorkspaceZip({
+        records,
+        partyFolder: activeParty?.displayName || lock?.customerName || "Documents",
+        filename: `documents-${lockedOpportunityId.slice(0, 8)}.zip`,
+      }).then((result) => {
+        if (!result.ok) {
+          toast.error(result.code === "PACKAGE_TOO_LARGE" ? "Package exceeds the allowed size." : "ZIP could not be built.");
+          return;
+        }
+        toast.message("Temporary ZIP downloaded. It was not stored in the Document Registry.");
+      });
+      return;
+    }
+    if (id === "send_to_lender") {
+      if (!dealId) {
+        toast.error("Lock a lender Deal with Change Transaction before sending a pack.");
+        return;
+      }
+      const eligible = selectedRows.filter((row) => row.reviewStatus === "accepted" && row.record);
+      const fallback = rows.filter((row) => row.reviewStatus === "accepted" && row.record);
+      const packRows = eligible.length ? eligible : fallback;
+      const deal = deals.find((item) => item.id === dealId);
+      if (!deal) {
+        toast.error("The locked Deal is not authorised in this Opportunity.");
+        return;
+      }
+      const recipients = mapDealLenderRecipients(deal);
+      const recipient = recipients.find((item) => item.id === lenderRecipientId) ?? recipients[0];
+      if (!packRows.length) {
+        toast.error("Only accepted document versions are eligible.");
+        return;
+      }
+      queueDocumentLenderPack({
+        opportunityId: lockedOpportunityId,
+        dealId: deal.id,
+        dealNumber: deal.dealNumber,
+        recipientId: recipient?.id || deal.id,
+        recipientName: recipient?.name || deal.primaryCounterpartyName || "Lender",
+        recipientEmail: recipient?.email,
+        records: packRows.map((row) => row.record!),
+        coverBody: coverBody || "Please find the accepted document pack.",
+        coverSubject,
+        senderLabel: actor,
+      });
+      toast.success("Lender pack queued to Outbox. Email was not sent.");
+    }
+  };
+
+  const lockedLinks = file
+    ? {
+        ...buildEntityLinksFromLoanFile(file, {}),
+        opportunityId: lockedOpportunityId,
+        dealId: dealId || undefined,
+        contactId: lock?.contactId || undefined,
+        companyId: lock?.companyId || undefined,
+      }
+    : null;
+
+  const uploadFilesToCategory = async (input: {
+    typeRef: string;
+    categoryLabel: string;
+    files: File[];
+    replaceRecordId?: string;
+    participantId?: string;
+  }) => {
+    if (!file || !lockedLinks || !canUploadDocuments(user)) {
+      toast.error("You do not have permission to upload documents.");
+      return;
+    }
+    for (const uploaded of input.files) {
+      await uploadDocumentToRegistry({
+        file: uploaded,
+        typeRef: input.typeRef,
+        categoryLabel: input.categoryLabel,
+        uploadedBy: actor,
+        uploadedByUserId: user?.id,
+        links: {
+          ...lockedLinks,
+          participantId: input.participantId || (activeParty?.entityKind === "context" ? undefined : activeParty?.participantRowId || undefined),
+          documentScope:
+            activeParty?.key === "shared" || activeParty?.key === "property" || !activeParty?.entityId
+              ? "shared"
+              : "applicant",
+          ownerEntityId: activeParty?.entityId || undefined,
+          participantRole: activeParty?.entityKind === "context" ? undefined : activeParty?.role,
+          dealId: dealId || undefined,
+        },
+        replaceRecordId: input.replaceRecordId,
+        uploadSource: "manual_upload",
+      });
+    }
+    refreshDocumentRequestFromRegistry(lockedOpportunityId, file.id);
+    toast.success("Stored in Enterprise Document Registry.");
+  };
+
+  const onFolderFiles = async (files: File[]) => {
+    if (!file || !lockedLinks || !canUploadDocuments(user)) {
+      toast.error("You do not have permission to upload documents.");
+      return;
+    }
+    const classified = files.map((item) => ({
+      file: item,
+      typeRef: `doc:other:${item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}`,
+      categoryLabel: item.name.replace(/\.[^.]+$/, "") || "Other Documents",
+      isOther: true as const,
+      label: item.name.replace(/\.[^.]+$/, "") || "Other Documents",
+    }));
+    await uploadFolderAsDocumentPackage({
+      files: classified.map((item) => ({
+        file: item.file,
+        typeRef: item.typeRef,
+        categoryLabel: item.label,
+      })),
+      uploadedBy: actor,
+      links: lockedLinks,
+    });
+    for (const item of classified) {
+      if (item.isOther) {
+        addCustomDocumentRequirement({
+          opportunityId: lockedOpportunityId,
+          label: item.label,
+          category: "journey",
+          actor,
+          ownerScope: "security",
+          ownerName: lock?.customerName || file.customerName || "Customer",
+          ownerRoleLabel: "Shared",
+          ownerTypeLabel: "Other Documents",
+        });
+      }
+    }
+    refreshDocumentRequestFromRegistry(lockedOpportunityId, file.id);
+    toast.success("Folder uploaded to Enterprise Document Registry.");
+  };
+
+  const onOtherSave = async (input: { name: string; files: File[] }) => {
+    if (!file) return;
+    addCustomDocumentRequirement({
+      opportunityId: lockedOpportunityId,
+      label: input.name,
+      category: "journey",
+      actor,
+      ownerScope: "security",
+      ownerName: lock?.customerName || file.customerName || "Customer",
+      ownerRoleLabel: "Shared",
+      ownerTypeLabel: "Other Documents",
+    });
+    await uploadFilesToCategory({
+      typeRef: `custom:${input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      categoryLabel: input.name,
+      files: input.files,
+    });
+  };
+
+  const onAttachInbound = (input: { recordId: string; typeRef: string; categoryLabel: string }) => {
+    const updated = reclassifyDocumentRegistryRecord({
+      recordId: input.recordId,
+      typeRef: input.typeRef,
+      categoryLabel: input.categoryLabel,
+      expectedOpportunityId: lockedOpportunityId,
+      expectedDealId: dealId || null,
+    });
+    if (!updated) {
+      toast.error("Inbound document does not belong to this locked transaction.");
+      return;
+    }
+    toast.success("Inbound document attached to the locked category.");
+  };
+
+  const contactHref = buildContact360Href({
+    contactId: lock?.contactId,
+    companyId: lock?.companyId,
+  });
+  const groupedTabRows = groupDocumentWorkspaceRowsByCategory(tabRows);
+
+  const deskOpen = Boolean(opportunityId || dealIdFromUrl);
+  const oppHref = lock
+    ? buildOpportunityWorkspaceEntryHref({
+        id: lock.opportunityId,
+      })
+    : `/opportunities?opportunityId=${encodeURIComponent(lockedOpportunityId)}`;
+  const contextLabel =
+    lock?.companyName || lock?.customerName || displayOpportunityText(file?.customerName);
+
+  const opener = (
+      <div
+        data-document-workspace-opener="012"
+        data-document-workspace-opener-013=""
+        className="flex min-h-[calc(100dvh-4rem)] w-full min-w-0 flex-col gap-4 overflow-x-hidden p-4 sm:p-6"
+      >
+        <header className="shrink-0">
+          <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
+          <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
+        </header>
+        <DocumentWorkspaceSwitcher
+          onSelect={selectTransaction}
+          actorUserId={user?.id ?? null}
+          actorName={actor}
+        />
+      </div>
+  );
+
+  const closeDesk = () => {
+    persistRestore();
+    applyLockedHref({});
+  };
+
+  const deskSurface = (content: ReactNode, overlays: ReactNode = null) => (
+    <>
+      {opener}
+      <Sheet
+        open={deskOpen}
+        onOpenChange={(open) => {
+          if (!open && deskOpen) closeDesk();
+        }}
+      >
+        <SheetContent
+          side="right"
+          hideCloseButton={false}
+          allowOutsideClose={false}
+          overlayClassName="bg-black/40"
+          className={DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME}
+          data-document-workspace-desk="014"
+          data-document-workspace-desk-layout="right-sheet"
+          aria-labelledby="document-workspace-desk-title"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            restoreDocumentWorkspaceViewDocumentsFocus();
+          }}
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle id="document-workspace-desk-title">
+              {DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE}
+            </SheetTitle>
+            <SheetDescription>{DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION}</SheetDescription>
+          </SheetHeader>
+          {content}
+        </SheetContent>
+      </Sheet>
+      {overlays}
+    </>
+  );
+
+  if (!deskOpen) {
+    return deskSurface(null);
+  }
+
+  if (lockError) {
+    return deskSurface(
+      <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-background">
+        <div className="space-y-4 p-4 sm:p-6">
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
+          <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
+        </header>
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-6">
+          <p className="text-sm font-medium text-destructive">Context locked — access denied</p>
+          <p className="mt-1 text-xs text-muted-foreground">{lockError.message}</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Document Workspace does not fall back to a similarly named contact or company.
+          </p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={() => applyLockedHref({})}>
+          {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
+        </Button>
+      </div>
+        </aside>
+    );
+  }
+
+  if (loading && !file) {
+    return deskSurface(
+      <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-background">
+        <ChanakyaLoadingExperience
+          module="documents"
+          statusLabel="Opening Document Workspace…"
+        />
+      </aside>,
+    );
+  }
+
+  const deskBodyGridClass = previewRow
+    ? actionOpen
+      ? DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME
+      : DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME
+    : actionOpen
+      ? DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME
+      : "flex min-h-0 flex-1 flex-col overflow-hidden";
+
+  return deskSurface(
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden bg-background">
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="border-b border-border/60 px-4 py-3 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contact</p>
+            <h1 className="text-2xl font-semibold tracking-tight" data-document-workspace-contact-name="">
+              {lock?.customerName || contextLabel}
+            </h1>
+            <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_TITLE} · {DOCUMENT_WORKSPACE_SUBTITLE}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {contactHref ? (
+              <Link
+                href={contactHref}
+                data-open-contact-header=""
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                {DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL}
+              </Link>
+            ) : null}
+            <Link href={oppHref} className="text-xs text-muted-foreground underline-offset-4 hover:underline">
+              Open Opportunity
+            </Link>
+            {previewRow ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-[1280px]:hidden"
+                onClick={() => setPreviewId(null)}
+              >
+                Document List
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={closeDesk}
+            >
+              {DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL}
+            </Button>
+            {canDeleteDocuments(user) ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                data-document-workspace-deleted-documents=""
+                onClick={() => {
+                  setDeletedOpen(true);
+                  setRestoreReason("");
+                  setRestoreTargetId(null);
+                  void loadDeletedDocuments();
+                }}
+              >
+                {DOCUMENT_WORKSPACE_DELETED_DOCUMENTS_LABEL}
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" variant="outline" onClick={closeDesk}>
+              {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-expanded={actionOpen}
+              aria-controls="document-workspace-action-centre"
+              onClick={() => {
+                savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
+                persistRestore();
+                setActionOpen((open) => !open);
+              }}
+            >
+              <PanelRight className="mr-1.5 h-3.5 w-3.5" />
+              Action Centre
+              {selectedIds.length ? (
+                <span className="ml-1.5 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                  {selectedIds.length}
+                </span>
+              ) : null}
+            </Button>
+          </div>
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:grid-cols-8" data-document-workspace-context="">
+          <Summary label="Customer / Company" value={contextLabel} />
+          <Summary label="Opportunity" value={lock?.opportunityNumber || file?.opportunityNumber || lockedOpportunityId} />
+          <Summary
+            label="Deal"
+            value={
+              lock?.dealNumber
+                ? `${lock.dealNumber}${lock.lenderName ? ` · ${lock.lenderName}` : ""}`
+                : "Opportunity-level"
+            }
+          />
+          <Summary label="Product" value={lock?.product || displayOpportunityText(file?.loanProduct)} />
+          <Summary label="Assigned RC employee" value={lock?.assignedEmployeeName || displayOpportunityText(file?.relationshipManager)} />
+          <Summary label="Workflow stage" value={lock?.workflowStage || "—"} />
+          <Summary label="Readiness" value={`${readiness.label} · ${readiness.completionPct}%`} />
+          <Summary
+            label="Counts"
+            value={`R ${counts.received} · P ${counts.pending} · U ${counts.under_review} · X ${counts.rejected} · E ${counts.expired}${inboundNewIds.length ? ` · ${inboundNewIds.length} new email documents` : ""}`}
+          />
+        </dl>
+        {unclassified.length > 0 ? (
+          <p className="mt-2 text-[11px] text-amber-700">
+            Unclassified Received Documents: {unclassified.length} (Received — Review Pending, never auto-accepted).
+          </p>
+        ) : null}
+        {switcherOpen ? (
+          <div className="mt-3 rounded-lg border border-border/70 bg-background p-3">
+            <DocumentWorkspaceSwitcher
+              compact
+              onSelect={selectTransaction}
+              actorUserId={user?.id ?? null}
+              actorName={actor}
+            />
+          </div>
+        ) : null}
+      </header>
+
+      <div className="hidden border-b border-border/60 px-4 py-2 sm:px-6 min-[1280px]:block">
+        <DocumentWorkspaceLinkedParties
+          parties={parties}
+          newCountsByEntityId={inboundNewByOwner}
+          activeKey={activePartyKey}
+          onSelect={(party) => {
+            setActivePartyKey(party.key);
+            setOwnerTab(
+              party.key === "shared"
+                ? "shared"
+                : party.key === "property"
+                  ? "property"
+                  : party.role === "co_applicant"
+                    ? "co_applicants"
+                    : party.role === "guarantor"
+                      ? "guarantors"
+                      : party.role === "company"
+                        ? "business"
+                        : "primary",
+            );
+          }}
+        />
+      </div>
+      <div className="border-b border-border/60 px-4 py-2 min-[1280px]:hidden">
+        <select
+          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+          value={activePartyKey}
+          onChange={(e) => {
+            const party = parties.find((item) => item.key === e.target.value);
+            if (party?.selectable) setActivePartyKey(party.key);
+          }}
+          aria-label="Linked Parties"
+        >
+          {parties.map((party) => (
+            <option key={party.key} value={party.key} disabled={!party.selectable}>
+              {party.displayName} · {party.roleLabel}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className={deskBodyGridClass}>
+        <div
+          ref={tableScrollRef}
+          key={`document-workspace-rows:${registryTick}:${requestTick}`}
+          className={cn(
+            "min-w-0 flex-1 overflow-auto px-4 py-3 sm:px-6",
+            previewRow && "max-md:hidden",
+          )}
+        >
+          <DocumentWorkspaceInboundReview
+            items={inboundReviewItems}
+            opportunityId={lockedOpportunityId}
+            dealId={dealId || null}
+            inboundNewIds={inboundNewIds}
+            onChanged={() => {
+              void authenticatedJsonFetch(
+                `/api/document-workspace/refinement-014?view=inbound-review&opportunityId=${encodeURIComponent(lockedOpportunityId)}&dealId=${encodeURIComponent(dealId || "")}`,
+              ).then(async (res) => {
+                const json = await res.json().catch(() => ({}));
+                setInboundReviewItems((json?.data?.items ?? []) as DocumentWorkspaceInboundReviewItem[]);
+              });
+            }}
+          />
+          <DocumentWorkspaceOpsBar
+            canUpload={canUploadDocuments(user)}
+            inboundRecords={unclassified}
+            onAddFiles={(input) => void uploadFilesToCategory(input)}
+            onFolderFiles={(files) => void onFolderFiles(files)}
+            onOtherSave={(input) => void onOtherSave(input)}
+            onAttachInbound={onAttachInbound}
+          />
+          <DocumentWorkspaceSelectionBar
+            selectedCount={selectedIds.length}
+            onClear={() => setSelectedIds([])}
+            onRequest={() => onAction("request_selected")}
+            onSend={() => onAction("custom_email")}
+            onWhatsApp={() => onAction("whatsapp")}
+          />
+          <table className="w-full min-w-[64rem] text-left text-xs" data-category-groups={String(groupedTabRows.size)}>
+            <thead className="sticky top-0 bg-background">
+              <tr className="border-b border-border/70 text-[10px] uppercase tracking-wide text-muted-foreground">
+                <th className="w-8 py-2"> </th>
+                <th className="py-2">Category / Type</th>
+                <th className="py-2">Owner</th>
+                <th className="py-2">Status</th>
+                <th className="py-2">Files</th>
+                <th className="py-2">Requested</th>
+                <th className="py-2">Received</th>
+                <th className="py-2">Validity</th>
+                <th className="py-2">Reviewer</th>
+                <th className="py-2">Remarks</th>
+                <th className="py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tabRows.map((row) => {
+                const inboundNew = Boolean(row.record && inboundNewIds.includes(row.record.id));
+                return (
+                <tr
+                  key={row.id}
+                  className={cn(
+                    "border-b border-border/50 align-top",
+                    inboundNew && "bg-amber-50/80 dark:bg-amber-950/30",
+                  )}
+                >
+                  <td className="py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(row.id)}
+                      disabled={!mapReviewStatusToRequestable(row.reviewStatus) && !row.record}
+                      data-requestable={String(mapReviewStatusToRequestable(row.reviewStatus))}
+                      onChange={() => {
+                        const next = selectedIds.includes(row.id)
+                          ? selectedIds.filter((x) => x !== row.id)
+                          : [...selectedIds, row.id];
+                        const check = validateLockedDocumentSelection({
+                          organizationId: lock?.organizationId || "",
+                          opportunityId: lockedOpportunityId,
+                          dealId: dealId || null,
+                          selected: rows
+                            .filter((item) => next.includes(item.id))
+                            .map((item) => ({
+                              id: item.id,
+                              organizationId: lock?.organizationId,
+                              opportunityId: item.record?.links.opportunityId || lockedOpportunityId,
+                              dealId: item.record?.links.dealId || dealId || null,
+                            })),
+                        });
+                        if (next.length && !check.ok) {
+                          toast.error("Selection must stay inside this locked transaction.");
+                          return;
+                        }
+                        setSelectedIds(next);
+                      }}
+                      aria-label={`Select ${row.typeLabel}`}
+                    />
+                  </td>
+                  <td className="py-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{row.typeLabel}</p>
+                      <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => openPreview(row.id)}>
+                        Preview
+                      </Button>
+                      {inboundNew ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-900">
+                          <Mail className="h-3 w-3" />
+                          {DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-muted-foreground">{row.categoryLabel}</p>
+                  </td>
+                  <td className="py-2">{row.ownerLabel}</td>
+                  <td className="py-2">{documentWorkspaceReviewLabel(row.reviewStatus)}</td>
+                  <td className="py-2 tabular-nums">{row.fileCount}</td>
+                  <td className="py-2">{fmt(row.requestedOn)}</td>
+                  <td className="py-2">{fmt(row.receivedOn)}</td>
+                  <td className="py-2">{fmt(row.validityUntil)}</td>
+                  <td className="py-2">{row.reviewer || "—"}</td>
+                  <td className="max-w-[10rem] py-2 text-muted-foreground">{row.remarks || "—"}</td>
+                  <td className="py-2">
+                    <div className="flex flex-wrap gap-1">
+                      <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => openPreview(row.id)}>
+                        Preview
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={!row.record || !canReplaceDocuments(user)}
+                        onClick={() => setRowDialog({ row, mode: "replace" })}
+                      >
+                        Replace
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={!row.record || !canDeleteDocuments(user)}
+                        onClick={() => setRowDialog({ row, mode: "remove" })}
+                      >
+                        {DOCUMENT_WORKSPACE_MOVE_TO_DELETED_LABEL}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={!row.record}
+                        onClick={() => setRowDialog({ row, mode: "email" })}
+                      >
+                        {DOCUMENT_WORKSPACE_EMAIL_DOCUMENT_LABEL}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        onClick={() => {
+                          if (!row.record) return;
+                          stampDocumentReview({
+                            recordId: row.record.id,
+                            reviewStatus: "received",
+                            reviewedBy: actor,
+                          });
+                          toast.success(DOCUMENT_WORKSPACE_MARK_RECEIVED_LABEL);
+                        }}
+                      >
+                        {DOCUMENT_WORKSPACE_MARK_RECEIVED_LABEL}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        onClick={() => setRowDialog({ row, mode: "note" })}
+                      >
+                        Note
+                      </Button>
+                      <label className="inline-flex h-7 cursor-pointer items-center rounded-md px-2 text-[11px] hover:bg-muted">
+                        <Upload className="mr-1 h-3 w-3" />
+                        File
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept={DOCUMENT_REGISTRY_ACCEPT}
+                          onChange={(e) => {
+                            if (e.target.files?.length) void uploadToRow(row, e.target.files);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <label className="inline-flex h-7 cursor-pointer items-center rounded-md px-2 text-[11px] hover:bg-muted">
+                        <FolderUp className="mr-1 h-3 w-3" />
+                        Folder
+                        <input
+                          type="file"
+                          className="hidden"
+                          multiple
+                          // @ts-expect-error webkitdirectory is valid in Chromium
+                          webkitdirectory=""
+                          onChange={(e) => {
+                            if (e.target.files?.length) void uploadToRow(row, e.target.files);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {inboundNew && row.record ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="mt-1 h-7 px-2"
+                        onClick={() => {
+                          const version = row.record?.versions.find((v) => v.isCurrent) ?? row.record?.versions[0];
+                          void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              action: "mark_seen",
+                              documentId: row.record?.id,
+                              versionKey: inboundEmailVersionKey({
+                                versionId: version?.id,
+                                versionNumber: version?.version,
+                                uploadedAt: version?.uploadedAt,
+                              }),
+                            }),
+                          }).then(() => {
+                            setInboundNewIds((ids) => ids.filter((id) => id !== row.record?.id));
+                          });
+                        }}
+                      >
+                        {DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL}
+                      </Button>
+                    ) : null}
+                  </td>
+                </tr>
+                );
+              })}
+              {tabRows.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="py-10 text-center text-muted-foreground">
+                    No documents in this owner tab.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {previewRow ? (
+          <DocumentWorkspacePreview
+            row={previewRow}
+            canReview={canReviewDocuments(user)}
+            onClose={closePreview}
+            onAccept={() => applyReview(previewRow, "accepted")}
+            onReject={(reason) => applyReview(previewRow, "rejected", reason)}
+            onRequestReplacement={(reason) => applyReview(previewRow, "replacement_requested", reason)}
+            fullscreen={fullscreen}
+            onToggleFullscreen={() => setFullscreen((v) => !v)}
+            onPrevious={() => {
+              const idx = tabRows.findIndex((row) => row.id === previewRow.id);
+              if (idx > 0) openPreview(tabRows[idx - 1]!.id);
+            }}
+            onNext={() => {
+              const idx = tabRows.findIndex((row) => row.id === previewRow.id);
+              if (idx >= 0 && idx < tabRows.length - 1) openPreview(tabRows[idx + 1]!.id);
+            }}
+          />
+        ) : null}
+
+      <DocumentWorkspaceActionDrawer
+        open={actionOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            persistRestore();
+            requestAnimationFrame(() => {
+              if (tableScrollRef.current) tableScrollRef.current.scrollTop = savedScroll.current;
+            });
+          } else {
+            savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
+          }
+          setActionOpen(open);
+        }}
+        selectedCount={selectedIds.length}
+        onAction={onAction}
+        deals={dealId ? deals.filter((item) => item.id === dealId) : []}
+        selectedDealId={dealId}
+        onDealIdChange={() => {
+          toast.message("Use Change Transaction to lock a different Deal. Context does not change from this panel.");
+        }}
+        coverSubject={coverSubject}
+        coverBody={coverBody}
+        onCoverSubjectChange={setCoverSubject}
+        onCoverBodyChange={setCoverBody}
+        lenderRecipientId={lenderRecipientId}
+        onLenderRecipientIdChange={setLenderRecipientId}
+        groupedDraft={groupedDraft}
+        onGroupedDraftChange={setGroupedDraft}
+        dueDate={dueDate}
+        onDueDateChange={setDueDate}
+        secureLink={secureLink}
+        taskContext={{
+          opportunityId: lockedOpportunityId,
+          dealId: dealId || undefined,
+          contactId: lock?.contactId || file?.customerId,
+        }}
+      />
+      </div>
+    </div>
+    </aside>,
+      <>
+      {composer === "email" && file ? (
+        <EmailContextWorkspace
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setComposer(null);
+              setEditingMessage(null);
+              persistRestore();
+            }
+          }}
+          opportunityId={lockedOpportunityId}
+          dealId={dealId || null}
+          entityId={lockedOpportunityId}
+          entityLabel={lock?.customerName || file.customerName || "Opportunity"}
+          product={lock?.product || file.loanProduct}
+          customerName={lock?.customerName || file.customerName}
+          opportunityNumber={lock?.opportunityNumber || file.opportunityNumber}
+          rm={lock?.assignedEmployeeName || file.relationshipManager}
+          participants={commParticipants}
+          editingMessage={editingMessage}
+        />
+      ) : null}
+      {composer === "whatsapp" && file ? (
+        <WhatsAppContextWorkspace
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setComposer(null);
+              persistRestore();
+            }
+          }}
+          entityId={lockedOpportunityId}
+          entityLabel={lock?.customerName || file.customerName || "Opportunity"}
+          product={lock?.product || file.loanProduct}
+          customerName={lock?.customerName || file.customerName}
+          rm={lock?.assignedEmployeeName || file.relationshipManager}
+          participants={commParticipants}
+        />
+      ) : null}
+      {composer === "followup" ? (
+        <EnterpriseActivityComposer
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setComposer(null);
+              persistRestore();
+            }
+          }}
+          heading="Schedule Follow-up"
+          actorUserId={user?.id || "user"}
+          actorLabel={actor}
+          composer={{
+            contextType: "opportunity",
+            contextId: lockedOpportunityId,
+            entityLabel: lock?.customerName || file?.customerName || "Opportunity",
+            opportunityId: lockedOpportunityId,
+            dealId: dealId || undefined,
+            product: lock?.product || file?.loanProduct,
+            customerName: lock?.customerName || file?.customerName,
+          }}
+        />
+      ) : null}
+
+      {whatsappShareOpen ? (
+        <DocumentWorkspaceChecklistShareDialog
+          open={whatsappShareOpen}
+          opportunityId={lockedOpportunityId}
+          dealId={dealId || null}
+          selectedRefs={selectedRequestRefs(
+            selectedRows
+              .filter((row) => row.lodItem && mapReviewStatusToRequestable(row.reviewStatus))
+              .map((row) => row.lodItem!),
+          )}
+          onClose={() => setWhatsappShareOpen(false)}
+        />
+      ) : null}
+
+      <DocumentWorkspaceMailbox
+        open={Boolean(mailbox)}
+        contextFingerprint={lock?.fingerprint || contextKey}
+        mode={mailbox === "request" ? "request" : "send"}
+        fromEmail={user?.email || ""}
+        senderCc={user?.email || ""}
+        initialTo={activeParty?.email || ""}
+        attachments={selectedRows.map((row) => ({
+          id: row.id,
+          filename: row.record?.displayName || row.typeLabel,
+          versionLabel: `v${row.record?.versions.find((v) => v.isCurrent)?.version ?? row.record?.version ?? 1}`,
+        }))}
+        requestedList={selectedRows.map((row) => row.typeLabel)}
+        secureLink={mailbox === "request" ? secureLink : undefined}
+        onClose={() => setMailbox(null)}
+        onSaveDraft={({ subject, htmlBody }) => {
+          const queued = queueOutboxMessage({
+            channel: "email",
+            entityType: "opportunity",
+            entityId: lockedOpportunityId,
+            recipientId: activeParty?.entityId || "customer",
+            recipientName: activeParty?.displayName || lock?.customerName || "Customer",
+            recipientType: "customer",
+            subject,
+            body: htmlBody,
+          });
+          pauseOutboxCountdown(queued.id);
+          toast.message("Draft saved to Outbox. Nothing has been sent.");
+        }}
+        onQueue={({ to, cc, subject, htmlBody, zip }) => {
+          const requestRefs = selectedRequestRefs(
+            selectedRows.filter((row) => row.lodItem && mapReviewStatusToRequestable(row.reviewStatus)).map((row) => row.lodItem!),
+          );
+          const prepare = requestRefs.length
+            ? authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                method: "POST",
+                body: JSON.stringify({
+                  action: "prepare_handoff",
+                  opportunityId: lockedOpportunityId,
+                  dealId: dealId || null,
+                  channel: "email",
+                  selectedRefs: requestRefs,
+                  to,
+                  cc,
+                  htmlBody,
+                  queueEmail: true,
+                }),
+              })
+            : authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                method: "POST",
+                body: JSON.stringify({
+                  action: "compose_validate",
+                  opportunityId: lockedOpportunityId,
+                  dealId: dealId || null,
+                  documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
+                  to,
+                  cc,
+                  htmlBody,
+                }),
+              });
+          void prepare.then(async (res) => {
+            const json = await res.json().catch(() => ({}));
+            const data = json?.data ?? json;
+            if (!data?.ok && data?.code === "MISSING_OR_INVALID_SENDER_EMAIL") {
+              toast.error(data?.message || DOCUMENT_WORKSPACE_SENDER_CC_MISSING);
+              return;
+            }
+            if (data?.sent) {
+              toast.error("Email was not sent.");
+              return;
+            }
+            const queued = queueOutboxMessage({
+              channel: "email",
+              entityType: "opportunity",
+              entityId: lockedOpportunityId,
+              recipientId: activeParty?.entityId || "customer",
+              recipientName: to[0] || lock?.customerName || "Customer",
+              recipientType: "customer",
+              subject,
+              body: data.text || htmlBody,
+            });
+            pauseOutboxCountdown(queued.id);
+            void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+              method: "POST",
+              body: JSON.stringify({
+                action: "share_event",
+                opportunityId: lockedOpportunityId,
+                dealId: dealId || null,
+                recipientLabel: to[0] || "Recipient",
+                recipientEmail: to[0] || null,
+                documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
+                versionIds: selectedRows.map((row) => row.record?.versions.find((v) => v.isCurrent)?.id).filter(Boolean),
+                attachmentMode: zip ? "zip" : "individual",
+                outboxId: queued.id,
+              }),
+            });
+            toast.message("Queued to Outbox (paused). No email or OTP was sent.");
+            setMailbox(null);
+          });
+        }}
+      />
+
+      <Dialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
+        <DialogContent className="sm:max-w-md" allowOutsideClose>
+          <DialogHeader>
+            <DialogTitle className="text-sm">Unsaved draft</DialogTitle>
+            <DialogDescription>{DOCUMENT_WORKSPACE_DRAFT_WARNING}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPendingSwitch(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                const next = pendingSwitch;
+                setPendingSwitch(null);
+                setGroupedDraft("");
+                setCoverBody("");
+                setComposer(null);
+                setMailbox(null);
+                setSwitcherOpen(false);
+                if (next) applyLockedHref(next);
+              }}
+            >
+              Discard and switch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <DocumentWorkspaceRowDialogs
+        row={rowDialog?.row ?? null}
+        mode={rowDialog?.mode ?? null}
+        recipients={commParticipants.map((item) => ({ id: item.id, name: item.name }))}
+        onClose={() => setRowDialog(null)}
+        onReplace={async (reason, file) => {
+          if (!rowDialog?.row.record || !canReplaceDocuments(user)) return;
+          await replaceDocumentInRegistry(rowDialog.row.record.id, file, actor);
+          stampDocumentReview({
+            recordId: rowDialog.row.record.id,
+            reviewStatus: "under_review",
+            reviewedBy: actor,
+            remarks: reason,
+          });
+          setRowDialog(null);
+          toast.success("Replacement stored as a new version.");
+        }}
+        onRemove={async (reason) => {
+          if (!rowDialog?.row.record || !canDeleteDocuments(user)) return;
+          await deleteDocumentFromRegistry(rowDialog.row.record.id, reason);
+          setRowDialog(null);
+          toast.success("Document moved to Deleted Documents. The file was not destroyed.");
+        }}
+        onEmail={(recipientId) => {
+          const recipient = commParticipants.find((item) => item.id === recipientId) || commParticipants[0];
+          const queued = queueOutboxMessage({
+            channel: "email",
+            entityType: "opportunity",
+            entityId: lockedOpportunityId,
+            recipientId: recipient?.id || "customer",
+            recipientName: recipient?.name || lock?.customerName || file?.customerName || "Customer",
+            recipientType: "customer",
+            subject: `Document: ${rowDialog?.row.typeLabel || "Attachment"}`,
+            body: `Please find ${rowDialog?.row.record?.displayName || rowDialog?.row.typeLabel}. Live send is not authorised from Document Workspace.`,
+          });
+          pauseOutboxCountdown(queued.id);
+          setEditingMessage(queued);
+          setComposerFingerprint(lock?.fingerprint || contextKey);
+          setComposer("email");
+          setRowDialog(null);
+          toast.message("Document email queued to Outbox. Nothing was sent.");
+        }}
+        onNote={(note) => {
+          if (rowDialog?.row.requestRef) {
+            markItemRemarks(lockedOpportunityId, rowDialog.row.requestRef, note);
+          }
+          if (rowDialog?.row.record) {
+            stampDocumentReview({
+              recordId: rowDialog.row.record.id,
+              reviewStatus: rowDialog.row.record.reviewStatus || "under_review",
+              reviewedBy: actor,
+              remarks: note,
+            });
+          }
+          setRowDialog(null);
+          toast.success("Internal note recorded on the registry row.");
+        }}
+      />
+      <Dialog
+        open={deletedOpen}
+        onOpenChange={(open) => {
+          setDeletedOpen(open);
+          if (!open) {
+            setRestoreReason("");
+            setRestoreTargetId(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg" allowOutsideClose data-document-workspace-recycle-bin="">
+          <DialogHeader>
+            <DialogTitle className="text-sm">{DOCUMENT_WORKSPACE_DELETED_DOCUMENTS_LABEL}</DialogTitle>
+            <DialogDescription>
+              Recoverable documents stay on the locked transaction. Permanent purge is not authorised.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 space-y-2 overflow-auto">
+            {deletedItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No deleted documents on this transaction.</p>
+            ) : (
+              deletedItems.map((item) => (
+                <div key={item.id} className="rounded-md border border-border/60 px-3 py-2">
+                  <p className="truncate text-sm font-medium">{item.originalFilename}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {item.status}
+                    {item.eligibleForPurge ? " · eligible for purge" : ""}
+                    {item.retentionUntil ? ` · retain until ${fmt(item.retentionUntil)}` : ""}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{item.deletionReason || "No reason recorded"}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 h-7"
+                    onClick={() => setRestoreTargetId(item.id)}
+                  >
+                    {DOCUMENT_WORKSPACE_RESTORE_LABEL}
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          {restoreTargetId ? (
+            <div className="space-y-2">
+              <Textarea
+                value={restoreReason}
+                onChange={(e) => setRestoreReason(e.target.value)}
+                placeholder={DOCUMENT_WORKSPACE_RESTORE_REASON_REQUIRED}
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={!restoreReason.trim()}
+                onClick={() => {
+                  void (async () => {
+                    const res = await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        action: "restore_deleted",
+                        opportunityId: lockedOpportunityId,
+                        dealId: dealId || null,
+                        documentId: restoreTargetId,
+                        reason: restoreReason.trim(),
+                      }),
+                    });
+                    const body = (await res.json()) as {
+                      success?: boolean;
+                      data?: { blockedByNewer?: boolean };
+                      error?: { message?: string };
+                    };
+                    if (!res.ok || !body.success) {
+                      toast.error(body.error?.message || "Restore failed.");
+                      return;
+                    }
+                    if (body.data?.blockedByNewer) {
+                      toast.message(DOCUMENT_WORKSPACE_NEWER_VERSION_CURRENT);
+                    } else {
+                      toast.success("Document restored.");
+                    }
+                    await hydrateDocumentRegistryFromServer({ opportunityId: lockedOpportunityId });
+                    setRestoreReason("");
+                    setRestoreTargetId(null);
+                    await loadDeletedDocuments();
+                  })();
+                }}
+              >
+                Confirm restore
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      </>
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="truncate font-medium">{value}</dd>
+    </div>
+  );
+}
+
+function fmt(iso?: string) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  } catch {
+    return "—";
+  }
+}
+
+function listLockedWorkspaceRegistryRecords(input: {
+  lockMatchesRequest: boolean;
+  lockedOpportunityId: string;
+  dealId: string;
+  file: LoanFile | null;
+  storeRevision: number;
+}) {
+  if (!input.lockMatchesRequest || !input.lockedOpportunityId) return [];
+  const listed = listDocumentsForOpportunityRuntime(
+    input.file?.id || input.lockedOpportunityId,
+    input.lockedOpportunityId,
+    {
+      opportunityNumber: input.file?.opportunityNumber,
+      customerId: input.file?.customerId,
+      contactId: input.file?.customerId,
+    },
+  );
+  const filtered = filterRegistryRecordsForLockedContext({
+    records: listed,
+    opportunityId: input.lockedOpportunityId,
+    dealId: input.dealId,
+  });
+  return input.storeRevision >= 0 ? filtered : [];
+}

@@ -16,6 +16,7 @@ import {
   postDisbursementTaskIdempotencyKey,
 } from "@/constants/post-disbursement-confirmation";
 import type { ConfirmPostDisbursementInput } from "@/types/enterprise-accounting-case";
+import { decideAccountingAdvantageHandoff, serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
 
 function money(value: number | null | undefined, field: string) {
   if (value === undefined) return undefined;
@@ -75,15 +76,36 @@ function accountingCasePayload(
     fulfilledAmount: Prisma.Decimal | null;
     disbursedAt: Date | null;
   },
+  advantageSnapshot?: ReturnType<typeof serializeAdvantageCommittedApi>,
 ) {
+  const inherited = advantageSnapshot
+    ? {
+        originatingOpportunityId: advantageSnapshot.advantageCommitmentId
+          ? undefined
+          : null,
+        advantageCommitted: {
+          ...advantageSnapshot,
+          originatingOpportunityId: (advantageSnapshot as { opportunityId?: string }).opportunityId,
+          originalCommitmentId: advantageSnapshot.advantageCommitmentId,
+          commitmentVersion: advantageSnapshot.advantageCommitmentVersion,
+          capturedAt: new Date().toISOString(),
+        },
+      }
+    : {};
   const upstreamSnapshot =
     input.upstreamSnapshot !== undefined
-      ? json(input.upstreamSnapshot)
-      : deal.snapshot || deal.commercialTerms || deal.lendingExtension
+      ? json({
+          ...(typeof input.upstreamSnapshot === "object" && input.upstreamSnapshot
+            ? input.upstreamSnapshot
+            : {}),
+          ...inherited,
+        })
+      : deal.snapshot || deal.commercialTerms || deal.lendingExtension || advantageSnapshot
         ? ({
             dealSnapshot: deal.snapshot,
             commercialTerms: deal.commercialTerms,
             lendingExtension: deal.lendingExtension,
+            ...inherited,
           } as Prisma.InputJsonValue)
         : undefined;
   return {
@@ -450,6 +472,30 @@ export class PostDisbursementConfirmationService {
         });
       }
 
+      const opportunity = deal.opportunityId
+        ? await tx.enterpriseOpportunity.findFirst({
+            where: { id: deal.opportunityId, organizationId, isDeleted: false },
+          })
+        : null;
+      const incomingCommitted =
+        input.upstreamSnapshot && typeof input.upstreamSnapshot === "object"
+          ? (input.upstreamSnapshot as Record<string, unknown>).advantageCommittedAmount
+          : (input as Record<string, unknown>).advantageCommittedAmount;
+      const handoff = decideAccountingAdvantageHandoff({
+        opportunityProductCode: opportunity?.productCode,
+        opportunityProductLabel: opportunity?.productLabel,
+        opportunityCommittedAmount: (opportunity as { advantageCommittedAmount?: unknown } | null)
+          ?.advantageCommittedAmount,
+        incomingAccountingAmount: incomingCommitted,
+      });
+      if (!handoff.ok) {
+        throw Object.assign(new Error(handoff.message), {
+          statusCode: 409,
+          code: handoff.code,
+        });
+      }
+      const advantageSnapshot = serializeAdvantageCommittedApi(opportunity);
+
       // Idempotent replay: already received → return existing Accounting Case.
       if (
         deal.grossStage === POST_DISBURSEMENT_CONFIRMATION_STAGE &&
@@ -513,7 +559,7 @@ export class PostDisbursementConfirmationService {
         });
       }
 
-      const confirmed = accountingCasePayload(input, deal);
+      const confirmed = accountingCasePayload(input, deal, advantageSnapshot);
       const accountingCase = await tx.enterpriseAccountingCase.upsert({
         where: { dealId: deal.id },
         create: {

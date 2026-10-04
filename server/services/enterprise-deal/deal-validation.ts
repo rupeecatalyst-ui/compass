@@ -37,6 +37,14 @@ export class DealNotFoundError extends Error {
   }
 }
 
+export class DealForbiddenError extends Error {
+  status = 403;
+  code = "DEAL_FORBIDDEN";
+  constructor(message = "You are not authorised to change the Rupee Catalyst Employee assignment") {
+    super(message);
+  }
+}
+
 export function assertNonEmpty(value: unknown, field: string): string {
   const s = typeof value === "string" ? value.trim() : "";
   if (!s) throw new DealValidationError(`${field} is required`);

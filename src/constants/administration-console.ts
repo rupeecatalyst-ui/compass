@@ -328,6 +328,14 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         keywords: ["program", "product", "lender"],
       },
       {
+        id: "home-loan-recommendation-masters",
+        title: "Product Journey & Recommendation Master",
+        description:
+          "Configure product questions, recommendation-mandatory facts, and Match % weights from one screen. Product tabs come from Product Master.",
+        href: ROUTES.ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS,
+        keywords: ["home loan", "balance transfer", "recommendation", "cibil", "ltv", "foir"],
+      },
+      {
         id: "document-types",
         title: "Document Types",
         description: "Document Type Master for Document Center.",
@@ -525,6 +533,13 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         description: "Governed decision records across the enterprise.",
         href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER,
         keywords: ["decisions", "ledger", "audit"],
+      },
+      {
+        id: "field-control-master",
+        title: "Field Control Master",
+        description: "Read-only registry of canonical field identities. Does not capture customer values.",
+        href: ROUTES.ADMIN_FIELD_CONTROL_MASTER,
+        keywords: ["fields", "registry", "governance", "metadata"],
       },
       {
         id: "recovery-center",

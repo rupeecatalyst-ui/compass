@@ -35,8 +35,18 @@ export type MarketingSenderIdentity = {
   displayName: string;
   fromAddress: string;
   replyTo: string | null;
+  channel: "EMAIL" | "WHATSAPP" | "ALL";
   active: boolean;
+  isDefault: boolean;
+  simulated: boolean;
+  approvalStatus: import("@/constants/enterprise-marketing-engine/sender-deliverability").MarketingSenderApprovalStatus;
   verificationStatus: MarketingSenderVerificationStatus;
+  permittedCampaignCategories: string[];
+  createdByUserId: string | null;
+  approvedByUserId: string | null;
+  approvedAt: string | null;
+  lastValidationAt: string | null;
+  validationFreshUntil: string | null;
   providerMapping: {
     providerType: MarketingEmailProviderType;
     /** Opaque provider profile reference — never API keys or passwords. */

@@ -4,6 +4,7 @@
  * Never auto-syncs from lender websites.
  */
 import { prisma } from "@server/lib/prisma";
+import { randomUUID } from "node:crypto";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { normalizeLenderRegistryCode } from "@server/repositories/lender-registry/mappers";
 import {
@@ -171,8 +172,11 @@ export async function seedBaselineCommercialPrograms(): Promise<BaselineCommerci
       continue;
     }
 
+    const id = randomUUID();
     await prisma.enterpriseLenderProgram.create({
       data: {
+        id,
+        lineageId: id,
         organizationId,
         lenderId: lender.id,
         productId: productIdByCode.get(productCode) ?? null,
@@ -180,9 +184,12 @@ export async function seedBaselineCommercialPrograms(): Promise<BaselineCommerci
         code: programCode,
         label: seed.label,
         description: seed.description,
-        lifecycleStatus: "active",
-        status: "active",
-        enabled: true,
+        lifecycleStatus: "draft",
+        status: "draft",
+        enabled: false,
+        completenessState: "incomplete",
+        publicationState: "draft",
+        isLivePublished: false,
         notes: seed.notes,
         createdBy: actorId,
         modifiedBy: actorId,

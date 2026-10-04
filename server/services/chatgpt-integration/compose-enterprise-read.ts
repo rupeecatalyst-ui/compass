@@ -104,6 +104,7 @@ export async function composeChatGptEnterpriseReadDto(
     portfolioCursor: cursorRaw,
     changePeriod,
     actorUserId: ctx.actor.userId,
+    actorRole: ctx.actor.role,
     correlationId: ctx.requestId,
     requestHint,
     gptCompactView: compactView ?? undefined,

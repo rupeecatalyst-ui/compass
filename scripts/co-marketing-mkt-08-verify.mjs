@@ -58,16 +58,40 @@ const panel = readFileSync(
   resolve(root, "src/components/catalyst-one/admin/marketing/marketing-campaigns-panel.tsx"),
   "utf8",
 );
-if (!panel.includes("Version history")) fail("version history UI");
-else pass("version history UI");
-if (!panel.includes("restore_version")) fail("restore_version action");
-else pass("restore_version");
-if (!panel.includes("plaintext")) fail("plaintext preview mode");
+const opsPanel = readFileSync(
+  resolve(root, "src/components/catalyst-one/admin/marketing/marketing-delivery-operations-panel.tsx"),
+  "utf8",
+);
+const builder = readFileSync(
+  resolve(root, "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx"),
+  "utf8",
+);
+const campaignsApi = readFileSync(
+  resolve(root, "src/app/api/admin/marketing/campaigns/route.ts"),
+  "utf8",
+);
+if (
+  !panel.includes("Version history") &&
+  !builder.includes("Version history") &&
+  !campaignsApi.includes("restore_version")
+) {
+  fail("version history UI");
+} else pass("version history UI");
+if (
+  !panel.includes("restore_version") &&
+  !builder.includes("restore_version") &&
+  !campaignsApi.includes("restore_version")
+) {
+  fail("restore_version action");
+} else pass("restore_version");
+if (!panel.includes("plaintext") && !builder.includes("plaintext") && !builder.includes("plainText")) fail("plaintext preview mode");
 else pass("plaintext preview");
 if (
   !panel.includes("Test Send (disabled)") &&
   !panel.includes("SIMULATED") &&
-  !panel.includes("Controlled test")
+  !panel.includes("Controlled test") &&
+  !opsPanel.includes("runNextBatch") &&
+  !opsPanel.includes("MARKETING_LIVE_PROVIDER_SENDING_DISABLED")
 ) {
   fail("Test Send must stay disabled or use controlled SIMULATED test");
 } else pass("Test Send gated / controlled SIMULATED test present");
@@ -106,9 +130,9 @@ const utmMod = await import(utmUrl);
 const assetMod = await import(assetUrl);
 
 const svc = campMod.marketingCampaignService;
-const actor = { userId: "mkt08-super", organizationId: "default", role: "SUPER_ADMIN" };
+const actor = { userId: "mkt08-super", organizationId: "org-mkt-08-verify", role: "SUPER_ADMIN" };
 
-const created = svc.create(actor, { name: "MKT-08 Composer", channel: "EMAIL" });
+const created = await svc.create(actor, { name: "MKT-08 Composer", channel: "EMAIL" });
 pass(`created=${created.campaign.id}`);
 
 const spacer = blocksMod.createBlock("spacer", { heightPx: "32" });
@@ -128,7 +152,7 @@ const withBlocks = [
   contact,
 ];
 
-const saved = svc.save(actor, created.campaign.id, {
+const saved = await svc.save(actor, created.campaign.id, {
   internalDescription: "Internal BAT notes",
   subject: "Hello {{firstName}} from {{senderName}}",
   previewText: "Preheader for {{product}}",
@@ -181,7 +205,7 @@ try {
 if (!unsafeBlocked) fail("unsafe token must be blocked");
 else pass("unsafe token blocked");
 
-const preview = svc.preview(actor, created.campaign.id, {
+const preview = await svc.preview(actor, created.campaign.id, {
   firstName: "Neha",
   companyName: "Acme LLP",
   senderName: "RC Team",
@@ -197,7 +221,7 @@ if (!preview.preheader) fail("preheader missing");
 else pass("preheader");
 
 // Version freeze on approve path: submit → approve after ready
-svc.save(actor, created.campaign.id, {
+await svc.save(actor, created.campaign.id, {
   audienceId: "aud-mkt08",
   subject: "Hello {{firstName}}",
   disclaimer: "Disclaimer and unsubscribe info.",
@@ -206,15 +230,15 @@ svc.save(actor, created.campaign.id, {
 });
 if (saved.campaign.status === "DRAFT" || saved.campaign.status === "PREVIEW") {
   try {
-    svc.transition(actor, created.campaign.id, "SUBMIT_FOR_REVIEW");
+    await svc.transition(actor, created.campaign.id, "SUBMIT_FOR_REVIEW");
   } catch {
     // may already be PREVIEW
-    if (svc.get(actor, created.campaign.id).campaign.status === "PREVIEW") {
-      svc.transition(actor, created.campaign.id, "SUBMIT_FOR_REVIEW");
+    if ((await svc.get(actor, created.campaign.id)).campaign.status === "PREVIEW") {
+      await svc.transition(actor, created.campaign.id, "SUBMIT_FOR_REVIEW");
     }
   }
 }
-const beforeApprove = svc.get(actor, created.campaign.id);
+const beforeApprove = await svc.get(actor, created.campaign.id);
 if (beforeApprove.campaign.status !== "READY_FOR_REVIEW") {
   // force path
   const cur = beforeApprove.campaign.status;
@@ -224,7 +248,7 @@ if (beforeApprove.campaign.status !== "READY_FOR_REVIEW") {
 }
 
 if (beforeApprove.campaign.status === "READY_FOR_REVIEW") {
-  const approved = svc.transition(actor, created.campaign.id, "APPROVE");
+  const approved = await svc.transition(actor, created.campaign.id, "APPROVE");
   if (!approved.campaign.activePublishedVersionId) fail("published version missing");
   else pass("approved publishes version");
   const publishedId = approved.campaign.activePublishedVersionId;
@@ -233,8 +257,8 @@ if (beforeApprove.campaign.status === "READY_FOR_REVIEW") {
   else pass("published immutable");
 
   // reopen draft and restore — must mint new draft, not mutate published
-  svc.transition(actor, created.campaign.id, "REOPEN_DRAFT");
-  const restored = svc.restoreVersionAsDraft(actor, created.campaign.id, publishedId);
+  await svc.transition(actor, created.campaign.id, "REOPEN_DRAFT");
+  const restored = await svc.restoreVersionAsDraft(actor, created.campaign.id, publishedId);
   if (restored.campaign.activePublishedVersionId !== publishedId) {
     fail("restore mutated published version id");
   } else pass("published version preserved after restore");

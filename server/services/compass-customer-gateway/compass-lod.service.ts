@@ -1,7 +1,7 @@
 import type { CompassLodDto, CompassLodItemDto } from "@/types/compass-customer-gateway";
 import { projectPartnerOpportunityLod } from "@/lib/enterprise-partner-lod/project";
+import { customerChecklistStatus } from "@/lib/compass-customer-gateway/customer-lod-status";
 import type { PartnerOpportunityDetailDto } from "@/types/enterprise-partner-business";
-import type { PartnerLodItemStatus } from "@/types/enterprise-partner-lod";
 
 const ALLOWED_MIME = [
   "application/pdf",
@@ -10,21 +10,6 @@ const ALLOWED_MIME = [
   "image/webp",
 ];
 const MAX_SIZE_BYTES = 15 * 1024 * 1024;
-
-function mapUploadStatus(status: PartnerLodItemStatus): CompassLodItemDto["uploadStatus"] {
-  switch (status) {
-    case "uploaded":
-      return "uploaded";
-    case "pending_verification":
-      return "pending_verification";
-    case "rejected":
-    case "re_upload_required":
-      return "rejected";
-    case "missing":
-    default:
-      return "missing";
-  }
-}
 
 export function projectCompassLod(detail: PartnerOpportunityDetailDto): CompassLodDto {
   const partnerLod = projectPartnerOpportunityLod(detail, {
@@ -36,11 +21,14 @@ export function projectCompassLod(detail: PartnerOpportunityDetailDto): CompassL
     label: item.label,
     mandatory: item.mandatory,
     conditional: !item.mandatory && item.critical,
-    explanation: item.moduleLabel || null,
     participantLabel: null,
     uploadStatus:
-      item.documentId && item.status !== "missing" ? mapUploadStatus(item.status) : "missing",
-    fileName: item.previewLabel,
+      item.documentId && item.status !== "missing" ? customerChecklistStatus(item.status) : "missing",
+    fileName: item.fileName?.trim() || null,
+    explanation:
+      item.status === "rejected" || item.status === "re_upload_required"
+        ? "Please upload this document again."
+        : item.moduleLabel || null,
     allowedMimeTypes: ALLOWED_MIME,
     maxSizeBytes: MAX_SIZE_BYTES,
   }));

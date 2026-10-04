@@ -136,7 +136,7 @@ const { campaign } = await marketingCampaignStore.create({
   createdByUserId: actor.userId,
 });
 
-const unqualified = marketingQualificationService.ingestResponse(actor, {
+const unqualified = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:click.only@example.com",
   matchEmail: "click.only@example.com",
@@ -174,7 +174,7 @@ marketingFixtureIdentityDirectory.upsert({
   phone: "9811111111",
 });
 
-const existing = marketingQualificationService.ingestResponse(actor, {
+const existing = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:asha.verma@example.com",
   matchEmail: "asha.verma@example.com",
@@ -199,7 +199,7 @@ else pass("Opportunity created (Dialogue fixture)");
 if (existingHandoff.assignment.assigneeUserId !== "rm-priya") fail("ownership assignment missing");
 else pass("ownership assigned from routing policy");
 
-const dupEmail = marketingQualificationService.ingestResponse(actor, {
+const dupEmail = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:asha.verma@example.com:dup",
   matchEmail: "asha.verma@example.com",
@@ -216,7 +216,7 @@ if (dupEmailHandoff.contact.contactId !== existingHandoff.contact.contactId) {
   fail("duplicate email must not create a second Contact");
 } else pass("duplicate email reuses Contact");
 
-const dupPhone = marketingQualificationService.ingestResponse(actor, {
+const dupPhone = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "phone:9811111111:dup",
   matchEmail: "other.asha@example.com",
@@ -232,7 +232,7 @@ const dupPhoneHandoff = await marketingQualificationService.handoff(actor, {
 if (dupPhoneHandoff.contact.created) fail("duplicate phone must not create a Contact");
 else pass("duplicate phone reuses Contact");
 
-const fresh = marketingQualificationService.ingestResponse(actor, {
+const fresh = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:new.person@example.com",
   matchEmail: "new.person@example.com",

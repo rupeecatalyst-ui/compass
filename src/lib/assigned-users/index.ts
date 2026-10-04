@@ -190,9 +190,11 @@ export function listEligibleAssignedUsers(query = ""): AssignedUserRef[] {
 /** Active Enterprise User Registry accounts for assignment (async SSOT). */
 export async function searchAssignableUsers(
   query = "",
+  options?: { authorised?: boolean },
 ): Promise<AssignableUserOption[]> {
   const params = new URLSearchParams();
   if (query.trim()) params.set("search", query.trim());
+  if (options?.authorised) params.set("authorised", "1");
   const qs = params.toString();
   const res = await authenticatedJsonFetch(
     `/api/users/assignable${qs ? `?${qs}` : ""}`,
@@ -213,15 +215,36 @@ export async function searchAssignableUsers(
       email: u.email,
       employeeId: u.employeeId ?? null,
       reportingManagerId: u.reportingManagerId ?? null,
+      role: u.role ?? null,
+      department: u.department ?? null,
     }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 
+const ASSIGNMENT_CAPABILITY_MODULES = new Set(["loan_workspace", "opportunity_workspace"]);
+
+export type RegistryAssignmentPermission = {
+  moduleId: string;
+  view?: boolean;
+  createEdit?: boolean;
+  admin?: boolean;
+};
+
 /**
  * Who may edit assignments from the registry.
- * VIEWER is read-only; operational roles may manage.
+ * Canonical EUM module capabilities (loan_workspace / opportunity_workspace createEdit|admin)
+ * take precedence when a permission matrix is supplied. Role labels remain a fallback.
  */
-export function canManageRegistryAssignments(role?: Role | string | null): boolean {
+export function canManageRegistryAssignments(
+  role?: Role | string | null,
+  permissions?: readonly RegistryAssignmentPermission[] | null,
+): boolean {
+  if (permissions && permissions.length > 0) {
+    const relevant = permissions.filter((row) => ASSIGNMENT_CAPABILITY_MODULES.has(row.moduleId));
+    if (relevant.length > 0) {
+      return relevant.some((row) => row.createEdit === true || row.admin === true);
+    }
+  }
   if (!role) return false;
   return (
     role === ROLES.SUPER_ADMIN ||

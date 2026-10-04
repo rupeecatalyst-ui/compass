@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import type { EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
 import type {
   EcmContactIdentityLookupResult,
@@ -95,7 +96,7 @@ export class EcmContactService {
     };
   }
 
-  async register(input: RegisterContactInput) {
+  async register(input: RegisterContactInput, db?: Prisma.TransactionClient) {
     const organizationId = await resolvePilotOrganizationId();
     const mobile = normalizeMobile(input.mobilePrimary);
     if (!mobile) throw new Error("Mobile is required.");
@@ -146,7 +147,7 @@ export class EcmContactService {
     });
 
     try {
-      return await ecmContactRepository.create({ ...draft, contactScore: score });
+      return await ecmContactRepository.create({ ...draft, contactScore: score }, db);
     } catch (err) {
       // Safety net: unique constraint race / unexpected soft-deleted row.
       const msg = err instanceof Error ? err.message : String(err);
@@ -178,6 +179,7 @@ export class EcmContactService {
       roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
     },
     actorId: string,
+    db?: Prisma.TransactionClient,
   ) {
     const existing = await ecmContactRepository.findById(id);
     if (!existing) throw new Error("Contact not found.");
@@ -245,7 +247,7 @@ export class EcmContactService {
       enabled: patch.enabled ?? existing.enabled,
       contactScore,
       modifiedBy: actorId,
-    });
+    }, db);
 
     const { propagateContactIdentityToTransactions } = await import(
       "@server/services/ecm/contact-ssot-propagate"
@@ -262,7 +264,7 @@ export class EcmContactService {
         state: updated.state,
       },
       modifiedBy: actorId,
-    });
+    }, db);
 
     return updated;
   }

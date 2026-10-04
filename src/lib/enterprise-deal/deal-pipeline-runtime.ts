@@ -78,7 +78,7 @@ export function dealToLenderExecution(
     loginDate: derived?.loginDate ?? undefined,
     disbursementDate: derived?.disbursementDate ?? undefined,
     probability: (derived?.probability as LoanLenderExecution["probability"]) ?? undefined,
-    relationshipManager: derived?.relationshipManager ?? undefined,
+    relationshipManager: deal.relationshipManagerName || derived?.relationshipManager || undefined,
     dealPriority: deal.priority ?? undefined,
     dealHealthScore: resolveKanbanDealHealthScore(
       {
@@ -153,6 +153,13 @@ export function toDealPipelineContext(deal: EnterpriseDealApiRecord): DealPipeli
     loanProduct: deal.productLabel || "",
     productCode: undefined,
     relationshipManager: deal.relationshipManagerName || "",
+    relationshipManagerUserId: deal.relationshipManagerUserId ?? null,
+    rcEmployeeAssignmentSource:
+      deal.rcEmployeeAssignmentSource === "override" || deal.assignmentMode === "override"
+        ? "override"
+        : deal.rcEmployeeAssignmentSource === "inherited" || deal.assignmentMode === "inherited"
+          ? "inherited"
+          : null,
     customerName: borrower.displayName || "",
     customerId: borrower.partyEntityId || deal.primaryContactId,
     invoicePartyId: deal.invoicePartyId,

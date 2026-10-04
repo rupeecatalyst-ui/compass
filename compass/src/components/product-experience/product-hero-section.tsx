@@ -26,7 +26,7 @@ export function ProductHeroSection({
   heroBadgeIcon: BadgeIcon = Zap,
 }: ProductHeroSectionProps) {
   const { hero } = landing;
-  const productPath = (PRODUCT_ROUTE_BY_COACH_SLUG[productId] ?? ROUTES.HOME_LOAN) as (typeof ROUTES)[keyof typeof ROUTES];
+  const productPath = PRODUCT_ROUTE_BY_COACH_SLUG[productId] as (typeof ROUTES)[keyof typeof ROUTES];
   const onDiscoverClick = useDiscoverClick(productPath);
 
   return (

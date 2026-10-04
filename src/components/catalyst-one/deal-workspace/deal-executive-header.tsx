@@ -21,6 +21,12 @@ import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/worksp
 import { DealActionCenter } from "@/components/catalyst-one/action-center";
 import { DealReadinessStrip } from "@/components/catalyst-one/deal-workspace/deal-readiness-strip";
 import { deriveDealReadiness } from "@/lib/deal-workspace/deal-workflow-validation";
+import { AdvantageCommittedReadout } from "@/components/catalyst-one/shared/advantage-committed-readout";
+import {
+  PublishedProgrammeEvidence,
+  useLivePublishedProgrammes,
+} from "@/components/catalyst-one/product-programme-operations/published-programme-evidence";
+import { readDealProgrammeStamp } from "@/lib/product-programme-operations/deal-stamp";
 
 export function DealExecutiveHeader({
   runtime,
@@ -62,6 +68,7 @@ export function DealExecutiveHeader({
   const lenderFocus =
     activeDeal.primaryCounterpartyName || activeDeal.dealNumber || "Deal";
   const [chanakyaOpen, setChanakyaOpen] = useState(false);
+  const { program: publishedProgramme } = useLivePublishedProgrammes(activeDeal.lenderId);
 
   const readiness = useMemo(
     () =>
@@ -118,6 +125,20 @@ export function DealExecutiveHeader({
           <p className="mt-0 max-w-[min(100%,32rem)] truncate text-[9px] leading-tight text-muted-foreground">
             {identityBits.join(" · ")}
           </p>
+          <div className="mt-1 grid gap-1 sm:grid-cols-2">
+            <AdvantageCommittedReadout
+              amount={activeDeal.advantageCommittedAmount}
+              display={activeDeal.advantageCommittedDisplay}
+              productLabel={context.loanProduct || activeDeal.productLabel}
+              compact
+            />
+            <PublishedProgrammeEvidence
+              program={publishedProgramme}
+              stamp={readDealProgrammeStamp(activeDeal.snapshot)}
+              title="Deal programme / version"
+              className="border-0 bg-transparent p-0 shadow-none"
+            />
+          </div>
         </section>
 
         {/* Compact CHANAKYA notification ribbon — expands on demand */}

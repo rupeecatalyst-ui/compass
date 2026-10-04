@@ -6,7 +6,9 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { leadArrivalTrendData } from "@/data/catalyst-one/dashboard";
 import { useDashboardFilter } from "@/hooks/use-dashboard-filter";
 import { ROUTES } from "@/constants/routes";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
+import { EnterpriseChartMetaStrip } from "@/components/enterprise/charts/enterprise-chart-frame";
+import { EnterpriseChartTooltip } from "@/components/enterprise/charts/enterprise-chart-tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DashboardCard,
@@ -59,8 +61,17 @@ export function LeadArrivalChart() {
         className="pt-0 cursor-pointer"
         onClick={() => router.push(`${ROUTES.REPORTS}?tab=leads&period=${period}`)}
       >
+        <EnterpriseChartMetaStrip
+          meta={{
+            measurementDefinition: "Daily lead inflow count for the selected window.",
+            reportingPeriod: `${period} · ${dateRange.label}`,
+            unitLabel: "Leads (count)",
+            lastUpdated: null,
+            activeFilters: [period, dateRange.label],
+          }}
+        />
         <ChartContainer config={chartConfig} className="aspect-[16/5.5] w-full min-h-[150px] max-h-[170px]">
-          <LineChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
             <XAxis
               dataKey="label"
@@ -79,8 +90,10 @@ export function LeadArrivalChart() {
             />
             <ChartTooltip
               content={
-                <ChartTooltipContent
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
+                <EnterpriseChartTooltip
+                  unit="count"
+                  unitLabel="Leads"
+                  period={`${period} · ${dateRange.label}`}
                 />
               }
             />

@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Download, Search } from "lucide-react";
 import {
   ELD_CATEGORY_OPTIONS,
@@ -28,12 +28,14 @@ import {
 } from "@/lib/enterprise-lender-directory";
 import { buildInstitutionBankerProductIndex } from "@/lib/enterprise-contact-master";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
+import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import {
   lenderRegistryClient,
   subscribeLenderRegistryUpdated,
 } from "@/lib/enterprise-lender-registry";
 import { downloadCsv } from "@/lib/loan-files-utils";
+import { isRegistryVisibleProgramme } from "@/lib/product-programme-operations/legacy-review";
 import type {
   EnterpriseLenderDirectoryCategoryId,
   EnterpriseLenderDirectoryFilters,
@@ -79,11 +81,11 @@ const SORT_FIELD: Record<string, EnterpriseLenderDirectorySortMode> = {
 
 export function EnterpriseLenderDirectoryWorkspace() {
   const { user } = useAuthContext();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [landingTab, setLandingTab] = useState<EldLandingTabId>("lenders");
   const [rows, setRows] = useState<EnterpriseLenderDirectoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [filters, setFilters] = useState<EnterpriseLenderDirectoryFilters>(EMPTY_FILTERS);
   const [sortMode, setSortMode] = useState<EnterpriseLenderDirectorySortMode>("smart");
@@ -98,23 +100,30 @@ export function EnterpriseLenderDirectoryWorkspace() {
     let cancelled = false;
     async function load() {
       setLoading(true);
+      setLoadError(null);
       try {
-        const [lendersResult, programsResult] = await Promise.all([
+        const [lendersResult, programsResult, lenderMetrics] = await Promise.all([
           lenderRegistryClient.queryLenders({
             status: "active",
             enabled: true,
             pageSize: 500,
           }),
           lenderRegistryClient.queryPrograms({
-            publishedOnly: true,
             pageSize: 1000,
           }),
+          enterpriseDealApiClient.lenderMetrics(),
         ]);
         await ensureEnterpriseRegistryHydrated(false).catch(() => undefined);
         if (cancelled) return;
         const composed = composeEnterpriseLenderDirectoryRows({
           lenders: lendersResult.items,
-          programs: programsResult.items,
+          programs: (programsResult.items ?? []).filter(isRegistryVisibleProgramme),
+          dealCountsByLenderId: Object.fromEntries(
+            Object.entries(lenderMetrics).map(([id, metric]) => [
+              id,
+              { deals: metric.activeDeals, opportunities: metric.opportunities, pipelineValue: 0 },
+            ]),
+          ),
         });
         setRows(
           enrichDirectoryRowsWithBankerProducts(
@@ -122,8 +131,11 @@ export function EnterpriseLenderDirectoryWorkspace() {
             buildInstitutionBankerProductIndex(),
           ),
         );
-      } catch {
-        if (!cancelled) setRows([]);
+      } catch (error) {
+        if (!cancelled) {
+          setRows([]);
+          setLoadError(error instanceof Error ? error.message : "Authoritative lender data is unavailable.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -178,8 +190,8 @@ export function EnterpriseLenderDirectoryWorkspace() {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("workspace");
     const qs = next.toString();
-    router.replace(qs ? `${ROUTES.LENDERS}?${qs}` : ROUTES.LENDERS, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once when rows ready
+    const href = qs ? `${ROUTES.LENDERS}?${qs}` : ROUTES.LENDERS;
+    window.history.replaceState(null, "", href);
   }, [loading, rows, searchParams]);
 
   const handleSort = (columnId: string) => {
@@ -384,6 +396,10 @@ export function EnterpriseLenderDirectoryWorkspace() {
 
       {landingTab === "employees" ? (
         <EldLenderEmployeesPanel />
+      ) : loadError ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          Unable to load authoritative lender data. {loadError}
+        </div>
       ) : (
       <>
       <div className="flex flex-wrap items-center justify-between gap-2 border border-border/70 bg-muted/20 px-2 py-1.5 text-[11px] text-muted-foreground">

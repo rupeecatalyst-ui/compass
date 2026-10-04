@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
@@ -9,12 +10,8 @@ import {
   POLICY_LIFECYCLE_LABELS,
   POLICY_STATUS_PILL_VARIANT,
 } from "@/constants/credit-risk-engine";
-import type { CreditRiskPolicySummary } from "@/types/credit-risk-engine";
-import {
-  getPolicyRuleReferences,
-  transitionPolicyStatus,
-  validatePolicyRules,
-} from "@/lib/credit-risk-engine/policy-store";
+import type { PolicyValidationWarning } from "@/types/credit-risk-engine";
+import { getDurablePolicy, transitionDurablePolicy, type DurablePolicyDetails } from "@/lib/credit-risk-engine/durable-policy-admin";
 import { CreditRiskEngineShell } from "@/components/catalyst-one/credit-risk-engine/credit-risk-engine-shell";
 import { WORKSPACE_CLOSE } from "@/constants/workspace-navigation";
 import { PolicyAuditPanel } from "@/components/catalyst-one/credit-risk-engine/policy-library/policy-audit-panel";
@@ -29,14 +26,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface PolicyDetailViewProps {
-  policy: CreditRiskPolicySummary;
+  policy: DurablePolicyDetails;
+  onUpdated: (policy: DurablePolicyDetails) => void;
 }
 
-export function PolicyDetailView({ policy }: PolicyDetailViewProps) {
+export function PolicyDetailView({ policy, onUpdated }: PolicyDetailViewProps) {
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get("tab") ?? "overview";
-  const ruleRefs = getPolicyRuleReferences(policy.policyId);
-  const warnings = validatePolicyRules(policy.policyId);
+  const ruleRefs = policy.ruleRefs;
+  const warnings: PolicyValidationWarning[] = [];
 
   return (
     <CreditRiskEngineShell
@@ -96,7 +94,7 @@ export function PolicyDetailView({ policy }: PolicyDetailViewProps) {
           </Card>
           <div className="mt-4 space-y-4">
             <PolicyValidationWarnings warnings={warnings} />
-            <LifecycleActions policy={policy} />
+            <LifecycleActions policy={policy} onUpdated={onUpdated} />
           </div>
         </TabsContent>
 
@@ -105,7 +103,7 @@ export function PolicyDetailView({ policy }: PolicyDetailViewProps) {
         </TabsContent>
 
         <TabsContent value="dependencies">
-          <PolicyRuleDependencyPanel policyId={policy.policyId} />
+          <PolicyRuleDependencyPanel refs={ruleRefs} />
         </TabsContent>
 
         <TabsContent value="versions">
@@ -113,7 +111,7 @@ export function PolicyDetailView({ policy }: PolicyDetailViewProps) {
             <p className="text-sm text-muted-foreground">
               Immutable version lineage — published versions are never overwritten.
             </p>
-            <PolicyVersionHistoryTable policyId={policy.policyId} />
+            <PolicyVersionHistoryTable versions={policy.versions} />
           </div>
         </TabsContent>
 
@@ -122,7 +120,7 @@ export function PolicyDetailView({ policy }: PolicyDetailViewProps) {
         </TabsContent>
 
         <TabsContent value="audit">
-          <PolicyAuditPanel policyId={policy.policyId} />
+          <PolicyAuditPanel entries={policy.auditEvents} />
         </TabsContent>
       </Tabs>
     </CreditRiskEngineShell>
@@ -148,14 +146,26 @@ function Meta({
   );
 }
 
-function LifecycleActions({ policy }: { policy: CreditRiskPolicySummary }) {
-  const actions: Array<{ label: string; status: CreditRiskPolicySummary["status"] }> = [
+function LifecycleActions({ policy, onUpdated }: { policy: DurablePolicyDetails; onUpdated: (policy: DurablePolicyDetails) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const actions: Array<{ label: string; status: "validated" | "testing" | "approved" | "published" }> = [
     { label: "Validate", status: "validated" },
     { label: "Test", status: "testing" },
     { label: "Approve", status: "approved" },
     { label: "Publish", status: "published" },
-    { label: "Archive", status: "archived" },
   ];
+  const next: string | undefined = ({ draft: "validated", validated: "testing", testing: "approved", approved: "published" } as Record<string, string>)[policy.status];
+  async function transition(status: "validated" | "testing" | "approved" | "published") {
+    setBusy(true);
+    setError(null);
+    try {
+      await transitionDurablePolicy(policy.policyId, status);
+      const refreshed = await getDurablePolicy(policy.policyId);
+      onUpdated(refreshed);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Transition failed."); }
+    finally { setBusy(false); }
+  }
 
   return (
     <Card className="glass-card border-border/60">
@@ -163,14 +173,15 @@ function LifecycleActions({ policy }: { policy: CreditRiskPolicySummary }) {
         <CardTitle className="text-base">Lifecycle Actions</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
+        {error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}
         {actions.map(({ label, status }) => (
           <Button
             key={status}
             size="sm"
             variant="outline"
             className="h-8 text-xs"
-            disabled={policy.status === status}
-            onClick={() => transitionPolicyStatus(policy.policyId, status, "Policy Admin")}
+            disabled={busy || next !== status}
+            onClick={() => void transition(status)}
           >
             {label}
           </Button>

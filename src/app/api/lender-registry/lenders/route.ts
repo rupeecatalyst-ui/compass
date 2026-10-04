@@ -115,6 +115,10 @@ export async function POST(request: Request) {
         code: String(body.code ?? ""),
 
         label: String(body.label ?? ""),
+        legalName: body.legalName ? String(body.legalName) : undefined,
+        displayName: body.displayName ? String(body.displayName) : undefined,
+        shortName: body.shortName ? String(body.shortName) : undefined,
+        aliases: Array.isArray(body.aliases) ? body.aliases.map(String) : undefined,
 
         description: body.description ? String(body.description) : undefined,
 
@@ -135,6 +139,7 @@ export async function POST(request: Request) {
         website: body.website ? String(body.website) : undefined,
 
         logoUrl: body.logoUrl ? String(body.logoUrl) : undefined,
+        rbiRegistrationNumber: body.rbiRegistrationNumber ? String(body.rbiRegistrationNumber) : undefined,
 
         tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
 

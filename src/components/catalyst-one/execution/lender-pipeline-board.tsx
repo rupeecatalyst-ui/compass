@@ -162,7 +162,6 @@ export function LenderPipelineBoard({
    */
   onRemoveDeal?: (dealId: string, card: LoanLenderExecution) => Promise<void>;
 }) {
-  const loan = context;
   const router = useRouter();
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -192,6 +191,8 @@ export function LenderPipelineBoard({
   const [disbursementCase, setDisbursementCase] = useState<WorkflowCase | null>(null);
   const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
+  const [contextOverlay, setContextOverlay] = useState<Partial<DealPipelineContext>>({});
+  const loan = { ...context, ...contextOverlay };
   const [loginProbeCase, setLoginProbeCase] = useState<WorkflowCase | null>(null);
   const [strategyCase, setStrategyCase] = useState<LoanLenderExecution | null>(null);
   /** CO-WF-006 — guided mid-stage transition dialog */
@@ -1050,6 +1051,9 @@ export function LenderPipelineBoard({
         context={loan}
         productFallback={loan.loanProduct}
         actorUserId={updatedBy}
+        onContextPatch={(patch) => {
+          setContextOverlay((prev) => ({ ...prev, ...patch }));
+        }}
         onPatch={(caseId, patch) => {
           const next = cases.map((c) =>
             c.id === caseId

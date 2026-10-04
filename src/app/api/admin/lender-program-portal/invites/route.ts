@@ -8,6 +8,7 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { assertPortalAdministrator } from "@/lib/lender-program-portal/launch-closure";
 import { lenderProgramPortalService } from "@server/services/lender-program-portal/lender-program-portal.service";
 
 function guard() {
@@ -22,7 +23,8 @@ function guard() {
 export async function GET(request: Request) {
   try {
     guard();
-    requireAccessToken(request);
+    const actor = requireAccessToken(request);
+    assertPortalAdministrator(actor.role);
     const url = new URL(request.url);
     const matrixLenderId = url.searchParams.get("matrixLenderId")?.trim();
     if (matrixLenderId) {
@@ -47,15 +49,20 @@ export async function POST(request: Request) {
   try {
     guard();
     const actor = requireAccessToken(request);
+    assertPortalAdministrator(actor.role);
     const body = (await request.json()) as {
       lenderId?: string;
       productIds?: string[];
+      recipientEmail?: string;
       ttlDays?: number;
       maxUses?: number | null;
       notes?: string;
     };
     if (!body.lenderId?.trim()) {
       return errorResponse(400, "VALIDATION", "lenderId is required");
+    }
+    if (!body.recipientEmail?.trim()) {
+      return errorResponse(400, "RECIPIENT_EMAIL_REQUIRED", "A lender recipient email is required");
     }
     if (!Array.isArray(body.productIds) || body.productIds.length === 0) {
       return errorResponse(
@@ -67,11 +74,13 @@ export async function POST(request: Request) {
     const invite = await lenderProgramPortalService.createInvite({
       lenderId: body.lenderId.trim(),
       productIds: body.productIds,
+      recipientEmail: body.recipientEmail.trim(),
       ttlDays: body.ttlDays,
       maxUses: body.maxUses,
       notes: body.notes,
       actorUserId: actor.userId,
       actorName: actor.email || actor.userId,
+      actorRole: actor.role,
     });
     return successResponse(invite, 201);
   } catch (err) {

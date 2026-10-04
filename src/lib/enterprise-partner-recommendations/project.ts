@@ -188,6 +188,7 @@ export async function projectPartnerOpportunityRecommendations(
      * Never call relative /api/lender-registry from Partner server routes.
      */
     registryOptions: PublishedLenderOption[];
+    programmes?: import("@/types/enterprise-lender-registry").EnterpriseLenderProgramRecord[];
   },
 ): Promise<PartnerOpportunityRecommendationsDto> {
   const presentation = { ...PARTNER_RECOMMENDATION_PRESENTATION };
@@ -219,6 +220,7 @@ export async function projectPartnerOpportunityRecommendations(
   const ranked = recommendPublishedLendersFromOptions(opts?.registryOptions ?? [], {
     file,
     limit,
+    programmes: opts?.programmes ?? [],
   });
 
   const recommendations: PartnerRecommendationCardDto[] = ranked.map((row, index) => {

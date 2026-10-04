@@ -11,6 +11,7 @@ import { useDashboardFilter } from "@/hooks/use-dashboard-filter";
 import { ROUTES } from "@/constants/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer } from "@/components/ui/chart";
+import { EnterpriseChartMetaStrip } from "@/components/enterprise/charts/enterprise-chart-frame";
 import {
   Select,
   SelectContent,
@@ -44,6 +45,15 @@ export function TargetGaugeGrid() {
           <CardDescription>
             Disbursed amount vs target · {TARGET_SCOPE_LABELS[scope]}
           </CardDescription>
+          <EnterpriseChartMetaStrip
+            meta={{
+              measurementDefinition: "Disbursed amount versus assigned target for the selected scope.",
+              reportingPeriod: dateRange.label,
+              unitLabel: "Percentage of target · ₹ Cr",
+              lastUpdated: null,
+              activeFilters: [TARGET_SCOPE_LABELS[scope], dateRange.label],
+            }}
+          />
         </div>
         <Select value={scope} onValueChange={(value) => setScope(value as TargetScope)}>
           <SelectTrigger className="w-full sm:w-[240px] bg-background/80">

@@ -154,3 +154,22 @@ export function assertCompassCustomerUpload(input: {
   }
   return { extension: result.extension, mimeType: result.mimeType };
 }
+
+/**
+ * Malware scanning integration point.
+ * Existing type and size checks stay in force.
+ * Enforcement fails closed only when COMPASS_MALWARE_SCAN_MODE=enforce
+ * and no scanner is configured. Default mode preserves current uploads.
+ */
+export function assertMalwareScanPolicy(): { scanStatus: "not_enforced" | "scanner_configured" } {
+  const mode = process.env.COMPASS_MALWARE_SCAN_MODE?.trim() || "observe";
+  const scanner = process.env.COMPASS_MALWARE_SCANNER?.trim() || "";
+  if (mode === "enforce" && !scanner) {
+    throw new CompassUploadRejectedError({
+      code: "MALWARE_SCAN_UNAVAILABLE",
+      message: "We cannot accept this file right now. Please try again later.",
+      httpStatus: 503,
+    });
+  }
+  return { scanStatus: scanner ? "scanner_configured" : "not_enforced" };
+}

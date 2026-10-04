@@ -101,11 +101,23 @@ export function UserHomeDashboard() {
   );
 
   return (
-    <EiPremiumCanvas className="min-h-[calc(100vh-3.5rem)]">
+    <EiPremiumCanvas
+      className={
+        mode === "intelligence"
+          ? "flex h-full min-h-0 flex-col overflow-hidden"
+          : "min-h-[calc(100vh-3.5rem)]"
+      }
+    >
       <div
-        className="mx-auto flex w-full max-w-[100rem] flex-col gap-6 p-4 md:gap-7 md:p-6"
+        className={cn(
+          "mx-auto flex w-full max-w-[100rem] flex-col",
+          mode === "intelligence"
+            ? "h-full min-h-0 gap-3 overflow-hidden p-3 md:p-4"
+            : "gap-6 p-4 md:gap-7 md:p-6",
+        )}
         data-dashboard="user-home"
         data-dashboard-mode={mode}
+        data-chanakya-chat-shell={mode === "intelligence" ? "011" : undefined}
         data-sprint={
           mode === "intelligence"
             ? CHANAKYA_DASHBOARD_INTELLIGENCE_SPRINT
@@ -114,7 +126,7 @@ export function UserHomeDashboard() {
         data-widget-slots="welcome,new_opportunities,new_arrivals_pulse,attention_required,my_assigned_deals,my_pipeline,my_performance,visual_analytics,chanakya_insights"
         data-role-packs={USER_HOME_FUTURE_ROLE_PACKS.join(",")}
       >
-        <header className="flex flex-wrap items-end justify-between gap-3">
+        <header className="flex shrink-0 flex-wrap items-end justify-between gap-3">
           <div className="min-w-0 space-y-2">
             <div
               role="tablist"
@@ -192,7 +204,9 @@ export function UserHomeDashboard() {
         </header>
 
         {mode === "intelligence" ? (
-          <ChanakyaIntelligenceMode />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ChanakyaIntelligenceMode />
+          </div>
         ) : (
           <>
             {/* 1–3 — Dense two-column command strip (desktop); stack on tablet/mobile */}

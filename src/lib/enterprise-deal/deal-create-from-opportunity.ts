@@ -8,6 +8,8 @@ import type { DealCreateBody } from "@/lib/enterprise-deal/map-loan-file-to-deal
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
+import { stampDealProgrammeSelection } from "@/lib/product-programme-operations/deal-stamp";
+import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import type { LoanLenderExecution } from "@/types/catalyst-one";
 
 /**
@@ -24,6 +26,7 @@ export type CreateDealFromOpportunityInput = {
   lenderId: string;
   lenderName: string;
   lenderProgramId?: string | null;
+  publishedProgramme?: EnterpriseLenderProgramRecord | null;
   lenders: LoanLenderExecution[];
   customerName?: string;
   customerMobile?: string;
@@ -40,6 +43,7 @@ function buildSnapshot(
   amount: number | null,
   ownerLenderId: string,
   initialGrossStage: string,
+  publishedProgramme?: EnterpriseLenderProgramRecord | null,
 ): Record<string, unknown> {
   // CO-ARCH-007 — Derived single-lender projection only (never multi-lender SSOT).
   const owned =
@@ -73,7 +77,7 @@ function buildSnapshot(
         },
       ]
     : [];
-  return {
+  const snapshot = {
     source: "enterprise_deal_derived",
     opportunityId: opportunity.id,
     opportunityNumber: opportunity.opportunityNumber,
@@ -90,6 +94,8 @@ function buildSnapshot(
     amounts: { requiredAmount: amount, loanAmount: amount },
     lenders: single,
   };
+  if (!publishedProgramme) return snapshot;
+  return stampDealProgrammeSelection({ snapshot, program: publishedProgramme });
 }
 
 export function buildDealCreateBodyFromOpportunity(
@@ -135,7 +141,7 @@ export function buildDealCreateBodyFromOpportunity(
     grossStage: initialGrossStage,
     opportunityId: opportunity.id,
     lenderId,
-    lenderProgramId: input.lenderProgramId ?? null,
+    lenderProgramId: input.lenderProgramId ?? input.publishedProgramme?.id ?? null,
     legacyLoanFileId: null,
     fileNumber: null,
     productLabel,
@@ -157,6 +163,13 @@ export function buildDealCreateBodyFromOpportunity(
       input.relationshipManager ||
       opportunity.relationshipManagerName ||
       null,
+    relationshipManagerUserId: opportunity.relationshipManagerUserId ?? null,
+    primaryOwnerUserId: opportunity.primaryOwnerUserId ?? null,
+    assignmentMode: "inherited",
+    lendingExtension:
+      opportunity.lendingExtension && typeof opportunity.lendingExtension === "object"
+        ? (opportunity.lendingExtension as Record<string, unknown>)
+        : undefined,
     priority: "medium",
     requestedAmount: amount,
     currencyCode: "INR",
@@ -167,6 +180,7 @@ export function buildDealCreateBodyFromOpportunity(
       amount,
       lenderId,
       initialGrossStage,
+      input.publishedProgramme ?? null,
     ),
     primaryCounterpartyName: primary?.lender || lenderName || null,
   };

@@ -10,8 +10,9 @@ export function mapDeliveryOutcomeToLedgerStatus(
 ): MarketingRecipientLedgerStatus {
   switch (outcome) {
     case "SENT":
-    case "ACCEPTED":
       return "delivered";
+    case "ACCEPTED":
+      return "processed";
     case "RETRYABLE_FAILURE":
     case "RATE_LIMITED":
       return "failed";

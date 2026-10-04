@@ -1,16 +1,17 @@
 /**
- * CO-MARKETING-MKT-02 — Per-binding data source operations.
+ * CO-MARKETING-GOOGLE-ACTIVATION-001 — Per-binding data source operations.
  * GET ?view=health|datasets|schema|preview|estimate
  */
 
 import {
   errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
-import type { ApiResponse } from "@/types/api";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
+import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
+import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
 import { marketingDataSourceService } from "@server/services/enterprise-marketing-engine";
 
 type Ctx = { params: Promise<{ bindingId: string }> };
@@ -25,17 +26,9 @@ function requireAdministrator(actor: { role: string }) {
 }
 
 function fromUnknown(err: unknown) {
-  if (err instanceof EnterpriseMarketingSafetyError) {
-    return errorResponse(403, err.code, err.message);
-  }
-  const statusCode = (err as { statusCode?: number }).statusCode;
-  const code = (err as { code?: string }).code;
-  if (statusCode === 401 || statusCode === 403) {
-    return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-  }
-  return errorResponse(
-    statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
-    code ?? "MARKETING_DATA_SOURCE_FAILED",
+  return fromMarketingUnknownError(
+    err,
+    "MARKETING_DATA_SOURCE_FAILED",
     err instanceof Error ? err.message : "Marketing data source request failed",
   );
 }
@@ -48,7 +41,12 @@ export async function GET(request: Request, context: Ctx) {
     const url = new URL(request.url);
     const view = url.searchParams.get("view") ?? "health";
     const datasetId = url.searchParams.get("datasetId") ?? "";
-    const actorCtx = { userId: actor.userId, organizationId: "default" as string | null };
+    const actorCtx = {
+      userId: actor.userId,
+      role: actor.role,
+      organizationId: await resolveMarketingOrganizationId(),
+    };
+    assertMarketingPermission(actorCtx, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
 
     if (view === "health") {
       const health = await marketingDataSourceService.health(actorCtx, bindingId);

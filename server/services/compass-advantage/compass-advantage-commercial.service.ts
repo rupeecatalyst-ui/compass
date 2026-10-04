@@ -800,6 +800,7 @@ function snapshotToDto(
   compassProductCode: CompassProductCode,
   row: Prisma.CompassAdvantageSnapshotGetPayload<object>,
 ): CompassAdvantageDto {
+  // Live calculation only. Never persist this total onto Opportunity.advantageCommittedAmount.
   const components = Array.isArray(row.fixedBenefitComponents)
     ? (row.fixedBenefitComponents as Array<{ name: string; amountRupees: string; customerDescription?: string | null }>)
     : [];

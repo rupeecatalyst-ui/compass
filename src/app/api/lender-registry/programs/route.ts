@@ -1,33 +1,16 @@
-import {
-
-  errorResponse,
-
-  fromAuthError,
-
-  requireAccessToken,
-
-  successResponse,
-
-} from "@/lib/api/auth-route-utils";
-
+import { errorResponse, fromAuthError, requireAccessToken, successResponse } from "@/lib/api/auth-route-utils";
 import type { ApiResponse } from "@/types/api";
-
 import type { LenderProgramLifecycleStatus } from "@/types/enterprise-lender-registry";
-
+import { ProgrammeConflictError, ProgrammePermissionError, ProgrammeValidationError } from "@/types/product-programme-operations";
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
-
+import { productProgrammeOperationsService } from "@server/services/product-programme-operations/programme.service";
+import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import {
-
   lenderRegistryPersistenceGuard,
-
   mapRouteError,
-
   parseListQuery,
-
   requireLenderRegistryAdmin,
-
   resolveActorDisplayName,
-
 } from "../_lib/route-utils";
 
 
@@ -92,39 +75,26 @@ export async function POST(request: Request) {
 
 
 
-    const created = await lenderRegistryService.createProgram(
-
-      {
-
-        lenderId: String(body.lenderId ?? ""),
-
-        productId: body.productId ? String(body.productId) : undefined,
-
-        code: String(body.code ?? ""),
-
-        label: String(body.label ?? ""),
-
-        description: body.description ? String(body.description) : undefined,
-
-        lifecycleStatus: body.lifecycleStatus,
-
-        status: body.status,
-
-        enabled: body.enabled,
-
-        notes: body.notes ? String(body.notes) : undefined,
-
-        createdBy: actor.userId,
-
-      },
-
-      await resolveActorDisplayName(actor.userId),
-
-    );
+    const created = await productProgrammeOperationsService.create({
+      organizationId: await resolvePilotOrganizationId(),
+      actorUserId: actor.userId,
+      actorName: await resolveActorDisplayName(actor.userId),
+      actorRole: actor.role,
+      body,
+    });
 
     return successResponse(created, 201);
 
   } catch (err) {
+    if (err instanceof ProgrammeValidationError) {
+      return errorResponse(400, err.code, err.message);
+    }
+    if (err instanceof ProgrammePermissionError) {
+      return errorResponse(403, err.code, err.message);
+    }
+    if (err instanceof ProgrammeConflictError) {
+      return errorResponse(409, err.code, err.message);
+    }
 
     const mapped = mapRouteError(err);
 

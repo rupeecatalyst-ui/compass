@@ -7,9 +7,12 @@ import type { MarketingCampaignExecutionPort } from "./ports/campaign-execution.
 import type { MarketingDataSourcePort } from "./ports/data-source.port";
 import type { MarketingDigitalChannelPort } from "./ports/digital-channel.port";
 import type { MarketingEmailChannelPort } from "./ports/email-channel.port";
+import type { MarketingLandingPagePort } from "./ports/landing-page.port";
+import type { MarketingMessengerDeliveryPort } from "./ports/messenger-delivery.port";
 import type { MarketingNotificationPort } from "./ports/notification.port";
 import type { MarketingQualificationHandoffPort } from "./ports/qualification-handoff.port";
 import type { MarketingRoutingPort } from "./ports/routing.port";
+import type { MarketingSmsDeliveryPort } from "./ports/sms-delivery.port";
 import type { MarketingWhatsAppChannelPort } from "./ports/whatsapp-channel.port";
 import { EnterpriseMarketingSafetyError } from "./safety";
 
@@ -34,6 +37,15 @@ export const disabledMarketingEmailDeliveryPort = {
   deliver: async () => blocked("email.delivery"),
 };
 
+export const disabledMarketingDnsPort = {
+  lookup: async () => blocked("dns.lookup"),
+  mutate: async () => blocked("dns.mutate"),
+};
+
+export const disabledMarketingSenderVerificationPort = {
+  sendVerificationEmail: async () => blocked("sender.verify_email"),
+};
+
 export const disabledMarketingWhatsAppChannelPort: MarketingWhatsAppChannelPort = {
   send: async () => blocked("whatsapp.send"),
 };
@@ -45,6 +57,20 @@ export const disabledMarketingWhatsAppDeliveryPort = {
 
 export const disabledMarketingDigitalChannelPort: MarketingDigitalChannelPort = {
   syncCampaign: async () => blocked("digital.launch"),
+};
+
+export const disabledMarketingSmsDeliveryPort: MarketingSmsDeliveryPort = {
+  providerType: "disabled",
+  deliver: async () => blocked("sms.delivery"),
+};
+
+export const disabledMarketingMessengerDeliveryPort: MarketingMessengerDeliveryPort = {
+  providerType: "disabled",
+  deliver: async () => blocked("messenger.delivery"),
+};
+
+export const disabledMarketingLandingPagePort: MarketingLandingPagePort = {
+  publish: async () => blocked("landing_page.publish"),
 };
 
 export const disabledMarketingCampaignExecutionPort: MarketingCampaignExecutionPort = {
@@ -68,4 +94,13 @@ export const disabledMarketingRoutingPort: MarketingRoutingPort = {
 
 export const disabledMarketingQualificationHandoffPort: MarketingQualificationHandoffPort = {
   handoff: async () => blocked("qualification.handoff"),
+};
+
+export const disabledMarketingLiveEmailProviderPort = {
+  providerType: "live_disabled",
+  live: false as const,
+  repliesSupported: false,
+  send: async () => blocked("email.provider.live"),
+  verifyWebhookSignature: () => blocked("email.provider.live_webhook"),
+  parseWebhook: () => blocked("email.provider.live_parse"),
 };

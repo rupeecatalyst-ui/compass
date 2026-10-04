@@ -14,6 +14,7 @@ import {
   serializeDeal,
   serializeDealSummary,
   serializeDealWithContactSsot,
+  applyDisplayedRcEmployee,
   serializeDocumentLink,
   serializeSnapshot,
   serializeTask,
@@ -38,6 +39,17 @@ import {
   isValidInvoicePartyType,
 } from "@server/services/enterprise-deal/deal-invoice-party";
 import { prisma } from "@server/lib/prisma";
+import {
+  appendRcEmployeeTimeline,
+  applyDealRcEmployeeAssignmentAction,
+  assertCanManageRcEmployeeAssignment,
+  classifyDealRcEmployeePatchSource,
+  stampCreateDealRcEmployee,
+} from "@server/services/enterprise-deal/rc-employee-assignment.service";
+import type { RcEmployeeAssignmentAction } from "@/constants/enterprise-deal/rc-employee-assignment";
+import { overlayDealRcEmployeeDisplay } from "@/lib/enterprise-deal/rc-employee-assignment";
+import { decideDealCannotIntroduceCommitment, serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
+import { loadOpportunityCommitmentByIds } from "@server/services/advantage-committed/advantage-committed.service";
 import { POST_DISBURSEMENT_CONFIRMATION_STAGE } from "@/constants/post-disbursement-confirmation";
 import type {
   CreateActivityInput,
@@ -63,6 +75,21 @@ function parseDate(value?: string | null): Date | null | undefined {
   return d;
 }
 
+function inheritAdvantageCommitted(
+  serialized: Record<string, unknown>,
+  opportunity?: { productCode?: string | null; productLabel?: string | null } | null,
+  overlay?: ReturnType<typeof serializeAdvantageCommittedApi> | null,
+) {
+  return {
+    ...serialized,
+    ...(overlay ??
+      serializeAdvantageCommittedApi({
+        productCode: opportunity?.productCode,
+        productLabel: opportunity?.productLabel,
+      })),
+  };
+}
+
 export class EnterpriseDealService {
   private async orgId() {
     return resolvePilotOrganizationId();
@@ -74,12 +101,47 @@ export class EnterpriseDealService {
   ) {
     const organizationId = await this.orgId();
     const opportunityId = assertNonEmpty(body.opportunityId, "opportunityId");
+    const introduced = decideDealCannotIntroduceCommitment({
+      opportunityAmount: null,
+      incomingDealAmount: body.advantageCommittedAmount,
+    });
+    if (!introduced.ok) {
+      throw new DealValidationError(introduced.message);
+    }
     const lenderId = assertNonEmpty(body.lenderId, "lenderId");
     const productFamily = assertProductFamily(body.productFamily);
     // CO-DEAL-PIPELINE-TRANSITION-002 — Canonicalize create stage (never invent Logged In – WIP).
     const grossStage = canonicalizeDealPipelineStage(
       assertNonEmpty(body.grossStage, "grossStage"),
     );
+
+    const opportunity = await prisma.enterpriseOpportunity.findFirst({
+      where: { id: opportunityId, organizationId, isDeleted: false },
+      select: {
+        relationshipManagerUserId: true,
+        relationshipManagerName: true,
+        primaryOwnerUserId: true,
+        lendingExtension: true,
+        createdBy: true,
+      },
+    });
+    const rcEmployee = await stampCreateDealRcEmployee({
+      opportunity: opportunity ?? {},
+      incoming: {
+        relationshipManagerUserId: body.relationshipManagerUserId
+          ? String(body.relationshipManagerUserId)
+          : null,
+        relationshipManagerName: body.relationshipManagerName
+          ? String(body.relationshipManagerName)
+          : null,
+        primaryOwnerUserId: body.primaryOwnerUserId
+          ? String(body.primaryOwnerUserId)
+          : null,
+        lendingExtension: body.lendingExtension,
+      },
+      actorUserId,
+      existingDealExtension: body.lendingExtension,
+    });
 
     const input: CreateEnterpriseDealInput = {
       organizationId,
@@ -106,15 +168,10 @@ export class EnterpriseDealService {
         ? String(body.primaryContactEmail)
         : null,
       companyId: body.companyId ? String(body.companyId) : null,
-      relationshipManagerUserId: body.relationshipManagerUserId
-        ? String(body.relationshipManagerUserId)
-        : null,
-      relationshipManagerName: body.relationshipManagerName
-        ? String(body.relationshipManagerName)
-        : null,
-      primaryOwnerUserId: body.primaryOwnerUserId
-        ? String(body.primaryOwnerUserId)
-        : actorUserId,
+      relationshipManagerUserId: rcEmployee.relationshipManagerUserId,
+      relationshipManagerName: rcEmployee.relationshipManagerName,
+      primaryOwnerUserId: rcEmployee.primaryOwnerUserId,
+      assignmentMode: rcEmployee.assignmentMode,
       priority: assertPriority(body.priority) ?? "medium",
       requestedAmount:
         body.requestedAmount !== undefined && body.requestedAmount !== null
@@ -122,7 +179,10 @@ export class EnterpriseDealService {
           : null,
       currencyCode: body.currencyCode ? String(body.currencyCode) : "INR",
       snapshot: (body.snapshot as Prisma.InputJsonValue) ?? null,
-      lendingExtension: (body.lendingExtension as Prisma.InputJsonValue) ?? null,
+      lendingExtension:
+        (rcEmployee.lendingExtension as Prisma.InputJsonValue) ??
+        (body.lendingExtension as Prisma.InputJsonValue) ??
+        null,
       commercialTerms: (body.commercialTerms as Prisma.InputJsonValue) ?? null,
       primaryCounterpartyName: body.primaryCounterpartyName
         ? String(body.primaryCounterpartyName)
@@ -269,18 +329,40 @@ export class EnterpriseDealService {
     const deal = await enterpriseDealRepository.requireDeal(organizationId, dealId);
     const base = await serializeDealWithContactSsot(deal);
     let opportunityNumber: string | null = null;
-    if (deal.opportunityId) {
-      const opportunity = await prisma.enterpriseOpportunity.findFirst({
-        where: {
-          id: deal.opportunityId,
-          organizationId,
-          isDeleted: false,
-        },
-        select: { opportunityNumber: true },
-      });
-      opportunityNumber = opportunity?.opportunityNumber ?? null;
-    }
-    const withOpp = { ...base, opportunityNumber };
+    const opportunity = deal.opportunityId
+      ? await prisma.enterpriseOpportunity.findFirst({
+          where: {
+            id: deal.opportunityId,
+            organizationId,
+            isDeleted: false,
+          },
+          select: {
+            opportunityNumber: true,
+            relationshipManagerUserId: true,
+            relationshipManagerName: true,
+            primaryOwnerUserId: true,
+            lendingExtension: true,
+            createdBy: true,
+            productCode: true,
+            productLabel: true,
+            sourceCode: true,
+            sourceCampaignLabel: true,
+          },
+        })
+      : null;
+    opportunityNumber = opportunity?.opportunityNumber ?? null;
+    const commitmentMap = await loadOpportunityCommitmentByIds(
+      organizationId,
+      deal.opportunityId ? [deal.opportunityId] : [],
+    );
+    const withOpp = inheritAdvantageCommitted(
+      applyDisplayedRcEmployee(
+        { ...base, opportunityNumber },
+        opportunity,
+      ),
+      opportunity,
+      deal.opportunityId ? commitmentMap.get(deal.opportunityId) : undefined,
+    );
     if (include.length === 0) return withOpp;
 
     const extras: Record<string, unknown> = {};
@@ -321,25 +403,54 @@ export class EnterpriseDealService {
         deal.opportunityId,
       );
       extras.siblings = await Promise.all(
-        siblingRows.map(async (row) => ({
-          ...(await serializeDealWithContactSsot(row)),
-          opportunityNumber,
-        })),
+        siblingRows.map(async (row) =>
+          inheritAdvantageCommitted(
+            applyDisplayedRcEmployee(
+              {
+                ...(await serializeDealWithContactSsot(row)),
+                opportunityNumber,
+              },
+              opportunity,
+            ),
+            opportunity,
+            deal.opportunityId ? commitmentMap.get(deal.opportunityId) : undefined,
+          ),
+        ),
       );
     }
     return { ...withOpp, ...extras };
+  }
+
+  async summarizeDealsByLender() {
+    return enterpriseDealRepository.summarizeDealsByLender(await this.orgId());
   }
 
   async searchDeals(query: EnterpriseDealSearchQuery) {
     const organizationId = await this.orgId();
     const result = await enterpriseDealRepository.searchDeals(organizationId, query);
     const serialize = query.view === "summary" ? serializeDealSummary : serializeDeal;
+    const commitmentMap = await loadOpportunityCommitmentByIds(
+      organizationId,
+      result.items.map((row) => row.opportunityId).filter((id): id is string => Boolean(id)),
+    );
     return {
       ...result,
-      items: result.items.map((row) => ({
-        ...serialize(row),
-        opportunityNumber: row.opportunity?.opportunityNumber ?? null,
-      })),
+      items: result.items.map((row) =>
+        inheritAdvantageCommitted(
+          applyDisplayedRcEmployee(
+            {
+              ...serialize(row),
+              opportunityNumber: row.opportunity?.opportunityNumber ?? null,
+            },
+            row.opportunity,
+          ),
+          {
+            productCode: row.productCode,
+            productLabel: row.productLabel,
+          },
+          row.opportunityId ? commitmentMap.get(row.opportunityId) : undefined,
+        ),
+      ),
       view: query.view === "summary" ? "summary" : "full",
     };
   }
@@ -347,6 +458,13 @@ export class EnterpriseDealService {
   async updateDeal(dealId: string, input: UpdateEnterpriseDealInput) {
     const organizationId = await this.orgId();
     assertRowVersion(input.rowVersion);
+    const introduced = decideDealCannotIntroduceCommitment({
+      opportunityAmount: null,
+      incomingDealAmount: (input as Record<string, unknown>).advantageCommittedAmount,
+    });
+    if (!introduced.ok) {
+      throw new DealValidationError(introduced.message);
+    }
 
     const existing = await enterpriseDealRepository.requireDeal(organizationId, dealId);
     await syncContactIdentityPatchToEcm({
@@ -372,6 +490,84 @@ export class EnterpriseDealService {
     const data: Prisma.EnterpriseDealUncheckedUpdateManyInput = {
       updatedBy: input.actorUserId,
     };
+    let rcEmployeeAudit: Awaited<
+      ReturnType<typeof applyDealRcEmployeeAssignmentAction>
+    >["audit"] | null = null;
+
+    const assignmentTouched = Boolean(
+      input.rcEmployeeAssignment ||
+        input.relationshipManagerUserId !== undefined ||
+        input.relationshipManagerName !== undefined ||
+        input.primaryOwnerUserId !== undefined,
+    );
+    const parentOpportunity = assignmentTouched && existing.opportunityId
+      ? await prisma.enterpriseOpportunity.findFirst({
+          where: {
+            id: existing.opportunityId,
+            organizationId,
+            isDeleted: false,
+          },
+          select: {
+            id: true,
+            relationshipManagerUserId: true,
+            relationshipManagerName: true,
+            primaryOwnerUserId: true,
+            lendingExtension: true,
+            createdBy: true,
+          },
+        })
+      : null;
+
+    if (input.rcEmployeeAssignment) {
+      const applied = await applyDealRcEmployeeAssignmentAction({
+        organizationId,
+        deal: existing,
+        opportunity: parentOpportunity,
+        actorUserId: input.actorUserId,
+        actorRole: input.actorRole,
+        action: input.rcEmployeeAssignment.mode as RcEmployeeAssignmentAction,
+        userId: input.rcEmployeeAssignment.userId,
+        reason: input.reason ?? null,
+      });
+      Object.assign(data, applied.data);
+      rcEmployeeAudit = applied.audit;
+    } else if (assignmentTouched) {
+      assertCanManageRcEmployeeAssignment(input.actorRole);
+      if (input.relationshipManagerUserId !== undefined) {
+        data.relationshipManagerUserId = input.relationshipManagerUserId;
+      }
+      if (input.relationshipManagerName !== undefined) {
+        data.relationshipManagerName = input.relationshipManagerName;
+      }
+      if (input.primaryOwnerUserId !== undefined) {
+        data.primaryOwnerUserId = input.primaryOwnerUserId;
+      }
+      const nextUserId =
+        input.relationshipManagerUserId !== undefined
+          ? input.relationshipManagerUserId
+          : existing.relationshipManagerUserId;
+      const source = classifyDealRcEmployeePatchSource({
+        opportunity: parentOpportunity,
+        nextUserId,
+      });
+      data.assignmentMode = source;
+      const previous = overlayDealRcEmployeeDisplay({
+        deal: existing,
+        opportunity: parentOpportunity,
+      });
+      rcEmployeeAudit = {
+        previousUserId: previous.userId,
+        previousName: previous.name,
+        newUserId: nextUserId ?? null,
+        newName:
+          input.relationshipManagerName !== undefined
+            ? input.relationshipManagerName
+            : existing.relationshipManagerName,
+        source,
+        changedByUserId: input.actorUserId,
+        reason: input.reason ?? "deal_assignment_patch",
+      };
+    }
     if (input.fileNumber !== undefined) data.fileNumber = input.fileNumber;
     if (input.productId !== undefined) data.productId = input.productId;
     if (input.productCode !== undefined) data.productCode = input.productCode;
@@ -393,15 +589,6 @@ export class EnterpriseDealService {
       data.primaryContactEmail = input.primaryContactEmail;
     }
     if (input.companyId !== undefined) data.companyId = input.companyId;
-    if (input.relationshipManagerUserId !== undefined) {
-      data.relationshipManagerUserId = input.relationshipManagerUserId;
-    }
-    if (input.relationshipManagerName !== undefined) {
-      data.relationshipManagerName = input.relationshipManagerName;
-    }
-    if (input.primaryOwnerUserId !== undefined) {
-      data.primaryOwnerUserId = input.primaryOwnerUserId;
-    }
     if (input.priority !== undefined) data.priority = assertPriority(input.priority);
     if (input.isUrgent !== undefined) data.isUrgent = input.isUrgent;
     if (input.isDelayed !== undefined) data.isDelayed = input.isDelayed;
@@ -544,6 +731,16 @@ export class EnterpriseDealService {
       input.rowVersion,
       data,
     );
+
+    if (rcEmployeeAudit) {
+      await appendRcEmployeeTimeline({
+        organizationId,
+        dealId,
+        opportunityId: updated.opportunityId,
+        actorUserId: input.actorUserId,
+        audit: rcEmployeeAudit,
+      });
+    }
 
     const lenderChanged =
       previousLenderId !== nextLenderId || previousProgramId !== nextProgramId;

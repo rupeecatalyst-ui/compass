@@ -14,6 +14,8 @@ export const ROUTES = {
    * Not Mission Control. Not Executive Briefing.
    */
   DASHBOARD: "/dashboard",
+  /** Catalyst One employee/user PWA companion (not Wealth Partner). */
+  EMPLOYEE_PWA: "/pwa",
   CUSTOMERS: "/customers",
   MY_DEALS: "/my-deals",
   /** CO-ARCH-003 — Enterprise Opportunity Registry (requirement queue). */
@@ -48,12 +50,15 @@ export const ROUTES = {
   LENDERS: "/lenders",
   /** CO-WP-001 — Enterprise Wealth Partner Registry (ops desk). */
   WEALTH_PARTNERS: "/wealth-partners",
-  /** @deprecated Prefer DOCUMENT_CENTER; kept for backward-compatible deep links. */
+  /** @deprecated Prefer DOCUMENT_WORKSPACE for left-nav; DOCUMENT_CENTER remains Opportunity journey Documents. */
   DOCUMENTS: "/documents",
   DOCUMENT_CENTER: "/document-center",
+  /** Dedicated Document Workspace over Enterprise Document Registry (not journey chrome). */
+  DOCUMENT_WORKSPACE: "/document-workspace",
   CREDIT_BENCH: "/credit-bench",
   CREDIT_WORKBENCH: "/credit-workbench",
   TASKS: "/tasks",
+  STICKY_NOTES: "/sticky-notes",
   /** Employee-facing Activity & Dialogue desk (EAR / TransactionActivityTimeline). */
   ACTIVITY: "/activity",
   /** @deprecated Redirects to ACTIVITY — unified Activity & Dialogue. */
@@ -125,14 +130,19 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_METRICS: "/admin/enterprise-metrics",
   /** CO-MARKETING-MKT-01 — Marketing Command Center (Enterprise Marketing Engine) */
   ADMIN_MARKETING: "/admin/marketing",
+  ADMIN_MARKETING_REGISTRY: "/admin/marketing/registry",
   ADMIN_MARKETING_CAMPAIGNS: "/admin/marketing/campaigns",
   ADMIN_MARKETING_AUDIENCES: "/admin/marketing/audiences",
   ADMIN_MARKETING_DATA_SOURCES: "/admin/marketing/data-sources",
   ADMIN_MARKETING_CONTENT: "/admin/marketing/content",
   ADMIN_MARKETING_ASSETS: "/admin/marketing/assets",
+  ADMIN_MARKETING_CONSENT: "/admin/marketing/consent",
   ADMIN_MARKETING_ENGAGEMENT: "/admin/marketing/engagement",
   ADMIN_MARKETING_RESPONSES: "/admin/marketing/responses",
   ADMIN_MARKETING_DELIVERABILITY: "/admin/marketing/deliverability",
+  ADMIN_MARKETING_MONITORING: "/admin/marketing/monitoring",
+  ADMIN_MARKETING_OPERATIONAL_HEALTH: "/admin/marketing/operational-health",
+  ADMIN_MARKETING_ATTRIBUTION: "/admin/marketing/attribution",
   ADMIN_MARKETING_ANALYTICS: "/admin/marketing/analytics",
   ADMIN_MARKETING_SETTINGS: "/admin/marketing/settings",
   /** CO-WP-ACCESS-001 — Wealth Partner Access & Entitlements */
@@ -184,12 +194,15 @@ export const ROUTES = {
   ADMIN_PRODUCT_CATEGORIES: "/admin/product-library/categories",
   ADMIN_PRODUCT_LIFECYCLE: "/admin/product-library/lifecycle",
   ADMIN_PRODUCT_AUDIT: "/admin/product-library/audit",
+  ADMIN_PRODUCT_JOURNEY: "/admin/product-library/journey",
   ADMIN_ENTERPRISE_ASSETS: "/admin/enterprise-assets",
   ADMIN_ENTERPRISE_ASSETS_REGISTRY: "/admin/enterprise-assets/registry",
   ADMIN_ENTERPRISE_ASSETS_CATEGORIES: "/admin/enterprise-assets/categories",
   ADMIN_ENTERPRISE_ASSETS_LIFECYCLE: "/admin/enterprise-assets/lifecycle",
   ADMIN_ENTERPRISE_ASSETS_AUDIT: "/admin/enterprise-assets/audit",
   ADMIN_ENTERPRISE_DECISION_LEDGER: "/admin/enterprise-decision-ledger",
+  /** Field Control Master Foundation V1 — read-only identity registry. */
+  ADMIN_FIELD_CONTROL_MASTER: "/admin/field-control-master",
   /** CO-SPRINT-119 — Soft-deleted business records recovery. */
   ADMIN_ENTERPRISE_RECOVERY_CENTER: "/admin/enterprise-recovery-center",
   /** CO-ARCH-001-I7 — Tier 1 Reference Master administration. */
@@ -200,6 +213,7 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_MDM: "/admin/enterprise-mdm",
   /** CO-MDM-001 — Product Programs desk */
   ADMIN_PRODUCT_PROGRAMS: "/admin/product-programs",
+  ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS: "/admin/home-loan-recommendation-masters",
   /** CO-MDM-001 — Document Type Master */
   ADMIN_DOCUMENT_TYPES: "/admin/document-types",
   ADMIN_ACCOUNTING_GST_RATES: "/admin/accounting/gst-rates",
@@ -264,9 +278,11 @@ export const PROTECTED_ROUTES = [
   ROUTES.WEALTH_PARTNERS,
   ROUTES.DOCUMENTS,
   ROUTES.DOCUMENT_CENTER,
+  ROUTES.DOCUMENT_WORKSPACE,
   ROUTES.CREDIT_BENCH,
   ROUTES.CREDIT_WORKBENCH,
   ROUTES.TASKS,
+  ROUTES.STICKY_NOTES,
   ROUTES.ACTIVITY,
   ROUTES.DIALOGUE,
   ROUTES.CONTACTS,
@@ -308,14 +324,19 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_PRODUCTION_RESET,
   ROUTES.ADMIN_ENTERPRISE_METRICS,
   ROUTES.ADMIN_MARKETING,
+  ROUTES.ADMIN_MARKETING_REGISTRY,
   ROUTES.ADMIN_MARKETING_CAMPAIGNS,
   ROUTES.ADMIN_MARKETING_AUDIENCES,
   ROUTES.ADMIN_MARKETING_DATA_SOURCES,
   ROUTES.ADMIN_MARKETING_CONTENT,
   ROUTES.ADMIN_MARKETING_ASSETS,
+  ROUTES.ADMIN_MARKETING_CONSENT,
   ROUTES.ADMIN_MARKETING_ENGAGEMENT,
   ROUTES.ADMIN_MARKETING_RESPONSES,
   ROUTES.ADMIN_MARKETING_DELIVERABILITY,
+  ROUTES.ADMIN_MARKETING_MONITORING,
+  ROUTES.ADMIN_MARKETING_OPERATIONAL_HEALTH,
+  ROUTES.ADMIN_MARKETING_ATTRIBUTION,
   ROUTES.ADMIN_MARKETING_ANALYTICS,
   ROUTES.ADMIN_MARKETING_SETTINGS,
   ROUTES.ADMIN_PARTNER_ENTITLEMENTS,
@@ -360,6 +381,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_PRODUCT_CATEGORIES,
   ROUTES.ADMIN_PRODUCT_LIFECYCLE,
   ROUTES.ADMIN_PRODUCT_AUDIT,
+  ROUTES.ADMIN_PRODUCT_JOURNEY,
   ROUTES.ADMIN_PRODUCT_LENDER_MATRIX,
   ROUTES.ADMIN_HOME_LOAN_LENDER_PRIORITY,
   ROUTES.ADMIN_PRODUCT_LENDER_PRIORITY,
@@ -368,6 +390,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_LENDER_PROGRAM_PORTAL,
   ROUTES.ADMIN_ENTERPRISE_MDM,
   ROUTES.ADMIN_PRODUCT_PROGRAMS,
+  ROUTES.ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS,
   ROUTES.ADMIN_DOCUMENT_TYPES,
   ROUTES.ADMIN_ACCOUNTING_GST_RATES,
   ROUTES.ADMIN_ENTERPRISE_ASSETS,
@@ -376,6 +399,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_ENTERPRISE_ASSETS_LIFECYCLE,
   ROUTES.ADMIN_ENTERPRISE_ASSETS_AUDIT,
   ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER,
+  ROUTES.ADMIN_FIELD_CONTROL_MASTER,
   ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER,
   ROUTES.ADMIN_REFERENCE_MASTERS,
   ROUTES.ADMIN_LENDER_REGISTRY,

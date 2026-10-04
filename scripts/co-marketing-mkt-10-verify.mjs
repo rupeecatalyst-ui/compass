@@ -196,7 +196,7 @@ else pass(`execution ledger rows=${ledger.length}`);
 const firstFp = ledger[0]?.recipientFingerprint;
 if (!firstFp) fail("missing fingerprint");
 else {
-  emitMarketingEngagementEvent({
+  await emitMarketingEngagementEvent({
     organizationId: org,
     campaignId: campaign.id,
     channel: "EMAIL",
@@ -204,7 +204,7 @@ else {
     recipientFingerprint: firstFp,
     idempotencyKey: ledger[0].idempotencyKey,
   });
-  emitMarketingEngagementEvent({
+  await emitMarketingEngagementEvent({
     organizationId: org,
     campaignId: campaign.id,
     channel: "EMAIL",
@@ -212,7 +212,7 @@ else {
     recipientFingerprint: "email:fail.mkt10@example.com",
     providerEventId: "fail-1",
   });
-  emitMarketingEngagementEvent({
+  await emitMarketingEngagementEvent({
     organizationId: org,
     campaignId: campaign.id,
     channel: "EMAIL",
@@ -220,7 +220,7 @@ else {
     recipientFingerprint: "email:suppress.mkt10@example.com",
     providerEventId: "sup-1",
   });
-  emitMarketingEngagementEvent({
+  await emitMarketingEngagementEvent({
     organizationId: org,
     campaignId: campaign.id,
     channel: "EMAIL",
@@ -228,7 +228,7 @@ else {
     recipientFingerprint: "email:unsub.mkt10@example.com",
     providerEventId: "unsub-1",
   });
-  const e1 = emitMarketingEngagementEvent({
+  const e1 = await emitMarketingEngagementEvent({
     organizationId: org,
     campaignId: campaign.id,
     channel: "EMAIL",
@@ -236,7 +236,7 @@ else {
     recipientFingerprint: firstFp,
     providerEventId: "open-dup-1",
   });
-  const e2 = emitMarketingEngagementEvent({
+  const e2 = await emitMarketingEngagementEvent({
     organizationId: org,
     campaignId: campaign.id,
     channel: "EMAIL",
@@ -260,7 +260,7 @@ const route = marketingRoutingPolicyStore.upsert({
   mode: "SINGLE_USER",
   assigneeUserId: "rm-analytics",
 });
-const qualified = marketingQualificationService.ingestResponse(actor, {
+const qualified = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:qualify.mkt10@example.com",
   matchEmail: "qualify.mkt10@example.com",
@@ -333,7 +333,7 @@ const last30 = await marketingAnalyticsService.getDashboard(actor, { preset: "la
 if (today.range.preset !== "today" || last30.range.preset !== "last_30_days") fail("time filter presets");
 else pass("time filters");
 
-const engagement = marketingAnalyticsService.listEngagement(actor, {
+const engagement = await marketingAnalyticsService.listEngagement(actor, {
   preset: "last_30_days",
   page: 1,
   pageSize: 20,
@@ -344,7 +344,7 @@ if (engagement.rows.some((r) => /@/.test(r.fingerprintPreview) && !r.fingerprint
   fail("engagement exposed raw email");
 } else pass("engagement fingerprints redacted");
 
-const drill = marketingAnalyticsService.listExecutionDrilldown(actor, {
+const drill = await marketingAnalyticsService.listExecutionDrilldown(actor, {
   campaignId: campaign.id,
   preset: "last_30_days",
   page: 1,

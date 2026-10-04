@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   emptyPayloadForTemplate,
+  LENDER_PORTAL_LAUNCH_DOCUMENT_UPLOAD,
   LENDER_PROGRAM_DOCUMENT_KINDS,
   resolveProgramTemplateForProductCode,
 } from "@/constants/lender-program-portal";
@@ -41,11 +42,7 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
   const [products, setProducts] = useState<Array<{ code: string; label: string }>>([]);
   const [otpVerified, setOtpVerified] = useState(false);
   const [step, setStep] = useState<Step>("verify");
-  const [otpPreview, setOtpPreview] = useState<string | null>(null);
-  const [emailOtpPreview, setEmailOtpPreview] = useState<string | null>(null);
-  const [mobileOtpPreview, setMobileOtpPreview] = useState<string | null>(null);
   const [emailOtpCode, setEmailOtpCode] = useState("");
-  const [mobileOtpCode, setMobileOtpCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [productCode, setProductCode] = useState("");
   const [payload, setPayload] = useState<LenderProgramPayload>({});
@@ -108,13 +105,10 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await lenderProgramPortalPublicClient.requestOtp(token, {
+      await lenderProgramPortalPublicClient.requestOtp(token, {
         ...verifier,
         lenderName: lenderName || verifier.lenderName,
       });
-      setEmailOtpPreview(res.emailOtpPreview ?? null);
-      setMobileOtpPreview(res.mobileOtpPreview ?? null);
-      setOtpPreview(res.otpPreview ?? res.emailOtpPreview ?? null);
       setStep("otp");
     } catch (e) {
       setError(e instanceof Error ? e.message : "OTP request failed");
@@ -129,7 +123,7 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
     try {
       await lenderProgramPortalPublicClient.verifyOtp(token, {
         emailCode: emailOtpCode,
-        mobileCode: mobileOtpCode,
+        mobileCode: "",
       });
       setOtpVerified(true);
       setStep("product");
@@ -231,8 +225,8 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
           <section className="space-y-4 rounded-xl border bg-card p-5">
             <h2 className="text-sm font-semibold">Submitter identity</h2>
             <p className="text-xs text-muted-foreground">
-              Official Email and Mobile will be verified with OTP. Matching Contacts in the
-              Enterprise Directory are reused (no duplicates).
+              Enter the invited official email. Rupee Catalyst emails a one-time code to that
+              address. The code is not shown on this page.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {(
@@ -258,53 +252,27 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
               ))}
             </div>
             <Button disabled={busy} onClick={() => void requestOtp()}>
-              {busy ? "Sending OTPs…" : "Send Email & Mobile OTP"}
+              {busy ? "Sending code…" : "Email verification code"}
             </Button>
           </section>
         ) : null}
 
         {step === "otp" ? (
           <section className="space-y-3 rounded-xl border bg-card p-5">
-            <h2 className="text-sm font-semibold">Verify Official Email & Mobile</h2>
-            {(emailOtpPreview || mobileOtpPreview || otpPreview) && (
-              <div className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
-                {emailOtpPreview ? (
-                  <p>
-                    Certification Email OTP: <strong>{emailOtpPreview}</strong>
-                  </p>
-                ) : null}
-                {mobileOtpPreview ? (
-                  <p>
-                    Certification Mobile OTP: <strong>{mobileOtpPreview}</strong>
-                  </p>
-                ) : null}
-                {!emailOtpPreview && otpPreview ? (
-                  <p>
-                    Certification OTP preview: <strong>{otpPreview}</strong>
-                  </p>
-                ) : null}
-              </div>
-            )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label>Email OTP *</Label>
-                <Input
-                  placeholder="6-digit email OTP"
-                  value={emailOtpCode}
-                  onChange={(e) => setEmailOtpCode(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Mobile OTP *</Label>
-                <Input
-                  placeholder="6-digit mobile OTP"
-                  value={mobileOtpCode}
-                  onChange={(e) => setMobileOtpCode(e.target.value)}
-                />
-              </div>
+            <h2 className="text-sm font-semibold">Enter the emailed verification code</h2>
+            <p className="text-xs text-muted-foreground">
+              Check the invited lender email. The code is not displayed here.
+            </p>
+            <div className="space-y-1">
+              <Label>Email verification code *</Label>
+              <Input
+                placeholder="6-digit code"
+                value={emailOtpCode}
+                onChange={(e) => setEmailOtpCode(e.target.value)}
+              />
             </div>
             <Button
-              disabled={busy || emailOtpCode.length < 4 || mobileOtpCode.length < 4}
+              disabled={busy || emailOtpCode.length < 4}
               onClick={() => void verifyOtp()}
             >
               Verify Email & Mobile OTP
@@ -395,9 +363,9 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(field.options ?? []).map((o) => (
-                          <SelectItem key={o} value={o}>
-                            {o}
+                        {(field.optionItems ?? (field.options ?? []).map((option) => ({ id: option, label: option }))).map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -433,6 +401,7 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
               ))}
             </div>
 
+            {LENDER_PORTAL_LAUNCH_DOCUMENT_UPLOAD ? (
             <div className="space-y-2 border-t pt-4">
               <h3 className="text-sm font-semibold">Supporting documents</h3>
               <p className="text-xs text-muted-foreground">
@@ -467,6 +436,7 @@ export function LenderProgramUpdatePortal({ token }: { token: string }) {
                 </ul>
               ) : null}
             </div>
+            ) : null}
 
             <Button disabled={busy} onClick={() => void submit()}>
               {busy ? "Submitting…" : "Submit for administrator approval"}

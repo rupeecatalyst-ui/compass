@@ -5,6 +5,7 @@
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { localLenderRegistryStore } from "@/lib/enterprise-lender-registry/local-store";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { canonicalizeProductCode } from "@/lib/product-programme-operations/product-aliases";
 import type {
   CreateLenderContactInput,
   CreateLenderDocumentInput,
@@ -26,6 +27,21 @@ export class EnterpriseLenderRegistryWriteError extends Error {
     super(message);
     this.name = "EnterpriseLenderRegistryWriteError";
   }
+}
+
+export function programmeRegistryQueryParams(query: LenderProgramQuery = {}): URLSearchParams {
+  const params = new URLSearchParams({
+    page: String(query.page ?? 1),
+    pageSize: String(query.pageSize ?? 500),
+    status: query.publishedOnly ? "active" : String(query.status ?? "all"),
+    enabled: query.publishedOnly ? "true" : "all",
+  });
+  if (query.search?.trim()) params.set("search", query.search.trim());
+  if (query.lenderId) params.set("lenderId", query.lenderId);
+  if (query.lifecycleStatus && query.lifecycleStatus !== "all") {
+    params.set("lifecycleStatus", query.lifecycleStatus);
+  }
+  return params;
 }
 
 function rejectLocalFallback(operation: string): never {
@@ -205,16 +221,7 @@ export const lenderRegistryClient = {
   },
 
   async queryPrograms(query: LenderProgramQuery = {}) {
-    const params = new URLSearchParams({
-      page: String(query.page ?? 1),
-      pageSize: String(query.pageSize ?? 500),
-      status: query.publishedOnly ? "active" : String(query.status ?? "all"),
-      enabled: query.publishedOnly ? "true" : "all",
-    });
-    if (query.lenderId) params.set("lenderId", query.lenderId);
-    if (query.lifecycleStatus && query.lifecycleStatus !== "all") {
-      params.set("lifecycleStatus", query.lifecycleStatus);
-    }
+    const params = programmeRegistryQueryParams(query);
     const api = await apiFetch<{ items: EnterpriseLenderProgramRecord[]; total: number }>(
       `/api/lender-registry/programs?${params}`,
     );
@@ -222,11 +229,16 @@ export const lenderRegistryClient = {
       let items = api.items;
       if (query.publishedOnly) {
         items = items.filter(
-          (p) => p.status === "active" && p.lifecycleStatus === "active" && p.enabled,
+          (p) => p.isLivePublished === true && p.publicationState === "published" && p.completenessState === "complete",
         );
       }
       if (query.productCode) {
-        items = items.filter((p) => p.productCode === query.productCode);
+        const wanted = query.productCode;
+        items = items.filter(
+          (p) =>
+            p.productCode === wanted ||
+            canonicalizeProductCode(p.productCode) === canonicalizeProductCode(wanted),
+        );
       }
       return { items, total: items.length, source: "api" as const };
     }

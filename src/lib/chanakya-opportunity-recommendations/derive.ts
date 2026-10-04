@@ -17,6 +17,7 @@ import {
   recommendPublishedLendersFromRegistry,
 } from "@/lib/enterprise-lender-registry/recommend-from-registry";
 import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/published-directory";
+import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import { getCachedOpportunityRecord } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { isPropertySectionVisible } from "@/constants/loan-stage-master";
 import { isProductSecured } from "@/constants/product-master";
@@ -52,6 +53,8 @@ export type ChanakyaOpportunityRecommendation = {
   /** Display stars 1–5 */
   stars: number;
   reason: string;
+  programmeId?: string;
+  programmeVersion?: number;
 };
 
 export type ChanakyaOpportunityRecommendationResult = {
@@ -324,6 +327,8 @@ export function deriveChanakyaOpportunityRecommendations(input: {
       confidencePct,
       stars: starsFromRank(row.rank, confidencePct),
       reason: buildReason(row.lenderName, row.reason, signals),
+      programmeId: row.programmeId,
+      programmeVersion: row.programmeVersion,
     };
   });
 
@@ -332,7 +337,7 @@ export function deriveChanakyaOpportunityRecommendations(input: {
       ready: false,
       missingRequirements: [],
       guidance: [
-        "No Published lenders in Enterprise Lender Registry yet. Publish lenders in Administration → Lender Registry, then return here.",
+        "No applicable published programme matched this Opportunity. Category heuristics were not used.",
       ],
       recommendations: [],
       analyzedAt,
@@ -356,6 +361,7 @@ export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
   file: LoanFile;
   stated?: EcwStatedInformationDraft;
   registryOptions: PublishedLenderOption[];
+  programmes?: EnterpriseLenderProgramRecord[];
   limit?: number;
 }): ChanakyaOpportunityRecommendationResult {
   const analyzedAt = new Date().toISOString();
@@ -376,6 +382,7 @@ export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
   const ranked = recommendPublishedLendersFromOptions(input.registryOptions, {
     file: input.file,
     limit,
+    programmes: input.programmes ?? [],
   }).map((row) => {
     const confidencePct = confidenceFromScore(row.score, signals);
     return {
@@ -387,6 +394,8 @@ export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
       confidencePct,
       stars: starsFromRank(row.rank, confidencePct),
       reason: buildReason(row.lenderName, row.reason, signals),
+      programmeId: row.programmeId,
+      programmeVersion: row.programmeVersion,
     };
   });
 
@@ -395,7 +404,7 @@ export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
       ready: false,
       missingRequirements: [],
       guidance: [
-        "No Published lenders in Enterprise Lender Registry yet. Publish lenders in Administration → Lender Registry, then return here.",
+        "No applicable published programme matched this Opportunity. Category heuristics were not used.",
       ],
       recommendations: [],
       analyzedAt,

@@ -1,0 +1,49 @@
+{
+  "sources": [
+    "prisma/migrations/20260904154500_co_marketing_redesign_001_durable_operating_records/migration.sql",
+    "prisma/migrations/20260905023000_co_marketing_redesign_007_content_templates/migration.sql",
+    "prisma/migrations/20260905080000_co_marketing_redesign_011_asset_library/migration.sql",
+    "prisma/migrations/20260905090000_co_marketing_redesign_012_consent_suppression/migration.sql",
+    "prisma/migrations/20260905093000_co_marketing_redesign_013_sender_deliverability/migration.sql",
+    "prisma/migrations/20260905094500_co_marketing_redesign_014_provider_contracts/migration.sql"
+  ],
+  "consolidated": "prisma/migrations/20260905120000_co_marketing_redesign_durable_foundation/migration.sql",
+  "preserved": "prisma/migrations/20260901080000_co_marketing_campaign_durability",
+  "dependency": {
+    "012-depends-on-001": true,
+    "reason": "012 ALTERs enterprise_marketing_suppressions created in 001"
+  },
+  "duplicatesInOriginalConcat": {
+    "tables": [],
+    "indexes": [],
+    "addColumns": []
+  },
+  "requiredTables": [
+    "enterprise_marketing_sheet_bindings",
+    "enterprise_marketing_audience_definitions",
+    "enterprise_marketing_audience_snapshots",
+    "enterprise_marketing_snapshot_recipients",
+    "enterprise_marketing_delivery_batches",
+    "enterprise_marketing_recipient_ledgers",
+    "enterprise_marketing_execution_leases",
+    "enterprise_marketing_suppressions",
+    "enterprise_marketing_engagement_events",
+    "enterprise_marketing_test_sends",
+    "enterprise_marketing_qualifications",
+    "enterprise_marketing_audit_events",
+    "enterprise_marketing_content_templates",
+    "enterprise_marketing_assets",
+    "enterprise_marketing_asset_versions",
+    "enterprise_marketing_sender_identities",
+    "enterprise_marketing_deliverability_observations",
+    "enterprise_marketing_provider_webhook_events"
+  ],
+  "missingFromSchema": [],
+  "missingFromSql": [],
+  "destructiveStatements": false,
+  "seedInserts": false,
+  "secretLikeTokens": false,
+  "equivalent": true,
+  "appliedToProduction": false,
+  "appliedToDisposablePostgres": false
+}

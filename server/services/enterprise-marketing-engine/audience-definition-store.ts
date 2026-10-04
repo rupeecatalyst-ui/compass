@@ -10,6 +10,10 @@ import type {
   MarketingFilterDefinition,
   MarketingSuppressionPolicy,
 } from "@/types/enterprise-marketing-audience";
+import type {
+  MarketingColumnMap,
+  MarketingConfirmedColumnMapping,
+} from "@/types/enterprise-marketing-durability";
 
 const store = new Map<string, MarketingAudienceDefinition>();
 
@@ -54,8 +58,15 @@ export const marketingAudienceDefinitionStore = {
     datasetId: string;
     datasetDisplayName?: string | null;
     filterDefinition?: MarketingFilterDefinition;
+    exclusionDefinition?: MarketingFilterDefinition;
+    columnMap?: MarketingColumnMap | null;
+    mapping?: MarketingConfirmedColumnMapping | null;
+    mappingConfirmed?: boolean;
     suppressionPolicy?: MarketingSuppressionPolicy;
     eligibilityRules?: MarketingEligibilityRules;
+    campaignId?: string | null;
+    lastSnapshotId?: string | null;
+    lastSnapshotHash?: string | null;
   }): MarketingAudienceDefinition {
     const ts = nowIso();
     const id = input.id?.trim() || `mkt-aud-${input.organizationId}-${Date.now()}`;
@@ -86,9 +97,19 @@ export const marketingAudienceDefinitionStore = {
       bindingId: input.bindingId.trim(),
       datasetId: input.datasetId.trim(),
       datasetDisplayName: input.datasetDisplayName ?? null,
+      campaignId: input.campaignId ?? prev?.campaignId ?? null,
       filterDefinition: input.filterDefinition ?? prev?.filterDefinition ?? emptyFilterDefinition(),
+      exclusionDefinition:
+        input.exclusionDefinition ?? prev?.exclusionDefinition ?? emptyFilterDefinition(),
+      columnMap: input.columnMap ?? prev?.columnMap ?? null,
+      mapping: input.mapping ?? prev?.mapping ?? null,
+      mappingConfirmed: Boolean(
+        input.mappingConfirmed ?? input.mapping?.confirmed ?? prev?.mappingConfirmed,
+      ),
       suppressionPolicy: input.suppressionPolicy ?? prev?.suppressionPolicy ?? DEFAULT_SUPPRESSION,
       eligibilityRules: input.eligibilityRules ?? prev?.eligibilityRules ?? DEFAULT_ELIGIBILITY,
+      lastSnapshotId: input.lastSnapshotId ?? prev?.lastSnapshotId ?? null,
+      lastSnapshotHash: input.lastSnapshotHash ?? prev?.lastSnapshotHash ?? null,
       createdAt: prev?.createdAt ?? ts,
       updatedAt: ts,
     };

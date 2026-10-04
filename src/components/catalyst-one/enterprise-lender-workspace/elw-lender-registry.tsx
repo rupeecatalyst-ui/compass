@@ -27,6 +27,10 @@ import {
 } from "@/lib/enterprise-lender-registry/map-to-directory";
 import { countLendersSupportingDirectoryProduct } from "@/lib/enterprise-lender-registry/program-architecture";
 import {
+  LEGACY_PROGRAMME_REVIEW_LABEL,
+  isRegistryVisibleProgramme,
+} from "@/lib/product-programme-operations/legacy-review";
+import {
   lenderRegistryClient,
   subscribeLenderRegistryUpdated,
 } from "@/lib/enterprise-lender-registry";
@@ -97,9 +101,10 @@ export function ElwLenderRegistry() {
         const productCode = mapDirectoryProductIdToRegistryCode(productId);
         const [programsResult, lendersResult] = await Promise.all([
           lenderRegistryClient.queryPrograms({
-            publishedOnly: true,
             productCode,
             pageSize: 500,
+            status: "active",
+            enabled: true,
           }),
           lenderRegistryClient.queryLenders({
             status: "active",
@@ -112,7 +117,11 @@ export function ElwLenderRegistry() {
           countLendersSupportingDirectoryProduct(lendersResult.items, productId),
         );
         setProductPrograms(
-          buildPublishedDirectoryRows(programsResult.items, lendersResult.items, productId),
+          buildPublishedDirectoryRows(
+            (programsResult.items ?? []).filter(isRegistryVisibleProgramme),
+            lendersResult.items,
+            productId,
+          ),
         );
       } catch {
         if (!cancelled) setProductPrograms([]);
@@ -194,8 +203,60 @@ export function ElwLenderRegistry() {
         sortable: true,
         defaultOrder: 2,
         defaultWidth: 200,
-        render: (row) => <span className="text-muted-foreground">{row.programName}</span>,
-        exportValue: (row) => row.programName,
+        render: (row) => (
+          <span className="text-muted-foreground">
+            {row.programName}
+            {row.legacyReviewRequired ? (
+              <span
+                className="mt-0.5 block text-[10px] font-medium text-amber-800 dark:text-amber-300"
+                data-testid="legacy-programme-review-required"
+              >
+                {LEGACY_PROGRAMME_REVIEW_LABEL}
+              </span>
+            ) : null}
+          </span>
+        ),
+        exportValue: (row) =>
+          row.legacyReviewRequired
+            ? `${row.programName} · ${LEGACY_PROGRAMME_REVIEW_LABEL}`
+            : row.programName,
+      },
+      {
+        id: "programCode",
+        label: "Programme code",
+        defaultOrder: 2.1,
+        defaultWidth: 120,
+        render: (row) => <span className="tabular-nums text-muted-foreground">{row.programCode ?? "—"}</span>,
+        exportValue: (row) => row.programCode ?? "",
+      },
+      {
+        id: "productVariant",
+        label: "Variant",
+        defaultOrder: 2.2,
+        defaultWidth: 110,
+        render: (row) => <span className="text-muted-foreground">{row.productVariant || row.productLabel}</span>,
+        exportValue: (row) => row.productVariant || row.productLabel,
+      },
+      {
+        id: "policy",
+        label: "Policy",
+        defaultOrder: 2.3,
+        defaultWidth: 140,
+        render: (row) => (
+          <span className="text-muted-foreground">
+            {row.policyLabel ? `${row.policyLabel}${row.publishedVersion ? ` · v${row.publishedVersion}` : ""}` : "Not mapped"}
+          </span>
+        ),
+        exportValue: (row) => row.policyLabel ?? "",
+      },
+      {
+        id: "documents",
+        label: "Docs",
+        defaultOrder: 2.4,
+        defaultWidth: 64,
+        align: "center",
+        render: (row) => <span className="tabular-nums">{row.documentCount ?? 0}</span>,
+        exportValue: (row) => String(row.documentCount ?? 0),
       },
       {
         id: "roi",
@@ -477,6 +538,21 @@ export function ElwLenderRegistry() {
               <SelectItem value="all">Salaried / Self-employed</SelectItem>
               <SelectItem value="salaried">Salaried</SelectItem>
               <SelectItem value="self_employed">Self-employed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.effectiveWindow}
+            onValueChange={(v) =>
+              patchFilters({ effectiveWindow: v as LenderDirectoryFilters["effectiveWindow"] })
+            }
+          >
+            <SelectTrigger className="h-7 w-[140px] rounded-sm text-[11px]">
+              <SelectValue placeholder="Effective" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Effective / Expired</SelectItem>
+              <SelectItem value="effective">Effective now</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
             </SelectContent>
           </Select>
         </div>

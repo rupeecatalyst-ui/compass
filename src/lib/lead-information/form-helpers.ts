@@ -20,6 +20,11 @@ import {
 } from "@/constants/cibil-score-master";
 import { findCityEntry } from "@/constants/city-master";
 import { parseRequestedAmountInput } from "@/lib/lead-information/validate-lead-information";
+import {
+  canonicalFactsForLeadInformation,
+  storedCanonicalDate,
+  storedCanonicalNumber,
+} from "@/lib/lead-information/canonical-recommendation-facts";
 import type {
   EnterpriseOpportunityApiRecord,
   OpportunityUpdateBody,
@@ -69,6 +74,21 @@ export function formFromOpportunity(
     btInstitutionName: ext.btInstitutionName?.trim() || "",
     btAmount:
       ext.btAmount != null && Number.isFinite(ext.btAmount) ? String(ext.btAmount) : "",
+    borrowerAgeYears: storedCanonicalNumber(opp.borrowerAgeYears),
+    borrowerLegalConstitution: opp.borrowerLegalConstitution?.trim() || "",
+    requestedTenureMonths: storedCanonicalNumber(opp.requestedTenureMonths),
+    monthlyIncomeRupees: storedCanonicalNumber(opp.monthlyIncomeRupees),
+    existingMonthlyObligationsRupees: storedCanonicalNumber(opp.existingMonthlyObligationsRupees),
+    propertyValueRupees: storedCanonicalNumber(opp.propertyValueRupees),
+    propertyCategory: opp.propertyCategory?.trim() || "",
+    constructionStatus: opp.constructionStatus?.trim() || "",
+    residency: opp.residency?.trim() || "",
+    currentRoiPercent: storedCanonicalNumber(opp.currentRoiPercent),
+    currentHomeLoanEmiRupees: storedCanonicalNumber(opp.currentHomeLoanEmiRupees),
+    remainingTenureMonths: storedCanonicalNumber(opp.remainingTenureMonths),
+    loanStartDate: storedCanonicalDate(opp.loanStartDate),
+    repaymentTrack: opp.repaymentTrack?.trim() || "",
+    delayedEmiCount: storedCanonicalNumber(opp.delayedEmiCount),
   };
 }
 
@@ -99,6 +119,12 @@ export function buildLeadInformationPatchBody(
     form.lendingType === "secured" || form.lendingType === "unsecured"
       ? form.lendingType
       : null;
+
+  const canonical = canonicalFactsForLeadInformation(form);
+  if (!canonical.ok) {
+    throw new Error(canonical.message);
+  }
+  const facts = canonical.facts;
 
   const contactLookup = resolveBusinessSourceContactLookup(form.businessSource);
   let sourceContactId = form.sourceContactId.trim() || null;
@@ -154,6 +180,21 @@ export function buildLeadInformationPatchBody(
     sourceWealthPartnerId,
     participationRole,
     sourceCampaignLabel,
+    borrowerAgeYears: facts.borrowerAgeYears,
+    borrowerLegalConstitution: facts.borrowerLegalConstitution,
+    requestedTenureMonths: facts.requestedTenureMonths,
+    monthlyIncomeRupees: facts.monthlyIncomeRupees,
+    existingMonthlyObligationsRupees: facts.existingMonthlyObligationsRupees,
+    propertyValueRupees: facts.propertyValueRupees,
+    propertyCategory: facts.propertyCategory,
+    constructionStatus: facts.constructionStatus,
+    residency: facts.residency,
+    currentRoiPercent: facts.currentRoiPercent,
+    currentHomeLoanEmiRupees: facts.currentHomeLoanEmiRupees,
+    remainingTenureMonths: facts.remainingTenureMonths,
+    loanStartDate: facts.loanStartDate ? facts.loanStartDate.toISOString().slice(0, 10) : null,
+    repaymentTrack: facts.repaymentTrack,
+    delayedEmiCount: facts.delayedEmiCount,
     lendingExtension: {
       ...(historicalPurpose ? { purpose: historicalPurpose } : {}),
       remarks: form.remarks.trim() || null,

@@ -19,6 +19,8 @@ import type { EnterpriseCommunicationProfileRecord } from "@/types/enterprise-co
 import { enterpriseActivityService } from "@server/services/enterprise-activity/enterprise-activity.service";
 import { enterpriseCommunicationCenterService } from "@server/services/enterprise-communication-center/ecc.service";
 import { loadAndResolveTransactionOperationalRecipients } from "@server/services/enterprise-communication-center/recipient-router.service";
+import { prisma } from "@server/lib/prisma";
+import { enforceMandatoryInitiatingSenderCc } from "@/lib/enterprise-communication-center/initiating-sender-cc";
 import { sendOperationalSmtpMessage } from "@server/services/enterprise-communication-center/smtp-transport.service";
 import { enterpriseNotificationService } from "@server/services/enterprise-notification/enterprise-notification.service";
 
@@ -243,6 +245,31 @@ export async function dispatchOperationalTransactionEmail(
       failureCode: recipients.code,
     });
   }
+
+  const initiatingUser = await prisma.user.findFirst({
+    where: { id: input.actorUserId },
+    select: { id: true, email: true, isActive: true },
+  });
+  const senderCc = enforceMandatoryInitiatingSenderCc({
+    to: recipients.to,
+    cc: recipients.cc,
+    initiatingUser: {
+      id: input.actorUserId,
+      email: initiatingUser?.email,
+      isActive: initiatingUser?.isActive,
+    },
+  });
+  if (!senderCc.ok) {
+    return baseFailure({
+      deliveryStatus: "failed",
+      to: recipients.to,
+      cc: recipients.cc,
+      message: senderCc.message,
+      failureCode: senderCc.code,
+    });
+  }
+  recipients.to = senderCc.to;
+  recipients.cc = senderCc.cc;
 
   const profile = await loadCustomersProfile();
   if (!profile?.active || profile.smtpProvider !== "smtp") {

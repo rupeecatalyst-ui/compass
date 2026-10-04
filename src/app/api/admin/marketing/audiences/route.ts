@@ -5,18 +5,23 @@
 
 import {
   errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
-import type { ApiResponse } from "@/types/api";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import type {
   MarketingEligibilityRules,
   MarketingFilterDefinition,
   MarketingSuppressionPolicy,
 } from "@/types/enterprise-marketing-audience";
+import type {
+  MarketingColumnMap,
+  MarketingConfirmedColumnMapping,
+} from "@/types/enterprise-marketing-durability";
 import { marketingAudienceService } from "@server/services/enterprise-marketing-engine";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
+import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
+import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 
 function requireAdministrator(actor: { role: string }) {
   if (actor.role !== "SUPER_ADMIN" && actor.role !== "ADMIN") {
@@ -28,39 +33,34 @@ function requireAdministrator(actor: { role: string }) {
 }
 
 function fromUnknown(err: unknown) {
-  if (err instanceof EnterpriseMarketingSafetyError) {
-    return errorResponse(403, err.code, err.message);
-  }
-  const statusCode = (err as { statusCode?: number }).statusCode;
-  const code = (err as { code?: string }).code;
-  if (statusCode === 401 || statusCode === 403) {
-    return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-  }
-  return errorResponse(
-    statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
-    code ?? "MARKETING_AUDIENCE_FAILED",
+  return fromMarketingUnknownError(
+    err,
+    "MARKETING_AUDIENCE_FAILED",
     err instanceof Error ? err.message : "Marketing audience request failed",
   );
 }
 
-const actorCtx = (actor: { userId: string }) => ({
+const actorCtx = async (actor: { userId: string; role: string }) => ({
   userId: actor.userId,
-  organizationId: "default" as string | null,
+  role: actor.role,
+  organizationId: await resolveMarketingOrganizationId(),
 });
 
 export async function GET(request: Request) {
   try {
     const actor = requireAccessToken(request);
     requireAdministrator(actor);
+    const ctx = await actorCtx(actor);
+    assertMarketingPermission(ctx, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const url = new URL(request.url);
     const view = url.searchParams.get("view") ?? "list";
 
     if (view === "suppressions") {
-      const suppressions = marketingAudienceService.listSuppressions(actorCtx(actor));
+      const suppressions = marketingAudienceService.listSuppressions(ctx);
       return successResponse({ suppressions });
     }
 
-    const audiences = marketingAudienceService.list(actorCtx(actor));
+    const audiences = await marketingAudienceService.list(ctx);
     return successResponse({ audiences });
   } catch (err) {
     return fromUnknown(err);
@@ -71,18 +71,29 @@ export async function POST(request: Request) {
   try {
     const actor = requireAccessToken(request);
     requireAdministrator(actor);
+    const ctx = await actorCtx(actor);
+    assertMarketingPermission(ctx, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const body = (await request.json().catch(() => ({}))) as {
-      action?: "upsert" | "preview" | "delete";
+      action?: "upsert" | "preview" | "delete" | "freeze";
       id?: string;
       name?: string;
       description?: string | null;
       bindingId?: string;
       datasetId?: string;
       datasetDisplayName?: string | null;
+      campaignId?: string | null;
+      campaignVersionId?: string;
       filterDefinition?: MarketingFilterDefinition;
+      exclusionDefinition?: MarketingFilterDefinition;
       suppressionPolicy?: MarketingSuppressionPolicy;
       eligibilityRules?: MarketingEligibilityRules;
       audienceId?: string;
+      columnMap?: MarketingColumnMap | null;
+      mapping?: MarketingConfirmedColumnMapping | null;
+      mappingConfirmed?: boolean;
+      confirmMapping?: boolean;
+      headers?: string[];
+      fullScan?: boolean;
     };
 
     const action = body.action ?? "upsert";
@@ -92,17 +103,43 @@ export async function POST(request: Request) {
         return errorResponse(400, "INVALID_INPUT", "audienceId is required");
       }
       const result = marketingAudienceService.remove(
-        actorCtx(actor),
+        ctx,
         (body.audienceId ?? body.id) as string,
       );
       return successResponse(result);
     }
 
+    if (action === "freeze") {
+      if (!body.audienceId || !body.campaignId || !body.campaignVersionId) {
+        return errorResponse(
+          400,
+          "INVALID_INPUT",
+          "freeze requires audienceId, campaignId, and campaignVersionId",
+        );
+      }
+      const frozen = await marketingAudienceService.freezeForCampaign(ctx, {
+        audienceId: body.audienceId,
+        campaignId: body.campaignId,
+        campaignVersionId: body.campaignVersionId,
+      });
+      return successResponse({
+        snapshot: {
+          id: frozen.snapshot.id,
+          snapshotHash: frozen.snapshotHash,
+          eligibleCount: frozen.eligibleCount,
+          frozenAt: frozen.snapshot.frozenAt,
+          sourceWorkbookId: frozen.snapshot.sourceWorkbookId,
+          sourceTabId: frozen.snapshot.sourceTabId,
+        },
+      });
+    }
+
     if (action === "preview") {
       if (body.audienceId) {
         const preview = await marketingAudienceService.previewSaved(
-          actorCtx(actor),
+          ctx,
           body.audienceId,
+          { fullScan: body.fullScan },
         );
         return successResponse({ preview });
       }
@@ -113,12 +150,17 @@ export async function POST(request: Request) {
           "preview requires audienceId OR bindingId + datasetId + filterDefinition",
         );
       }
-      const preview = await marketingAudienceService.previewDraft(actorCtx(actor), {
+      const preview = await marketingAudienceService.previewDraft(ctx, {
         bindingId: body.bindingId,
         datasetId: body.datasetId,
         filterDefinition: body.filterDefinition,
+        exclusionDefinition: body.exclusionDefinition,
         suppressionPolicy: body.suppressionPolicy,
         eligibilityRules: body.eligibilityRules,
+        columnMap: body.columnMap,
+        mapping: body.mapping,
+        mappingConfirmed: body.mappingConfirmed,
+        fullScan: body.fullScan,
       });
       return successResponse({ preview });
     }
@@ -127,16 +169,23 @@ export async function POST(request: Request) {
     if (!body.name || !body.bindingId || !body.datasetId) {
       return errorResponse(400, "INVALID_INPUT", "name, bindingId, and datasetId are required");
     }
-    const audience = marketingAudienceService.upsert(actorCtx(actor), {
+    const audience = await marketingAudienceService.upsert(ctx, {
       id: body.id,
       name: body.name,
       description: body.description,
       bindingId: body.bindingId,
       datasetId: body.datasetId,
       datasetDisplayName: body.datasetDisplayName,
+      campaignId: body.campaignId,
       filterDefinition: body.filterDefinition,
+      exclusionDefinition: body.exclusionDefinition,
       suppressionPolicy: body.suppressionPolicy,
       eligibilityRules: body.eligibilityRules,
+      columnMap: body.columnMap,
+      mapping: body.mapping,
+      mappingConfirmed: body.mappingConfirmed,
+      confirmMapping: body.confirmMapping,
+      headers: body.headers,
     });
     return successResponse({ audience });
   } catch (err) {

@@ -21,16 +21,11 @@ export async function POST(
     };
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
-    const challenge =
-      body.emailCode?.trim() && body.mobileCode?.trim()
-        ? { emailCode: body.emailCode.trim(), mobileCode: body.mobileCode.trim() }
-        : body.code?.trim();
+    const challenge = body.emailCode?.trim()
+      ? { emailCode: body.emailCode.trim(), mobileCode: body.mobileCode?.trim() ?? "" }
+      : body.code?.trim();
     if (!challenge) {
-      return errorResponse(
-        400,
-        "VALIDATION",
-        "Email OTP and Mobile OTP are required",
-      );
+      return errorResponse(400, "VALIDATION", "Email verification code is required");
     }
     const data = await lenderProgramPortalService.verifyOtp(
       decodeURIComponent(token),

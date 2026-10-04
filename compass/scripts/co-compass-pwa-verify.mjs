@@ -54,8 +54,14 @@ for (const icon of requiredIcons) {
 }
 
 const sw = read("public/sw.js");
+const buildPwa = read("scripts/build-pwa.mjs");
 assert.doesNotMatch(sw, /__PWA_CACHE_VERSION__/);
-assert.match(sw, /compass-pwa-/);
+assert.match(sw, /const CACHE_VERSION = "compass-pwa-[^"]+"/);
+assert.doesNotMatch(sw, /const CACHE_VERSION = "compass-pwa-\d{4}-\d{2}-\d{2}"/);
+assert.match(sw, /key !== STATIC_CACHE && key !== PAGES_CACHE/);
+assert.doesNotMatch(buildPwa, /toISOString\(\)\.slice\(0,\s*10\)/);
+assert.match(buildPwa, /VERCEL_DEPLOYMENT_ID/);
+assert.match(swTemplate, /key !== STATIC_CACHE && key !== PAGES_CACHE/);
 
 const markSource = join(root, "src/assets/brand/rupee-catalyst-logo-dark-mark@2x.png");
 assert.ok(existsSync(markSource), "Approved mark source missing for PWA icons");

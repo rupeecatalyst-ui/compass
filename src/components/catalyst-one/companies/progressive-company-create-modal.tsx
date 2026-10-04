@@ -9,6 +9,9 @@
 import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 import { persistRegisterEcmCompany } from "@/lib/enterprise-persistence/ecm-persist";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { OperationalCustomFieldsCollector } from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
+import type { OperationalCustomFieldSubmission } from "@/lib/field-control-master/operational-custom-fields";
 import type { EcmCompany } from "@/types/enterprise-company-master";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +43,8 @@ export function ProgressiveCompanyCreateModal({
   const [companyName, setCompanyName] = useState(initialName);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [customSubmissions, setCustomSubmissions] = useState<OperationalCustomFieldSubmission[]>([]);
+  const [customBlocked, setCustomBlocked] = useState(isEnterprisePersistencePrisma());
 
   useEffect(() => {
     if (open) {
@@ -55,6 +60,10 @@ export function ProgressiveCompanyCreateModal({
       setError("Company name is required.");
       return;
     }
+    if (isEnterprisePersistencePrisma() && customBlocked) {
+      setError("Complete the required custom fields.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -63,12 +72,15 @@ export function ProgressiveCompanyCreateModal({
         user?.email ||
         user?.id ||
         "user";
-      const company = await persistRegisterEcmCompany({
-        companyName: name,
-        createdBy: actor,
-        ownerName: actor,
-        ownerId: user?.id,
-      });
+      const company = await persistRegisterEcmCompany(
+        {
+          companyName: name,
+          createdBy: actor,
+          ownerName: actor,
+          ownerId: user?.id,
+        },
+        { customFieldValues: isEnterprisePersistencePrisma() ? customSubmissions : undefined },
+      );
       onCreated(company);
       onOpenChange(false);
     } catch (err) {
@@ -108,6 +120,15 @@ export function ProgressiveCompanyCreateModal({
               }}
             />
           </div>
+          {isEnterprisePersistencePrisma() ? (
+            <OperationalCustomFieldsCollector
+              domain="company"
+              onState={(state) => {
+                setCustomSubmissions(state.submissions);
+                setCustomBlocked(state.blocked);
+              }}
+            />
+          ) : null}
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
           <p className="text-[11px] text-muted-foreground">
             Minimum required now: Company Name. PAN, GST, address, and other fields can follow —

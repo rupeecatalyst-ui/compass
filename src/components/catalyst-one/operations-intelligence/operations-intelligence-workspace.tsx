@@ -132,6 +132,17 @@ function OperationsAnalyticsBody({ ebi }: { ebi: EbiSnapshot }) {
           <McAnalyticsExpandCard
             title="Pipeline → Funnel"
             subtitle="Deal count by lender pipeline stage (EBI SSOT)"
+            meta={{
+              id: "ops-funnel",
+              title: "Pipeline → Funnel",
+              measurementDefinition: "Deal count by lender pipeline stage from the certified EBI snapshot.",
+              reportingPeriod: MISSION_CONTROL_ANALYTICS_REFRESH_LABEL,
+              unit: "deals",
+              unitLabel: "Deals (count)",
+              lastUpdated: ebi.asOf,
+              dataSource: "Certified EBI snapshot",
+              kind: "funnel",
+            }}
           >
             <EiFunnelChart stages={analytics.funnel} />
           </McAnalyticsExpandCard>
@@ -139,6 +150,17 @@ function OperationsAnalyticsBody({ ebi }: { ebi: EbiSnapshot }) {
           <McAnalyticsExpandCard
             title="Product Mix → Treemap"
             subtitle="Active Deals grouped by product"
+            meta={{
+              id: "ops-treemap",
+              title: "Product Mix → Treemap",
+              measurementDefinition: "Active Deals grouped by product from the certified EBI snapshot.",
+              reportingPeriod: MISSION_CONTROL_ANALYTICS_REFRESH_LABEL,
+              unit: "deals",
+              unitLabel: "Deals (count)",
+              lastUpdated: ebi.asOf,
+              dataSource: "Certified EBI snapshot",
+              kind: "treemap",
+            }}
           >
             <EiTreemapChart cells={analytics.treemap} />
           </McAnalyticsExpandCard>
@@ -146,6 +168,17 @@ function OperationsAnalyticsBody({ ebi }: { ebi: EbiSnapshot }) {
           <McAnalyticsExpandCard
             title="Business Health → Radar"
             subtitle="Enterprise health dimensions from certified snapshot"
+            meta={{
+              id: "ops-radar",
+              title: "Business Health → Radar",
+              measurementDefinition: "Enterprise health dimensions from the certified EBI snapshot.",
+              reportingPeriod: MISSION_CONTROL_ANALYTICS_REFRESH_LABEL,
+              unit: "score",
+              unitLabel: "Score (0–100)",
+              lastUpdated: ebi.asOf,
+              dataSource: "Certified EBI snapshot",
+              kind: "radar",
+            }}
           >
             <EiRadarChart axes={analytics.radar} />
           </McAnalyticsExpandCard>

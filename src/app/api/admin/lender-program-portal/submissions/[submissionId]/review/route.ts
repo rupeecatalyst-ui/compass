@@ -8,6 +8,7 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { assertPortalAdministrator } from "@/lib/lender-program-portal/launch-closure";
 import { lenderProgramPortalService } from "@server/services/lender-program-portal/lender-program-portal.service";
 
 export async function POST(
@@ -19,6 +20,7 @@ export async function POST(
       return errorResponse(503, "PERSISTENCE_REQUIRED", "Requires prisma mode");
     }
     const actor = requireAccessToken(request);
+    assertPortalAdministrator(actor.role);
     const { submissionId } = await ctx.params;
     const body = (await request.json()) as {
       action?: "approve" | "reject" | "clarify" | "publish" | "schedule" | "save_draft";
@@ -26,6 +28,7 @@ export async function POST(
       clarificationNotes?: string;
       rejectionReason?: string;
       schedulePublishAt?: string;
+      policyVersionId?: string;
     };
     if (!body.action) {
       return errorResponse(400, "VALIDATION", "action is required");
@@ -36,8 +39,10 @@ export async function POST(
       clarificationNotes: body.clarificationNotes,
       rejectionReason: body.rejectionReason,
       schedulePublishAt: body.schedulePublishAt,
+      policyVersionId: body.policyVersionId,
       actorUserId: actor.userId,
       actorName: actor.email || actor.userId,
+      actorRole: actor.role,
     });
     return successResponse(item);
   } catch (err) {

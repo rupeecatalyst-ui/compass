@@ -12,12 +12,13 @@ import { ROUTES } from "@/constants/routes";
 type ProductRoute = (typeof ROUTES)[keyof typeof ROUTES];
 
 /** Launch discovery overlay — never scroll to a page section. */
-export function useLaunchDiscovery(productPath: ProductRoute = ROUTES.HOME_LOAN) {
+export function useLaunchDiscovery(productPath: ProductRoute) {
   const discovery = useDiscoveryOptional();
 
   return useCallback(() => {
     if (discovery) {
-      discovery.launchDiscovery(resolveLaunchProductCode(productPath));
+      const resolved = resolveLaunchProductCode(productPath);
+      discovery.launchDiscovery(resolved ?? undefined);
       return;
     }
 

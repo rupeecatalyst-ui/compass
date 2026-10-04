@@ -126,6 +126,7 @@ export async function loadNewOpportunitiesFeed(
       customerName: borrowerDisplayNameOrDash(opp),
       product: opp.productLabel?.trim() || "Not Specified",
       requestedAmount: opp.requestedAmount ?? null,
+      advantageCommittedDisplay: opp.advantageCommittedDisplay ?? "Not applicable",
       sourceLabel: opportunityBusinessSourceSummaryLabel(opp.sourceCode) ||
         opportunityBusinessSourceLabel(opp.sourceCode),
       sourceName: sourceNameFromRecord(opp),

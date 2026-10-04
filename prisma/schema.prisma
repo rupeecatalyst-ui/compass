@@ -48,6 +48,8 @@ model User {
   reportingManager   User?          @relation("UserReportsTo", fields: [reportingManagerId], references: [id], onDelete: SetNull)
   directReports      User[]         @relation("UserReportsTo")
   ecmContacts        EcmContact[]   @relation("EcmContactLinkedUser")
+  privateStickyNotes EmployeePrivateStickyNote[] @relation("EmployeePrivateStickyNotes")
+  chanakyaConversationSessions ChanakyaConversationSession[] @relation("EmployeePrivateChanakyaChats")
 
   @@index([reportingManagerId])
   @@index([createdById])
@@ -181,6 +183,7 @@ model Organization {
   productCategories         EnterpriseProductCategory[]
   productGroups             EnterpriseProductGroup[]
   products                  EnterpriseProduct[]
+  productJourneys           EnterpriseProductJourney[]
   documentTypes             EnterpriseDocumentType[]
   documentDefinitions       EnterpriseDocumentDefinition[]
   lenderCategories          EnterpriseLenderCategory[]
@@ -188,9 +191,15 @@ model Organization {
   lenderPrograms            EnterpriseLenderProgram[]
   lenderContacts            EnterpriseLenderContact[]
   lenderDocuments           EnterpriseLenderDocument[]
+  /// CO-PRODUCT-PROGRAM-OPERATIONS-001 — durable Credit & Risk policy + programme audit
+  enterpriseCreditRiskPolicies          EnterpriseCreditRiskPolicy[]
+  enterpriseCreditRiskPolicyVersions    EnterpriseCreditRiskPolicyVersion[]
+  enterpriseCreditRiskPolicyAuditEvents EnterpriseCreditRiskPolicyAuditEvent[]
+  enterpriseLenderProgramAuditEvents    EnterpriseLenderProgramAuditEvent[]
   /// CO-ARCH-003 — Opportunity Registry
   enterpriseOpportunities              EnterpriseOpportunity[]
   enterpriseOpportunityNumberSequences EnterpriseOpportunityNumberSequence[]
+  enterpriseOpportunityAdvantageCommitmentEvents EnterpriseOpportunityAdvantageCommitmentEvent[]
   /// CO-ARCH-003 Phase 2B Sprint 1 — Invoice Party Master (Accounting)
   enterpriseInvoiceParties           EnterpriseInvoiceParty[]
   enterpriseAccountingGstRates       EnterpriseAccountingGstRate[]
@@ -238,6 +247,14 @@ model Organization {
   enterpriseDocumentObjectBlobs      EnterpriseDocumentObjectBlob[]
   /// CO-DOC-005 — Enterprise Document Package Registry (additive; migration pending approval)
   enterpriseDocumentPackages         EnterpriseDocumentPackage[]
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014 — durable request / upload / share / seen (not a document SSOT)
+  enterpriseDocumentCustomerRequests EnterpriseDocumentCustomerRequest[]
+  enterpriseDocumentUploadSessions   EnterpriseDocumentUploadSession[]
+  enterpriseDocumentShareEvents      EnterpriseDocumentShareEvent[]
+  enterpriseDocumentVersionSeen      EnterpriseDocumentVersionSeen[]
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — append-only audit + durable portal rate limits
+  enterpriseDocumentWorkspaceAuditEvents EnterpriseDocumentWorkspaceAuditEvent[]
+  enterpriseDocumentWorkspaceRateLimits  EnterpriseDocumentWorkspaceRateLimit[]
   /// CO-WP-001 — Enterprise Wealth Partner Registry (additive; Contact/Company remain identity SSOT)
   enterpriseWealthPartners                 EnterpriseWealthPartner[]
   enterpriseWealthPartnerNetworkMembers    EnterpriseWealthPartnerNetworkMember[]
@@ -268,6 +285,26 @@ model Organization {
 
   /// Durable Marketing Campaign Registry (organization-scoped; no live send)
   enterpriseMarketingCampaigns             EnterpriseMarketingCampaign[]
+  /// CO-MARKETING-REDESIGN-007 — reusable visual email templates
+  enterpriseMarketingContentTemplates      EnterpriseMarketingContentTemplate[]
+  /// CO-MARKETING-REDESIGN-001 — operational records only (no prospect mirror)
+  enterpriseMarketingSheetBindings         EnterpriseMarketingSheetBinding[]
+  enterpriseMarketingAudienceDefinitions   EnterpriseMarketingAudienceDefinition[]
+  enterpriseMarketingAudienceSnapshots     EnterpriseMarketingAudienceSnapshot[]
+  enterpriseMarketingSnapshotRecipients    EnterpriseMarketingSnapshotRecipient[]
+  enterpriseMarketingDeliveryBatches       EnterpriseMarketingDeliveryBatch[]
+  enterpriseMarketingRecipientLedgers      EnterpriseMarketingRecipientLedger[]
+  enterpriseMarketingExecutionLeases       EnterpriseMarketingExecutionLease[]
+  enterpriseMarketingSuppressions          EnterpriseMarketingSuppression[]
+  enterpriseMarketingEngagementEvents      EnterpriseMarketingEngagementEvent[]
+  enterpriseMarketingTestSends             EnterpriseMarketingTestSend[]
+  enterpriseMarketingQualifications        EnterpriseMarketingQualification[]
+  enterpriseMarketingAuditEvents           EnterpriseMarketingAuditEvent[]
+  enterpriseMarketingAssets                EnterpriseMarketingAsset[]
+  enterpriseMarketingAssetVersions         EnterpriseMarketingAssetVersion[]
+  enterpriseMarketingSenderIdentities      EnterpriseMarketingSenderIdentity[]
+  enterpriseMarketingDeliverabilityObservations EnterpriseMarketingDeliverabilityObservation[]
+  enterpriseMarketingProviderWebhookEvents EnterpriseMarketingProviderWebhookEvent[]
   /// CO-C1-COMMUNICATION-002 — Inbound operational mailbox ingestion ledger
   enterpriseInboundEmailMessages           EnterpriseInboundEmailMessage[]
   enterpriseInboundEmailAttachments        EnterpriseInboundEmailAttachment[]
@@ -275,6 +312,11 @@ model Organization {
   enterpriseInboundEmailServerConfig       EnterpriseInboundEmailServerConfig?
   /// CO-UX-021 — Enterprise Business Notes (official business chronology notes)
   enterpriseBusinessNotes                  EnterpriseBusinessNote[]
+  /// CO-C1-CONTACT-STRATEGY-STICKY-NOTES-007 — private personal notes (owner-only)
+  employeePrivateStickyNotes               EmployeePrivateStickyNote[]
+  ecmContactRelationshipPlans              EcmContactRelationshipPlan[]
+  /// CO-C1-CHANAKYA-DURABLE-HISTORY-009A — employee-private CHANAKYA chat (owner-only)
+  chanakyaConversationSessions             ChanakyaConversationSession[]
   /// CO-ORG-001 — Enterprise Organization Workspace (durable backend)
   organizationWorkspaceProfile             OrganizationWorkspaceProfile?
   organizationWorkspaceSettings            OrganizationWorkspaceSettings?
@@ -290,6 +332,22 @@ model Organization {
   organizationAuditEntries                 OrganizationAuditEntry[]
   /// CO-HL-PROGRAM-001 — Product-scoped lender selection priority (does not mutate lender master)
   enterpriseProductLenderPriorities        EnterpriseProductLenderPriority[]
+  /// Product Journey & Recommendation Master — product-generic capture/mandatory config
+  productJourneyDefinitions                ProductJourneyDefinition[]
+  /// CO-C1-HL-BT-POLICY-001 — recommendation masters (no live lender policies seeded)
+  hlRecommendationLenderCategories         HlRecommendationLenderCategoryAssignment[]
+  hlProductRecommendationRuleSets          HlProductRecommendationRuleSet[]
+  hlCibilCategoryRules                     HlCibilCategoryRule[]
+  hlRegulatoryLtvRules                     HlRegulatoryLtvRule[]
+  hlRecommendationOverrides                HlRecommendationOverride[]
+  organizationWorkingCalendarVersions      OrganizationWorkingCalendarVersion[]
+  compassHomeLoanAssessments               CompassHomeLoanAssessment[]
+  compassExpertSlaEvents                   CompassExpertSlaEvent[]
+  compassOtpChallenges                     CompassOtpChallenge[]
+  /// Stage 5C1 — durable Opportunity Assessment (no fabricated backfill)
+  enterpriseOpportunityAssessments         EnterpriseOpportunityAssessment[]
+  enterpriseOpportunityAssessmentRevisions EnterpriseOpportunityAssessmentRevision[]
+  enterpriseOpportunityAssessmentRecommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
   /// CO-CCC-001 — Corporate Compliance Center
   cccLegalEntities                         CccLegalEntity[]
   cccInstitutionProfiles                   CccInstitutionProfile[]
@@ -297,6 +355,8 @@ model Organization {
   cccDocumentPackageDefinitions            CccDocumentPackageDefinition[]
   cccDocumentPackageInstances              CccDocumentPackageInstance[]
   cccDispatches                            CccDispatch[]
+  /// FCM V2.0 — organization-scoped custom field values. No column is added to Deal.
+  fieldControlCustomValues                 FieldControlCustomValue[]
 
   @@map("organizations")
 }
@@ -353,6 +413,7 @@ model OrganizationWorkspaceSettings {
   updatedAt             DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  calendarVersions OrganizationWorkingCalendarVersion[]
 
   @@map("organization_workspace_settings")
 }
@@ -666,6 +727,7 @@ model EnterpriseNotification {
 
 /// Durable Marketing Campaign Registry — organization-scoped Prisma persistence.
 /// Live bulk email/WhatsApp remain disabled. Demo campaigns use demoKey uniqueness.
+/// CO-MARKETING-REDESIGN-001 extends this table additively (actors, snapshot, binding).
 model EnterpriseMarketingCampaign {
   id                       String   @id
   organizationId           String   @map("organization_id")
@@ -692,13 +754,32 @@ model EnterpriseMarketingCampaign {
   stateHistoryJson         Json     @map("state_history_json")
   createdAt                DateTime @map("created_at")
   updatedAt                DateTime @map("updated_at")
+  /// CO-MARKETING-REDESIGN-001
+  createdByUserId          String?  @map("created_by_user_id")
+  updatedByUserId          String?  @map("updated_by_user_id")
+  sourceBindingId          String?  @map("source_binding_id")
+  approvedSnapshotId       String?  @map("approved_snapshot_id")
 
-  organization Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  versions     EnterpriseMarketingCampaignVersion[]
+  organization       Organization                            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions           EnterpriseMarketingCampaignVersion[]
+  sourceBinding      EnterpriseMarketingSheetBinding?        @relation("CampaignSourceBinding", fields: [sourceBindingId], references: [id], onDelete: SetNull)
+  approvedSnapshot   EnterpriseMarketingAudienceSnapshot?    @relation("CampaignApprovedSnapshot", fields: [approvedSnapshotId], references: [id], onDelete: SetNull)
+  audienceDefinitions EnterpriseMarketingAudienceDefinition[]
+  snapshots          EnterpriseMarketingAudienceSnapshot[]   @relation("CampaignSnapshots")
+  snapshotRecipients EnterpriseMarketingSnapshotRecipient[]
+  deliveryBatches    EnterpriseMarketingDeliveryBatch[]
+  recipientLedgers   EnterpriseMarketingRecipientLedger[]
+  executionLease     EnterpriseMarketingExecutionLease?
+  testSends          EnterpriseMarketingTestSend[]
+  qualifications     EnterpriseMarketingQualification[]
+  auditEvents        EnterpriseMarketingAuditEvent[]
+  engagementEvents   EnterpriseMarketingEngagementEvent[]
 
   @@unique([organizationId, demoKey], map: "emc_org_demo_uidx")
+  @@unique([approvedSnapshotId], map: "emc_approved_snapshot_uidx")
   @@index([organizationId, updatedAt(sort: Desc)], map: "emc_org_updated_idx")
   @@index([organizationId, status], map: "emc_org_status_idx")
+  @@index([organizationId, sourceBindingId], map: "emc_org_binding_idx")
   @@map("enterprise_marketing_campaigns")
 }
 
@@ -721,12 +802,564 @@ model EnterpriseMarketingCampaignVersion {
   ctaUrl             String?   @map("cta_url")
   createdAt          DateTime  @map("created_at")
   updatedAt          DateTime  @map("updated_at")
+  /// CO-MARKETING-REDESIGN-001
+  createdByUserId    String?   @map("created_by_user_id")
+  updatedByUserId    String?   @map("updated_by_user_id")
 
-  campaign EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign  EnterpriseMarketingCampaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  snapshots EnterpriseMarketingAudienceSnapshot[]
 
   @@unique([campaignId, versionNumber], map: "emcv_campaign_version_uidx")
   @@index([organizationId, campaignId], map: "emcv_org_campaign_idx")
   @@map("enterprise_marketing_campaign_versions")
+}
+
+/// CO-MARKETING-REDESIGN-007 — Organisation-scoped reusable email templates.
+/// Structured content is SSOT; HTML is derived. Unapplied until Product Owner approves migrate.
+model EnterpriseMarketingContentTemplate {
+  id               String    @id
+  organizationId   String    @map("organization_id")
+  name             String
+  description      String?   @db.Text
+  channel          String
+  subject          String
+  previewText      String    @map("preview_text")
+  contentJson      Json      @map("content_json")
+  disclaimer       String?   @db.Text
+  category         String
+  status           String
+  origin           String
+  versionNumber    Int       @map("version_number")
+  parentTemplateId String?   @map("parent_template_id")
+  immutable        Boolean   @default(false)
+  lastUsedAt       DateTime? @map("last_used_at")
+  createdByUserId  String?   @map("created_by_user_id")
+  updatedByUserId  String?   @map("updated_by_user_id")
+  createdAt        DateTime  @map("created_at")
+  updatedAt        DateTime  @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "emct_org_updated_idx")
+  @@index([organizationId, lastUsedAt(sort: Desc)], map: "emct_org_last_used_idx")
+  @@map("enterprise_marketing_content_templates")
+}
+
+/// Authorised Google Sheet binding metadata only — never stores sheet rows.
+model EnterpriseMarketingSheetBinding {
+  id              String   @id
+  organizationId  String   @map("organization_id")
+  displayName     String   @map("display_name")
+  spreadsheetId   String   @map("spreadsheet_id")
+  driveFileId     String   @map("drive_file_id")
+  authorised      Boolean  @default(false)
+  authRef         String   @map("auth_ref")
+  status          String
+  createdByUserId String?  @map("created_by_user_id")
+  updatedByUserId String?  @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization         Organization                          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaigns            EnterpriseMarketingCampaign[]         @relation("CampaignSourceBinding")
+  audienceDefinitions  EnterpriseMarketingAudienceDefinition[]
+  snapshots            EnterpriseMarketingAudienceSnapshot[]
+
+  @@unique([organizationId, spreadsheetId], map: "emsb_org_sheet_uidx")
+  @@index([organizationId, authorised, status], map: "emsb_org_auth_status_idx")
+  @@map("enterprise_marketing_sheet_bindings")
+}
+
+/// Reusable audience definition (filters + column map). Does not store prospects.
+model EnterpriseMarketingAudienceDefinition {
+  id                  String   @id
+  organizationId      String   @map("organization_id")
+  campaignId          String?  @map("campaign_id")
+  bindingId           String   @map("binding_id")
+  name                String
+  description         String?  @db.Text
+  sourceTabId         String   @map("source_tab_id")
+  sourceTabName       String   @map("source_tab_name")
+  columnMapJson       Json     @map("column_map_json")
+  filterDefinitionJson Json    @map("filter_definition_json")
+  exclusionJson       Json?    @map("exclusion_json")
+  suppressionPolicyJson Json   @map("suppression_policy_json")
+  eligibilityRulesJson Json    @map("eligibility_rules_json")
+  createdByUserId     String?  @map("created_by_user_id")
+  updatedByUserId     String?  @map("updated_by_user_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  organization Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  binding      EnterpriseMarketingSheetBinding   @relation(fields: [bindingId], references: [id], onDelete: Restrict)
+  snapshots    EnterpriseMarketingAudienceSnapshot[]
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "emad_org_updated_idx")
+  @@index([organizationId, bindingId], map: "emad_org_binding_idx")
+  @@map("enterprise_marketing_audience_definitions")
+}
+
+/// Frozen eligible audience for one campaign version at approval/launch.
+model EnterpriseMarketingAudienceSnapshot {
+  id                     String    @id
+  organizationId         String    @map("organization_id")
+  campaignId             String    @map("campaign_id")
+  campaignVersionId      String    @map("campaign_version_id")
+  audienceDefinitionId   String?   @map("audience_definition_id")
+  sourceBindingId        String    @map("source_binding_id")
+  sourceWorkbookId       String    @map("source_workbook_id")
+  sourceTabId            String    @map("source_tab_id")
+  sourceTabName          String    @map("source_tab_name")
+  extractedAt            DateTime  @map("extracted_at")
+  columnMapJson          Json      @map("column_map_json")
+  filterSnapshotJson     Json      @map("filter_snapshot_json")
+  exclusionSnapshotJson  Json?     @map("exclusion_snapshot_json")
+  sourceRowCount         Int       @map("source_row_count")
+  validEmailCount        Int       @map("valid_email_count")
+  duplicateCount         Int       @map("duplicate_count")
+  invalidCount           Int       @map("invalid_count")
+  suppressedCount        Int       @map("suppressed_count")
+  previouslyContactedCount Int     @default(0) @map("previously_contacted_count")
+  eligibleCount          Int       @map("eligible_count")
+  estimatedBatchCount    Int       @map("estimated_batch_count")
+  frozenAt               DateTime  @map("frozen_at")
+  frozenByUserId         String?   @map("frozen_by_user_id")
+  createdByUserId        String?   @map("created_by_user_id")
+  updatedByUserId        String?   @map("updated_by_user_id")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization       Organization                         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign           EnterpriseMarketingCampaign          @relation("CampaignSnapshots", fields: [campaignId], references: [id], onDelete: Cascade)
+  approvedForCampaign EnterpriseMarketingCampaign?        @relation("CampaignApprovedSnapshot")
+  campaignVersion    EnterpriseMarketingCampaignVersion   @relation(fields: [campaignVersionId], references: [id], onDelete: Restrict)
+  audienceDefinition EnterpriseMarketingAudienceDefinition? @relation(fields: [audienceDefinitionId], references: [id], onDelete: SetNull)
+  sourceBinding      EnterpriseMarketingSheetBinding      @relation(fields: [sourceBindingId], references: [id], onDelete: Restrict)
+  recipients         EnterpriseMarketingSnapshotRecipient[]
+  deliveryBatches    EnterpriseMarketingDeliveryBatch[]
+  ledgerEntries      EnterpriseMarketingRecipientLedger[]
+
+  @@index([organizationId, campaignId], map: "emas_org_campaign_idx")
+  @@index([organizationId, extractedAt(sort: Desc)], map: "emas_org_extracted_idx")
+  @@map("enterprise_marketing_audience_snapshots")
+}
+
+/// Frozen send-eligible recipients for one snapshot — not a marketing prospect database.
+model EnterpriseMarketingSnapshotRecipient {
+  id                   String   @id
+  organizationId       String   @map("organization_id")
+  snapshotId           String   @map("snapshot_id")
+  campaignId           String   @map("campaign_id")
+  sourceWorkbookId     String   @map("source_workbook_id")
+  sourceTabId          String   @map("source_tab_id")
+  sourceTabName        String   @map("source_tab_name")
+  sourceRowNumber      Int?     @map("source_row_number")
+  sourceStableKey      String   @map("source_stable_key")
+  recipientFingerprint String   @map("recipient_fingerprint")
+  normalizedEmail      String   @map("normalized_email")
+  displayName          String?  @map("display_name")
+  normalizedMobile     String?  @map("normalized_mobile")
+  mappedAttributesJson Json?    @map("mapped_attributes_json")
+  assignedBatchNumber  Int?     @map("assigned_batch_number")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  organization Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  snapshot     EnterpriseMarketingAudienceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  campaign     EnterpriseMarketingCampaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ledgerEntries EnterpriseMarketingRecipientLedger[]
+
+  @@unique([snapshotId, normalizedEmail], map: "emsr_snapshot_email_uidx")
+  @@unique([snapshotId, sourceStableKey], map: "emsr_snapshot_key_uidx")
+  @@index([organizationId, campaignId], map: "emsr_org_campaign_idx")
+  @@index([organizationId, normalizedEmail], map: "emsr_org_email_idx")
+  @@map("enterprise_marketing_snapshot_recipients")
+}
+
+model EnterpriseMarketingDeliveryBatch {
+  id                 String    @id
+  organizationId     String    @map("organization_id")
+  campaignId         String    @map("campaign_id")
+  snapshotId         String    @map("snapshot_id")
+  batchNumber        Int       @map("batch_number")
+  scheduledAt        DateTime  @map("scheduled_at")
+  startedAt          DateTime? @map("started_at")
+  processedAt        DateTime? @map("processed_at")
+  completedAt        DateTime? @map("completed_at")
+  plannedSize        Int       @map("planned_size")
+  selectedCount      Int       @default(0) @map("selected_count")
+  processedCount     Int       @default(0) @map("processed_count")
+  failedCount        Int       @default(0) @map("failed_count")
+  skippedCount       Int       @default(0) @map("skipped_count")
+  status             String
+  dryRun             Boolean   @default(true) @map("dry_run")
+  createdByUserId    String?   @map("created_by_user_id")
+  updatedByUserId    String?   @map("updated_by_user_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  snapshot     EnterpriseMarketingAudienceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  ledgerEntries EnterpriseMarketingRecipientLedger[]
+
+  @@unique([campaignId, batchNumber], map: "emdb_campaign_batch_uidx")
+  @@index([organizationId, campaignId, scheduledAt], map: "emdb_org_campaign_sched_idx")
+  @@map("enterprise_marketing_delivery_batches")
+}
+
+model EnterpriseMarketingRecipientLedger {
+  id                     String    @id
+  organizationId         String    @map("organization_id")
+  campaignId             String    @map("campaign_id")
+  campaignVersionId      String    @map("campaign_version_id")
+  snapshotId             String    @map("snapshot_id")
+  snapshotRecipientId    String    @map("snapshot_recipient_id")
+  batchId                String?   @map("batch_id")
+  batchNumber            Int?      @map("batch_number")
+  channel                String
+  sourceWorkbookId       String    @map("source_workbook_id")
+  sourceTabId            String    @map("source_tab_id")
+  sourceTabName          String    @map("source_tab_name")
+  sourceRowNumber        Int?      @map("source_row_number")
+  sourceStableKey        String    @map("source_stable_key")
+  recipientFingerprint   String    @map("recipient_fingerprint")
+  normalizedEmail        String    @map("normalized_email")
+  status                 String
+  idempotencyKey         String    @map("idempotency_key")
+  scheduledAt            DateTime? @map("scheduled_at")
+  claimedAt              DateTime? @map("claimed_at")
+  sentAt                 DateTime? @map("sent_at")
+  deliveredAt            DateTime? @map("delivered_at")
+  failedAt               DateTime? @map("failed_at")
+  processedAt            DateTime? @map("processed_at")
+  openedAt               DateTime? @map("opened_at")
+  clickedAt              DateTime? @map("clicked_at")
+  repliedAt              DateTime? @map("replied_at")
+  unsubscribedAt         DateTime? @map("unsubscribed_at")
+  attemptCount           Int       @default(0) @map("attempt_count")
+  providerMessageId      String?   @map("provider_message_id")
+  lastError              String?   @map("last_error")
+  suppressionReason      String?   @map("suppression_reason")
+  qualificationStatus    String?   @map("qualification_status")
+  linkedContactId        String?   @map("linked_contact_id")
+  linkedOpportunityId    String?   @map("linked_opportunity_id")
+  createdByUserId        String?   @map("created_by_user_id")
+  updatedByUserId        String?   @map("updated_by_user_id")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization       Organization                        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign           EnterpriseMarketingCampaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  snapshot           EnterpriseMarketingAudienceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  snapshotRecipient  EnterpriseMarketingSnapshotRecipient @relation(fields: [snapshotRecipientId], references: [id], onDelete: Restrict)
+  batch              EnterpriseMarketingDeliveryBatch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, idempotencyKey], map: "emrl_org_idempotency_uidx")
+  @@unique([campaignId, channel, normalizedEmail], map: "emrl_campaign_channel_email_uidx")
+  @@index([organizationId, campaignId, status], map: "emrl_org_campaign_status_idx")
+  @@index([organizationId, providerMessageId], map: "emrl_org_provider_msg_idx")
+  @@index([organizationId, linkedContactId], map: "emrl_org_contact_idx")
+  @@index([organizationId, linkedOpportunityId], map: "emrl_org_opportunity_idx")
+  @@map("enterprise_marketing_recipient_ledgers")
+}
+
+/// One execution cursor/lease per campaign — pause/resume/stop without losing place.
+model EnterpriseMarketingExecutionLease {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  campaignId           String    @unique @map("campaign_id")
+  snapshotId           String?   @map("snapshot_id")
+  batchPolicyJson      Json      @map("batch_policy_json")
+  nextRunAt            DateTime? @map("next_run_at")
+  streamCursor         String?   @map("stream_cursor")
+  lastCompletedBatchNumber Int?  @map("last_completed_batch_number")
+  dailyProcessedCount  Int       @default(0) @map("daily_processed_count")
+  dailyCountResetDate  String    @map("daily_count_reset_date")
+  leaseHolder          String?   @map("lease_holder")
+  leaseExpiresAt       DateTime? @map("lease_expires_at")
+  pauseState           String    @default("ACTIVE") @map("pause_state")
+  lastError            String?   @map("last_error")
+  createdByUserId      String?   @map("created_by_user_id")
+  updatedByUserId      String?   @map("updated_by_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, nextRunAt], map: "emel_org_nextrun_idx")
+  @@map("enterprise_marketing_execution_leases")
+}
+
+model EnterpriseMarketingSuppression {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  identityFingerprint  String    @map("identity_fingerprint")
+  normalizedEmail      String?   @map("normalized_email")
+  normalizedMobile     String?   @map("normalized_mobile")
+  channel              String
+  reason               String
+  consentStatus        String    @map("consent_status")
+  note                 String?   @db.Text
+  sourceCampaignId     String?   @map("source_campaign_id")
+  createdByUserId      String?   @map("created_by_user_id")
+  updatedByUserId      String?   @map("updated_by_user_id")
+  kind                 String?
+  status               String?
+  duration             String?
+  source               String?
+  normalizedIdentity   String?   @map("normalized_identity")
+  effectiveAt          DateTime? @map("effective_at")
+  expiresAt            DateTime? @map("expires_at")
+  providerEventId      String?   @map("provider_event_id")
+  auditTimestamp       DateTime? @map("audit_timestamp")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, identityFingerprint, channel], map: "emsup_org_fp_channel_uidx")
+  @@index([organizationId, normalizedEmail], map: "emsup_org_email_idx")
+  @@index([organizationId, reason], map: "emsup_org_reason_idx")
+  @@index([organizationId, kind], map: "emsup_org_kind_idx")
+  @@index([organizationId, status], map: "emsup_org_status_idx")
+  @@map("enterprise_marketing_suppressions")
+}
+
+model EnterpriseMarketingEngagementEvent {
+  id                   String   @id
+  organizationId       String   @map("organization_id")
+  campaignId           String   @map("campaign_id")
+  campaignVersionId    String?  @map("campaign_version_id")
+  ledgerId             String?  @map("ledger_id")
+  channel              String
+  eventType            String   @map("event_type")
+  recipientFingerprint String   @map("recipient_fingerprint")
+  normalizedEmail      String?  @map("normalized_email")
+  providerEventId      String   @map("provider_event_id")
+  idempotencyKey       String?  @map("idempotency_key")
+  occurredAt           DateTime @map("occurred_at")
+  metadataJson         Json?    @map("metadata_json")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, providerEventId], map: "emee_org_provider_event_uidx")
+  @@index([organizationId, campaignId, occurredAt(sort: Desc)], map: "emee_org_campaign_occurred_idx")
+  @@index([organizationId, eventType], map: "emee_org_type_idx")
+  @@map("enterprise_marketing_engagement_events")
+}
+
+/// Internal test-send history. Default dry-run; live mailbox remains gated.
+model EnterpriseMarketingTestSend {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  campaignId           String    @map("campaign_id")
+  campaignVersionId    String    @map("campaign_version_id")
+  testRecipientEmail   String    @map("test_recipient_email")
+  dryRun               Boolean   @default(true) @map("dry_run")
+  actuallySent         Boolean   @default(false) @map("actually_sent")
+  outcome              String
+  providerMessageId    String?   @map("provider_message_id")
+  idempotencyKey       String    @map("idempotency_key")
+  errorMessage         String?   @map("error_message")
+  createdByUserId      String?   @map("created_by_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, idempotencyKey], map: "emts_org_idempotency_uidx")
+  @@index([organizationId, campaignId, createdAt(sort: Desc)], map: "emts_org_campaign_created_idx")
+  @@map("enterprise_marketing_test_sends")
+}
+
+/// Qualified-interest handoff only — never created by browsing or sending a sheet row.
+model EnterpriseMarketingQualification {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  campaignId           String    @map("campaign_id")
+  ledgerId             String?   @map("ledger_id")
+  snapshotRecipientId  String?   @map("snapshot_recipient_id")
+  recipientFingerprint String    @map("recipient_fingerprint")
+  normalizedEmail      String?   @map("normalized_email")
+  normalizedMobile     String?   @map("normalized_mobile")
+  intent               String
+  businessState        String    @map("business_state")
+  linkedContactId      String?   @map("linked_contact_id")
+  linkedOpportunityId  String?   @map("linked_opportunity_id")
+  contactCreated       Boolean   @default(false) @map("contact_created")
+  opportunityCreated   Boolean   @default(false) @map("opportunity_created")
+  createdByUserId      String?   @map("created_by_user_id")
+  updatedByUserId      String?   @map("updated_by_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, campaignId, recipientFingerprint], map: "emq_org_campaign_fp_uidx")
+  @@index([organizationId, linkedContactId], map: "emq_org_contact_idx")
+  @@index([organizationId, linkedOpportunityId], map: "emq_org_opportunity_idx")
+  @@index([organizationId, businessState], map: "emq_org_state_idx")
+  @@map("enterprise_marketing_qualifications")
+}
+
+model EnterpriseMarketingAuditEvent {
+  id              String   @id
+  organizationId  String   @map("organization_id")
+  campaignId      String?  @map("campaign_id")
+  actorUserId     String?  @map("actor_user_id")
+  kind            String
+  detailJson      Json     @map("detail_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "emae_org_created_idx")
+  @@index([organizationId, campaignId, createdAt(sort: Desc)], map: "emae_org_campaign_created_idx")
+  @@map("enterprise_marketing_audit_events")
+}
+
+/// CO-MARKETING-REDESIGN-011 — Campaign collateral only. Not Document Registry.
+model EnterpriseMarketingAsset {
+  id                   String   @id
+  organizationId       String   @map("organization_id")
+  name                 String
+  title                String
+  assetType            String   @map("asset_type")
+  category             String
+  mimeType             String   @map("mime_type")
+  storageProvider      String   @map("storage_provider")
+  storageRef           String   @map("storage_ref")
+  previewUrl           String   @map("preview_url")
+  byteSize             Int      @map("byte_size")
+  width                Int?
+  height               Int?
+  uploadedByUserId     String?  @map("uploaded_by_user_id")
+  uploadedAt           DateTime @map("uploaded_at")
+  tagsJson             Json     @map("tags_json")
+  productCategory      String   @map("product_category")
+  approvalStatus       String   @map("approval_status")
+  altText              String   @map("alt_text")
+  archived             Boolean  @default(false)
+  currentVersionNumber Int      @map("current_version_number")
+  checksum             String
+  createdAt            DateTime @map("created_at")
+  updatedAt            DateTime @map("updated_at")
+
+  organization Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions     EnterpriseMarketingAssetVersion[]
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "ema_org_updated_idx")
+  @@index([organizationId, assetType], map: "ema_org_type_idx")
+  @@index([organizationId, productCategory], map: "ema_org_product_idx")
+  @@index([organizationId, approvalStatus], map: "ema_org_approval_idx")
+  @@map("enterprise_marketing_assets")
+}
+
+model EnterpriseMarketingAssetVersion {
+  id               String   @id
+  organizationId   String   @map("organization_id")
+  assetId          String   @map("asset_id")
+  versionNumber    Int      @map("version_number")
+  storageRef       String   @map("storage_ref")
+  mimeType         String   @map("mime_type")
+  byteSize         Int      @map("byte_size")
+  width            Int?
+  height           Int?
+  altText          String   @map("alt_text")
+  uploadedByUserId String?  @map("uploaded_by_user_id")
+  uploadedAt       DateTime @map("uploaded_at")
+  checksum         String
+  createdAt        DateTime @map("created_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  asset        EnterpriseMarketingAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([assetId, versionNumber], map: "emav_asset_version_key")
+  @@index([organizationId, assetId], map: "emav_org_asset_idx")
+  @@map("enterprise_marketing_asset_versions")
+}
+
+/// CO-MARKETING-REDESIGN-013 — Sender identities. DNS observations are never permanent truth.
+model EnterpriseMarketingSenderIdentity {
+  id                              String    @id
+  organizationId                  String    @map("organization_id")
+  displayName                     String    @map("display_name")
+  fromAddress                     String    @map("from_address")
+  replyTo                         String?   @map("reply_to")
+  channel                         String
+  active                          Boolean   @default(true)
+  isDefault                       Boolean   @default(false) @map("is_default")
+  simulated                       Boolean   @default(true)
+  approvalStatus                  String    @map("approval_status")
+  verificationStatus              String    @map("verification_status")
+  permittedCampaignCategoriesJson Json      @map("permitted_campaign_categories_json")
+  createdByUserId                 String?   @map("created_by_user_id")
+  approvedByUserId                String?   @map("approved_by_user_id")
+  approvedAt                      DateTime? @map("approved_at")
+  lastValidationAt                DateTime? @map("last_validation_at")
+  validationFreshUntil            DateTime? @map("validation_fresh_until")
+  providerType                    String    @map("provider_type")
+  providerProfileId               String?   @map("provider_profile_id")
+  createdAt                       DateTime  @map("created_at")
+  updatedAt                       DateTime  @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "emsi_org_updated_idx")
+  @@map("enterprise_marketing_sender_identities")
+}
+
+model EnterpriseMarketingDeliverabilityObservation {
+  id              String    @id
+  organizationId  String    @map("organization_id")
+  checkId         String    @map("check_id")
+  state           String
+  simulated       Boolean   @default(true)
+  permanentTruth  Boolean   @default(false) @map("permanent_truth")
+  lastValidatedAt DateTime? @map("last_validated_at")
+  freshUntil      DateTime? @map("fresh_until")
+  note            String?   @db.Text
+  createdAt       DateTime  @map("created_at")
+  updatedAt       DateTime  @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, checkId], map: "emdo_org_check_idx")
+  @@map("enterprise_marketing_deliverability_observations")
+}
+
+/// CO-MARKETING-REDESIGN-014 — Provider webhook chronology. Secrets are never stored.
+model EnterpriseMarketingProviderWebhookEvent {
+  id                    String   @id
+  organizationId        String   @map("organization_id")
+  campaignId            String   @map("campaign_id")
+  campaignVersionId     String?  @map("campaign_version_id")
+  recipientLedgerId     String   @map("recipient_ledger_id")
+  recipientFingerprint  String   @map("recipient_fingerprint")
+  eventType             String   @map("event_type")
+  providerEventId       String   @map("provider_event_id")
+  providerMessageId     String   @map("provider_message_id")
+  providerStatus        String?  @map("provider_status")
+  suppressionKind       String?  @map("suppression_kind")
+  qualifiesRecipient    Boolean  @default(false) @map("qualifies_recipient")
+  rawProviderReference  String   @map("raw_provider_reference")
+  occurredAt            DateTime @map("occurred_at")
+  recordedAt            DateTime @map("recorded_at")
+  createdAt             DateTime @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, providerEventId], map: "empwe_org_provider_event_idx")
+  @@index([organizationId, occurredAt], map: "empwe_org_occurred_idx")
+  @@map("enterprise_marketing_provider_webhook_events")
 }
 
 /// CO-C1-COMMUNICATION-002 — Incoming Email Server settings (org-scoped, non-secret).
@@ -852,6 +1485,115 @@ model EnterpriseBusinessNote {
   @@index([organizationId, contactId, isDeleted, createdAt(sort: Desc)], map: "ebn_org_contact_idx")
   @@index([organizationId, isPinned, isDeleted], map: "ebn_org_pinned_idx")
   @@map("enterprise_business_notes")
+}
+
+/// CO-C1-CONTACT-STRATEGY-STICKY-NOTES-007 — strictly private personal workbench.
+/// Visibility SSOT is organizationId + ownerUserId. Never emit to EAR / Contact 360.
+model EmployeePrivateStickyNote {
+  id              String    @id @default(cuid())
+  organizationId  String    @map("organization_id")
+  ownerUserId     String    @map("owner_user_id")
+  title           String    @default("")
+  body            String    @default("") @db.Text
+  color           String    @default("amber")
+  priority        String    @default("normal")
+  pinned          Boolean   @default(false)
+  sortOrder       Int       @default(0) @map("sort_order")
+  checklistJson   Json      @default("[]") @map("checklist_json")
+  reminderAt      DateTime? @map("reminder_at")
+  archivedAt      DateTime? @map("archived_at")
+  linkKind        String?   @map("link_kind")
+  linkId          String?   @map("link_id")
+  linkLabel       String?   @map("link_label")
+  convertedTaskId String?   @map("converted_task_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  deletedBy       String?   @map("deleted_by")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  owner        User         @relation("EmployeePrivateStickyNotes", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, ownerUserId, deletedAt, archivedAt, sortOrder], map: "sticky_owner_list_idx")
+  @@index([organizationId, ownerUserId, reminderAt], map: "sticky_owner_reminder_idx")
+  @@index([organizationId, ownerUserId, archivedAt], map: "sticky_owner_archive_idx")
+  @@map("employee_private_sticky_notes")
+}
+
+/// CO-C1-CONTACT-STRATEGY-STICKY-NOTES-007 — relationship plan bound to ECM Contact.
+model EcmContactRelationshipPlan {
+  id                    String    @id @default(cuid())
+  organizationId        String    @map("organization_id")
+  contactId             String    @unique @map("contact_id")
+  objective             String?   @db.Text
+  cadence               String?
+  preferredChannel      String?   @map("preferred_channel")
+  nextReviewAt          DateTime? @map("next_review_at")
+  assignedOwnerUserId   String?   @map("assigned_owner_user_id")
+  assignedOwnerName     String?   @map("assigned_owner_name")
+  updatedBy             String    @map("updated_by")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact      EcmContact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], map: "ecm_rel_plan_org_idx")
+  @@map("ecm_contact_relationship_plans")
+}
+
+/// CO-C1-CHANAKYA-DURABLE-HISTORY-009A — employee-private CHANAKYA conversation session.
+/// Owner + organisation only. Hierarchy and Super Admin do not inherit another employee's chats.
+model ChanakyaConversationSession {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  ownerUserId    String    @map("owner_user_id")
+  title          String    @default("New chat")
+  status         String    @default("active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  lastMessageAt  DateTime? @map("last_message_at")
+  expiresAt      DateTime  @map("expires_at")
+  opportunityId  String?   @map("opportunity_id")
+  dealId         String?   @map("deal_id")
+  lastIntent     String?   @map("last_intent")
+  focusEntitiesJson Json   @default("[]") @map("focus_entities_json")
+  metadataJson   Json      @default("{}") @map("metadata_json")
+  version        Int       @default(1)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  owner        User         @relation("EmployeePrivateChanakyaChats", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  messages     ChanakyaConversationMessage[]
+
+  @@index([organizationId, ownerUserId, updatedAt(sort: Desc)], map: "chanakya_chat_owner_updated_idx")
+  @@index([expiresAt], map: "chanakya_chat_expires_idx")
+  @@index([organizationId, ownerUserId, expiresAt], map: "chanakya_chat_owner_expires_idx")
+  @@index([organizationId, opportunityId, dealId], map: "chanakya_chat_context_idx")
+  @@map("chanakya_conversation_sessions")
+}
+
+/// CO-C1-CHANAKYA-DURABLE-HISTORY-009A — redacted CHANAKYA messages (cascade with session).
+model ChanakyaConversationMessage {
+  id               String   @id
+  sessionId        String   @map("session_id")
+  role             String
+  content          String   @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  sequence         Int
+  completionStatus String   @default("complete") @map("completion_status")
+  streamStatus     String   @default("idle") @map("stream_status")
+  evidenceJson     Json     @default("[]") @map("evidence_json")
+  entityRefsJson   Json     @default("{}") @map("entity_refs_json")
+  intent           String?
+  feedback         String?
+  idempotencyKey   String?  @map("idempotency_key")
+  proposalDraftId  String?  @map("proposal_draft_id")
+
+  session ChanakyaConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, idempotencyKey], map: "chanakya_msg_idempotency_key")
+  @@index([sessionId, sequence], map: "chanakya_msg_session_seq_idx")
+  @@map("chanakya_conversation_messages")
 }
 
 /// CO-ORG-001 — Organization audit ledger.
@@ -1103,6 +1845,7 @@ model EcmContact {
   relationshipsTo   EcmContactRelationship[] @relation("EcmRelationshipTo")
   companyLinks      EcmCompanyContactLink[]
   auditReferences   EcmContactAuditReference[]
+  relationshipPlan     EcmContactRelationshipPlan?
   primaryOpportunities EnterpriseOpportunity[] @relation("EnterpriseOpportunityPrimaryContact")
   primaryDeals         EnterpriseDeal[]         @relation("EnterpriseDealPrimaryContact")
   invoicePartyDeals    EnterpriseDeal[]         @relation("EnterpriseDealInvoicePartyContact")
@@ -1335,6 +2078,31 @@ enum RegistryImportBatchStatus {
   processing
   completed
   failed
+}
+
+/// CO-PRODUCT-PROGRAM-OPERATIONS-001 — publication lineage (never overwrite published rows)
+enum ProgrammePublicationState {
+  draft
+  pending_approval
+  published
+  superseded
+  archived
+}
+
+enum ProgrammeCompletenessState {
+  incomplete
+  complete
+}
+
+enum DurablePolicyStatus {
+  draft
+  pending_approval
+  validated
+  testing
+  approved
+  published
+  superseded
+  retired
 }
 
 enum RegistryAuditAction {
@@ -1629,6 +2397,7 @@ model EnterpriseProduct {
   parentProduct EnterpriseProduct?       @relation("ProductParent", fields: [parentProductId], references: [id], onDelete: SetNull)
   childProducts EnterpriseProduct[]      @relation("ProductParent")
   lenderPrograms EnterpriseLenderProgram[]
+  productJourneys EnterpriseProductJourney[]
   opportunities  EnterpriseOpportunity[]
   deals          EnterpriseDeal[]
   /// CO-MASTER-005A — Lender Program Portal invite product scope
@@ -1641,6 +2410,86 @@ model EnterpriseProduct {
   @@index([organizationId, sortOrder], map: "eprod_org_sort_idx")
   @@index([parentProductId], map: "eprod_parent_idx")
   @@map("enterprise_products")
+}
+
+/// Customer Product Journey. Not Product Master, not a Lender Programme, not a Policy Version.
+enum ProductJourneyValidationStatus {
+  draft
+  validated
+}
+
+enum ProductJourneyVersionLifecycle {
+  published
+  superseded
+  retired
+}
+
+model EnterpriseProductJourney {
+  id                     String    @id @default(cuid())
+  organizationId         String    @map("organization_id")
+  productId              String?   @map("product_id")
+  productCode            String    @map("product_code")
+  publicLabel            String    @map("public_label")
+  publiclyEnabled        Boolean   @default(false) @map("publicly_enabled")
+  effectiveVersionNumber Int?      @map("effective_version_number")
+  bookRevision           Int       @default(0) @map("book_revision")
+  createdBy              String    @map("created_by")
+  modifiedBy             String    @map("modified_by")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product      EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  draft        EnterpriseProductJourneyDraft?
+  versions     EnterpriseProductJourneyVersion[]
+
+  @@unique([organizationId, productCode], map: "epj_org_product_key")
+  @@index([organizationId, publiclyEnabled], map: "epj_org_enabled_idx")
+  @@map("enterprise_product_journeys")
+}
+
+model EnterpriseProductJourneyDraft {
+  id               String                         @id @default(cuid())
+  journeyId        String                         @unique @map("journey_id")
+  organizationId   String                         @map("organization_id")
+  revision         Int                            @default(1)
+  validationStatus ProductJourneyValidationStatus @default(draft) @map("validation_status")
+  previewed        Boolean                        @default(false)
+  definition       Json
+  createdBy        String                         @map("created_by")
+  updatedBy        String                         @map("updated_by")
+  createdAt        DateTime                       @default(now()) @map("created_at")
+  updatedAt        DateTime                       @updatedAt @map("updated_at")
+
+  journey EnterpriseProductJourney @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId], map: "epjd_org_idx")
+  @@map("enterprise_product_journey_drafts")
+}
+
+model EnterpriseProductJourneyVersion {
+  id                 String                          @id @default(cuid())
+  journeyId          String                          @map("journey_id")
+  organizationId     String                          @map("organization_id")
+  productCode        String                          @map("product_code")
+  versionNumber      Int                             @map("version_number")
+  lifecycle          ProductJourneyVersionLifecycle
+  effectiveFrom      DateTime                        @map("effective_from")
+  publishedBy        String                          @map("published_by")
+  publishedAt        DateTime                        @map("published_at")
+  supersededAt       DateTime?                       @map("superseded_at")
+  retiredAt          DateTime?                       @map("retired_at")
+  configurationHash  String                          @map("configuration_hash")
+  sourceReference    String?                         @map("source_reference")
+  definition         Json
+  createdAt          DateTime                        @default(now()) @map("created_at")
+
+  journey EnterpriseProductJourney @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, productCode, versionNumber], map: "epjv_org_product_version_key")
+  @@unique([journeyId, versionNumber], map: "epjv_journey_version_key")
+  @@index([journeyId, lifecycle], map: "epjv_journey_lifecycle_idx")
+  @@map("enterprise_product_journey_versions")
 }
 
 // =============================================================================
@@ -1929,6 +2778,8 @@ model EnterpriseLender {
   programSubmissions   LenderProgramSubmission[]
   /// CO-HL-PROGRAM-001 — product-family selection priority rows
   productLenderPriorities EnterpriseProductLenderPriority[]
+  hlRecommendationCategories HlRecommendationLenderCategoryAssignment[]
+  hlRecommendationOverrides  HlRecommendationOverride[]
 
   @@unique([organizationId, code], map: "elend_org_code_key")
   @@index([organizationId, categoryId, status, enabled], map: "elend_org_cat_status_idx")
@@ -2004,6 +2855,58 @@ model EnterpriseLenderProgram {
   effectiveFrom     DateTime?                    @map("effective_from")
   effectiveUntil    DateTime?                    @map("effective_until")
   notes             String?                      @db.Text
+  /// CO-PRODUCT-PROGRAM-OPERATIONS-001 — structured programme + version lineage
+  lineageId         String                       @map("lineage_id")
+  lockVersion       Int                          @default(1) @map("lock_version")
+  productVariantCode String?                     @map("product_variant_code")
+  applicantTypes    Json?                        @map("applicant_types")
+  employmentTypes   Json?                        @map("employment_types")
+  legalConstitutions Json?                       @map("legal_constitutions")
+  residencyEligibility Json?                     @map("residency_eligibility")
+  customerSegments  Json?                        @map("customer_segments")
+  propertyTypes     Json?                        @map("property_types")
+  propertyCategories Json?                       @map("property_categories")
+  constructionStatuses Json?                     @map("construction_statuses")
+  transactionTypes  Json?                        @map("transaction_types")
+  incomeAssessmentMethods Json?                  @map("income_assessment_methods")
+  rateType          String?                      @map("rate_type")
+  benchmarkCode     String?                      @map("benchmark_code")
+  concessions       Json?
+  deviationCategories Json?                      @map("deviation_categories")
+  completenessState ProgrammeCompletenessState   @default(incomplete) @map("completeness_state")
+  publicationState  ProgrammePublicationState    @default(draft) @map("publication_state")
+  isLivePublished   Boolean                      @default(false) @map("is_live_published")
+  reviewAt          DateTime?                    @map("review_at")
+  submittedByUserId String?                      @map("submitted_by_user_id")
+  submittedAt       DateTime?                    @map("submitted_at")
+  approvalReason    String?                      @map("approval_reason") @db.Text
+  supersedesProgramId String?                    @map("supersedes_program_id")
+  policyVersionId   String?                      @map("policy_version_id")
+  minTenureMonths   Int?                         @map("min_tenure_months")
+  maxCibil          Int?                         @map("max_cibil")
+  minRoiExact       Decimal?                     @map("min_roi_exact") @db.Decimal(9, 6)
+  maxRoiExact       Decimal?                     @map("max_roi_exact") @db.Decimal(9, 6)
+  minLoanAmountExact Decimal?                    @map("min_loan_amount_exact") @db.Decimal(18, 2)
+  maxLoanAmountExact Decimal?                    @map("max_loan_amount_exact") @db.Decimal(18, 2)
+  minIncomeExact    Decimal?                     @map("min_income_exact") @db.Decimal(18, 2)
+  maxIncomeExact    Decimal?                     @map("max_income_exact") @db.Decimal(18, 2)
+  processingFeeAmountExact Decimal?              @map("processing_fee_amount_exact") @db.Decimal(18, 2)
+  processingFeePctExact Decimal?                 @map("processing_fee_pct_exact") @db.Decimal(9, 6)
+  minLtvExact       Decimal?                     @map("min_ltv_exact") @db.Decimal(9, 6)
+  maxLtvExact       Decimal?                     @map("max_ltv_exact") @db.Decimal(9, 6)
+  minFoirExact      Decimal?                     @map("min_foir_exact") @db.Decimal(9, 6)
+  maxFoirExact      Decimal?                     @map("max_foir_exact") @db.Decimal(9, 6)
+  /// CO-C1-HL-BT-POLICY-001 — optional verified policy payload (BT/top-up/FOIR/LOD). Empty until PO upload.
+  policyAssessmentJson Json?                     @map("policy_assessment_json")
+  /// Product-Owner additional hard eligibility AST. Null/empty = no extra restriction.
+  additionalEligibilityFilters Json?             @map("additional_eligibility_filters")
+  sourceDocumentRef    String?                   @map("source_document_ref")
+  sourcePageSection    String?                   @map("source_page_section")
+  sourceVersionLabel   String?                   @map("source_version_label")
+  missingFlagsJson     Json?                     @map("missing_flags_json")
+  minDbrExact       Decimal?                     @map("min_dbr_exact") @db.Decimal(9, 6)
+  maxDbrExact       Decimal?                     @map("max_dbr_exact") @db.Decimal(9, 6)
+  spreadExact       Decimal?                     @map("spread_exact") @db.Decimal(9, 6)
   isDeleted         Boolean                      @default(false) @map("is_deleted")
   deletedAt         DateTime?                    @map("deleted_at")
   deletedBy         String?                      @map("deleted_by")
@@ -2019,13 +2922,114 @@ model EnterpriseLenderProgram {
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Restrict)
   product      EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  policyVersion EnterpriseCreditRiskPolicyVersion? @relation(fields: [policyVersionId], references: [id], onDelete: SetNull)
   deals        EnterpriseDeal[]
+  auditEvents  EnterpriseLenderProgramAuditEvent[]
 
-  @@unique([organizationId, code], map: "elprog_org_code_key")
+  @@unique([organizationId, lineageId, versionNumber], map: "elprog_org_lineage_version_key")
+  @@index([organizationId, code], map: "elprog_org_code_idx")
   @@index([organizationId, lenderId, status, enabled], map: "elprog_org_lender_status_idx")
   @@index([organizationId, lifecycleStatus], map: "elprog_org_lifecycle_idx")
   @@index([organizationId, isDeleted], map: "elprog_org_deleted_idx")
+  @@index([organizationId, publicationState, isLivePublished], map: "elprog_org_publication_idx")
   @@map("enterprise_lender_programs")
+}
+
+model EnterpriseCreditRiskPolicy {
+  id                         String              @id @default(cuid())
+  organizationId             String              @map("organization_id")
+  policyCode                 String              @map("policy_code")
+  name                       String
+  lenderId                   String?             @map("lender_id")
+  productCode                String?             @map("product_code")
+  productVariantCode         String?             @map("product_variant_code")
+  status                     DurablePolicyStatus @default(draft)
+  currentPublishedVersionId  String?             @map("current_published_version_id")
+  sourceRef                  String?             @map("source_ref")
+  createdBy                  String              @map("created_by")
+  modifiedBy                 String              @map("modified_by")
+  createdAt                  DateTime            @default(now()) @map("created_at")
+  updatedAt                  DateTime            @updatedAt @map("updated_at")
+  isDeleted                  Boolean             @default(false) @map("is_deleted")
+
+  organization Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions     EnterpriseCreditRiskPolicyVersion[]
+  auditEvents  EnterpriseCreditRiskPolicyAuditEvent[]
+
+  @@unique([organizationId, policyCode], map: "ecrp_org_code_key")
+  @@index([organizationId, status], map: "ecrp_org_status_idx")
+  @@map("enterprise_credit_risk_policies")
+}
+
+model EnterpriseCreditRiskPolicyVersion {
+  id                 String              @id @default(cuid())
+  organizationId     String              @map("organization_id")
+  policyId           String              @map("policy_id")
+  versionNumber      Int                 @map("version_number")
+  status             DurablePolicyStatus @default(draft)
+  eligibilityRules   Json                @default("{}") @map("eligibility_rules")
+  creditRules        Json                @default("{}") @map("credit_rules")
+  payload            Json                @default("{}")
+  sourceRef          String?             @map("source_ref")
+  effectiveFrom      DateTime?           @map("effective_from")
+  reviewAt           DateTime?           @map("review_at")
+  effectiveUntil     DateTime?           @map("effective_until")
+  createdBy          String              @map("created_by")
+  approvedBy         String?             @map("approved_by")
+  approvedAt         DateTime?           @map("approved_at")
+  publishedBy        String?             @map("published_by")
+  publishedAt        DateTime?           @map("published_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  policy       EnterpriseCreditRiskPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  programmes   EnterpriseLenderProgram[]
+
+  @@unique([policyId, versionNumber], map: "ecrpv_policy_version_key")
+  @@index([organizationId, status], map: "ecrpv_org_status_idx")
+  @@map("enterprise_credit_risk_policy_versions")
+}
+
+model EnterpriseCreditRiskPolicyAuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  policyId       String   @map("policy_id")
+  versionId      String?  @map("version_id")
+  action         String
+  previousValue  Json?    @map("previous_value")
+  newValue       Json?    @map("new_value")
+  actorUserId    String   @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  reason         String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  policy       EnterpriseCreditRiskPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, policyId, createdAt], map: "ecrpa_org_policy_idx")
+  @@map("enterprise_credit_risk_policy_audit_events")
+}
+
+model EnterpriseLenderProgramAuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  programId      String   @map("program_id")
+  lineageId      String   @map("lineage_id")
+  action         String
+  previousValue  Json?    @map("previous_value")
+  newValue       Json?    @map("new_value")
+  actorUserId    String   @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  reason         String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  program      EnterpriseLenderProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, programId, createdAt], map: "elpae_org_program_idx")
+  @@index([lineageId], map: "elpae_lineage_idx")
+  @@map("enterprise_lender_program_audit_events")
 }
 
 model EnterpriseLenderContact {
@@ -2269,6 +3273,27 @@ model EnterpriseOpportunity {
   stateLabel                String?                     @map("state_label")
   currencyCode              String                      @default("INR") @map("currency_code")
   requestedAmount           Decimal?                    @map("requested_amount") @db.Decimal(18, 2)
+  /// CHANAKYA Phase A — customer requested tenure in absolute months. Null = not answered.
+  requestedTenureMonths     Int?                        @map("requested_tenure_months")
+  /// Salaried monthly income only. Null = not answered. Not a self-employed methodology.
+  monthlyIncomeRupees       Decimal?                    @map("monthly_income_rupees") @db.Decimal(18, 2)
+  /// Null = not answered. Zero = customer declared no monthly obligations.
+  existingMonthlyObligationsRupees Decimal?             @map("existing_monthly_obligations_rupees") @db.Decimal(18, 2)
+  propertyValueRupees       Decimal?                    @map("property_value_rupees") @db.Decimal(18, 2)
+  propertyCategory          String?                     @map("property_category")
+  constructionStatus        String?                     @map("construction_status")
+  residency                 String?                     @map("residency")
+  /// HOME_LOAN_BT customer facts. Null on an ordinary Home Loan.
+  currentRoiPercent         Decimal?                    @map("current_roi_percent") @db.Decimal(8, 4)
+  currentHomeLoanEmiRupees  Decimal?                    @map("current_home_loan_emi_rupees") @db.Decimal(18, 2)
+  remainingTenureMonths     Int?                        @map("remaining_tenure_months")
+  loanStartDate             DateTime?                   @map("loan_start_date") @db.Date
+  repaymentTrack            String?                     @map("repayment_track")
+  delayedEmiCount           Int?                        @map("delayed_emi_count")
+  /// CHANAKYA — borrower age in completed years. Null = not answered. Not derived from Contact date of birth.
+  borrowerAgeYears          Int?                        @map("borrower_age_years")
+  /// CHANAKYA — borrower legal constitution. Null = not answered. ProgrammeLegalConstitutionId. Not copied from company constitution.
+  borrowerLegalConstitution String?                     @map("borrower_legal_constitution")
   priority                  DealPriority                @default(medium)
   sourceCode                String?                     @map("source_code")
   sourceContactId           String?                     @map("source_contact_id")
@@ -2282,6 +3307,17 @@ model EnterpriseOpportunity {
   commercialRevenueSharePercent Float?                  @map("commercial_revenue_share_percent")
   /// CO-OPP-003 — Marketing campaign label (future-ready).
   sourceCampaignLabel       String?                     @map("source_campaign_label")
+  /// Canonical Advantage Committed (₹) — Opportunity SSOT. Null = not committed. Never treat as ₹0.
+  advantageCommittedAmount        Decimal?  @map("advantage_committed_amount") @db.Decimal(18, 2)
+  advantageCommittedCurrency      String?   @map("advantage_committed_currency")
+  advantageCommittedAt            DateTime? @map("advantage_committed_at")
+  advantageCommittedByUserId      String?   @map("advantage_committed_by_user_id")
+  advantageCommittedProductCode   String?   @map("advantage_committed_product_code")
+  advantageCommitmentId           String?   @map("advantage_commitment_id")
+  advantageCommitmentVersion      Int       @default(0) @map("advantage_commitment_version")
+  marketingCampaignId             String?   @map("marketing_campaign_id")
+  marketingSourceDetail           String?   @map("marketing_source_detail")
+  marketingProspectRef            String?   @map("marketing_prospect_ref")
   snapshot                  Json?
   lendingExtension          Json?                       @map("lending_extension")
   versionNumber             Int                         @default(1) @map("version_number")
@@ -2300,6 +3336,12 @@ model EnterpriseOpportunity {
   company        EcmCompany?        @relation("EnterpriseOpportunityCompany", fields: [companyId], references: [id], onDelete: Restrict)
   product        EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   deals          EnterpriseDeal[]
+  advantageCommitmentEvents EnterpriseOpportunityAdvantageCommitmentEvent[]
+  compassHomeLoanAssessment CompassHomeLoanAssessment?
+  compassExpertSlaEvents    CompassExpertSlaEvent[]
+  opportunityAssessment     EnterpriseOpportunityAssessment?
+  opportunityAssessmentRevisions EnterpriseOpportunityAssessmentRevision[]
+  opportunityAssessmentRecommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
 
   @@unique([organizationId, opportunityNumber], map: "eopp_org_number_key")
   @@unique([organizationId, legacyLoanFileId], map: "eopp_org_legacy_loan_file_key")
@@ -2314,7 +3356,137 @@ model EnterpriseOpportunity {
   @@index([organizationId, sourceCode, isDeleted], map: "eopp_org_source_idx")
   @@index([organizationId, sourceWealthPartnerId], map: "eopp_org_source_wp_idx")
   @@index([organizationId, participationRole], map: "eopp_org_participation_idx")
+  @@index([organizationId, advantageCommittedAmount, isDeleted], map: "eopp_org_advantage_committed_idx")
+  @@index([organizationId, marketingCampaignId, isDeleted], map: "eopp_org_marketing_campaign_idx")
   @@map("enterprise_opportunities")
+}
+
+/// Append-only Advantage Committed (₹) history. Original amount is never erased.
+model EnterpriseOpportunityAdvantageCommitmentEvent {
+  id                       String   @id @default(cuid())
+  organizationId           String   @map("organization_id")
+  opportunityId            String   @map("opportunity_id")
+  eventKind                String   @map("event_kind")
+  amount                   Decimal  @db.Decimal(18, 2)
+  previousAmount           Decimal? @map("previous_amount") @db.Decimal(18, 2)
+  currency                 String   @default("INR")
+  productCode              String?  @map("product_code")
+  reason                   String?  @db.Text
+  requestedByUserId        String   @map("requested_by_user_id")
+  approvedByUserId         String?  @map("approved_by_user_id")
+  originatingOpportunityId String   @map("originating_opportunity_id")
+  originalCommitmentId     String?  @map("original_commitment_id")
+  version                  Int
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, createdAt], map: "eopp_ace_org_opp_created_idx")
+  @@index([organizationId, originalCommitmentId], map: "eopp_ace_org_original_idx")
+  @@map("enterprise_opportunity_advantage_commitment_events")
+}
+
+/// Stage 5C1 — mutable Opportunity-owned eligibility assessment workspace.
+/// One row per Opportunity. Existing Opportunities may have no row. No business-value defaults.
+/// FOIR and LTV are never persisted as editable truth.
+model EnterpriseOpportunityAssessment {
+  id                                 String   @id @default(cuid())
+  organizationId                     String   @map("organization_id")
+  opportunityId                      String   @unique @map("opportunity_id")
+  currentRevisionId                  String?  @map("current_revision_id")
+  draftFactsJson                     Json     @map("draft_facts_json")
+  sourceFingerprintJson              Json     @map("source_fingerprint_json")
+  readinessStatus                    String   @map("readiness_status")
+  unsupportedReasonCode              String?  @map("unsupported_reason_code")
+  selectedContributorParticipantRef  String?  @map("selected_contributor_participant_ref")
+  rowVersion                         Int      @default(1) @map("row_version")
+  createdByUserId                    String?  @map("created_by_user_id")
+  updatedByUserId                    String?  @map("updated_by_user_id")
+  updatedChannel                     String   @map("updated_channel")
+  createdAt                          DateTime @default(now()) @map("created_at")
+  updatedAt                          DateTime @updatedAt @map("updated_at")
+
+  organization     Organization                            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity      EnterpriseOpportunity                   @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  currentRevision  EnterpriseOpportunityAssessmentRevision? @relation("AssessmentCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+  revisions        EnterpriseOpportunityAssessmentRevision[] @relation("AssessmentRevisions")
+  recommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
+
+  @@index([organizationId, readinessStatus], map: "eoa_org_readiness_idx")
+  @@map("enterprise_opportunity_assessments")
+}
+
+/// Stage 5C1 — immutable assessment revision. Never mutate after insert.
+/// Stage 5C2A — explicit command/content/kind columns; finalized_* nullable for SAVED.
+model EnterpriseOpportunityAssessmentRevision {
+  id                    String    @id @default(cuid())
+  organizationId        String    @map("organization_id")
+  opportunityId         String    @map("opportunity_id")
+  assessmentId          String    @map("assessment_id")
+  revisionNumber        Int       @map("revision_number")
+  factsJson             Json      @map("facts_json")
+  normalizedInputJson   Json      @map("normalized_input_json")
+  sourceFingerprintJson Json      @map("source_fingerprint_json")
+  factsSchemaVersion    String    @map("facts_schema_version")
+  mapperVersion         String    @map("mapper_version")
+  readinessStatus       String    @map("readiness_status")
+  /// SAVED | FINALIZED. Nullable only for hypothetical pre-5C2A rows; new writes require it.
+  revisionKind          String?   @map("revision_kind")
+  commandId             String?   @map("command_id")
+  commandHash           String?   @map("command_hash")
+  contentHash           String?   @map("content_hash")
+  /// Null on SAVED. Required on FINALIZED (enforced by application + CHECK).
+  finalizedAt           DateTime? @map("finalized_at")
+  finalizedByUserId     String?   @map("finalized_by_user_id")
+  finalizedChannel      String?   @map("finalized_channel")
+  supersededAt          DateTime? @map("superseded_at")
+
+  organization Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity         @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  assessment   EnterpriseOpportunityAssessment @relation("AssessmentRevisions", fields: [assessmentId], references: [id], onDelete: Restrict)
+  currentFor   EnterpriseOpportunityAssessment[] @relation("AssessmentCurrentRevision")
+  recommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
+
+  @@unique([assessmentId, revisionNumber], map: "eoar_assessment_revision_key")
+  /// Tenant-safe command idempotency. PostgreSQL allows multiple NULLs for pre-5C2A rows.
+  @@unique([organizationId, commandId], map: "eoar_org_command_id_key")
+  @@index([organizationId, opportunityId, revisionNumber], map: "eoar_org_opp_revision_idx")
+  @@map("enterprise_opportunity_assessment_revisions")
+}
+
+/// Stage 5C1 — recommendation execution persistence contract only. No mapper/runtime wiring.
+/// Stage 5C2A — explicit requestHash + sanitized failureCode. Does not store raw errors/credentials.
+/// Does not store raw policy JSON, lender scores, stars, or confidence.
+model EnterpriseOpportunityAssessmentRecommendationRun {
+  id                         String   @id @default(cuid())
+  organizationId             String   @map("organization_id")
+  opportunityId              String   @map("opportunity_id")
+  assessmentId               String   @map("assessment_id")
+  revisionId                 String   @map("revision_id")
+  /// Nullable only for hypothetical pre-5C2A rows; new writes require it. Identity remains `id` (requestId).
+  requestHash                String?  @map("request_hash")
+  assessedAt                 DateTime @map("assessed_at")
+  asOf                       DateTime @map("as_of")
+  mapperVersion              String   @map("mapper_version")
+  calculationVersion         String   @map("calculation_version")
+  factsSchemaVersion         String   @map("facts_schema_version")
+  resultStatus               String   @map("result_status")
+  missingInputCodes          Json     @map("missing_input_codes")
+  rejectedProgrammeCodesJson Json     @map("rejected_programme_codes_json")
+  acceptedProgrammeIdsJson   Json     @map("accepted_programme_ids_json")
+  cibilNotKnownDisclaimer    Boolean  @map("cibil_not_known_disclaimer")
+  /// Finite sanitized codes only. Null on pending/successful runs.
+  failureCode                String?  @map("failure_code")
+
+  organization Organization                          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity                 @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  assessment   EnterpriseOpportunityAssessment       @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  revision     EnterpriseOpportunityAssessmentRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, assessedAt], map: "eoarr_org_opp_assessed_idx")
+  @@index([revisionId], map: "eoarr_revision_idx")
+  @@map("enterprise_opportunity_assessment_recommendation_runs")
 }
 
 /// CO-ARCH-003 Phase 2B Sprint 1 — Accounting Invoice Party Master
@@ -3495,6 +4667,11 @@ model EnterpriseTransactionDocument {
   contactId          String?   @map("contact_id")
   customerId         String?   @map("customer_id")
   participantId      String?   @map("participant_id")
+  participantRole    String?   @map("participant_role")
+  ownerEntityId      String?   @map("owner_entity_id")
+  dealId             String?   @map("deal_id")
+  inboundEmailId     String?   @map("inbound_email_id")
+  inboundAttachmentId String?  @map("inbound_attachment_id")
   lenderId           String?   @map("lender_id")
   documentScope      String    @default("applicant") @map("document_scope")
   typeRef            String    @map("type_ref")
@@ -3515,6 +4692,21 @@ model EnterpriseTransactionDocument {
   storageProvider    String?   @map("storage_provider")
   contentHash        String?   @map("content_hash")
   contentVersion     Int       @default(1) @map("content_version")
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — recoverable deletion (binaries retained)
+  deletedAt          DateTime? @map("deleted_at")
+  deletedByUserId    String?   @map("deleted_by_user_id")
+  deletionReason     String?   @map("deletion_reason") @db.Text
+  priorStatus        String?   @map("prior_status")
+  retentionUntil     DateTime? @map("retention_until")
+  purgeEligibleAt    DateTime? @map("purge_eligible_at")
+  purgeStatus        String?   @map("purge_status")
+  restoredAt         DateTime? @map("restored_at")
+  restoredByUserId   String?   @map("restored_by_user_id")
+  restoreReason      String?   @map("restore_reason") @db.Text
+  supersededByDocumentId String? @map("superseded_by_document_id")
+  malwareScanStatus  String    @default("not_configured") @map("malware_scan_status")
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014D — inbound classification snapshot (not a second document store).
+  inboundClassificationJson Json? @map("inbound_classification_json")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -3522,8 +4714,13 @@ model EnterpriseTransactionDocument {
 
   @@unique([organizationId, clientRecordId], map: "etd_org_client_record_key")
   @@index([organizationId, opportunityId, status], map: "etd_org_opp_status_idx")
+  @@index([organizationId, deletedAt], map: "etd_org_deleted_at_idx")
+  @@index([organizationId, retentionUntil], map: "etd_org_retention_idx")
   @@index([organizationId, contactId], map: "etd_org_contact_idx")
   @@index([organizationId, storageKey], map: "etd_org_storage_key_idx")
+  @@index([organizationId, dealId], map: "etd_org_deal_idx")
+  @@index([organizationId, ownerEntityId], map: "etd_org_owner_entity_idx")
+  @@index([organizationId, inboundEmailId], map: "etd_org_inbound_email_idx")
   @@map("enterprise_transaction_documents")
 }
 
@@ -3549,6 +4746,61 @@ model EnterpriseDocumentObjectBlob {
   @@index([organizationId, opportunityId], map: "edob_org_opp_idx")
   @@index([organizationId, documentId], map: "edob_org_doc_idx")
   @@map("enterprise_document_object_blobs")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — append-only Document Workspace audit ledger.
+/// No FK to documents/requests so history survives business-record deletion. Not editable via DW APIs.
+model EnterpriseDocumentWorkspaceAuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  actorType      String   @map("actor_type")
+  actorId        String?  @map("actor_id")
+  action         String
+  documentId     String?  @map("document_id")
+  contentVersion Int?     @map("content_version")
+  contactId      String?  @map("contact_id")
+  companyId      String?  @map("company_id")
+  opportunityId  String?  @map("opportunity_id")
+  dealId         String?  @map("deal_id")
+  requestId      String?  @map("request_id")
+  sessionId      String?  @map("session_id")
+  shareEventId   String?  @map("share_event_id")
+  sourceChannel  String?  @map("source_channel")
+  outcome        String   @default("success")
+  reason         String?  @db.Text
+  metadataJson   Json?    @map("metadata_json")
+  correlationId  String?  @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt], map: "edwae_org_time_idx")
+  @@index([organizationId, documentId, createdAt], map: "edwae_org_doc_time_idx")
+  @@index([organizationId, action, createdAt], map: "edwae_org_action_time_idx")
+  @@index([organizationId, opportunityId, createdAt], map: "edwae_org_opp_time_idx")
+  @@index([organizationId, correlationId], map: "edwae_org_corr_idx")
+  @@map("enterprise_document_workspace_audit_events")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — durable hashed upload-portal rate windows (Postgres, multi-instance).
+model EnterpriseDocumentWorkspaceRateLimit {
+  id             String   @id @default(cuid())
+  hashedBucket   String   @map("hashed_bucket")
+  windowStart    DateTime @map("window_start")
+  windowMs       Int      @map("window_ms")
+  count          Int      @default(0)
+  maxAttempts    Int      @map("max_attempts")
+  organizationId String?  @map("organization_id")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([hashedBucket, windowStart], map: "edwrl_bucket_window_key")
+  @@index([expiresAt], map: "edwrl_expires_idx")
+  @@index([organizationId, hashedBucket], map: "edwrl_org_bucket_idx")
+  @@map("enterprise_document_workspace_rate_limits")
 }
 
 /// CO-DOC-005 — Durable Document Package Registry (folder uploads).
@@ -4236,5 +5488,635 @@ model CompassAdvantageAudit {
   @@index([organizationId, createdAt(sort: Desc)], map: "caaud_org_created_idx")
   @@index([scheduleId, createdAt(sort: Desc)], map: "caaud_schedule_created_idx")
   @@map("compass_advantage_audits")
+}
+
+// =============================================================================
+// CO-C1-HL-BT-POLICY-001 — Home Loan / HL BT recommendation masters
+// Additive. Do not seed live lender policies, categories, or pricing.
+// =============================================================================
+
+enum HlMasterLifecycleStatus {
+  draft
+  checker_review
+  approved
+  active
+  superseded
+  expired
+  rejected
+}
+
+enum HlRecommendationLenderBand {
+  A
+  B
+  C
+}
+
+model HlRecommendationLenderCategoryAssignment {
+  id               String                      @id @default(cuid())
+  organizationId   String                      @map("organization_id")
+  lenderId         String                      @map("lender_id")
+  category         HlRecommendationLenderBand
+  lineageId        String                      @map("lineage_id")
+  versionNumber    Int                         @default(1) @map("version_number")
+  previousVersionId String?                    @map("previous_version_id")
+  lifecycleStatus  HlMasterLifecycleStatus     @default(draft) @map("lifecycle_status")
+  effectiveFrom    DateTime?                   @map("effective_from")
+  effectiveUntil   DateTime?                   @map("effective_until")
+  reason           String?                     @db.Text
+  remarks          String?                     @db.Text
+  makerUserId      String                      @map("maker_user_id")
+  checkerUserId    String?                     @map("checker_user_id")
+  approvedAt       DateTime?                   @map("approved_at")
+  activatedAt      DateTime?                   @map("activated_at")
+  isDeleted        Boolean                     @default(false) @map("is_deleted")
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+  auditJson        Json                        @default("[]") @map("audit_json")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlcat_org_lineage_version_key")
+  @@index([organizationId, lenderId, lifecycleStatus], map: "hlcat_org_lender_status_idx")
+  @@map("hl_recommendation_lender_categories")
+}
+
+/// Product-generic journey/capture/mandatory-for-recommendation configuration.
+/// Match % weights remain on HlProductRecommendationRuleSet.weightsJson.
+model ProductJourneyDefinition {
+  id                String   @id @default(cuid())
+  organizationId    String   @map("organization_id")
+  productCode       String   @map("product_code")
+  lineageId         String   @map("lineage_id")
+  versionNumber     Int      @default(1) @map("version_number")
+  previousVersionId String?  @map("previous_version_id")
+  lifecycleStatus   String   @default("draft") @map("lifecycle_status")
+  fieldsJson        Json     @map("fields_json")
+  makerUserId       String   @map("maker_user_id")
+  checkerUserId     String?  @map("checker_user_id")
+  approvedAt        DateTime? @map("approved_at")
+  activatedAt       DateTime? @map("activated_at")
+  labelledUnapproved Boolean @default(false) @map("labelled_unapproved")
+  isDeleted         Boolean  @default(false) @map("is_deleted")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  auditJson         Json     @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "pjd_org_lineage_version_key")
+  @@index([organizationId, productCode, lifecycleStatus], map: "pjd_org_product_status_idx")
+  @@map("product_journey_definitions")
+}
+
+model HlProductRecommendationRuleSet {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  productCode     String                  @map("product_code")
+  scoringMode     String                  @default("normal") @map("scoring_mode")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  previousVersionId String?               @map("previous_version_id")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  weightsJson     Json                    @map("weights_json")
+  weightsTotal    Int                     @default(0) @map("weights_total")
+  labelledUnapproved Boolean              @default(true) @map("labelled_unapproved")
+  effectiveFrom   DateTime?               @map("effective_from")
+  effectiveUntil  DateTime?               @map("effective_until")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  simulationOnly  Boolean                 @default(true) @map("simulation_only")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlw_org_lineage_version_key")
+  @@index([organizationId, productCode, lifecycleStatus], map: "hlw_org_product_status_idx")
+  @@map("hl_product_recommendation_rule_sets")
+}
+
+model HlCibilCategoryRule {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  previousVersionId String?               @map("previous_version_id")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  payloadJson     Json                    @map("payload_json")
+  effectiveFrom   DateTime?               @map("effective_from")
+  effectiveUntil  DateTime?               @map("effective_until")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlcibil_org_lineage_version_key")
+  @@index([organizationId, lifecycleStatus], map: "hlcibil_org_status_idx")
+  @@map("hl_cibil_category_rules")
+}
+
+model HlRegulatoryLtvRule {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  previousVersionId String?               @map("previous_version_id")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  sourceLabel     String                  @map("source_label")
+  sourceVersion   String                  @map("source_version")
+  applicability   String
+  chargesIncludedInPropertyCost Boolean @default(false) @map("charges_included_in_property_cost")
+  slabsJson       Json                    @map("slabs_json")
+  effectiveFrom   DateTime?               @map("effective_from")
+  effectiveUntil  DateTime?               @map("effective_until")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlltv_org_lineage_version_key")
+  @@index([organizationId, lifecycleStatus], map: "hlltv_org_status_idx")
+  @@map("hl_regulatory_ltv_rules")
+}
+
+model HlRecommendationOverride {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  lenderId        String?                 @map("lender_id")
+  programmeId     String?                 @map("programme_id")
+  overrideKind    String                  @map("override_kind")
+  reason          String                  @db.Text
+  geographyJson   Json?                   @map("geography_json")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  startsAt        DateTime                @map("starts_at")
+  endsAt          DateTime?               @map("ends_at")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender? @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, lifecycleStatus, startsAt], map: "hlover_org_status_start_idx")
+  @@map("hl_recommendation_overrides")
+}
+
+model OrganizationWorkingCalendarVersion {
+  id                    String   @id @default(cuid())
+  organizationId        String   @map("organization_id")
+  settingsId            String?  @map("settings_id")
+  versionNumber         Int      @map("version_number")
+  timeZone              String   @map("time_zone")
+  workingDaysJson       Json     @map("working_days_json")
+  workingHoursJson      Json     @map("working_hours_json")
+  holidayCalendarJson   Json     @map("holiday_calendar_json")
+  effectiveFrom         DateTime @map("effective_from")
+  effectiveUntil        DateTime? @map("effective_until")
+  lifecycleStatus       HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  createdBy             String   @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  organization Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  settings     OrganizationWorkspaceSettings? @relation(fields: [settingsId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, versionNumber], map: "orgcal_org_version_key")
+  @@index([organizationId, lifecycleStatus, effectiveFrom], map: "orgcal_org_status_effective_idx")
+  @@map("organization_working_calendar_versions")
+}
+
+model CompassHomeLoanAssessment {
+  id                         String    @id @default(cuid())
+  organizationId             String    @map("organization_id")
+  opportunityId              String    @unique @map("opportunity_id")
+  journeyKind                String    @map("journey_kind")
+  journeySessionRef          String?   @map("journey_session_ref")
+  journeyStatus              String    @default("in_progress") @map("journey_status")
+  mobileVerifiedAt           DateTime? @map("mobile_verified_at")
+  rawAnswersJson             Json      @default("{}") @map("raw_answers_json")
+  normalisedAnswersJson      Json      @default("{}") @map("normalised_answers_json")
+  questionTimelineJson       Json      @default("[]") @map("question_timeline_json")
+  lenderAssessmentsJson      Json      @default("[]") @map("lender_assessments_json")
+  recommendationSnapshotJson Json      @default("{}") @map("recommendation_snapshot_json")
+  calculationVersion         String    @map("calculation_version")
+  ruleSetVersion             String?   @map("rule_set_version")
+  categoryRuleVersion        String?   @map("category_rule_version")
+  lenderScoreVersion         String?   @map("lender_score_version")
+  ltvMasterVersion           String?   @map("ltv_master_version")
+  calendarVersionNumber      Int?      @map("calendar_version_number")
+  assistedOfferJson          Json?     @map("assisted_offer_json")
+  expertRequestId            String?   @unique @map("expert_request_id")
+  expertRequestedAt          DateTime? @map("expert_requested_at")
+  expertDeadlineAt           DateTime? @map("expert_deadline_at")
+  expertContactedAt          DateTime? @map("expert_contacted_at")
+  expertContactOutcome       String?   @map("expert_contact_outcome")
+  expertSlaState             String?   @map("expert_sla_state")
+  assignedUserId             String?   @map("assigned_user_id")
+  assignedTaskId             String?   @map("assigned_task_id")
+  assessedAt                 DateTime? @map("assessed_at")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  slaEvents    CompassExpertSlaEvent[]
+
+  @@index([organizationId, journeyKind], map: "chla_org_journey_idx")
+  @@index([organizationId, expertSlaState], map: "chla_org_sla_idx")
+  @@map("compass_home_loan_assessments")
+}
+
+model CompassExpertSlaEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  opportunityId  String   @map("opportunity_id")
+  assessmentId   String   @map("assessment_id")
+  eventKind      String   @map("event_kind")
+  payloadJson    Json     @default("{}") @map("payload_json")
+  actorUserId    String?  @map("actor_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity   @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  assessment   CompassHomeLoanAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, createdAt], map: "cesla_org_opp_idx")
+  @@map("compass_expert_sla_events")
+}
+
+model CompassOtpChallenge {
+  id               String    @id @default(cuid())
+  organizationId   String    @map("organization_id")
+  journeyRef       String    @map("journey_ref")
+  mobile           String
+  otpHash          String    @map("otp_hash")
+  salt             String
+  expiresAt        DateTime  @map("expires_at")
+  attemptCount     Int       @default(0) @map("attempt_count")
+  maxAttempts      Int       @default(5) @map("max_attempts")
+  verifiedAt       DateTime? @map("verified_at")
+  providerRef      String?   @map("provider_ref")
+  deliveryStatus   String    @default("disabled") @map("delivery_status")
+  dltPrincipalEntityId String? @map("dlt_principal_entity_id")
+  approvedHeader   String?   @map("approved_header")
+  approvedTemplateId String? @map("approved_template_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, journeyRef], map: "cotp_org_journey_idx")
+  @@index([organizationId, mobile, createdAt], map: "cotp_org_mobile_idx")
+  @@map("compass_otp_challenges")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014 — durable customer document request (workflow only).
+/// Binaries remain EnterpriseTransactionDocument. ZIP bytes are never stored here.
+model EnterpriseDocumentCustomerRequest {
+  id                 String   @id @default(cuid())
+  organizationId     String   @map("organization_id")
+  opportunityId      String   @map("opportunity_id")
+  dealId             String?  @map("deal_id")
+  partyEntityId      String   @map("party_entity_id")
+  partyEntityKind    String   @map("party_entity_kind")
+  participantRowId   String?  @map("participant_row_id")
+  participantRole    String?  @map("participant_role")
+  status             String   @default("open")
+  requestKind        String   @default("customer_collection") @map("request_kind")
+  requestVersion     Int      @default(1) @map("request_version")
+  lodVersionId       String?  @map("lod_version_id")
+  programmeVersionRef String? @map("programme_version_ref")
+  generatedAt        DateTime? @map("generated_at")
+  queuedAt           DateTime? @map("queued_at")
+  sharedAt           DateTime? @map("shared_at")
+  sharedChannel      String?  @map("shared_channel")
+  revokedAt          DateTime? @map("revoked_at")
+  expiresAt          DateTime @map("expires_at")
+  closedAt           DateTime? @map("closed_at")
+  closedByUserId     String?  @map("closed_by_user_id")
+  createdByUserId    String   @map("created_by_user_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  items        EnterpriseDocumentCustomerRequestItem[]
+  sessions     EnterpriseDocumentUploadSession[]
+  audits       EnterpriseDocumentRequestAudit[]
+
+  @@index([organizationId, opportunityId, status], map: "edcr_org_opp_status_idx")
+  @@index([organizationId, partyEntityId], map: "edcr_org_party_idx")
+  @@index([organizationId, opportunityId, requestKind, status], map: "edcr_org_opp_kind_status_idx")
+  @@map("enterprise_document_customer_requests")
+}
+
+model EnterpriseDocumentCustomerRequestItem {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  requestId       String   @map("request_id")
+  typeRef         String   @map("type_ref")
+  categoryLabel   String   @map("category_label")
+  requestRef      String   @map("request_ref")
+  status          String   @default("requested")
+  registryRecordId String? @map("registry_record_id")
+  participantId   String?  @map("participant_id")
+  ownerKind       String?  @map("owner_kind")
+  ownerLabel      String?  @map("owner_label")
+  label           String?
+  mandatory       Boolean  @default(true)
+  lodVersionId    String?  @map("lod_version_id")
+  programmeVersionRef String? @map("programme_version_ref")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  request EnterpriseDocumentCustomerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, requestRef], map: "edcri_request_ref_key")
+  @@index([organizationId, requestId], map: "edcri_org_request_idx")
+  @@map("enterprise_document_customer_request_items")
+}
+
+model EnterpriseDocumentRequestAudit {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  requestId      String   @map("request_id")
+  action         String
+  actorUserId    String?  @map("actor_user_id")
+  detail         String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  request EnterpriseDocumentCustomerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt], map: "edcra_request_created_idx")
+  @@map("enterprise_document_request_audits")
+}
+
+model EnterpriseDocumentUploadSession {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  requestId      String    @map("request_id")
+  tokenHash      String    @unique @map("token_hash")
+  tokenPrefix    String    @map("token_prefix")
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  revokedByUserId String?  @map("revoked_by_user_id")
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  request      EnterpriseDocumentCustomerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  otps         EnterpriseDocumentUploadOtp[]
+  audits       EnterpriseDocumentUploadAudit[]
+
+  @@index([organizationId, requestId, active], map: "edus_org_request_active_idx")
+  @@map("enterprise_document_upload_sessions")
+}
+
+model EnterpriseDocumentUploadOtp {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  sessionId      String    @map("session_id")
+  otpHash        String    @map("otp_hash")
+  expiresAt      DateTime  @map("expires_at")
+  attemptCount   Int       @default(0) @map("attempt_count")
+  maxAttempts    Int       @default(5) @map("max_attempts")
+  lastAttemptAt  DateTime? @map("last_attempt_at")
+  verifiedAt     DateTime? @map("verified_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  session EnterpriseDocumentUploadSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt], map: "eduo_session_created_idx")
+  @@map("enterprise_document_upload_otps")
+}
+
+model EnterpriseDocumentUploadAudit {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  sessionId      String   @map("session_id")
+  action         String
+  detail         String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  session EnterpriseDocumentUploadSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt], map: "edua_session_created_idx")
+  @@map("enterprise_document_upload_audits")
+}
+
+/// Share/send manifest — document IDs and versions only. Never stores ZIP binaries.
+model EnterpriseDocumentShareEvent {
+  id                 String   @id @default(cuid())
+  organizationId     String   @map("organization_id")
+  opportunityId      String   @map("opportunity_id")
+  dealId             String?  @map("deal_id")
+  actorUserId        String   @map("actor_user_id")
+  recipientLabel     String   @map("recipient_label")
+  recipientEmail     String?  @map("recipient_email")
+  recipientContactId String?  @map("recipient_contact_id")
+  documentIdsJson    Json     @map("document_ids_json")
+  versionIdsJson     Json     @map("version_ids_json")
+  attachmentMode     String   @map("attachment_mode")
+  zipFilename        String?  @map("zip_filename")
+  outboxId           String?  @map("outbox_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, createdAt], map: "edse_org_opp_created_idx")
+  @@map("enterprise_document_share_events")
+}
+
+/// Per-user / per-version inbound "new" state. Not browser storage.
+model EnterpriseDocumentVersionSeen {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  documentId     String   @map("document_id")
+  versionKey     String   @map("version_key")
+  seenAt         DateTime @default(now()) @map("seen_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, userId, documentId, versionKey], map: "edvs_org_user_doc_ver_key")
+  @@index([organizationId, userId], map: "edvs_org_user_idx")
+  @@map("enterprise_document_version_seen")
+}
+
+// =============================================================================
+// Field Control Master — Foundation V1 metadata only.
+// Does not store customer, opportunity, assessment, deal, or accounting values.
+// Migration is local review material. Do not apply it to production from this sprint.
+// =============================================================================
+
+enum FieldControlFieldType {
+  text
+  long_text
+  number
+  currency
+  percentage
+  date
+  yes_no
+  single_select
+  multi_select
+}
+
+enum FieldControlClassification {
+  raw_canonical
+  derived
+  reference_mirror
+  alias
+  system
+  configuration
+  programme_constraint_reference
+  custom_field
+}
+
+enum FieldControlOwningDomain {
+  contact
+  company
+  opportunity
+  deal
+  accounting
+  assessment
+  document
+  derived_engine
+  system
+  unassigned
+}
+
+enum FieldControlLifecycleStatus {
+  draft
+  checker_review
+  approved
+  active
+  superseded
+  inactive
+}
+
+enum FieldControlOwnershipReview {
+  certified_binding
+  owner_requires_product_decision
+}
+
+/// Governance identity for a field. Empty until a later commissioned load.
+/// controls_runtime and customer_facing_activation stay false in Foundation V1.
+model FieldControlDefinition {
+  id                              String                        @id @default(cuid())
+  fieldId                         String                        @map("field_id")
+  lineageId                       String                        @map("lineage_id")
+  versionNumber                   Int                           @default(1) @map("version_number")
+  previousVersionId               String?                       @map("previous_version_id")
+  friendlyLabel                   String                        @map("friendly_label")
+  description                     String                        @db.Text
+  helpText                        String                        @map("help_text") @db.Text
+  fieldType                       FieldControlFieldType         @map("field_type")
+  classification                  FieldControlClassification
+  owningDomain                    FieldControlOwningDomain      @map("owning_domain")
+  ownershipReview                 FieldControlOwnershipReview   @map("ownership_review")
+  sourceBindingJson               Json                          @map("source_binding_json")
+  aliasesJson                     Json                          @default("[]") @map("aliases_json")
+  lifecycleStatus                 FieldControlLifecycleStatus   @default(draft) @map("lifecycle_status")
+  productApplicabilityJson        Json                          @default("[]") @map("product_applicability_json")
+  customerCategoryApplicabilityJson Json                        @default("[]") @map("customer_category_applicability_json")
+  applicabilityDeclared           Boolean                       @default(false) @map("applicability_declared")
+  /// Opportunity form visibility only. Undeclared leaves current visibility unchanged.
+  employmentTypeApplicabilityJson Json                          @default("[]") @map("employment_type_applicability_json")
+  employmentApplicabilityDeclared Boolean                       @default(false) @map("employment_applicability_declared")
+  authorisedConsumersJson         Json                          @default("[]") @map("authorised_consumers_json")
+  validationSummary               String                        @map("validation_summary") @db.Text
+  presentationSummary             String                        @map("presentation_summary") @db.Text
+  selectOptionSource              String?                       @map("select_option_source")
+  selectOptionKeysJson            Json                          @default("[]") @map("select_option_keys_json")
+  currencyUnitsJson               Json                          @default("[]") @map("currency_units_json")
+  candidateMirrorOf               String?                       @map("candidate_mirror_of")
+  controlsRuntime                 Boolean                       @default(false) @map("controls_runtime")
+  customerFacingActivation        Boolean                       @default(false) @map("customer_facing_activation")
+  makerUserId                     String?                       @map("maker_user_id")
+  checkerUserId                   String?                       @map("checker_user_id")
+  effectiveFrom                   DateTime?                     @map("effective_from")
+  effectiveUntil                  DateTime?                     @map("effective_until")
+  createdAt                       DateTime                      @default(now()) @map("created_at")
+  updatedAt                       DateTime                      @updatedAt @map("updated_at")
+  /// FCM V2.0 — values captured under this definition version. The lineage remains the field identity.
+  capturedCustomValues            FieldControlCustomValue[]
+
+  @@unique([fieldId, versionNumber], map: "fcm_field_version_key")
+  @@index([classification, lifecycleStatus], map: "fcm_classification_lifecycle_idx")
+  @@index([owningDomain, ownershipReview], map: "fcm_owner_review_idx")
+  @@map("field_control_definitions")
+}
+
+/// FCM V2.0 — where an approved internal custom field may appear.
+/// Global governance: no organization column. Does not change definition flags.
+/// Screen and domain checks are enforced again in the V2.0 migration.
+model FieldControlPlacement {
+  id                   String                   @id
+  fieldLineageId       String                   @map("field_lineage_id")
+  fieldId              String                   @map("field_id")
+  owningDomain         FieldControlOwningDomain @map("owning_domain")
+  screenId             String                   @map("screen_id")
+  sectionId            String                   @map("section_id")
+  showOnCreate         Boolean                  @map("show_on_create")
+  showOnEdit           Boolean                  @map("show_on_edit")
+  showOnView           Boolean                  @map("show_on_view")
+  requiredOnPlacement  Boolean                  @map("required_on_placement")
+  displayOrder         Int                      @map("display_order")
+  active               Boolean
+  createdAt            DateTime                 @map("created_at")
+  updatedAt            DateTime                 @map("updated_at")
+  createdByUserId      String                   @map("created_by_user_id")
+  updatedByUserId      String                   @map("updated_by_user_id")
+
+  @@unique([fieldLineageId, owningDomain, screenId, sectionId], map: "fcm_placement_lineage_screen_key")
+  @@index([owningDomain, screenId, active], map: "fcm_placement_domain_screen_idx")
+  @@map("field_control_placements")
+}
+
+/// FCM V2.0 — one current custom value per organization, lineage, and entity.
+/// entityId is intentionally not a foreign key: one column serves every launch domain.
+model FieldControlCustomValue {
+  id                    String                   @id
+  organizationId        String                   @map("organization_id")
+  fieldLineageId        String                   @map("field_lineage_id")
+  fieldId               String                   @map("field_id")
+  definitionVersionId   String                   @map("definition_version_id")
+  entityDomain          FieldControlOwningDomain @map("entity_domain")
+  entityId              String                   @map("entity_id")
+  valueJson             Json                     @map("value_json")
+  createdAt             DateTime                 @map("created_at")
+  updatedAt             DateTime                 @map("updated_at")
+  createdByUserId       String                   @map("created_by_user_id")
+  updatedByUserId       String                   @map("updated_by_user_id")
+
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  capturedUnder         FieldControlDefinition   @relation(fields: [definitionVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, fieldLineageId, entityDomain, entityId], map: "fcm_custom_value_org_lineage_entity_key")
+  @@index([organizationId, entityDomain, entityId], map: "fcm_custom_value_org_entity_idx")
+  @@map("field_control_custom_values")
 }
 

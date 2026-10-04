@@ -200,8 +200,15 @@ export function listCompanyLinks(companyId: string): EcmCompanyContactLink[] {
   return [...links.values()].filter((l) => l.companyId === companyId && l.status === "active");
 }
 
-export function listContactCompanyLinks(contactId: string): EcmCompanyContactLink[] {
-  return [...links.values()].filter((l) => l.contactId === contactId && l.status === "active");
+export function listContactCompanyLinks(
+  contactId: string,
+  options?: { includeInactive?: boolean },
+): EcmCompanyContactLink[] {
+  return [...links.values()].filter((l) => {
+    if (l.contactId !== contactId) return false;
+    if (options?.includeInactive) return true;
+    return l.status === "active";
+  });
 }
 
 export function linkCompanyContact(input: {

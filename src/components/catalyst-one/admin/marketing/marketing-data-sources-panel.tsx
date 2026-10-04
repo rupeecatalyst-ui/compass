@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
-import { MARKETING_SHEETS_PREVIEW_MAX_ROWS } from "@/constants/enterprise-marketing-engine";
+import { MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL, MARKETING_SHEETS_PREVIEW_MAX_ROWS } from "@/constants/enterprise-marketing-engine";
 import type { MarketingDataSourceBinding } from "@/types/enterprise-marketing-data-source";
 import type { MarketingDatasetDescriptor } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import { MarketingModuleNav } from "./marketing-module-nav";
@@ -40,6 +40,14 @@ type ModeInfo = {
   audienceImportEnabled: boolean;
   previewMaxRows: number;
   pageMaxRows: number;
+  sourceStatus?: "OFF" | "FIXTURE" | "LIVE" | "NOT_CONFIGURED";
+  sourceLabel?: string;
+  sourceNotice?: string;
+  authorisedWorkbookId?: string | null;
+  authorisedWorkbookDisplayName?: string | null;
+  fixtureVisible?: boolean;
+  connectionState?: "CONNECTED" | "CONFIGURATION_REQUIRED" | "ACCESS_REVOKED" | "VALIDATION_FAILED";
+  googleCredentialsConfigured?: boolean;
 };
 
 type PreviewPayload = {
@@ -61,6 +69,18 @@ type PreviewPayload = {
   cappedAt: number;
 };
 
+type HealthCheckResult = {
+  ok: boolean;
+  message?: string;
+  mode?: string;
+  diagnostic?: {
+    stage: "AUTHORIZE" | "SPREADSHEETS_GET";
+    authorizeCompleted: boolean;
+    httpStatus: number | null;
+    googleReason: string;
+    runtimeSpreadsheetMatchesConfigured: boolean | null;
+  };
+};
 export function MarketingDataSourcesPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -76,7 +96,7 @@ export function MarketingDataSourcesPanel() {
     method: string;
     note: string;
   } | null>(null);
-  const [health, setHealth] = useState<{ ok: boolean; message?: string; mode?: string } | null>(
+  const [health, setHealth] = useState<HealthCheckResult | null>(
     null,
   );
   const [newName, setNewName] = useState("Marketing Master Database");
@@ -134,7 +154,7 @@ export function MarketingDataSourcesPanel() {
         throw new Error(body.error?.message || `Failed: ${view}`);
       }
       if (view === "health") {
-        setHealth(body.data.health as { ok: boolean; message?: string; mode?: string });
+        setHealth(body.data.health as HealthCheckResult);
       }
       if (view === "datasets") {
         const list = (body.data.datasets as MarketingDatasetDescriptor[]) ?? [];
@@ -163,10 +183,7 @@ export function MarketingDataSourcesPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           displayName: newName,
-          spreadsheetId:
-            mode?.sheetsMode === "fixture"
-              ? "fixture-marketing-master"
-              : newSpreadsheetId.trim(),
+          spreadsheetId: newSpreadsheetId.trim() || undefined,
         }),
       });
       const body = (await res.json()) as ApiEnvelope<{ binding: MarketingDataSourceBinding }>;
@@ -178,6 +195,28 @@ export function MarketingDataSourcesPanel() {
       await refreshList();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save binding");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revokeBinding = async () => {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/data-sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke", id: selectedId }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{ binding: MarketingDataSourceBinding }>;
+      if (!res.ok || !body.success || !body.data) {
+        throw new Error(body.error?.message || "Failed to revoke workbook");
+      }
+      toast.success("Workbook access revoked for this organisation");
+      await refreshList();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to revoke workbook");
     } finally {
       setBusy(false);
     }
@@ -205,20 +244,46 @@ export function MarketingDataSourcesPanel() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-            MKT-02 safety
+            Workbook security
           </CardTitle>
           <CardDescription>
-            Sheets mode: <strong>{mode?.sheetsMode ?? "…"}</strong>
-            {" · "}
-            Read: {mode?.sheetsReadEnabled ? "enabled" : "off"}
+            Source: <strong>{mode?.sourceStatus ?? "…"}</strong>
+            {mode?.sourceLabel ? ` · ${mode.sourceLabel}` : ""}
             {" · "}
             Import: disabled · Send: disabled · Contact/Opportunity: disabled
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Set <code className="text-xs">ENTERPRISE_MARKETING_SHEETS_MODE=fixture</code> for the
-          controlled non-production dataset, or <code className="text-xs">live</code> with server
-          service-account credentials. Never put private keys in the browser.
+          {mode?.sourceNotice}
+          {mode?.sourceStatus === "FIXTURE" ? (
+            <p className="mt-2 rounded-md border border-amber-600 bg-amber-100 px-3 py-2 font-semibold text-amber-950 dark:bg-amber-900/40 dark:text-amber-100">
+              FIXTURE MODE — controlled non-production dataset. Not live Google Sheets.
+            </p>
+          ) : null}
+          {mode?.sourceStatus === "NOT_CONFIGURED" || mode?.connectionState === "CONFIGURATION_REQUIRED" ? (
+            <p
+              className="mt-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 font-semibold text-destructive"
+              data-mkt-google-configuration-required="true"
+            >
+              {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL} — Google Sheets is not available. Fixture
+              data is not being used.
+            </p>
+          ) : null}
+          {mode?.connectionState === "ACCESS_REVOKED" ? (
+            <p className="mt-2 rounded-md border border-destructive px-3 py-2 font-semibold text-destructive">
+              Access Revoked — this organisation can no longer read the authorised workbook.
+            </p>
+          ) : null}
+          {mode?.connectionState === "VALIDATION_FAILED" ? (
+            <p className="mt-2 rounded-md border border-destructive px-3 py-2 font-semibold text-destructive">
+              Validation Failed — workbook access could not be verified.
+            </p>
+          ) : null}
+          {mode?.connectionState === "CONNECTED" ? (
+            <p className="mt-2 rounded-md border border-emerald-600 px-3 py-2 font-semibold text-emerald-800">
+              Connected — operators may select active authorised workbooks for this organisation.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -236,18 +301,42 @@ export function MarketingDataSourcesPanel() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  <Select value={selectedId || undefined} onValueChange={setSelectedId}>
-                    <SelectTrigger className="min-w-[220px]">
-                      <SelectValue placeholder="Select source" />
+                  <Select
+                    value={selectedId || undefined}
+                    onValueChange={setSelectedId}
+                    disabled={bindings.length === 0}
+                  >
+                    <SelectTrigger className="min-w-[220px]" data-mkt-authorised-workbook="true">
+                      <SelectValue
+                        placeholder={
+                          bindings.length === 0
+                            ? MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL
+                            : "Select source"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {bindings.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.displayName}
+                      {bindings.length === 0 ? (
+                        <SelectItem value="__configuration_required" disabled>
+                          {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL}
                         </SelectItem>
-                      ))}
+                      ) : (
+                        bindings.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.displayName}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
+                  {bindings.length === 0 ? (
+                    <p
+                      className="w-full text-sm font-semibold text-destructive"
+                      data-mkt-authorised-workbook-empty="true"
+                    >
+                      {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL}
+                    </p>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="sm"
@@ -271,6 +360,10 @@ export function MarketingDataSourcesPanel() {
                     <div>
                       <dt className="text-xs uppercase text-muted-foreground">Status</dt>
                       <dd>{selected.status}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase text-muted-foreground">Connection</dt>
+                      <dd>{selected.connectionState ?? "—"}</dd>
                     </div>
                     <div>
                       <dt className="text-xs uppercase text-muted-foreground">Last discover</dt>
@@ -306,21 +399,43 @@ export function MarketingDataSourcesPanel() {
                     <Table2 className="mr-1.5 h-3.5 w-3.5" />
                     Discover tabs
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy || !selectedId}
+                    onClick={() => void revokeBinding()}
+                  >
+                    Revoke access
+                  </Button>
                 </div>
                 {health ? (
-                  <p className={`text-sm ${health.ok ? "text-emerald-700" : "text-destructive"}`}>
-                    {health.ok ? "Healthy" : "Unhealthy"} — {health.message}
-                  </p>
+                  <div className="space-y-1 text-sm">
+                    <p className={health.ok ? "text-emerald-700" : "text-destructive"}>
+                      {health.ok ? "Healthy" : "Unhealthy"} — {health.message}
+                    </p>
+                    {!health.ok && health.diagnostic ? (
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-muted-foreground">
+                        <dt>Stage:</dt><dd>{health.diagnostic.stage}</dd>
+                        <dt>Authorization completed:</dt><dd>{health.diagnostic.authorizeCompleted ? "Yes" : "No"}</dd>
+                        <dt>HTTP status:</dt><dd>{health.diagnostic.httpStatus ?? "Not available"}</dd>
+                        <dt>Google reason:</dt><dd>{health.diagnostic.googleReason}</dd>
+                        <dt>Runtime spreadsheet matches configured:</dt>
+                        <dd>{health.diagnostic.runtimeSpreadsheetMatchesConfigured === null
+                          ? "Unknown"
+                          : health.diagnostic.runtimeSpreadsheetMatchesConfigured ? "Yes" : "No"}</dd>
+                      </dl>
+                    ) : null}
+                  </div>
                 ) : null}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Add / update binding</CardTitle>
+                <CardTitle className="text-base">Authorised workbook</CardTitle>
                 <CardDescription>
-                  Paste a Google Spreadsheet ID (live) or use fixture id. Credentials stay in server
-                  env.
+                  Organisation-scoped allowlist only. Administrators cannot paste an arbitrary
+                  spreadsheet ID. Google credentials stay on the server.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -333,28 +448,33 @@ export function MarketingDataSourcesPanel() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="mkt-ds-sheet">Spreadsheet ID</Label>
+                  <Label htmlFor="mkt-ds-workbook">Spreadsheet ID to authorise</Label>
                   <Input
-                    id="mkt-ds-sheet"
-                    placeholder={
-                      mode?.sheetsMode === "fixture"
-                        ? "fixture-marketing-master"
-                        : "1BxiM… (from Google Sheets URL)"
-                    }
+                    id="mkt-ds-workbook"
+                    readOnly={mode?.sourceStatus === "FIXTURE"}
                     value={
-                      mode?.sheetsMode === "fixture"
-                        ? "fixture-marketing-master"
+                      mode?.sourceStatus === "FIXTURE"
+                        ? mode?.authorisedWorkbookId ?? ""
                         : newSpreadsheetId
                     }
-                    disabled={mode?.sheetsMode === "fixture"}
                     onChange={(e) => setNewSpreadsheetId(e.target.value)}
+                    placeholder={
+                      mode?.sourceStatus === "LIVE"
+                        ? "Paste the Google Spreadsheet ID (not a Drive folder URL)"
+                        : "NOT_CONFIGURED"
+                    }
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {mode?.sourceStatus === "LIVE"
+                      ? "Administrators register specific spreadsheet IDs. Arbitrary Drive browsing is blocked. Credentials stay on the server."
+                      : mode?.authorisedWorkbookDisplayName ?? "No authorised workbook is configured."}
+                  </p>
                 </div>
                 <Button
-                  disabled={busy || !mode?.sheetsReadEnabled}
+                  disabled={busy || !mode?.sheetsReadEnabled || mode?.sourceStatus === "NOT_CONFIGURED"}
                   onClick={() => void upsertBinding()}
                 >
-                  Save binding
+                  Bind authorised workbook
                 </Button>
               </CardContent>
             </Card>

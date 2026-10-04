@@ -5,17 +5,18 @@
 
 import {
   errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { MARKETING_ROUTING_CRITERION_FIELDS } from "@/constants/enterprise-marketing-engine";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
-import type { ApiResponse } from "@/types/api";
+import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
+import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import type { MarketingChannel } from "@/constants/enterprise-marketing-engine";
 import type { MarketingRoutingMode } from "@/lib/enterprise-marketing-engine/ports/routing.port";
 import type {
   MarketingQualificationBusinessState,
+  MarketingQualificationInboxStatus,
   MarketingQualificationIntent,
   MarketingRoutingRule,
 } from "@/types/enterprise-marketing-qualification";
@@ -34,17 +35,9 @@ function requireAdministrator(actor: { role: string }) {
 }
 
 function fromUnknown(err: unknown) {
-  if (err instanceof EnterpriseMarketingSafetyError) {
-    return errorResponse(403, err.code, err.message);
-  }
-  const statusCode = (err as { statusCode?: number }).statusCode;
-  const code = (err as { code?: string }).code;
-  if (statusCode === 401 || statusCode === 403) {
-    return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-  }
-  return errorResponse(
-    statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
-    code ?? "MARKETING_QUALIFICATION_FAILED",
+  return fromMarketingUnknownError(
+    err,
+    "MARKETING_QUALIFICATION_FAILED",
     err instanceof Error ? err.message : "Marketing qualification request failed",
   );
 }
@@ -83,7 +76,9 @@ export async function GET(request: Request) {
   try {
     const actor = requireAccessToken(request);
     requireAdministrator(actor);
-    return successResponse(marketingQualificationService.list(await actorCtx(actor)));
+    const ctx = await actorCtx(actor);
+    assertMarketingPermission(ctx, MARKETING_PERMISSIONS.QUALIFICATION_REVIEW);
+    return successResponse(marketingQualificationService.list(ctx));
   } catch (err) {
     return fromUnknown(err);
   }
@@ -96,6 +91,11 @@ export async function POST(request: Request) {
     const body = (await request.json()) as Record<string, unknown>;
     const action = typeof body.action === "string" ? body.action : "";
     const ctx = await actorCtx(actor);
+    if (action === "handoff" || action === "mass_convert" || action === "mass_handoff") {
+      assertMarketingPermission(ctx, MARKETING_PERMISSIONS.QUALIFICATION_CONVERT);
+    } else {
+      assertMarketingPermission(ctx, MARKETING_PERMISSIONS.QUALIFICATION_REVIEW);
+    }
 
     if (action === "mass_convert" || action === "mass_handoff") {
       marketingQualificationService.refuseMassConvert();
@@ -116,6 +116,10 @@ export async function POST(request: Request) {
         source: typeof body.source === "string" ? body.source : null,
         partnerId: typeof body.partnerId === "string" ? body.partnerId : null,
         teamId: typeof body.teamId === "string" ? body.teamId : null,
+        snapshotId: typeof body.snapshotId === "string" ? body.snapshotId : null,
+        snapshotRecipientId: typeof body.snapshotRecipientId === "string" ? body.snapshotRecipientId : null,
+        sourceTabName: typeof body.sourceTabName === "string" ? body.sourceTabName : null,
+        responseSummary: typeof body.responseSummary === "string" ? body.responseSummary : null,
         intent: (body.intent as MarketingQualificationIntent) ?? "none",
         evidenceEventId: typeof body.evidenceEventId === "string" ? body.evidenceEventId : null,
         operatorConfirmed: body.operatorConfirmed === true,
@@ -124,11 +128,20 @@ export async function POST(request: Request) {
     }
 
     if (action === "set_state") {
-      const dto = marketingQualificationService.setBusinessState(
+      const dto = await marketingQualificationService.setBusinessState(
         ctx,
         String(body.qualificationId ?? ""),
         body.businessState as MarketingQualificationBusinessState,
         typeof body.note === "string" ? body.note : undefined,
+      );
+      return successResponse({ qualification: dto });
+    }
+
+    if (action === "set_inbox_status") {
+      const dto = await marketingQualificationService.setInboxStatus(
+        ctx,
+        String(body.qualificationId ?? ""),
+        body.inboxStatus as MarketingQualificationInboxStatus,
       );
       return successResponse({ qualification: dto });
     }

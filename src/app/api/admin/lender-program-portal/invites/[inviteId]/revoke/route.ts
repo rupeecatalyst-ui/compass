@@ -8,6 +8,7 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { assertPortalAdministrator } from "@/lib/lender-program-portal/launch-closure";
 import { lenderProgramPortalService } from "@server/services/lender-program-portal/lender-program-portal.service";
 
 export async function POST(
@@ -19,6 +20,7 @@ export async function POST(
       return errorResponse(503, "PERSISTENCE_REQUIRED", "Requires prisma mode");
     }
     const actor = requireAccessToken(request);
+    assertPortalAdministrator(actor.role);
     const { inviteId } = await ctx.params;
     const body = (await request.json().catch(() => ({}))) as { reason?: string };
     const invite = await lenderProgramPortalService.revokeInvite(

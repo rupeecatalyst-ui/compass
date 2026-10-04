@@ -1,0 +1,121 @@
+import type { StructuredProgrammePayload } from "@/types/product-programme-operations";
+import { parseStructuredProgrammePayload } from "@/lib/product-programme-operations/request-schema";
+
+function base(overrides: Record<string, unknown> = {}): StructuredProgrammePayload {
+  return parseStructuredProgrammePayload({
+    lenderId: "fixture-lender-hdfc",
+    productCode: "HOME_LOAN",
+    code: "FIX-HL",
+    label: "Fixture programme",
+    employmentTypes: ["salaried"],
+    legalConstitutions: ["individual"],
+    residencyEligibility: ["resident"],
+    propertyTypes: ["ready"],
+    transactionTypes: ["fresh"],
+    geographyStates: ["MH"],
+    minLoanAmountExact: "500000.00",
+    maxLoanAmountExact: "25000000.00",
+    minRoiExact: "8.400000",
+    maxRoiExact: "9.150000",
+    rateType: "floating",
+    benchmarkCode: "repo",
+    minCibil: 700,
+    minAge: 21,
+    maxAge: 65,
+    minTenureMonths: 12,
+    maxTenureMonths: 360,
+    policyVersionId: "fixture-policy-v1",
+    requiredDocumentTypeIds: ["doc:pan"],
+    incomeAssessmentMethods: ["salary"],
+    minIncomeExact: "25000.00",
+    minLtvExact: "10.00",
+    maxLtvExact: "80.00",
+    minFoirExact: "40.00",
+    maxFoirExact: "55.00",
+    minDbrExact: "40.00",
+    maxDbrExact: "55.00",
+    effectiveFrom: "2026-01-01T00:00:00.000Z",
+    reviewAt: "2027-01-01T00:00:00.000Z",
+    ...overrides,
+  });
+}
+
+/** Local BAT labels only — not live approved bank rates. */
+export const PROGRAMME_BAT_FIXTURES = {
+  homeLoanSalaried: (overrides: Record<string, unknown> = {}) =>
+    base({
+      code: "FIX-HL-SAL",
+      label: "Fixture Home Loan Salaried",
+      employmentTypes: ["salaried"],
+      ...overrides,
+    }),
+  homeLoanSelfEmployed: (overrides: Record<string, unknown> = {}) =>
+    base({
+      code: "FIX-HL-SE",
+      label: "Fixture Home Loan Self-employed",
+      employmentTypes: ["self-employed-professional"],
+      incomeAssessmentMethods: ["itr", "gst"],
+      minIncomeExact: "100000.00",
+      ...overrides,
+    }),
+  homeLoanBalanceTransfer: (overrides: Record<string, unknown> = {}) =>
+    base({
+      productCode: "HOME_LOAN_BT",
+      code: "FIX-HL-BT",
+      label: "Fixture Home Loan Balance Transfer",
+      transactionTypes: ["balance_transfer"],
+      ...overrides,
+    }),
+  multiEmployment: (overrides: Record<string, unknown> = {}) =>
+    base({
+      code: "FIX-HL-BOTH",
+      label: "Fixture Home Loan Multi Employment",
+      employmentTypes: ["salaried", "self-employed-business"],
+      incomeAssessmentMethods: ["salary", "turnover"],
+      ...overrides,
+    }),
+  incompleteDraft: () =>
+    parseStructuredProgrammePayload({
+      lenderId: "fixture-lender-hdfc",
+      productCode: "HOME_LOAN",
+      code: "FIX-HL-INCOMPLETE",
+      label: "Fixture incomplete draft",
+      employmentTypes: ["salaried"],
+      legalConstitutions: ["individual"],
+      residencyEligibility: ["resident"],
+      propertyTypes: ["ready"],
+      transactionTypes: ["fresh"],
+      geographyStates: ["MH"],
+      minLoanAmountExact: "1.00",
+      maxLoanAmountExact: "2.00",
+      minRoiExact: "8.00",
+      maxRoiExact: "9.00",
+      rateType: "floating",
+      benchmarkCode: "repo",
+      minCibil: 700,
+      minAge: 21,
+      maxAge: 65,
+      minTenureMonths: 12,
+      maxTenureMonths: 240,
+      policyVersionId: "",
+      requiredDocumentTypeIds: [],
+      incomeAssessmentMethods: ["salary"],
+      minIncomeExact: "100.00",
+      minLtvExact: "10.00",
+      maxLtvExact: "80.00",
+      minFoirExact: "40.00",
+      maxFoirExact: "50.00",
+      minDbrExact: "40.00",
+      maxDbrExact: "50.00",
+      effectiveFrom: "2026-01-01T00:00:00.000Z",
+      reviewAt: "2027-01-01T00:00:00.000Z",
+    }),
+  expired: () =>
+    base({
+      code: "FIX-HL-EXPIRED",
+      label: "Fixture expired programme",
+      effectiveFrom: "2020-01-01T00:00:00.000Z",
+      effectiveUntil: "2020-12-31T00:00:00.000Z",
+      reviewAt: "2020-06-01T00:00:00.000Z",
+    }),
+};

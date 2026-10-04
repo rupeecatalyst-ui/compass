@@ -93,7 +93,7 @@ export function MarketingContentPanel() {
                   <div key={t.id} className="rounded-md border p-2 text-xs">
                     <div className="font-medium">{t.name}</div>
                     <div className="text-muted-foreground">
-                      {t.channel} · {t.content.blocks.length} blocks · {t.subject}
+                      {t.channel} · {t.category} · {t.status} · v{t.versionNumber} · {t.content.blocks.length} blocks
                     </div>
                   </div>
                 ))

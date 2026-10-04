@@ -75,6 +75,7 @@ export function resolveVisibleDetailSections(
     primaryBorrowerKind: "individual" | "company";
     productCode: string;
     values?: Record<string, string>;
+    journeyFields?: import("@/types/product-journey-definition").ProductJourneyFieldRow[] | null;
   },
 ): PartnerJourneySectionDef[] {
   return resolveVisibleIdcSections(sections, ctx);

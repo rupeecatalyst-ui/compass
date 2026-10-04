@@ -19,6 +19,8 @@ export type DealPipelineContext = {
   loanProduct: string;
   productCode?: string;
   relationshipManager: string;
+  relationshipManagerUserId?: string | null;
+  rcEmployeeAssignmentSource?: "inherited" | "override" | null;
   customerName: string;
   customerId?: string | null;
   invoicePartyId?: string | null;

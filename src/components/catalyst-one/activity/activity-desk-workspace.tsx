@@ -8,14 +8,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Briefcase, History, Loader2, Search, Target } from "lucide-react";
 import { PageHeader } from "@/components/design-system/page-header";
-import { TransactionActivityTimeline } from "@/components/catalyst-one/transaction-activity-timeline";
+import { DetailedActivityDialogueTimeline } from "@/components/catalyst-one/activity/detailed-activity-dialogue-timeline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants/routes";
 import {
+  isDashboardNavEntry,
   setActiveOpportunityContext,
+  shouldShowEntitySelectionScreen,
 } from "@/lib/lead-opportunity-journey/active-context";
 import { rememberOpportunityRegistryContext } from "@/lib/lead-opportunity-journey/opportunity-context";
+import { parseDetailedTimelineFiltersFromSearch } from "@/lib/enterprise-activity-registry/detailed-timeline-state";
 import {
   enterpriseOpportunityApiClient,
   type EnterpriseOpportunityApiRecord,
@@ -48,12 +51,19 @@ export function ActivityDeskWorkspace() {
   const opportunityIdParam = searchParams.get("opportunityId")?.trim() || "";
   const dealIdParam = searchParams.get("dealId")?.trim() || "";
   const inboundEmailId = searchParams.get("inboundEmailId")?.trim() || "";
+  const eventId = searchParams.get("eventId")?.trim() || "";
   const showEntityFilter = searchParams.get("filter") === "entity";
   const hasUrlContext = Boolean(opportunityIdParam || dealIdParam);
+  const dashboardEntry = isDashboardNavEntry(searchParams);
+  const timelineFilters = parseDetailedTimelineFiltersFromSearch(searchParams);
 
   const [pickingEntity, setPickingEntity] = useState(false);
 
-  if (pickingEntity || (showEntityFilter && !hasUrlContext)) {
+  if (
+    pickingEntity ||
+    (showEntityFilter &&
+      shouldShowEntitySelectionScreen({ dashboardEntry, hasUrlContext }))
+  ) {
     return (
       <ActivityEntityPicker
         onCancel={() => {
@@ -135,46 +145,10 @@ export function ActivityDeskWorkspace() {
           </Button>
         </div>
       </div>
-      {dealId ? (
-        <TransactionActivityTimeline
-          scope={{
-            mode: "deal",
-            dealId,
-            opportunityId: opportunityId || null,
-          }}
-          notesContext={{
-            workspaceKind: "deal",
-            entityKind: "deal",
-            entityId: dealId,
-            dealId,
-            opportunityId: opportunityId || null,
-          }}
-          title="Deal — Activity & Dialogue"
-          description="This Deal plus shared Opportunity events. Sibling lender deals are excluded."
-          focusInboundEmailId={inboundEmailId || null}
-        />
-      ) : opportunityId ? (
-        <TransactionActivityTimeline
-          scope={{ mode: "opportunity", opportunityId }}
-          notesContext={{
-            workspaceKind: "opportunity",
-            entityKind: "opportunity",
-            entityId: opportunityId,
-            opportunityId,
-            contactId: null,
-          }}
-          title="Opportunity — Activity & Dialogue"
-          description="Notes, communications, documents, tasks, and stage events for this Opportunity."
-          focusInboundEmailId={inboundEmailId || null}
-        />
-      ) : (
-        <TransactionActivityTimeline
-          scope={{ mode: "global" }}
-          title="Activity & Dialogue"
-          description="Newest communications and operational events across Catalyst One."
-          focusInboundEmailId={inboundEmailId || null}
-        />
-      )}
+      <DetailedActivityDialogueTimeline
+        initialFilters={timelineFilters}
+        focusEventId={eventId || inboundEmailId || null}
+      />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { authenticatedJsonFetch, getAccessToken } from "@/lib/api-client";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { ETD_INLINE_CONTENT_BYTES_MAX } from "@/constants/enterprise-document-object-storage";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
-import { getDocumentBlob, saveDocumentBlob } from "@/lib/document-registry/blob-store";
+import { clearLegacyIndexedDbDocumentBlobs, getDocumentBlob } from "@/lib/document-registry/blob-store";
 import {
   getAllDocumentRegistryRecords,
   mergeDurableDocumentsIntoLocalRegistry,
@@ -41,17 +41,14 @@ async function syncLargeBinaryToServer(input: {
   opportunityId: string;
   clientRecordId: string;
   contentBlob: Blob;
+  filename?: string;
 }): Promise<boolean> {
   const token = getAccessToken();
   if (!token) return false;
   const form = new FormData();
   form.set("opportunityId", input.opportunityId);
   form.set("clientRecordId", input.clientRecordId);
-  form.set(
-    "file",
-    input.contentBlob,
-    "document.bin",
-  );
+  form.set("file", input.contentBlob, input.filename || "document.pdf");
   try {
     const res = await fetch("/api/enterprise-transaction-documents/binary", {
       method: "POST",
@@ -61,8 +58,8 @@ async function syncLargeBinaryToServer(input: {
       body: form,
     });
     if (!res.ok) return false;
-    const body = (await res.json()) as Envelope<{ storageKey?: string | null }>;
-    return Boolean(body.success && body.data?.storageKey);
+    const body = (await res.json()) as Envelope<{ hasContent?: boolean }>;
+    return Boolean(body.success && body.data?.hasContent);
   } catch {
     return false;
   }
@@ -77,16 +74,11 @@ async function backfillMetadataOnlyLargeDocumentsFromLocalBlob(input: {
   for (const item of input.serverItems) {
     const fileSizeBytes =
       typeof item.fileSizeBytes === "number" ? item.fileSizeBytes : 0;
-    const storageKey =
-      typeof item.storageKey === "string" && item.storageKey.trim()
-        ? item.storageKey.trim()
-        : null;
-    const contentBase64 =
-      typeof item.contentBase64 === "string" ? item.contentBase64 : null;
+    const hasContent = item.hasContent === true;
     const clientRecordId =
       typeof item.clientRecordId === "string" ? item.clientRecordId : null;
     if (!clientRecordId || fileSizeBytes <= ETD_INLINE_CONTENT_BYTES_MAX) continue;
-    if (storageKey || contentBase64) continue;
+    if (hasContent) continue;
 
     const local = getAllDocumentRegistryRecords().find((r) => r.id === clientRecordId);
     if (!local) continue;
@@ -99,6 +91,7 @@ async function backfillMetadataOnlyLargeDocumentsFromLocalBlob(input: {
       opportunityId: input.opportunityId,
       clientRecordId,
       contentBlob: blob,
+      filename: local.originalFilename,
     });
     if (stored) pushed += 1;
   }
@@ -135,6 +128,11 @@ export async function syncDocumentRecordToServer(
         contactId: record.links.contactId ?? null,
         customerId: record.links.customerId ?? null,
         participantId: record.links.participantId ?? null,
+        participantRole: record.links.participantRole ?? null,
+        ownerEntityId: record.links.ownerEntityId ?? record.links.contactId ?? null,
+        dealId: record.links.dealId ?? null,
+        inboundEmailId: record.links.inboundEmailId ?? null,
+        inboundAttachmentId: record.links.inboundAttachmentId ?? null,
         lenderId: record.links.lenderId ?? null,
         documentScope: record.links.documentScope ?? "applicant",
         typeRef: record.typeRef,
@@ -159,6 +157,7 @@ export async function syncDocumentRecordToServer(
         opportunityId,
         clientRecordId: record.id,
         contentBlob: blob,
+        filename: record.originalFilename,
       });
     }
   } catch {
@@ -179,7 +178,7 @@ export async function hydrateDocumentRegistryFromServer(input: {
 
   try {
     const res = await authenticatedJsonFetch(
-      `/api/enterprise-transaction-documents?opportunityId=${encodeURIComponent(opportunityId)}&includeContent=1`,
+      `/api/enterprise-transaction-documents?opportunityId=${encodeURIComponent(opportunityId)}`,
     );
     const body = (await res.json()) as Envelope<{ items: Array<Record<string, unknown>> }>;
     if (!res.ok || !body.success || !body.data?.items) return 0;
@@ -192,35 +191,58 @@ export async function hydrateDocumentRegistryFromServer(input: {
       },
     );
 
+    await clearLegacyIndexedDbDocumentBlobs();
+
     await backfillMetadataOnlyLargeDocumentsFromLocalBlob({
       opportunityId,
       serverItems: body.data.items,
     });
 
-    // Restore blobs from inline content when local blob missing
-    for (const item of body.data.items) {
-      const contentBase64 =
-        typeof item.contentBase64 === "string" ? item.contentBase64 : null;
-      const clientRecordId =
-        typeof item.clientRecordId === "string" ? item.clientRecordId : null;
-      if (!contentBase64 || !clientRecordId) continue;
-      const local = getAllDocumentRegistryRecords().find((r) => r.id === clientRecordId);
-      const blobId = local?.versions.find((v) => v.isCurrent)?.blobId;
-      if (!blobId) continue;
-      try {
-        const raw = atob(contentBase64);
-        const bytes = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
-        const mime =
-          typeof item.mimeType === "string" ? item.mimeType : "application/octet-stream";
-        await saveDocumentBlob(blobId, new Blob([bytes], { type: mime }));
-      } catch {
-        /* ignore blob restore failures */
-      }
-    }
-
     return restored;
   } catch {
     return 0;
   }
+}
+
+export async function moveDocumentToDeletedOnServer(input: {
+  opportunityId: string;
+  documentId?: string | null;
+  clientRecordId?: string | null;
+  dealId?: string | null;
+  reason: string;
+}): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!isEnterprisePersistencePrisma()) return;
+  if (!getAccessToken()) return;
+  const opportunityId = input.opportunityId.trim();
+  const reason = input.reason.trim();
+  if (!opportunityId || !reason) return;
+  try {
+    await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "move_to_deleted",
+        opportunityId,
+        documentId: input.documentId ?? null,
+        clientRecordId: input.clientRecordId ?? null,
+        dealId: input.dealId ?? null,
+        reason,
+      }),
+    });
+  } catch {
+    /* local registry already marked deleted */
+  }
+}
+
+export async function deleteDocumentRecordOnServer(input: {
+  opportunityId: string;
+  documentId?: string | null;
+  clientRecordId?: string | null;
+  dealId?: string | null;
+  reason?: string | null;
+}): Promise<void> {
+  await moveDocumentToDeletedOnServer({
+    ...input,
+    reason: input.reason?.trim() || "Recoverable deletion",
+  });
 }

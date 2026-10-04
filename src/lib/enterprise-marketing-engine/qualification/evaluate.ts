@@ -34,7 +34,13 @@ export function evaluateMarketingQualificationState(input: {
   if (input.intent === "unsubscribe") return "SUPPRESSED";
   if (input.intent === "not_interested") return "NOT_INTERESTED";
   if (input.intent === "none") return "UNQUALIFIED";
-  if (input.intent === "open" || input.intent === "click") return "ENGAGED";
+  if (
+    input.intent === "open" || input.intent === "click" ||
+    input.intent === "delivered" ||
+    input.intent === "landing_page"
+  ) {
+    return "ENGAGED";
+  }
 
   const isResponse = MARKETING_RESPONSE_INTENTS.includes(input.intent);
   if (!isResponse) return "UNQUALIFIED";

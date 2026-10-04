@@ -76,7 +76,12 @@ type ExtraDiscoveryStepId =
   | "facilityType"
   | "projectCost"
   | "currentLender"
-  | "outstandingLoanAmount";
+  | "outstandingLoanAmount"
+  | "otp"
+  | "displayName"
+  | "recommendation"
+  | "email"
+  | "application";
 
 const TAIL = ["approxCibilScore", "analysing", "lenders", "documents", "review", "confirmation"] as const;
 
@@ -174,8 +179,6 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
   const keys = new Set<string>([
     "loanAmount",
     "mobile",
-    "displayName",
-    "personalEmail",
     "otpVerified",
     "city",
     "approxCibilScore",
@@ -234,7 +237,7 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
   return [...keys];
 }
 
-export function productShowsPropertyPreview(productCode: CompassProductCode): boolean {
+export function productShowsPropertyPreview(productCode: string): boolean {
   return (
     productCode === "home-loan" ||
     productCode === "home-loan-balance-transfer" ||
@@ -242,28 +245,45 @@ export function productShowsPropertyPreview(productCode: CompassProductCode): bo
   );
 }
 
-export function productShowsAdvantage(productCode: CompassProductCode): boolean {
+export function productShowsAdvantage(productCode: string): boolean {
   return productCode === "home-loan" || productCode === "home-loan-balance-transfer";
 }
 
-export function readProductCodeFromPathname(
-  pathname: string,
-  search: string,
-): CompassProductCode {
+export function isCompassCatalogProduct(code: string): code is CompassProductCode {
+  return (COMPASS_GATEWAY_PRODUCTS as readonly string[]).includes(code);
+}
+
+const APPLY_PRODUCT_ALIASES: Record<string, string> = {
+  home_loan: "home-loan",
+  home_loan_bt: "home-loan-balance-transfer",
+  personal_loan: "personal-loan",
+  business_loan: "business-loan",
+  loan_against_property: "loan-against-property",
+  working_capital: "working-capital",
+  construction_finance: "construction-finance",
+  project_finance: "project-finance",
+};
+
+export function readProductCodeFromPathname(pathname: string, search: string): string | null {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const queried = params.get("product");
   if (queried === "home-loan-balance-transfer") return "home-loan-balance-transfer";
   if (queried === "project-finance") return "project-finance";
   const path = pathname.replace(/\/$/, "") || "/";
-  return COMPASS_PATH_TO_PRODUCT[path] ?? "home-loan";
+  const published = path.match(/^\/apply\/([a-z0-9-]{2,64})$/i);
+  if (published) {
+    const raw = published[1].trim().toLowerCase();
+    return APPLY_PRODUCT_ALIASES[raw.replace(/-/g, "_")] ?? raw;
+  }
+  return COMPASS_PATH_TO_PRODUCT[path] ?? null;
 }
 
-export function productCodeFromRoute(route: string): CompassProductCode {
+export function productCodeFromRoute(route: string): string | null {
   const [path, query = ""] = route.split("?");
   return readProductCodeFromPathname(path, query);
 }
 
-export function resolveLaunchProductCode(productPath: string): CompassProductCode {
+export function resolveLaunchProductCode(productPath: string): string | null {
   if (typeof window !== "undefined") {
     const pathOnly = productPath.split("?")[0];
     const current = window.location.pathname.replace(/\/$/, "") || "/";

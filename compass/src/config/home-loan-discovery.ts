@@ -96,13 +96,8 @@ export const discoveryCopy = {
     cta: "Next",
   },
   mobile: {
-    heading: "Your details",
-    helper: "We'll save your progress as you go. Email is optional.",
-    fullNameLabel: "Full name",
-    fullNamePlaceholder: "Your full name",
-    mobileLabel: "Mobile number",
-    emailLabel: "Email address (optional)",
-    emailPlaceholder: "name@example.com",
+    heading: "Stay Connected",
+    helper: "We'll save your progress as you go.",
     otpLabel: "Verification code",
     otpSuccess: "Great! Your journey has been saved.",
     cta: "Continue",
@@ -225,7 +220,7 @@ export const discoveryCopy = {
     cta: "Next",
   },
   advantage: {
-    heading: "COMPASS Advantage",
+    heading: "Your COMPASS Advantage",
     requestedAmountLabel: "Requested loan amount",
     resultTitle: "Your COMPASS Advantage",
     eligibilityNote:
@@ -303,7 +298,7 @@ export const DISCOVERY_STEP_ORDER: DiscoveryStepId[] = [
   "confirmation",
 ];
 
-export function stepToStageIndex(step: DiscoveryStepId): number {
+export function stepToStageIndex(step: string): number {
   switch (step) {
     case "welcome":
     case "propertyType":

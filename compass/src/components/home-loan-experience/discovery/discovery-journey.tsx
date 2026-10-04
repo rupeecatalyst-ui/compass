@@ -14,6 +14,7 @@ import { DiscoveryLendersStep } from "@/components/home-loan-experience/discover
 import { DiscoveryProgress } from "@/components/home-loan-experience/discovery/discovery-progress";
 import { DiscoveryReviewStep } from "@/components/home-loan-experience/discovery/discovery-review-step";
 import { PremiumSlider } from "@/components/home-loan-experience/discovery/premium-slider";
+import { DiscoveryConfiguredQuestions } from "@/components/home-loan-experience/discovery/discovery-configured-question";
 import { Button } from "@/components/ui/button";
 import { CITY_OPTIONS } from "@/config/home-loan-conversation";
 import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
@@ -24,16 +25,11 @@ import {
   cibilFieldOptions,
   findJourneyField,
   formatJourneyInrLabel,
+  mobileOtpProgression,
   resolveMonthlyIncomeBounds,
   resolveRequestedAmountBounds,
 } from "@/lib/journey-config";
 import { smoothEase } from "@/lib/animations";
-import {
-  parseCompassCustomerIdentity,
-  parseCompassDisplayName,
-  parseCompassMobile,
-  parseCompassOptionalEmail,
-} from "@/lib/customer-identity";
 import { cn } from "@/lib/utils";
 
 function DiscoveryScreen({
@@ -87,26 +83,15 @@ function MiniHomePreview({ scale }: { scale: number }) {
 }
 
 function MobileStep() {
-  const { answers, setAnswer, goNext, nudgeCompass, startJourneySession, otpRequired } = useDiscovery();
-  const [phase, setPhase] = useState<"form" | "otp" | "success" | "starting">("form");
-  const [otp, setOtp] = useState("");
+  const { answers, setAnswer, goNext, nudgeCompass, startJourneySession, journeyConfig } =
+    useDiscovery();
+  const [phase, setPhase] = useState<"form" | "success" | "starting">("form");
   const [error, setError] = useState<string | null>(null);
-  const [attempted, setAttempted] = useState(false);
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.mobile;
+  const otpProgression = mobileOtpProgression(journeyConfig);
 
-  const identity = parseCompassCustomerIdentity({
-    displayName: answers.displayName,
-    mobile: answers.mobile,
-    personalEmail: answers.personalEmail,
-  });
-  const nameError = parseCompassDisplayName(answers.displayName);
-  const mobileError = parseCompassMobile(answers.mobile);
-  const emailError = parseCompassOptionalEmail(answers.personalEmail);
-  const canContinue = identity.ok;
-  const showNameError = attempted && !nameError.ok ? nameError.message : null;
-  const showMobileError = attempted && !mobileError.ok ? mobileError.message : null;
-  const showEmailError = attempted && !emailError.ok ? emailError.message : null;
+  const canSend = answers.mobile.length >= 10;
 
   const continueAfterIdentity = async () => {
     setPhase("starting");
@@ -123,24 +108,18 @@ function MobileStep() {
   };
 
   const sendOtp = () => {
-    setAttempted(true);
-    if (!canContinue) return;
-    if (!otpRequired) {
-      void continueAfterIdentity();
+    if (!canSend) return;
+    if (otpProgression === "blocked") {
+      setError("Mobile verification is required, but it is not available right now.");
       return;
     }
-    setPhase("otp");
-    nudgeCompass();
-  };
-
-  const verifyOtp = () => {
-    if (otp.length < 4) return;
-    setAnswer("otpVerified", true);
+    if (otpProgression === "verify") {
+      nudgeCompass();
+      goNext();
+      return;
+    }
     void continueAfterIdentity();
   };
-
-  const fieldClass =
-    "h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35 focus:ring-2 focus:ring-primary/20";
 
   return (
     <DiscoveryScreen stepKey="mobile">
@@ -150,81 +129,21 @@ function MobileStep() {
           {phase === "form" ? (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
               <label className="block space-y-2">
-                <span className="text-sm text-muted-foreground">{c.fullNameLabel}</span>
-                <input
-                  type="text"
-                  autoComplete="name"
-                  value={answers.displayName}
-                  onChange={(e) => setAnswer("displayName", e.target.value)}
-                  placeholder={c.fullNamePlaceholder}
-                  aria-invalid={Boolean(showNameError)}
-                  aria-describedby={showNameError ? "identity-name-error" : undefined}
-                  className={fieldClass}
-                />
-                {showNameError ? (
-                  <p id="identity-name-error" role="alert" className="text-sm text-destructive">
-                    {showNameError}
-                  </p>
-                ) : null}
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm text-muted-foreground">{c.mobileLabel}</span>
+                <span className="sr-only">Mobile number</span>
                 <input
                   type="tel"
                   inputMode="numeric"
-                  autoComplete="tel"
                   value={answers.mobile}
                   onChange={(e) => setAnswer("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))}
                   placeholder="10-digit mobile"
-                  aria-invalid={Boolean(showMobileError)}
-                  aria-describedby={showMobileError ? "identity-mobile-error" : undefined}
-                  className={fieldClass}
+                  className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35 focus:ring-2 focus:ring-primary/20"
                 />
-                {showMobileError ? (
-                  <p id="identity-mobile-error" role="alert" className="text-sm text-destructive">
-                    {showMobileError}
-                  </p>
-                ) : null}
               </label>
-              <label className="block space-y-2">
-                <span className="text-sm text-muted-foreground">{c.emailLabel}</span>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={answers.personalEmail}
-                  onChange={(e) => setAnswer("personalEmail", e.target.value)}
-                  placeholder={c.emailPlaceholder}
-                  aria-invalid={Boolean(showEmailError)}
-                  aria-describedby={showEmailError ? "identity-email-error" : undefined}
-                  className={fieldClass}
-                />
-                {showEmailError ? (
-                  <p id="identity-email-error" role="alert" className="text-sm text-destructive">
-                    {showEmailError}
-                  </p>
-                ) : null}
-              </label>
-              <Button size="lg" className="mt-4 h-12 w-full" onClick={sendOtp}>
-                {otpRequired ? c.cta : "Continue"}
+              <Button size="lg" className="mt-4 h-12 w-full" disabled={!canSend} onClick={sendOtp}>
+                {otpProgression === "verify" ? c.cta : "Continue"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
               {error ? <p className="text-center text-sm text-muted-foreground">{error}</p> : null}
-            </motion.div>
-          ) : null}
-
-          {phase === "otp" ? (
-            <motion.div key="otp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <p className="text-center text-sm text-muted-foreground">{c.otpLabel}</p>
-              <input
-                inputMode="numeric"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="• • • •"
-                className="h-14 w-full rounded-2xl border border-primary/25 bg-primary/[0.05] text-center text-2xl tracking-[0.5em] outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              <Button size="lg" className="h-12 w-full" disabled={otp.length < 4} onClick={verifyOtp}>
-                {c.verifyCta}
-              </Button>
             </motion.div>
           ) : null}
 
@@ -239,7 +158,7 @@ function MobileStep() {
                 <Check className="h-7 w-7" />
               </span>
               <p className="text-lg font-medium text-foreground">
-                {phase === "starting" ? "Securing your journey..." : c.otpSuccess}
+                {phase === "starting" ? "Securing your journey..." : "Mobile number saved."}
               </p>
             </motion.div>
           ) : null}
@@ -306,6 +225,119 @@ function CityStep() {
   );
 }
 
+function OtpStep() {
+  const { answers, goBack, goNext, startJourneySession } = useDiscovery();
+  const [otp, setOtp] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const verify = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/journey/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile: answers.mobile, otp }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+        verified?: boolean;
+        otpVerificationToken?: string;
+      } | null;
+      if (!response.ok || !body?.verified || !body.otpVerificationToken) {
+        setError(body?.error || "That code was not accepted. Please request a new one.");
+        return;
+      }
+      await startJourneySession(body.otpVerificationToken);
+      goNext();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "We cannot verify your mobile number yet. Please try again later.",
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <DiscoveryScreen stepKey="otp">
+      <QuestionHeader heading="Enter the code we sent" helper="We verify this code on our server. A guessed code will not continue the application." />
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <input
+          value={otp}
+          inputMode="numeric"
+          onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="6-digit code"
+          className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+        />
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <div className="flex justify-center gap-3">
+          <Button variant="ghost" onClick={goBack}>Back</Button>
+          <Button size="lg" className="h-12 px-10" disabled={pending || otp.length < 6} onClick={() => void verify()}>
+            Verify
+          </Button>
+        </div>
+      </div>
+    </DiscoveryScreen>
+  );
+}
+
+function NameStep() {
+  const { answers, setAnswer, goNext } = useDiscovery();
+  const name = answers.displayName ?? "";
+  return (
+    <DiscoveryScreen stepKey="displayName">
+      <QuestionHeader heading="What is your full name?" helper="We use this name on your application." />
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <input
+          value={name}
+          onChange={(event) => setAnswer("displayName", event.target.value)}
+          placeholder="Your full name"
+          className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+        />
+        <div className="flex justify-center">
+          <Button size="lg" className="h-12 px-10" disabled={name.trim().length < 2} onClick={goNext}>
+            Continue
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </DiscoveryScreen>
+  );
+}
+
+function EmailStep() {
+  const { answers, setAnswer, goNext } = useDiscovery();
+  const email = answers.personalEmail ?? "";
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  return (
+    <DiscoveryScreen stepKey="email">
+      <QuestionHeader
+        heading="Where should we send this?"
+        helper="We use your email to save and send this result, and to continue your application."
+      />
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <input
+          type="email"
+          value={email}
+          onChange={(event) => setAnswer("personalEmail", event.target.value)}
+          placeholder="Email address"
+          className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+        />
+        <div className="flex justify-center">
+          <Button size="lg" className="h-12 px-10" disabled={!valid} onClick={goNext}>
+            Continue
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </DiscoveryScreen>
+  );
+}
+
 export function DiscoveryJourney() {
   const {
     step,
@@ -318,31 +350,46 @@ export function DiscoveryJourney() {
     nudgeCompass,
     productCode,
     journeyConfig,
+    configUnavailable,
   } = useDiscovery();
   const reduceMotion = useReducedMotion();
   const [amountError, setAmountError] = useState<string | null>(null);
 
+  const productLabel =
+    journeyConfig?.productLabel ??
+    (productCode in COMPASS_PRODUCT_LABELS
+      ? COMPASS_PRODUCT_LABELS[productCode as keyof typeof COMPASS_PRODUCT_LABELS]
+      : "Your application");
+
   const renderStep = () => {
-    switch (step) {
+    const stage = journeyConfig?.journeyStages?.find((item) => item.stageId === step);
+    const kind = stage?.kind ?? step;
+    switch (kind) {
       case "welcome":
         return (
           <DiscoveryScreen stepKey="welcome">
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <DiscoveryCompass nudgeKey={compassNudge} size="lg" />
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                {COMPASS_PRODUCT_LABELS[productCode]}
+                {productLabel}
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">
                 {discoveryCopy.welcome.title}
               </h2>
               <p className="mt-2 text-sm font-medium text-primary">
-                {COMPASS_PRODUCT_LABELS[productCode]}
+                {productLabel}
               </p>
               <p className="mt-4 max-w-md text-base text-muted-foreground">{discoveryCopy.welcome.subtitle}</p>
-              <Button size="lg" className="mt-10 h-12 px-10" onClick={goNext}>
-                {discoveryCopy.welcome.cta}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              {configUnavailable ? (
+                <p className="mt-10 text-sm text-muted-foreground">
+                  This journey is not available right now.
+                </p>
+              ) : (
+                <Button size="lg" className="mt-10 h-12 px-10" onClick={goNext}>
+                  {discoveryCopy.welcome.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </DiscoveryScreen>
         );
@@ -462,6 +509,45 @@ export function DiscoveryJourney() {
 
       case "mobile":
         return <MobileStep />;
+
+      case "otp":
+        if (mobileOtpProgression(journeyConfig) !== "verify") {
+          return (
+            <DiscoveryScreen stepKey="otp">
+              <p className="text-center text-sm text-muted-foreground">
+                {journeyConfig?.otpVerification === "on"
+                  ? "Mobile verification is required, but it is not available right now."
+                  : "This step is not part of this journey."}
+              </p>
+            </DiscoveryScreen>
+          );
+        }
+        return <OtpStep />;
+
+      case "displayName":
+      case "name":
+        return <NameStep />;
+
+      case "email":
+        return <EmailStep />;
+
+      case "recommendation":
+      case "questions":
+        return (
+          <DiscoveryScreen stepKey={step}>
+            <DiscoveryConfiguredQuestions
+              purpose={step === "application" ? "application" : "recommendation"}
+              stageId={stage?.stageId ?? step}
+            />
+          </DiscoveryScreen>
+        );
+
+      case "application":
+        return (
+          <DiscoveryScreen stepKey="application">
+            <DiscoveryConfiguredQuestions purpose="application" stageId={stage?.stageId ?? step} />
+          </DiscoveryScreen>
+        );
 
       case "currentLender": {
         const c = discoveryCopy.currentLender;
@@ -875,6 +961,7 @@ export function DiscoveryJourney() {
         return <DiscoveryConfirmationStep />;
 
       default:
+        if (stage) return <DiscoveryConfiguredQuestions stageId={stage.stageId} />;
         return null;
     }
   };

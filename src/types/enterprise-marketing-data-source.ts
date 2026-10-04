@@ -3,6 +3,7 @@
  */
 
 import type { MarketingDataSourceProviderType } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
+import type { MarketingWorkbookConnectionState } from "@/constants/enterprise-marketing-engine/authorised-workbook";
 
 export type MarketingDataSourceBindingStatus = "ACTIVE" | "DISABLED" | "ERROR";
 
@@ -23,6 +24,7 @@ export type MarketingDataSourceBinding = {
   lastHealthMessage?: string | null;
   lastDiscoverAt?: string | null;
   lastError?: string | null;
+  connectionState?: MarketingWorkbookConnectionState;
   createdAt: string;
   updatedAt: string;
 };

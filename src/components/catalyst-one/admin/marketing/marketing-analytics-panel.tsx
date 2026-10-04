@@ -36,6 +36,7 @@ import type {
   MarketingMetricValue,
 } from "@/types/enterprise-marketing-analytics";
 import { MarketingModuleNav } from "./marketing-module-nav";
+import { MarketingMonitoringPanel } from "./marketing-monitoring-panel";
 
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: { message?: string } };
 
@@ -281,6 +282,8 @@ export function MarketingAnalyticsPanel() {
           </div>
         </CardContent>
       </Card>
+
+      <MarketingMonitoringPanel campaignId={campaignFilter === "all" ? null : campaignFilter} />
 
       {error ? (
         <Card className="border-destructive/40">

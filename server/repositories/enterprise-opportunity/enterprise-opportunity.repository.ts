@@ -24,6 +24,7 @@ import {
 } from "@server/services/enterprise-opportunity/opportunity-validation";
 import { buildOpportunityVisibilityOrFilters } from "@server/services/enterprise-case-visibility/build-visibility-where";
 import { decideOpportunityBorrowerCreate } from "@/constants/enterprise-opportunity/company-borrower-create";
+import { resolveEnterpriseOpportunitySearchOrderBy } from "@/lib/enterprise-opportunity/search-order";
 
 function sourceCodesForBucket(bucket: string): string[] {
   return businessSourceCodesForKpiBucket(bucket);
@@ -69,6 +70,9 @@ export type CreateEnterpriseOpportunityInput = {
   participationRole?: string | null;
   commercialRevenueSharePercent?: number | null;
   sourceCampaignLabel?: string | null;
+  marketingCampaignId?: string | null;
+  marketingSourceDetail?: string | null;
+  marketingProspectRef?: string | null;
 };
 
 export type UpdateEnterpriseOpportunityInput = {
@@ -95,6 +99,21 @@ export type UpdateEnterpriseOpportunityInput = {
   primaryOwnerUserId?: string | null;
   priority?: DealPriority;
   requestedAmount?: Prisma.Decimal | number | null;
+  borrowerAgeYears?: number | null;
+  borrowerLegalConstitution?: string | null;
+  requestedTenureMonths?: number | null;
+  monthlyIncomeRupees?: Prisma.Decimal | number | null;
+  existingMonthlyObligationsRupees?: Prisma.Decimal | number | null;
+  propertyValueRupees?: Prisma.Decimal | number | null;
+  propertyCategory?: string | null;
+  constructionStatus?: string | null;
+  residency?: string | null;
+  currentRoiPercent?: Prisma.Decimal | number | null;
+  currentHomeLoanEmiRupees?: Prisma.Decimal | number | null;
+  remainingTenureMonths?: number | null;
+  loanStartDate?: Date | null;
+  repaymentTrack?: string | null;
+  delayedEmiCount?: number | null;
   currencyCode?: string;
   snapshot?: Prisma.InputJsonValue | null;
   lendingExtension?: Prisma.InputJsonValue | null;
@@ -105,6 +124,9 @@ export type UpdateEnterpriseOpportunityInput = {
   participationRole?: string | null;
   commercialRevenueSharePercent?: number | null;
   sourceCampaignLabel?: string | null;
+  marketingCampaignId?: string | null;
+  marketingSourceDetail?: string | null;
+  marketingProspectRef?: string | null;
   updatedBy?: string | null;
   expectedRowVersion?: number | null;
 };
@@ -378,12 +400,12 @@ export class EnterpriseOpportunityRepository {
       }
     }
 
-    const orderField = query.orderBy === "createdAt" ? "createdAt" : "updatedAt";
+    const orderBy = resolveEnterpriseOpportunitySearchOrderBy(query.orderBy);
 
     const [items, total] = await Promise.all([
       prisma.enterpriseOpportunity.findMany({
         where,
-        orderBy: { [orderField]: "desc" },
+        orderBy,
         take: limit,
         skip: offset,
       }),
@@ -520,9 +542,12 @@ export class EnterpriseOpportunityRepository {
         participationRole: input.participationRole ?? null,
         commercialRevenueSharePercent: input.commercialRevenueSharePercent ?? null,
         sourceCampaignLabel: input.sourceCampaignLabel ?? null,
+        marketingCampaignId: input.marketingCampaignId ?? null,
+        marketingSourceDetail: input.marketingSourceDetail ?? null,
+        marketingProspectRef: input.marketingProspectRef ?? null,
         createdBy: actor,
         updatedBy: actor,
-      },
+      } as Prisma.EnterpriseOpportunityUncheckedCreateInput,
     });
   }
 
@@ -534,6 +559,7 @@ export class EnterpriseOpportunityRepository {
     organizationId: string,
     opportunityId: string,
     input: UpdateEnterpriseOpportunityInput,
+    db: Prisma.TransactionClient | typeof prisma = prisma,
   ) {
     const existing = await this.requireOpportunity(organizationId, opportunityId);
 
@@ -548,7 +574,7 @@ export class EnterpriseOpportunityRepository {
     }
 
     if (input.productId) {
-      const product = await prisma.enterpriseProduct.findFirst({
+      const product = await db.enterpriseProduct.findFirst({
         where: {
           id: input.productId,
           organizationId,
@@ -612,6 +638,31 @@ export class EnterpriseOpportunityRepository {
     }
     if (input.priority !== undefined) data.priority = input.priority;
     if (input.requestedAmount !== undefined) data.requestedAmount = input.requestedAmount;
+    if (input.borrowerAgeYears !== undefined) data.borrowerAgeYears = input.borrowerAgeYears;
+    if (input.borrowerLegalConstitution !== undefined) {
+      data.borrowerLegalConstitution = input.borrowerLegalConstitution;
+    }
+    if (input.requestedTenureMonths !== undefined) {
+      data.requestedTenureMonths = input.requestedTenureMonths;
+    }
+    if (input.monthlyIncomeRupees !== undefined) data.monthlyIncomeRupees = input.monthlyIncomeRupees;
+    if (input.existingMonthlyObligationsRupees !== undefined) {
+      data.existingMonthlyObligationsRupees = input.existingMonthlyObligationsRupees;
+    }
+    if (input.propertyValueRupees !== undefined) data.propertyValueRupees = input.propertyValueRupees;
+    if (input.propertyCategory !== undefined) data.propertyCategory = input.propertyCategory;
+    if (input.constructionStatus !== undefined) data.constructionStatus = input.constructionStatus;
+    if (input.residency !== undefined) data.residency = input.residency;
+    if (input.currentRoiPercent !== undefined) data.currentRoiPercent = input.currentRoiPercent;
+    if (input.currentHomeLoanEmiRupees !== undefined) {
+      data.currentHomeLoanEmiRupees = input.currentHomeLoanEmiRupees;
+    }
+    if (input.remainingTenureMonths !== undefined) {
+      data.remainingTenureMonths = input.remainingTenureMonths;
+    }
+    if (input.loanStartDate !== undefined) data.loanStartDate = input.loanStartDate;
+    if (input.repaymentTrack !== undefined) data.repaymentTrack = input.repaymentTrack;
+    if (input.delayedEmiCount !== undefined) data.delayedEmiCount = input.delayedEmiCount;
     if (input.currencyCode !== undefined) data.currencyCode = input.currencyCode;
     if (input.snapshot !== undefined) data.snapshot = input.snapshot ?? Prisma.JsonNull;
     if (input.lendingExtension !== undefined) {
@@ -632,8 +683,17 @@ export class EnterpriseOpportunityRepository {
     if (input.sourceCampaignLabel !== undefined) {
       data.sourceCampaignLabel = input.sourceCampaignLabel;
     }
+    if (input.marketingCampaignId !== undefined) {
+      (data as Record<string, unknown>).marketingCampaignId = input.marketingCampaignId;
+    }
+    if (input.marketingSourceDetail !== undefined) {
+      (data as Record<string, unknown>).marketingSourceDetail = input.marketingSourceDetail;
+    }
+    if (input.marketingProspectRef !== undefined) {
+      (data as Record<string, unknown>).marketingProspectRef = input.marketingProspectRef;
+    }
 
-    return prisma.enterpriseOpportunity.update({
+    return db.enterpriseOpportunity.update({
       where: { id: existing.id },
       data,
     });

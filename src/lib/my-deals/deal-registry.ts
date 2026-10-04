@@ -154,6 +154,7 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
     documentsPending: docsPending,
     tasksPending,
     riskIndicator: riskFromFile(file),
+    productFamily: "lending",
   };
 }
 
@@ -251,6 +252,12 @@ export function filterDealRegistryRows(
     if (filters.priority !== "all" && row.priority !== filters.priority) return false;
     if (filters.status !== "all" && row.status !== filters.status) return false;
     if (filters.source !== "all" && row.source !== filters.source) return false;
+    if (
+      filters.advantageCommitted !== "all" &&
+      (row.advantageCommittedStatus ?? "not_applicable") !== filters.advantageCommitted
+    ) {
+      return false;
+    }
     if (amountMin != null && !Number.isNaN(amountMin) && row.loanAmount < amountMin) return false;
     if (amountMax != null && !Number.isNaN(amountMax) && row.loanAmount > amountMax) return false;
     if (revenueMin != null && !Number.isNaN(revenueMin) && row.expectedRevenue < revenueMin) {
@@ -320,6 +327,7 @@ export function exportDealRegistryCsv(rows: DealRegistryRow[]): string {
     "Borrower Name",
     "Product",
     "Loan Amount",
+    "Advantage Committed (₹)",
     "Assigned RM",
     "Gross Stage",
     "Sub Stage",
@@ -348,6 +356,7 @@ export function exportDealRegistryCsv(rows: DealRegistryRow[]): string {
       r.borrowerName,
       r.product,
       r.loanAmount,
+      r.advantageCommittedDisplay ?? "Not applicable",
       r.assignedRm,
       r.grossStageLabel,
       r.subStage,

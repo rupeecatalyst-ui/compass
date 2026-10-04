@@ -19,6 +19,8 @@ export type AssignableUserOption = {
   email: string;
   employeeId: string | null;
   reportingManagerId?: string | null;
+  role?: string | null;
+  department?: string | null;
 };
 
 export const ASSIGNED_USERS_EXTENSION_KEY = "assignedUsers" as const;

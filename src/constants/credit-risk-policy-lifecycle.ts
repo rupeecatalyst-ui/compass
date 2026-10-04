@@ -10,19 +10,25 @@ export const POLICY_LIFECYCLE_ORDER: PolicyLifecycleStatus[] = [
 
 export const POLICY_LIFECYCLE_LABELS: Record<PolicyLifecycleStatus, string> = {
   draft: "Draft",
+  pending_approval: "Pending Approval",
   validated: "Validated",
   testing: "Testing",
   approved: "Approved",
   published: "Published",
+  superseded: "Superseded",
+  retired: "Retired",
   archived: "Archived",
 };
 
 export const POLICY_LIFECYCLE_DESCRIPTIONS: Record<PolicyLifecycleStatus, string> = {
   draft: "Policy is being authored and is not yet validated.",
+  pending_approval: "Policy is awaiting approval.",
   validated: "Structural validation passed — ready for simulation.",
   testing: "Policy is under test in the Policy Simulator.",
   approved: "Approved by authorized reviewer — ready to publish.",
   published: "Active policy version consumed by downstream engines.",
+  superseded: "A newer policy version has replaced this version.",
+  retired: "Policy version has been retired.",
   archived: "Retired version — retained for audit and history.",
 };
 
@@ -30,10 +36,13 @@ type StatusPillVariant = "default" | "success" | "warning" | "error" | "info" | 
 
 export const POLICY_STATUS_PILL_VARIANT: Record<PolicyLifecycleStatus, StatusPillVariant> = {
   draft: "muted",
+  pending_approval: "warning",
   validated: "info",
   testing: "warning",
   approved: "default",
   published: "success",
+  superseded: "muted",
+  retired: "muted",
   archived: "muted",
 };
 

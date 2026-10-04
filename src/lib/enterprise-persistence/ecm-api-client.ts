@@ -87,7 +87,10 @@ export const ecmApiClient = {
   },
 
   async createContact(
-    input: Omit<EcmContactRegisterInput, "createdBy"> & { createdBy?: string },
+    input: Omit<EcmContactRegisterInput, "createdBy"> & {
+      createdBy?: string;
+      customFieldValues?: Array<{ fieldLineageId: string; value: unknown }>;
+    },
   ): Promise<EcmContact> {
     return ecmFetch("/api/ecm/contacts", {
       method: "POST",
@@ -119,7 +122,10 @@ export const ecmApiClient = {
   },
 
   async createCompany(
-    input: Omit<EcmCompanyRegisterInput, "createdBy"> & { createdBy?: string },
+    input: Omit<EcmCompanyRegisterInput, "createdBy"> & {
+      createdBy?: string;
+      customFieldValues?: Array<{ fieldLineageId: string; value: unknown }>;
+    },
   ): Promise<EcmCompany> {
     return ecmFetch("/api/ecm/companies", {
       method: "POST",

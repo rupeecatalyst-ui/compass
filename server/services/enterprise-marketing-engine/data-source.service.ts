@@ -1,12 +1,11 @@
 /**
- * CO-MARKETING-MKT-02 — Marketing Data Source application service.
+ * CO-MARKETING-MKT-02 / REDESIGN-003 — Marketing Data Source application service.
  * READ-only audience source access. No import, send, Contact, or Opportunity.
+ * Arbitrary spreadsheet IDs are rejected. Google credentials never leave the server.
  */
 
 import {
   ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED,
-  ENTERPRISE_MARKETING_SHEETS_MODE,
-  ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
   MARKETING_SHEETS_PAGE_MAX_ROWS,
   MARKETING_SHEETS_PREVIEW_MAX_ROWS,
 } from "@/constants/enterprise-marketing-engine";
@@ -15,38 +14,41 @@ import {
   detectMarketingSheetColumns,
   summarizeSampleQuality,
 } from "@/lib/enterprise-marketing-engine/data-quality";
+import { suggestMarketingColumnMap } from "@/lib/enterprise-marketing-engine/column-mapping";
+import {
+  assertMarketingSheetsConfigured,
+  resolveMarketingSheetsSourceStatus,
+  resolveMarketingWorkbookConnectionState,
+} from "@/lib/enterprise-marketing-engine/authorised-workbook";
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import type { MarketingDataSourcePort } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import type { MarketingDataSourceBinding } from "@/types/enterprise-marketing-data-source";
 import { recordMarketingAuditEvent } from "./audit";
 import { createFixtureMarketingDataSourcePort } from "./adapters/fixture-sheets.adapter";
 import { createGoogleSheetsMarketingDataSourcePort } from "./adapters/google-sheets.adapter";
+import { marketingDataSourceBindingStore } from "./binding-store";
 import {
-  ensureFixtureBinding,
-  marketingDataSourceBindingStore,
-} from "./binding-store";
-
-function assertSheetsReadEnabled() {
-  if (!ENTERPRISE_MARKETING_SHEETS_READ_ENABLED) {
-    throw new EnterpriseMarketingSafetyError("dataSource.sheetsRead");
-  }
-}
+  connectionStateForBinding,
+  ensureConfiguredOrgWorkbook,
+  getDurableWorkbookForOrg,
+  listDurableAuthorisedWorkbooks,
+  registerAuthorisedWorkbook,
+  revokeAuthorisedWorkbook,
+} from "./workbook-registry";
 
 function assertNoAudienceImport() {
   if (ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED) {
-    // Belt-and-suspenders — must never be true in MKT-02
     throw new EnterpriseMarketingSafetyError("audience.import");
   }
 }
 
 function resolvePort(organizationId: string): MarketingDataSourcePort {
-  assertSheetsReadEnabled();
   assertNoAudienceImport();
-  if (ENTERPRISE_MARKETING_SHEETS_MODE === "fixture") {
-    ensureFixtureBinding(organizationId);
+  const source = assertMarketingSheetsConfigured();
+  if (source.status === "FIXTURE") {
     return createFixtureMarketingDataSourcePort(organizationId);
   }
-  if (ENTERPRISE_MARKETING_SHEETS_MODE === "live") {
+  if (source.status === "LIVE") {
     return createGoogleSheetsMarketingDataSourcePort(organizationId);
   }
   throw new EnterpriseMarketingSafetyError("dataSource.sheetsModeOff");
@@ -58,12 +60,21 @@ function orgId(actorOrg?: string | null): string {
 
 export const marketingDataSourceService = {
   getMode() {
+    const source = resolveMarketingSheetsSourceStatus();
     return {
-      sheetsMode: ENTERPRISE_MARKETING_SHEETS_MODE,
-      sheetsReadEnabled: ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
+      sheetsMode: source.sheetsMode,
+      sheetsReadEnabled: source.status === "FIXTURE" || source.status === "LIVE",
       audienceImportEnabled: ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED,
       previewMaxRows: MARKETING_SHEETS_PREVIEW_MAX_ROWS,
       pageMaxRows: MARKETING_SHEETS_PAGE_MAX_ROWS,
+      sourceStatus: source.status,
+      sourceLabel: source.label,
+      sourceNotice: source.notice,
+      authorisedWorkbookId: source.authorisedWorkbookId,
+      authorisedWorkbookDisplayName: source.authorisedWorkbookDisplayName,
+      googleCredentialsConfigured: source.googleCredentialsConfigured,
+      fixtureVisible: source.status === "FIXTURE",
+      connectionState: resolveMarketingWorkbookConnectionState({ sourceStatus: source.status }),
     };
   },
 
@@ -76,44 +87,65 @@ export const marketingDataSourceService = {
     return orgId(organizationId);
   },
 
-  listBindings(actor: { userId?: string; organizationId?: string | null }) {
+  async listBindings(
+    actor: { userId?: string; organizationId?: string | null },
+    opts?: { operatorOnly?: boolean },
+  ) {
     const organizationId = orgId(actor.organizationId);
-    if (ENTERPRISE_MARKETING_SHEETS_MODE === "fixture") {
-      ensureFixtureBinding(organizationId);
+    const source = resolveMarketingSheetsSourceStatus();
+    if (source.status === "NOT_CONFIGURED" || source.status === "OFF") {
+      recordMarketingAuditEvent({
+        kind: "data_source.list",
+        actorUserId: actor.userId ?? null,
+        organizationId,
+        detail: { count: 0, sourceStatus: source.status },
+      });
+      return [] as MarketingDataSourceBinding[];
     }
-    let items = marketingDataSourceBindingStore.list(organizationId);
-    if (ENTERPRISE_MARKETING_SHEETS_MODE === "fixture") {
-      items = items.filter((b) => b.spreadsheetId === "fixture-marketing-master");
+    await ensureConfiguredOrgWorkbook(organizationId, actor.userId ?? null);
+    const durable = await listDurableAuthorisedWorkbooks(organizationId);
+    let items = durable ?? marketingDataSourceBindingStore.list(organizationId);
+    if (source.status === "FIXTURE") {
+      items = items.filter((b) => b.spreadsheetId === source.authorisedWorkbookId);
+    }
+    if (opts?.operatorOnly) {
+      items = items.filter((b) => b.status === "ACTIVE");
     }
     recordMarketingAuditEvent({
       kind: "data_source.list",
       actorUserId: actor.userId ?? null,
       organizationId,
-      detail: { count: items.length },
+      detail: { count: items.length, sourceStatus: source.status },
     });
-    return items;
+    return items.map((binding) => ({
+      ...binding,
+      connectionState: connectionStateForBinding(binding),
+    }));
   },
 
-  upsertBinding(
-    actor: { userId?: string; organizationId?: string | null },
-    input: { id?: string; displayName: string; spreadsheetId: string },
-  ): MarketingDataSourceBinding {
-    assertSheetsReadEnabled();
+  async getBinding(actor: { userId?: string; organizationId?: string | null }, bindingId: string) {
     const organizationId = orgId(actor.organizationId);
-    if (ENTERPRISE_MARKETING_SHEETS_MODE === "fixture") {
-      // In fixture mode, only allow the controlled fixture spreadsheet id
-      if (input.spreadsheetId.trim() !== "fixture-marketing-master") {
-        throw Object.assign(
-          new Error(
-            "Fixture mode only accepts spreadsheetId=fixture-marketing-master (controlled non-production dataset).",
-          ),
-          { statusCode: 400, code: "FIXTURE_ONLY" },
-        );
-      }
+    const binding = await getDurableWorkbookForOrg(bindingId, organizationId);
+    if (!binding) {
+      throw Object.assign(new Error("Authorised workbook not found for organization"), {
+        statusCode: 404,
+        code: "BINDING_NOT_FOUND",
+      });
     }
-    const binding = marketingDataSourceBindingStore.upsert({
-      id: input.id,
+    return { ...binding, connectionState: connectionStateForBinding(binding) };
+  },
+
+  async upsertBinding(
+    actor: { userId?: string; organizationId?: string | null },
+    input: { id?: string; displayName: string; spreadsheetId?: string },
+  ): Promise<MarketingDataSourceBinding> {
+    assertNoAudienceImport();
+    assertMarketingSheetsConfigured();
+    const organizationId = orgId(actor.organizationId);
+    const binding = await registerAuthorisedWorkbook({
       organizationId,
+      actorUserId: actor.userId ?? null,
+      id: input.id,
       displayName: input.displayName,
       spreadsheetId: input.spreadsheetId,
     });
@@ -121,18 +153,46 @@ export const marketingDataSourceService = {
       kind: "data_source.upsert",
       actorUserId: actor.userId ?? null,
       organizationId,
-      detail: { bindingId: binding.id },
+      detail: { bindingId: binding.id, authorised: true },
     });
-    return binding;
+    return { ...binding, connectionState: connectionStateForBinding(binding) };
+  },
+
+  async revokeBinding(
+    actor: { userId?: string; organizationId?: string | null },
+    bindingId: string,
+  ) {
+    const organizationId = orgId(actor.organizationId);
+    const binding = await revokeAuthorisedWorkbook({
+      organizationId,
+      bindingId,
+      actorUserId: actor.userId ?? null,
+    });
+    recordMarketingAuditEvent({
+      kind: "data_source.revoke",
+      actorUserId: actor.userId ?? null,
+      organizationId,
+      detail: { bindingId, authorised: false },
+    });
+    return { ...binding, connectionState: connectionStateForBinding(binding) };
   },
 
   async health(actor: { userId?: string; organizationId?: string | null }, bindingId: string) {
     const organizationId = orgId(actor.organizationId);
+    const source = resolveMarketingSheetsSourceStatus();
     const port = resolvePort(organizationId);
     if (!port.healthCheck) {
       throw new EnterpriseMarketingSafetyError("dataSource.healthCheck");
     }
-    return port.healthCheck(bindingId);
+    const health = await port.healthCheck(bindingId);
+    const binding = marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
+    return {
+      ...health,
+      sourceStatus: source.status,
+      sourceLabel: source.label,
+      fixtureVisible: source.status === "FIXTURE",
+      connectionState: connectionStateForBinding(binding),
+    };
   },
 
   async discover(actor: { userId?: string; organizationId?: string | null }, bindingId: string) {
@@ -158,7 +218,13 @@ export const marketingDataSourceService = {
     if (!port.getSchema) {
       throw new EnterpriseMarketingSafetyError("dataSource.getSchema");
     }
-    return port.getSchema(bindingId, datasetId);
+    const schema = await port.getSchema(bindingId, datasetId);
+    const suggestion = suggestMarketingColumnMap(schema.headers);
+    return {
+      ...schema,
+      suggestedColumnMap: suggestion.suggested,
+      mappingNotice: suggestion.notice,
+    };
   },
 
   async preview(
@@ -188,6 +254,7 @@ export const marketingDataSourceService = {
         };
 
     const columns = detectMarketingSheetColumns(schema.headers);
+    const suggestion = suggestMarketingColumnMap(schema.headers);
     const seen = new Set<string>();
     const quality = page.rows.map((row, i) =>
       assessMarketingRowQuality(row, columns, {
@@ -204,14 +271,18 @@ export const marketingDataSourceService = {
     });
 
     return {
-      schema,
+      schema: {
+        ...schema,
+        suggestedColumnMap: suggestion.suggested,
+        mappingNotice: suggestion.notice,
+      },
       rows: page.rows,
       sourceRowNumbers: page.sourceRowNumbers ?? [],
       quality,
       qualitySummary: summarizeSampleQuality(quality),
       cappedAt: MARKETING_SHEETS_PREVIEW_MAX_ROWS,
       notice:
-        "Preview sample only — full audience remains in Google Sheets / fixture. Nothing imported to Supabase. No Contacts created.",
+        "Preview sample only — full audience remains in Google Sheets / fixture. Nothing imported. No Contacts created. Confirm column mapping before freeze.",
     };
   },
 

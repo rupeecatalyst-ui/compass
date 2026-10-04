@@ -26,6 +26,7 @@ export const EDL_CHANGE_CATEGORIES = {
   COMMERCIAL_AGREEMENT: "commercial_agreement",
   IMMUTABLE_FACT_CORRECTION: "immutable_fact_correction",
   ENTERPRISE_ENGINE_CONFIGURATION: "enterprise_engine_configuration",
+  FIELD_DEFINITION: "field_definition",
   OTHER: "other",
 } as const;
 
@@ -49,6 +50,7 @@ export const EDL_CHANGE_CATEGORY_LABELS: Record<string, string> = {
   commercial_agreement: "Commercial Agreement",
   immutable_fact_correction: "Immutable Fact Correction",
   enterprise_engine_configuration: "Enterprise Engine Configuration",
+  field_definition: "Field Definition",
   other: "Other",
 };
 

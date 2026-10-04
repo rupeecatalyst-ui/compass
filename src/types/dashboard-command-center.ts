@@ -11,6 +11,7 @@ export interface NewOpportunityFeedRow {
   customerName: string;
   product: string;
   requestedAmount: number | null;
+  advantageCommittedDisplay?: string;
   sourceLabel: string;
   sourceName: string;
   stageLabel: string;

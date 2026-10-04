@@ -8,6 +8,7 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { assertPortalAdministrator } from "@/lib/lender-program-portal/launch-closure";
 import { lenderProgramPortalService } from "@server/services/lender-program-portal/lender-program-portal.service";
 
 export async function GET(request: Request) {
@@ -15,7 +16,8 @@ export async function GET(request: Request) {
     if (!isEnterprisePersistencePrisma()) {
       return errorResponse(503, "PERSISTENCE_REQUIRED", "Requires prisma mode");
     }
-    requireAccessToken(request);
+    const actor = requireAccessToken(request);
+    assertPortalAdministrator(actor.role);
     const status = new URL(request.url).searchParams.get("status") ?? undefined;
     const items = await lenderProgramPortalService.listSubmissions(status || undefined);
     return successResponse({ items });

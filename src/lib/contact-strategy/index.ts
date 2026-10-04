@@ -34,3 +34,16 @@ export {
 } from "./live-registry";
 
 export { buildRicRadialLayout } from "./ric-layout";
+
+export {
+  composeContactStrategySnapshot,
+  tallyContactStrategyKpis,
+  emptyContactStrategyKpis,
+} from "./compose";
+export {
+  activityBandFromLastMeaningfulAt,
+  bandFromRecency,
+  daysSinceIsoAt,
+} from "./activity-band";
+export { contactStrategyActorMaySee } from "./visibility";
+export { assertNoContactStrategyPii, contactStrategyTextLeaksPii } from "./redact";

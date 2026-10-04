@@ -6,6 +6,8 @@ import {
 } from "@/lib/api/auth-route-utils";
 import type { ApiResponse } from "@/types/api";
 import { enterpriseOpportunityService } from "@server/services/enterprise-opportunity";
+import { CustomFieldValueError } from "@/lib/field-control-master/custom-field-value";
+import { commitOpportunityWithCustomFields } from "@/lib/field-control-master/operational-custom-field-commit";
 import {
   enterpriseOpportunityApiGuard,
   mapOpportunityRouteError,
@@ -40,13 +42,25 @@ export async function PATCH(request: Request, context: Ctx) {
     const actor = requireAccessToken(request);
     const { opportunityId } = await context.params;
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const row = await enterpriseOpportunityService.updateOpportunity(
-      opportunityId,
-      body,
-      actor.userId,
-    );
+    if ("organizationId" in body || "organisationId" in body) {
+      return errorResponse(400, "ORGANIZATION_CONTEXT_REJECTED", "Organization is taken from the server context.");
+    }
+    const customFieldValues = body.customFieldValues;
+    delete body.customFieldValues;
+    const row =
+      customFieldValues !== undefined
+        ? await commitOpportunityWithCustomFields({
+            opportunityId,
+            body,
+            customFieldValues,
+            actorUserId: actor.userId,
+          })
+        : await enterpriseOpportunityService.updateOpportunity(opportunityId, body, actor.userId);
     return successResponse(row);
   } catch (err) {
+    if (err instanceof CustomFieldValueError) {
+      return errorResponse(err.statusCode, err.code, err.message);
+    }
     const mapped = mapOpportunityRouteError(err);
     if (
       mapped.status === 401 ||

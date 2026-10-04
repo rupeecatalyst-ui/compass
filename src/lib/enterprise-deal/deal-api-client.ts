@@ -40,12 +40,23 @@ export type EnterpriseDealApiRecord = {
   primaryContactId?: string | null;
   primaryContactEmail?: string | null;
   productLabel?: string | null;
+  productFamily?: string | null;
+  daysInStage?: number | null;
+  isDelayed?: boolean | null;
+  sourceCode?: string | null;
+  sourceContactId?: string | null;
+  cityLabel?: string | null;
+  stateLabel?: string | null;
+  expectedRevenue?: number | null;
   requestedAmount?: number | null;
   approvedAmount?: number | null;
   fulfilledAmount?: number | null;
   relationshipManagerName?: string | null;
   primaryOwnerUserId?: string | null;
   relationshipManagerUserId?: string | null;
+  assignmentMode?: string | null;
+  rcEmployeeAssignmentSource?: "inherited" | "override" | null;
+  rcEmployeeResolvedFromOpportunity?: boolean;
   lendingExtension?: unknown;
   primaryCounterpartyName?: string | null;
   invoicePartyType?: string | null;
@@ -66,6 +77,11 @@ export type EnterpriseDealApiRecord = {
   healthBand?: string | null;
   /** Deal snapshot — may include lenders[] for Pipeline rehydrate. */
   snapshot?: unknown;
+  advantageCommittedAmount?: string | null;
+  advantageCommittedDisplay?: string | null;
+  advantageCommittedStatus?: string | null;
+  marketingCampaignName?: string | null;
+  marketingSource?: string | null;
 };
 
 type ApiEnvelope<T> = {
@@ -116,6 +132,16 @@ async function bindActiveDeal(deal: EnterpriseDealApiRecord): Promise<void> {
 }
 
 export const enterpriseDealApiClient = {
+  async lenderMetrics(): Promise<Record<string, {
+    deals: number;
+    activeDeals: number;
+    opportunities: number;
+    stages: Record<string, number>;
+  }>> {
+    ensureDealFetcherWired();
+    return dealFetch("/api/enterprise-deals/lender-metrics");
+  },
+
   async createDeal(body: DealCreateBody): Promise<EnterpriseDealApiRecord> {
     ensureDealFetcherWired();
     const created = await dealFetch<EnterpriseDealApiRecord>("/api/enterprise-deals", {
@@ -176,11 +202,15 @@ export const enterpriseDealApiClient = {
     pageSize?: number;
     archived?: boolean;
     productFamily?: string;
+    /** Canonical contact id — never a display-name join. */
+    primaryContactId?: string;
+    /** Durable Enterprise Lender id; filtering is enforced server-side. */
+    lenderId?: string;
     /** Free-text: deal number, customer, lender, product, RM, opportunity */
     q?: string;
     /** CO-PERF-002 — Phase 1 registry paint */
     view?: "summary" | "full";
-  } = {}): Promise<{ items: EnterpriseDealApiRecord[]; total: number; view?: string }> {
+  } = {}): Promise<{ items: EnterpriseDealApiRecord[]; total: number; page?: number; pageSize?: number; totalPages?: number; view?: string }> {
     ensureDealFetcherWired();
     const params = new URLSearchParams({
       page: String(query.page ?? 1),
@@ -190,11 +220,16 @@ export const enterpriseDealApiClient = {
     if (query.archived === false) params.set("archived", "false");
     if (query.archived === true) params.set("archived", "true");
     if (query.productFamily) params.set("productFamily", query.productFamily);
+    if (query.primaryContactId) params.set("primaryContactId", query.primaryContactId);
+    if (query.lenderId) params.set("lenderId", query.lenderId);
     if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.view) params.set("view", query.view);
     const page = await dealFetch<{
       items: EnterpriseDealApiRecord[];
       total: number;
+      page?: number;
+      pageSize?: number;
+      totalPages?: number;
       view?: string;
     }>(`/api/enterprise-deals?${params.toString()}`);
     for (const row of page.items) putSessionDeal(row);

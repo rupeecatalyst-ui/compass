@@ -111,6 +111,8 @@ export function TransactionActivityTimeline({
         ? `opp:${scope.opportunityId}`
         : scope.mode === "contact"
           ? `contact:${scope.contactId}`
+          : scope.mode === "contact_graph"
+            ? `contact_graph:${scope.contactId}:${scope.opportunityIds.join(",")}:${scope.dealIds.join(",")}`
           : scope.mode === "lender"
             ? `lender:${scope.dealIds.join(",")}`
             : `deal:${scope.dealId}:${scope.opportunityId || ""}`;

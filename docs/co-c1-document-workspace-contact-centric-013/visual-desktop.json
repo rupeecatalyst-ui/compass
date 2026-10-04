@@ -1,0 +1,11 @@
+{
+  "name": "desktop",
+  "width": 1440,
+  "height": 900,
+  "file": "visual-desktop.png",
+  "desk": {
+    "width": 720,
+    "viewport": 1440
+  },
+  "halfOrMore": true
+}

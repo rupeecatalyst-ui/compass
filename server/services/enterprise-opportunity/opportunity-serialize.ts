@@ -5,6 +5,7 @@ import type { EnterpriseOpportunity, Prisma } from "@prisma/client";
 import { hasRequirementCaptureFields } from "@/constants/opportunity-lifecycle";
 import type { TransactionContactIdentityFields } from "@server/services/ecm/contact-ssot-propagate";
 import { hydrateTransactionContactIdentity } from "@server/services/ecm/contact-ssot-propagate";
+import { serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
 
 function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
@@ -74,6 +75,21 @@ function buildSerializedOpportunity(
     stateLabel: contactIdentity.stateLabel,
     currencyCode: row.currencyCode,
     requestedAmount,
+    borrowerAgeYears: row.borrowerAgeYears ?? null,
+    borrowerLegalConstitution: row.borrowerLegalConstitution ?? null,
+    requestedTenureMonths: row.requestedTenureMonths ?? null,
+    monthlyIncomeRupees: decimalToNumber(row.monthlyIncomeRupees),
+    existingMonthlyObligationsRupees: decimalToNumber(row.existingMonthlyObligationsRupees),
+    propertyValueRupees: decimalToNumber(row.propertyValueRupees),
+    propertyCategory: row.propertyCategory ?? null,
+    constructionStatus: row.constructionStatus ?? null,
+    residency: row.residency ?? null,
+    currentRoiPercent: decimalToNumber(row.currentRoiPercent),
+    currentHomeLoanEmiRupees: decimalToNumber(row.currentHomeLoanEmiRupees),
+    remainingTenureMonths: row.remainingTenureMonths ?? null,
+    loanStartDate: row.loanStartDate ? row.loanStartDate.toISOString().slice(0, 10) : null,
+    repaymentTrack: row.repaymentTrack ?? null,
+    delayedEmiCount: row.delayedEmiCount ?? null,
     /** ADR-018 — Product + Required Amount gate (field-based). */
     requirementCaptured: hasRequirementCaptureFields({
       productId: row.productId,
@@ -90,6 +106,7 @@ function buildSerializedOpportunity(
     participationRole: row.participationRole,
     commercialRevenueSharePercent: row.commercialRevenueSharePercent,
     sourceCampaignLabel: row.sourceCampaignLabel,
+    ...serializeAdvantageCommittedApi(row),
     snapshot: row.snapshot,
     lendingExtension: row.lendingExtension,
     versionNumber: row.versionNumber,

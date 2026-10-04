@@ -33,6 +33,8 @@ import {
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { PotentialDuplicateContactDialog } from "@/components/catalyst-one/contacts/potential-duplicate-contact-dialog";
 import { RestoreContactDialog } from "@/components/catalyst-one/contacts/restore-contact-dialog";
+import { OperationalCustomFieldsCollector } from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
+import type { OperationalCustomFieldSubmission } from "@/lib/field-control-master/operational-custom-fields";
 
 export interface ProgressiveContactCreateModalProps {
   open: boolean;
@@ -80,6 +82,8 @@ export function ProgressiveContactCreateModal({
   const [mobile, setMobile] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [customSubmissions, setCustomSubmissions] = useState<OperationalCustomFieldSubmission[]>([]);
+  const [customBlocked, setCustomBlocked] = useState(isEnterprisePersistencePrisma());
   const [dupOpen, setDupOpen] = useState(false);
   const [dupContact, setDupContact] = useState<EcmContact | null>(null);
   const [dupField, setDupField] = useState<EcmDuplicateMatchField | null>(null);
@@ -119,6 +123,10 @@ export function ProgressiveContactCreateModal({
       setError("Mobile Number is required for the Primary Applicant (min 10 digits).");
       return;
     }
+    if (isEnterprisePersistencePrisma() && customBlocked) {
+      setError("Complete the required custom fields.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -155,6 +163,7 @@ export function ProgressiveContactCreateModal({
           createdBy: user?.id || "ui",
           ownerName:
             [user?.firstName, user?.lastName].filter(Boolean).join(" ") || undefined,
+          customFieldValues: customSubmissions,
         });
       } else {
         contact = registerProgressiveLoanContact({
@@ -261,6 +270,15 @@ export function ProgressiveContactCreateModal({
                 </p>
               ) : null}
             </div>
+            {isEnterprisePersistencePrisma() ? (
+              <OperationalCustomFieldsCollector
+                domain="contact"
+                onState={(state) => {
+                  setCustomSubmissions(state.submissions);
+                  setCustomBlocked(state.blocked);
+                }}
+              />
+            ) : null}
             {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
           </div>
 

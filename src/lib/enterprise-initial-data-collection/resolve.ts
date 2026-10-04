@@ -15,6 +15,8 @@ import {
   isMonthlyIncomeRequired,
   resolveMonthlyIncomeMax,
 } from "@/constants/enterprise-initial-data-collection/income-rules";
+import { bootstrapProductJourneyFields } from "@/constants/product-journey/bootstrap";
+import { journeyFieldMatchesIdcKey } from "@/lib/product-journey/applicability";
 
 export function resolveProductFieldFamily(productCode: string): string {
   const c = productCode.trim().toUpperCase();
@@ -84,10 +86,14 @@ export function resolveVisibleIdcSections(
     productCode: string;
     /** Merged values across buckets for field-level gates. */
     values?: Record<string, string>;
+    journeyFields?: import("@/types/product-journey-definition").ProductJourneyFieldRow[] | null;
   },
 ): IdcSectionDef[] {
   const family = resolveProductFieldFamily(ctx.productCode);
   const values = ctx.values ?? {};
+  const journeyCapture = (ctx.journeyFields ?? bootstrapProductJourneyFields(ctx.productCode)).filter(
+    (row) => row.capture,
+  );
   return [...sections]
     .filter((s) => (s.visibility ?? "visible") !== "hidden")
     .filter((s) => {
@@ -110,6 +116,11 @@ export function resolveVisibleIdcSections(
             values,
           }),
         )
+        .filter((f) => {
+          if (journeyCapture.length === 0) return true;
+          if (f.key === "mobile" || f.key === "displayName" || f.key === "mobilePrimary") return true;
+          return journeyCapture.some((row) => journeyFieldMatchesIdcKey(row, f.key));
+        })
         .sort((a, b) => a.displayOrder - b.displayOrder),
     }))
     .filter((s) => s.fields.length > 0);

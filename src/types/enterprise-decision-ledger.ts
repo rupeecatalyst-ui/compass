@@ -23,6 +23,7 @@ export type EdlChangeCategory =
   | "commercial_agreement"
   | "immutable_fact_correction"
   | "enterprise_engine_configuration"
+  | "field_definition"
   | "other";
 
 export type EdlChangeType =

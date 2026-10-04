@@ -1,7 +1,9 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Bell, Menu, Moon, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isFieldControlMasterAdminPath } from "@/lib/field-control-master/field-control-master-route";
 import { useTheme } from "@/hooks/use-theme";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -27,6 +29,8 @@ interface AppTopbarProps {
  * Logo/Workspace · Page controls · Live Intelligence · Notifications · Activity & Dialogue · Switchers · CHANAKYA AI · Profile
  */
 export function AppTopbar({ onSearchClick }: AppTopbarProps) {
+  const pathname = usePathname();
+  const suppressOperationalTicker = isFieldControlMasterAdminPath(pathname);
   const { toggleTheme, isDark, mounted } = useTheme();
   const { openMobile, collapsed, setPeekOpen, noteNavInteraction, navMode, setCollapsed } =
     useSidebar();
@@ -70,7 +74,7 @@ export function AppTopbar({ onSearchClick }: AppTopbarProps) {
         <Search className="h-4 w-4" />
       </Button>
 
-      <ChanakyaLiveIntelligenceBar appearance="dashboard" />
+      {suppressOperationalTicker ? null : <ChanakyaLiveIntelligenceBar appearance="dashboard" />}
 
       <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         <DropdownMenu>

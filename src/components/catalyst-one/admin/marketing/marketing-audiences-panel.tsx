@@ -38,6 +38,8 @@ import type {
   MarketingFilterDefinition,
   MarketingFilterRule,
 } from "@/types/enterprise-marketing-audience";
+import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability";
+import { suggestMarketingColumnMap } from "@/lib/enterprise-marketing-engine/column-mapping";
 import { MarketingModuleNav } from "./marketing-module-nav";
 import { toast } from "sonner";
 
@@ -64,6 +66,10 @@ export function MarketingAudiencesPanel() {
   const [bindingId, setBindingId] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [filters, setFilters] = useState<MarketingFilterDefinition>(emptyFilterDefinition());
+  const [exclusions, setExclusions] = useState<MarketingFilterDefinition>(emptyFilterDefinition());
+  const [columnMap, setColumnMap] = useState<MarketingColumnMap>({ email: "" });
+  const [suggestedMap, setSuggestedMap] = useState<MarketingColumnMap>({ email: "" });
+  const [mappingConfirmed, setMappingConfirmed] = useState(false);
   const [preview, setPreview] = useState<MarketingAudiencePreviewResult | null>(null);
   const [suppressionCount, setSuppressionCount] = useState(0);
 
@@ -153,6 +159,10 @@ export function MarketingAudiencesPanel() {
         throw new Error(body.error?.message || "Schema failed");
       }
       setFields(body.data.schema.headers);
+      const suggested = suggestMarketingColumnMap(body.data.schema.headers).suggested;
+      setSuggestedMap(suggested);
+      setColumnMap((prev) => (prev.email ? prev : suggested));
+      setMappingConfirmed(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Schema failed");
     } finally {
@@ -174,6 +184,9 @@ export function MarketingAudiencesPanel() {
     setBindingId(a.bindingId);
     setDatasetId(a.datasetId);
     setFilters(a.filterDefinition);
+    setExclusions(a.exclusionDefinition ?? emptyFilterDefinition());
+    setColumnMap(a.columnMap ?? a.mapping?.map ?? { email: "" });
+    setMappingConfirmed(Boolean(a.mappingConfirmed || a.mapping?.confirmed));
     setPreview(null);
   };
 
@@ -191,6 +204,11 @@ export function MarketingAudiencesPanel() {
           datasetId,
           datasetDisplayName: datasetLabel,
           filterDefinition: filters,
+          exclusionDefinition: exclusions,
+          columnMap,
+          confirmMapping: mappingConfirmed,
+          mappingConfirmed,
+          headers: fields,
           suppressionPolicy: { applyOrgSuppression: true, reasons: [] },
           eligibilityRules: {
             requireIdentity: true,
@@ -224,6 +242,10 @@ export function MarketingAudiencesPanel() {
           bindingId,
           datasetId,
           filterDefinition: filters,
+          exclusionDefinition: exclusions,
+          columnMap,
+          mappingConfirmed,
+          fullScan: mappingConfirmed,
           suppressionPolicy: { applyOrgSuppression: true, reasons: [] },
           eligibilityRules: {
             requireIdentity: true,
@@ -306,6 +328,9 @@ export function MarketingAudiencesPanel() {
                   setSelectedAudienceId("");
                   setName("");
                   setFilters(emptyFilterDefinition());
+                  setExclusions(emptyFilterDefinition());
+                  setColumnMap({ email: "" });
+                  setMappingConfirmed(false);
                   setPreview(null);
                 }}
               >
@@ -399,6 +424,70 @@ export function MarketingAudiencesPanel() {
 
             <Card>
               <CardHeader className="pb-2">
+                <CardTitle className="text-base">Column mapping</CardTitle>
+                <CardDescription>
+                  Suggestions are guesses only. Confirm the mapping before freeze or approval.
+                  Email is required for email campaigns.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["email", "Email"],
+                    ["name", "Name"],
+                    ["mobile", "Mobile"],
+                    ["location", "Location"],
+                    ["productInterest", "Product interest"],
+                    ["consent", "Consent"],
+                    ["sourceStableKey", "Stable source key"],
+                  ] as Array<[keyof MarketingColumnMap, string]>
+                ).map(([key, label]) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label>
+                      {label}
+                      {key === "email" ? " (required)" : ""}
+                    </Label>
+                    <Select
+                      value={(typeof columnMap[key] === "string" && columnMap[key]) || undefined}
+                      onValueChange={(v) => {
+                        setColumnMap((prev) => ({ ...prev, [key]: v }));
+                        setMappingConfirmed(false);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={`Select ${label.toLowerCase()} column`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fields.map((f) => (
+                          <SelectItem key={`${key}-${f}`} value={f}>
+                            {f}
+                            {suggestedMap[key] === f ? " (suggested)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+                <div className="sm:col-span-2">
+                  <Button
+                    type="button"
+                    variant={mappingConfirmed ? "secondary" : "default"}
+                    disabled={!columnMap.email}
+                    onClick={() => setMappingConfirmed(true)}
+                  >
+                    {mappingConfirmed ? "Mapping confirmed" : "Confirm mapping"}
+                  </Button>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {mappingConfirmed
+                      ? "Confirmed mapping will be frozen with the approved snapshot."
+                      : "Unconfirmed suggestions cannot freeze an audience."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Filter className="h-4 w-4" />
                   Filters
@@ -424,6 +513,15 @@ export function MarketingAudiencesPanel() {
                       <SelectItem value="OR">OR</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setExclusions((p) => ({ ...p, rules: [...p.rules, newRule()] }))
+                    }
+                  >
+                    Add exclusion
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -526,8 +624,26 @@ export function MarketingAudiencesPanel() {
                 <CardContent className="space-y-3 text-sm">
                   <dl className="grid gap-2 sm:grid-cols-3">
                     <div>
-                      <dt className="text-xs uppercase text-muted-foreground">Estimated source</dt>
-                      <dd className="font-medium">{preview.estimatedSourceRows ?? "—"}</dd>
+                      <dt className="text-xs uppercase text-muted-foreground">Total rows</dt>
+                      <dd className="font-medium">{preview.counts.totalRows ?? preview.estimatedSourceRows ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase text-muted-foreground">Valid emails</dt>
+                      <dd className="font-medium">{preview.counts.validEmails ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase text-muted-foreground">Invalid emails</dt>
+                      <dd className="font-medium">{preview.counts.invalidEmails ?? preview.counts.invalid}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase text-muted-foreground">Previously contacted</dt>
+                      <dd className="font-medium">{preview.counts.previouslyContacted ?? 0}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase text-muted-foreground">Mapping</dt>
+                      <dd className="font-medium">
+                        {preview.mappingConfirmed ? "Confirmed" : "Unconfirmed suggestion"}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-xs uppercase text-muted-foreground">Scanned</dt>

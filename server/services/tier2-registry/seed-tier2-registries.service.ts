@@ -6,12 +6,12 @@ import type {
   LenderInstitutionCategory,
   LenderLifecycleStatus,
   LenderOperationalStatus,
-  LenderProgramLifecycleStatus,
   ProductLifecycleStatus,
   ProductOperationalStatus,
   Prisma,
 } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
+import { randomUUID } from "node:crypto";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { normalizeLenderRegistryCode } from "@server/repositories/lender-registry/mappers";
 import { normalizeProductRegistryCode } from "@server/repositories/product-registry/mappers";
@@ -533,39 +533,35 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
       bump(programCounts, "skipped");
       continue;
     }
-    const lifecycleStatus: LenderProgramLifecycleStatus = "active";
-    const existing = await prisma.enterpriseLenderProgram.findUnique({
-      where: { organizationId_code: { organizationId, code } },
+    const existing = await prisma.enterpriseLenderProgram.findFirst({
+      where: { organizationId, code, isDeleted: false },
     });
     const data = {
       lenderId,
       label: seed.label,
-      lifecycleStatus,
-      status: "active" as const,
-      enabled: true,
+      lifecycleStatus: "draft" as const,
+      status: "draft" as const,
+      enabled: false,
       modifiedBy: actorId,
     };
     if (!existing) {
+      const id = randomUUID();
       await prisma.enterpriseLenderProgram.create({
-        data: { organizationId, code, createdBy: actorId, ...data },
+        data: {
+          id,
+          lineageId: id,
+          organizationId,
+          code,
+          createdBy: actorId,
+          completenessState: "incomplete",
+          publicationState: "draft",
+          isLivePublished: false,
+          ...data,
+        },
       });
       bump(programCounts, "created");
     } else {
-      const needsUpdate =
-        existing.label !== data.label ||
-        existing.lenderId !== data.lenderId ||
-        existing.lifecycleStatus !== data.lifecycleStatus ||
-        existing.enabled !== data.enabled ||
-        existing.status !== data.status;
-      if (needsUpdate) {
-        await prisma.enterpriseLenderProgram.update({
-          where: { id: existing.id },
-          data,
-        });
-        bump(programCounts, "updated");
-      } else {
-        bump(programCounts, "skipped");
-      }
+      bump(programCounts, "skipped");
     }
   }
 

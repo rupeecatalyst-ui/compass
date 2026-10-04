@@ -12,6 +12,8 @@ export const DOCUMENT_REQUEST_COMMUNICATION_REF =
   ECC_EMAIL_TEMPLATE_PROFILE_REFS.document_request_customer;
 
 export const DOCUMENT_REQUESTS_STORAGE_KEY = "catalyst.opportunity.document-requests.v1";
+/** Presentation-only: tabs, filters, expanded groups, unsaved checkboxes. Never statuses. */
+export const DOCUMENT_REQUESTS_UI_STORAGE_KEY = "catalyst.opportunity.document-requests.ui.v1";
 export const DOCUMENT_REQUESTS_UPDATED_EVENT = "catalyst:document-requests-updated";
 
 /** Default upload-link expiry (days). */

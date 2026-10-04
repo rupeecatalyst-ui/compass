@@ -100,3 +100,10 @@ export function buildAccountingWorkbenchHref(
   if (id === DEFAULT_ACCOUNTING_WORKBENCH) return ROUTES.ACCOUNTING;
   return `${ROUTES.ACCOUNTING}?workbench=${encodeURIComponent(id)}`;
 }
+
+/** Navigation-only deep-link to an existing Accounting Case (no Accounting engine change). */
+export function buildAccountingCaseHref(caseId: string): string {
+  const id = caseId.trim();
+  if (!id) return ROUTES.ACCOUNTING;
+  return `${ROUTES.ACCOUNTING}?case=${encodeURIComponent(id)}`;
+}

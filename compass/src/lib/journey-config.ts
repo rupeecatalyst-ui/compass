@@ -19,6 +19,14 @@ export type CompassJourneyConfigField = {
   notRequiredWhenFilled?: string[];
   maxWhenField?: string;
   maxWhenMap?: Record<string, number>;
+  capture?: boolean;
+  mandatoryForRecommendation?: boolean;
+  applicability?: "all" | "salaried" | "self_employed";
+  captureStepId?: string | null;
+  sequence?: number;
+  purpose?: "identity" | "recommendation" | "application" | "document" | "enrichment";
+  purposeSource?: "configured" | "legacy_key";
+  stageId?: string;
 };
 
 export type CompassJourneyConfig = {
@@ -28,6 +36,19 @@ export type CompassJourneyConfig = {
   borrowerKind: "individual" | "company";
   configVersion: string;
   fields: CompassJourneyConfigField[];
+  stages?: string[];
+  journeyVersion?: number;
+  journeyUnavailable?: boolean;
+  journeyStages?: { stageId: string; kind: string; label: string; sequence: number }[];
+  mobileCapture?: "required" | "optional" | "off";
+  otpVerification?: "on" | "off";
+  /** True only when the published journey requires OTP and a provider can send it. */
+  otpEnabled?: boolean;
+  campaignHandoff?: {
+    valid: boolean;
+    emailOnFile: boolean;
+    emailIndependentlyVerified: false;
+  };
   requestedAmountMax?: number | null;
   requestedAmountMaxLabel?: string | null;
   dtoSource: string;
@@ -39,6 +60,36 @@ export function findJourneyField(
 ): CompassJourneyConfigField | undefined {
   if (!config?.fields?.length) return undefined;
   return config.fields.find((field) => ids.includes(field.fieldId));
+}
+
+/**
+ * OTP off skips the stage. OTP on without a provider must stop, not skip.
+ * Returning "blocked" means the OTP screen must not be shown and the journey must not continue.
+ */
+export function mobileOtpProgression(
+  config: CompassJourneyConfig | null | undefined,
+): "skip" | "verify" | "blocked" {
+  if (config?.otpVerification !== "on") return "skip";
+  if (config.otpEnabled === true) return "verify";
+  return "blocked";
+}
+
+/**
+ * Stage order comes from the published Journey Definition.
+ * A product code only selects which definition to render.
+ * When no published version is present, the caller keeps the legacy sequence.
+ */
+export function publicStageOrder(
+  _productCode: string,
+  config: CompassJourneyConfig | null | undefined,
+): string[] | null {
+  if (!config?.journeyVersion) return null;
+  const stages = (config.stages ?? []).filter((stageId) => {
+    if (stageId === "otp" && config.otpVerification !== "on") return false;
+    if (stageId === "mobile" && config.mobileCapture === "off") return false;
+    return true;
+  });
+  return stages.length ? stages : null;
 }
 
 export function formatJourneyInrLabel(amount: number): string {
@@ -127,13 +178,32 @@ function hasFilledValue(value: string | number | boolean | null | undefined): bo
 
 export function isMonthlyIncomeStepRequired(
   config: CompassJourneyConfig | null | undefined,
-  answers: Record<string, string | number | boolean | null | undefined>,
+  answers: {
+    incomeType?: string;
+    employmentTypeCode?: string;
+    annualTurnover?: number | string | null;
+    annualTurnoverLabel?: string | null;
+  },
 ): boolean {
-  const field = findJourneyField(config, "monthlyIncomeLabel", "monthlyIncome");
+  const field = findJourneyField(config, "monthlyIncomeLabel", "monthlyIncome", "assessment:incomeAndObligations.monthlyIncome");
   if (!field) return false;
   const employment = String(answers.incomeType || answers.employmentTypeCode || "").trim();
+  if (field.applicability === "salaried") return employment === "salaried";
+  if (field.applicability === "self_employed") {
+    return (
+      employment === "self-employed-professional" ||
+      employment === "self-employed-business" ||
+      employment === "professional" ||
+      employment === "business"
+    );
+  }
   const turnoverFilled = (field.notRequiredWhenFilled ?? ["annualTurnover", "annualTurnoverLabel"]).some(
-    (key) => hasFilledValue(answers[key]),
+    (key) =>
+      key === "annualTurnover"
+        ? hasFilledValue(answers.annualTurnover)
+        : key === "annualTurnoverLabel"
+          ? hasFilledValue(answers.annualTurnoverLabel)
+          : false,
   );
   if (employment === "salaried") return true;
   if (
@@ -152,4 +222,27 @@ export function cibilFieldOptions(
   config: CompassJourneyConfig | null | undefined,
 ): { value: string; label: string }[] {
   return findJourneyField(config, "approxCibilScore")?.options ?? [];
+}
+
+const SHELL_BEFORE = ["welcome"] as const;
+const IDENTITY = ["mobile"] as const;
+const SHELL_AFTER = ["analysing", "advantage", "lenders", "documents", "review", "confirmation"] as const;
+
+export function governedDiscoveryStepOrder<T extends string>(
+  config: CompassJourneyConfig | null | undefined,
+  fallback: readonly T[],
+): T[] {
+  const captureSteps = (config?.fields ?? [])
+    .filter((field) => field.capture !== false && field.captureStepId)
+    .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))
+    .map((field) => field.captureStepId as T);
+  if (captureSteps.length === 0) return [...fallback];
+  const seen = new Set<string>();
+  const ordered: T[] = [];
+  for (const step of [...SHELL_BEFORE, ...IDENTITY, ...captureSteps, ...SHELL_AFTER]) {
+    if (seen.has(step)) continue;
+    seen.add(step);
+    ordered.push(step as T);
+  }
+  return ordered;
 }

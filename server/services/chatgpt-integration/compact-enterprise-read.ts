@@ -20,6 +20,7 @@ import type {
   ChanakyaEnterpriseReadDomain,
   ChanakyaPortfolioBusinessRow,
 } from "@/types/chanakya-enterprise-read-context";
+import { buildInterventionCards } from "@/lib/chanakya-conversation-intelligence/intervention-cards";
 
 export type GptEnterpriseReadViewResolveInput = {
   viewParam?: string | null;
@@ -591,7 +592,42 @@ export function buildCompactGptEnterpriseReadResponse(input: {
     limitations: input.compiled.limitations.slice(0, 6),
     compiledAt: input.compiled.compiledAt,
     correlationId: input.compiled.correlationId,
+    freshness: input.compiled.compiledAt
+      ? `live operational records as of ${input.compiled.compiledAt}`
+      : null,
   };
+
+  const interventionCards = buildInterventionCards({
+    transactionAttention: input.compiled.transactionAttention,
+    compiledAt: input.compiled.compiledAt,
+    liveTrusted: true,
+    productFilter: /business loan|intervention/i.test(input.requestHint || "")
+      ? "business_loan"
+      : "all",
+    limit: 5,
+  }).map((card) => ({
+    customerName: card.customerName,
+    companyName: card.companyName,
+    product: card.product,
+    lender: card.lender,
+    opportunityRef: card.opportunityRef,
+    dealRef: card.dealRef,
+    stage: card.stage,
+    daysInStage: card.daysInStage,
+    assignedRcEmployee: card.assignedRcEmployee,
+    slaOrExpectedDate: card.slaOrExpectedDate,
+    pendingDocuments: card.pendingDocuments,
+    pendingTasks: card.pendingTasks,
+    latestActivity: card.latestActivity,
+    reason: card.reason,
+    recommendedNextAction: card.recommendedNextAction,
+    lastUpdated: card.lastUpdated,
+    freshness: card.freshness,
+    href: card.href,
+  }));
+  if (interventionCards.length > 0) {
+    base.interventionCards = interventionCards;
+  }
 
   if (input.view === "portfolio_list" || input.view === "attention") {
     const portfolio = buildGptCompactPortfolioList({

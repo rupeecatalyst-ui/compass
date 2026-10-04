@@ -1,7 +1,6 @@
 /**
  * CO-ARCH-003 Phase 2A — Opportunity validation errors.
  */
-import { assertRequestedAmountWithinProductLimit } from "@/constants/enterprise-product-master";
 
 export class OpportunityValidationError extends Error {
   readonly code = "OPPORTUNITY_VALIDATION";
@@ -128,17 +127,20 @@ export function parseOptionalAmount(value: unknown): number | null | undefined {
   return Math.round(n);
 }
 
+/**
+ * Opportunity capture stores the customer's requested amount.
+ * There is no product-specific business maximum.
+ * Fundability and lender/programme limits are evaluated downstream.
+ * The product argument is retained for caller compatibility and is not a ceiling.
+ */
 export function assertProductRequestedAmountLimit(
-  productCode: string | null | undefined,
+  _productCode: string | null | undefined,
   amount: number | null | undefined,
 ): number | null | undefined {
   if (amount == null || amount <= 0) return amount;
-  const result = assertRequestedAmountWithinProductLimit({
-    enterpriseProductCode: productCode,
-    amountRupees: amount,
-  });
-  if (!result.ok) {
-    throw new OpportunityValidationError(result.message);
+  const rounded = Math.round(amount);
+  if (!Number.isFinite(rounded) || !Number.isSafeInteger(rounded)) {
+    throw new OpportunityValidationError("requestedAmount exceeds the technical storage range");
   }
-  return result.amount;
+  return rounded;
 }

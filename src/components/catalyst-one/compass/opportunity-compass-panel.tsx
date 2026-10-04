@@ -6,6 +6,7 @@ import {
   computeOpportunityPulse,
   listOpportunityRecommendations,
   registerOpportunityRecommendation,
+  recommendOpportunityFromPublishedProgramme,
 } from "@/lib/enterprise-opportunity-compass";
 import type { OpportunityRecommendation } from "@/types/enterprise-opportunity-compass";
 import { EnterpriseEngagementCard } from "@/components/catalyst-one/shared/enterprise-engagement-card";
@@ -14,8 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
+import {
+  PublishedProgrammeEvidence,
+  useLivePublishedProgrammes,
+} from "@/components/catalyst-one/product-programme-operations/published-programme-evidence";
 
-const CONTEXT = "opp-demo-001";
+const CONTEXT = "published-programme";
 
 const PRESETS = [
   { label: "North · excellent", completionRatio: 0.9, overdueTaskCount: 0 },
@@ -59,11 +64,18 @@ export function OpportunityCompassPanel() {
   const [overdueTaskCount, setOverdueTaskCount] = useState(0);
   const [recommendations, setRecommendations] = useState<OpportunityRecommendation[]>([]);
   const [recIndex, setRecIndex] = useState(0);
+  const { program } = useLivePublishedProgrammes();
 
   useEffect(() => {
     seedRecommendationsIfEmpty();
+    if (program) {
+      recommendOpportunityFromPublishedProgramme({
+        contextRef: CONTEXT,
+        program,
+      });
+    }
     setRecommendations(listOpportunityRecommendations(CONTEXT));
-  }, []);
+  }, [program]);
 
   useEffect(() => {
     if (recommendations.length === 0) return;
@@ -126,11 +138,12 @@ export function OpportunityCompassPanel() {
         <div className="space-y-4">
           <EnterpriseEngagementCard
             title="Floating recommendation"
-            description={floating?.message ?? "No recommendations seeded."}
+            description={floating?.message ?? "No published programme recommendation yet."}
             tone="violet"
             badge={floating ? `Priority ${floating.priority}` : undefined}
             meta="Cycles every 4 seconds"
           />
+          <PublishedProgrammeEvidence program={program} title="Opportunity Compass programme" />
 
           <div className="space-y-4 rounded-xl border bg-card p-4">
             <div className="space-y-2">

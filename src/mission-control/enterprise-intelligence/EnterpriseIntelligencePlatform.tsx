@@ -12,10 +12,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   Treemap,
@@ -29,26 +28,14 @@ import type {
   MissionControlEnterpriseIntelligencePack,
 } from "@/types/mission-control-enterprise-intelligence";
 import { McAnalyticsExpandCard } from "../shared/ui/McAnalyticsExpandCard";
+import { EnterpriseChartTooltip } from "@/components/enterprise/charts/enterprise-chart-tooltip";
+import { EnterpriseChartLegend } from "@/components/enterprise/charts/enterprise-chart-legend";
+import { EnterpriseDoughnutChart } from "@/components/enterprise/charts/enterprise-doughnut-chart";
+import { buildEnterpriseChartMeta, kindForMcChartKind, unitForMcChartKind } from "@/lib/enterprise-chart-readability";
+import { ENTERPRISE_CHART_CATEGORY_COLORS } from "@/constants/enterprise-chart-readability";
 import { cn } from "../shared/cn";
 
-const CHART_COLORS = [
-  "#0d9488",
-  "#38bdf8",
-  "#a78bfa",
-  "#fbbf24",
-  "#f472b6",
-  "#34d399",
-  "#fb923c",
-  "#94a3b8",
-];
-
-const tooltipStyle = {
-  background: "#09090b",
-  border: "1px solid #27272a",
-  borderRadius: 8,
-  fontSize: 11,
-  color: "#e4e4e7",
-};
+const CHART_COLORS = [...ENTERPRISE_CHART_CATEGORY_COLORS];
 
 function hasSeries(series: McEiNamedValue[]): boolean {
   return series.some((s) => Number(s.value) > 0);
@@ -143,79 +130,83 @@ function FunnelChart({ series }: { series: McEiNamedValue[] }) {
 }
 
 function BarViz({ series, horizontal }: { series: McEiNamedValue[]; horizontal?: boolean }) {
-  const data = series.map((s) => ({ name: s.name, value: s.value }));
-  return (
-    <div className="h-64 w-full sm:h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data}
-          layout={horizontal ? "vertical" : "horizontal"}
-          margin={{ top: 8, right: 12, left: 8, bottom: 48 }}
-        >
-          <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-          {horizontal ? (
-            <>
-              <XAxis type="number" tick={{ fill: "#a1a1aa", fontSize: 10 }} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={110}
-                tick={{ fill: "#a1a1aa", fontSize: 10 }}
-              />
-            </>
-          ) : (
-            <>
-              <XAxis
-                dataKey="name"
-                tick={{ fill: "#a1a1aa", fontSize: 10 }}
-                interval={0}
-                angle={-25}
-                textAnchor="end"
-                height={60}
-              />
-              <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} />
-            </>
-          )}
-          <Tooltip contentStyle={tooltipStyle} />
-          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-            {data.map((_, i) => (
-              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function DonutViz({ series }: { series: McEiNamedValue[] }) {
   const data = series.map((s, i) => ({
     name: s.name,
     value: s.value,
     fill: CHART_COLORS[i % CHART_COLORS.length],
   }));
+  const slices = data.map((s) => ({
+    key: s.name,
+    label: s.name,
+    value: s.value,
+    color: s.fill,
+  }));
   return (
-    <div className="h-64 w-full sm:h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
+    <div className="flex flex-col gap-3 bg-zinc-950 md:flex-row md:items-start" data-enterprise-bar="true">
+      <div className="h-64 min-w-0 flex-1 bg-zinc-950 sm:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
             data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={95}
-            paddingAngle={2}
+            layout={horizontal ? "vertical" : "horizontal"}
+            margin={{ top: 8, right: 12, left: 8, bottom: 48 }}
+            style={{ background: "transparent" }}
           >
-            {data.map((d) => (
-              <Cell key={d.name} fill={d.fill} stroke="transparent" />
-            ))}
-          </Pie>
-          <Tooltip contentStyle={tooltipStyle} />
-        </PieChart>
-      </ResponsiveContainer>
+            <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
+            {horizontal ? (
+              <>
+                <XAxis type="number" tick={{ fill: "#a1a1aa", fontSize: 10 }} label={{ value: "Value", position: "insideBottom", offset: -2, fill: "#71717a", fontSize: 10 }} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={110}
+                  tick={{ fill: "#a1a1aa", fontSize: 10 }}
+                  interval={0}
+                />
+              </>
+            ) : (
+              <>
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: "#a1a1aa", fontSize: 10 }}
+                  interval={0}
+                  angle={-25}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} label={{ value: "Value", angle: -90, position: "insideLeft", fill: "#71717a", fontSize: 10 }} />
+              </>
+            )}
+            <Tooltip content={<EnterpriseChartTooltip unit="count" period="Certified EI snapshot" unitLabel="Count" />} />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              {data.map((row) => (
+                <Cell key={row.name} fill={row.fill} />
+              ))}
+              <LabelList dataKey="value" position={horizontal ? "right" : "top"} fill="#e4e4e7" fontSize={10} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <EnterpriseChartLegend slices={slices} unit="count" />
     </div>
+  );
+}
+
+function DonutViz({ series }: { series: McEiNamedValue[] }) {
+  const slices = series.map((s, i) => ({
+    key: s.name,
+    label: s.name,
+    value: s.value,
+    color: CHART_COLORS[i % CHART_COLORS.length],
+  }));
+  return (
+    <EnterpriseDoughnutChart
+      slices={slices}
+      unit="count"
+      period="Certified EI snapshot"
+      unitLabel="Count"
+      centerLabel="Total"
+      height={260}
+    />
   );
 }
 
@@ -242,7 +233,7 @@ function LineOrAreaViz({
               height={60}
             />
             <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} />
-            <Tooltip contentStyle={tooltipStyle} />
+            <Tooltip content={<EnterpriseChartTooltip unit="count" period="Certified EI snapshot" unitLabel="Count" />} />
             <Area
               type="monotone"
               dataKey="value"
@@ -263,7 +254,7 @@ function LineOrAreaViz({
               height={60}
             />
             <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} />
-            <Tooltip contentStyle={tooltipStyle} />
+            <Tooltip content={<EnterpriseChartTooltip unit="count" period="Certified EI snapshot" unitLabel="Count" />} />
             <Line
               type="monotone"
               dataKey="value"
@@ -456,7 +447,13 @@ function ChartBody({ card }: { card: McEiChartCard }) {
   }
 }
 
-function SectionBlock({ section }: { section: McEiSection }) {
+function SectionBlock({
+  section,
+  pack,
+}: {
+  section: McEiSection;
+  pack: MissionControlEnterpriseIntelligencePack;
+}) {
   return (
     <section className="space-y-3" id={`mc-ei-${section.id}`}>
       <header className="border-b border-zinc-800/80 pb-2">
@@ -472,6 +469,18 @@ function SectionBlock({ section }: { section: McEiSection }) {
             key={card.id}
             title={card.title}
             subtitle={card.subtitle}
+            meta={buildEnterpriseChartMeta({
+              id: card.id,
+              title: card.title,
+              measurementDefinition: card.subtitle || section.subtitle,
+              reportingPeriod: pack.refreshScheduleLabel,
+              unit: unitForMcChartKind(card.kind),
+              lastUpdated: pack.generatedAt,
+              dataSource: pack.sourceModules.join(" · ") || "Mission Control EI pack",
+              kind: kindForMcChartKind(card.kind),
+            })}
+            empty={!hasSeries(card.series) && !(card.kpis && card.kpis.length > 0)}
+            emptyMessage={card.emptyLabel}
           >
             <ChartBody card={card} />
           </McAnalyticsExpandCard>
@@ -519,7 +528,7 @@ export function EnterpriseIntelligencePlatform({
         </p>
       </div>
       {pack.sections.map((section) => (
-        <SectionBlock key={section.id} section={section} />
+        <SectionBlock key={section.id} section={section} pack={pack} />
       ))}
     </div>
   );

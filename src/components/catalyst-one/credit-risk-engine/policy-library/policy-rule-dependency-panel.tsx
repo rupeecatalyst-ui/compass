@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ArrowUpCircle, GitBranch } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { POLICY_RULE_SECTION_LABELS } from "@/constants/policy-rule-sections";
-import { getPolicyRuleUpgradeHints } from "@/lib/credit-risk-engine/policy-store";
+import { getRuleById } from "@/lib/credit-risk-engine/rule-store";
+import type { PolicyRuleReference } from "@/types/credit-risk-engine";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +18,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface PolicyRuleDependencyPanelProps {
-  policyId: string;
-}
+interface PolicyRuleDependencyPanelProps { refs: PolicyRuleReference[]; }
 
-export function PolicyRuleDependencyPanel({ policyId }: PolicyRuleDependencyPanelProps) {
-  const hints = getPolicyRuleUpgradeHints(policyId);
+export function PolicyRuleDependencyPanel({ refs }: PolicyRuleDependencyPanelProps) {
+  const hints = refs.map(ref => {
+    const latest = getRuleById(ref.ruleId);
+    return {
+      ...ref,
+      pinnedVersion: `v${ref.majorVersion}.${ref.minorVersion}`,
+      latestVersion: latest ? `v${latest.majorVersion}.${latest.minorVersion}` : `v${ref.majorVersion}.${ref.minorVersion}`,
+      ruleLastModified: latest?.lastModified ?? "—",
+      upgradeRecommended: Boolean(latest && (latest.majorVersion > ref.majorVersion ||
+        (latest.majorVersion === ref.majorVersion && latest.minorVersion > ref.minorVersion))),
+    };
+  });
   const upgradesAvailable = hints.filter((h) => h.upgradeRecommended).length;
 
   return (

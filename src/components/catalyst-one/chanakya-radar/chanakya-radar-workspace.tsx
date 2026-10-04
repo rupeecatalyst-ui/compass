@@ -79,6 +79,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import { Loader2, RefreshCw } from "lucide-react";
+import {
+  PublishedProgrammeEvidence,
+  useLivePublishedProgrammes,
+} from "@/components/catalyst-one/product-programme-operations/published-programme-evidence";
 
 const EMPTY_RADAR_VECTOR: ChanakyaRadarDashboardModel["vector"] = {
   bearingDeg: 0,
@@ -618,6 +622,8 @@ export function ChanakyaRadarWorkspace() {
           <p className="px-1 text-[11px] text-muted-foreground">Loading certified Radar Snapshot…</p>
         ) : null}
 
+        <RadarPublishedProgrammeEvidence />
+
         {workspaceTab === "radar" ? (
           <>
             {/*
@@ -946,5 +952,16 @@ export function ChanakyaRadarWorkspace() {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function RadarPublishedProgrammeEvidence() {
+  const { program } = useLivePublishedProgrammes();
+  return (
+    <PublishedProgrammeEvidence
+      program={program}
+      title="CHANAKYA programme evidence"
+      className="mx-0.5 border-zinc-700/80 bg-zinc-950/70"
+    />
   );
 }

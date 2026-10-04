@@ -360,19 +360,19 @@ const retryFail = marketingExecutionLedgerStore.tryClaim({
 if (!retryFail.ok) fail("failed recipient should be retryable");
 else pass("malformed/failed recipient can retry without duplicate terminal send");
 
-const e1 = emitMarketingEngagementEvent({
+const e1 = await emitMarketingEngagementEvent({
   organizationId: org,
   campaignId: campaign.id,
   channel: "EMAIL",
-  type: "OPEN",
+  type: "OPENED",
   recipientFingerprint: "email:dup@example.com",
   providerEventId: "wh-dup-1",
 });
-const e2 = emitMarketingEngagementEvent({
+const e2 = await emitMarketingEngagementEvent({
   organizationId: org,
   campaignId: campaign.id,
   channel: "EMAIL",
-  type: "OPEN",
+  type: "OPENED",
   recipientFingerprint: "email:dup@example.com",
   providerEventId: "wh-dup-1",
 });
@@ -471,7 +471,7 @@ const route = marketingRoutingPolicyStore.upsert({
   mode: "SINGLE_USER",
   assigneeUserId: "rm-priya",
 });
-const unqualified = marketingQualificationService.ingestResponse(actor, {
+const unqualified = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:click.only@example.com",
   matchEmail: "click.only@example.com",
@@ -498,7 +498,7 @@ marketingFixtureIdentityDirectory.upsert({
   email: "asha.mkt13@example.com",
   phone: "9811111111",
 });
-const qualified = marketingQualificationService.ingestResponse(actor, {
+const qualified = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:asha.mkt13@example.com",
   matchEmail: "asha.mkt13@example.com",
@@ -526,7 +526,7 @@ const href = buildMarketingHandoffHref({
 if (!href.includes("/opportunities?opportunityId=")) fail(`deep link ${href}`);
 else pass("Catalyst One Opportunity deep link");
 
-const fresh = marketingQualificationService.ingestResponse(actor, {
+const fresh = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:new.mkt13@example.com",
   matchEmail: "new.mkt13@example.com",

@@ -1,31 +1,19 @@
-import {
-
-  errorResponse,
-
-  fromAuthError,
-
-  requireAccessToken,
-
-  successResponse,
-
-} from "@/lib/api/auth-route-utils";
-
+import { errorResponse, fromAuthError, requireAccessToken, successResponse } from "@/lib/api/auth-route-utils";
 import type { ApiResponse } from "@/types/api";
-
-import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
-
 import {
-
+  ProgrammeConflictError,
+  ProgrammePermissionError,
+  ProgrammeValidationError,
+} from "@/types/product-programme-operations";
+import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
+import { productProgrammeOperationsService } from "@server/services/product-programme-operations/programme.service";
+import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
+import {
   lenderRegistryPersistenceGuard,
-
   mapRouteError,
-
   notFound,
-
   requireLenderRegistryAdmin,
-
   resolveActorDisplayName,
-
 } from "../../_lib/route-utils";
 
 
@@ -84,39 +72,27 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 
 
-    const updated = await lenderRegistryService.updateProgram(
-
+    const updated = await productProgrammeOperationsService.update({
+      organizationId: await resolvePilotOrganizationId(),
+      actorUserId: actor.userId,
+      actorName: await resolveActorDisplayName(actor.userId),
+      actorRole: actor.role,
       programId,
-
-      {
-
-        label: body.label !== undefined ? String(body.label) : undefined,
-
-        description: body.description,
-
-        lenderId: body.lenderId ? String(body.lenderId) : undefined,
-
-        productId: body.productId === null ? null : body.productId ? String(body.productId) : undefined,
-
-        lifecycleStatus: body.lifecycleStatus,
-
-        status: body.status,
-
-        enabled: body.enabled,
-
-        notes: body.notes,
-
-        modifiedBy: actor.userId,
-
-      },
-
-      await resolveActorDisplayName(actor.userId),
-
-    );
+      body,
+    });
 
     return successResponse(updated);
 
   } catch (err) {
+    if (err instanceof ProgrammeValidationError) {
+      return errorResponse(400, err.code, err.message);
+    }
+    if (err instanceof ProgrammePermissionError) {
+      return errorResponse(403, err.code, err.message);
+    }
+    if (err instanceof ProgrammeConflictError) {
+      return errorResponse(409, err.code, err.message);
+    }
 
     const mapped = mapRouteError(err);
 

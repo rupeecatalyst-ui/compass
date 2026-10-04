@@ -5,7 +5,9 @@
 
 import { listEnterpriseActivity } from "@/lib/enterprise-activity-registry/api-client";
 import { subscribeEarUpdated } from "@/lib/enterprise-activity-registry/session-registry";
+import { composeDetailedTimelineRow } from "@/lib/enterprise-activity-registry/detailed-timeline";
 import type { EnterpriseActivityEvent } from "@/types/enterprise-activity-registry";
+import { stickyNoteMustNotEnterSharedActivity } from "@/lib/sticky-notes/owner-scope";
 
 /** Presentation categories (mapped from existing EAR kinds — not new producers). */
 export type TransactionTimelineCategory =
@@ -56,6 +58,7 @@ export type TransactionTimelineScope =
   | { mode: "opportunity"; opportunityId: string }
   | { mode: "deal"; dealId: string; opportunityId?: string | null }
   | { mode: "contact"; contactId: string }
+  | { mode: "contact_graph"; contactId: string; opportunityIds: string[]; dealIds: string[] }
   | { mode: "lender"; dealIds: string[]; opportunityIds?: string[] };
 
 const CATEGORY_LABELS: Record<TransactionTimelineCategory, string> = {
@@ -113,6 +116,7 @@ export function isOperationalTimelineEvent(event: EnterpriseActivityEvent): bool
   const title = (event.title || "").trim();
   if (!title) return false;
   if (NOISE_KINDS.has(kind) || NOISE_SOURCES.has(source)) return false;
+  if (stickyNoteMustNotEnterSharedActivity(event.sourceSystem)) return false;
   if (NOISE_TITLE_RE.test(title) || NOISE_TITLE_RE.test(event.summary || "")) return false;
   return true;
 }
@@ -156,15 +160,6 @@ export function classifyEarEvent(
     return "system";
   }
   return "system";
-}
-
-function resolveActor(event: EnterpriseActivityEvent): string {
-  const name = event.actorName?.trim();
-  if (name) return name;
-  const payload = asRecord(event.payload);
-  const fromPayload = stringField(payload, ["actorLabel", "actorName", "createdByName"]);
-  if (fromPayload) return fromPayload;
-  return "System";
 }
 
 function resolveEntityLabel(
@@ -219,7 +214,9 @@ export function mapEarEventToTimelineItem(
     : { previousValue: null, newValue: null };
   const payload = asRecord(event.payload);
   const inboundEmailId = stringField(payload, ["inboundEmailId"]);
+  const detailed = composeDetailedTimelineRow(event);
   const needsAttention =
+    detailed.needsAttention ||
     payload.needsAttention === true ||
     stringField(payload, ["matchStatus"]) === "needs_review" ||
     stringField(payload, ["matchStatus"]) === "unmatched" ||
@@ -229,12 +226,12 @@ export function mapEarEventToTimelineItem(
     occurredAt: event.occurredAt,
     category,
     categoryLabel: CATEGORY_LABELS[category],
-    title: event.title?.trim() || "Activity",
-    description: (event.summary || "").trim(),
-    actorLabel: resolveActor(event),
+    title: detailed.title,
+    description: detailed.explanation,
+    actorLabel: detailed.actorLabel,
     entityLabel: resolveEntityLabel(event, scope),
-    previousValue: pair.previousValue,
-    newValue: pair.newValue,
+    previousValue: detailed.beforeValue || pair.previousValue,
+    newValue: detailed.afterValue || pair.newValue,
     opportunityId: event.opportunityId,
     dealId: event.dealId,
     sourceSystem: String(event.sourceSystem || ""),
@@ -263,6 +260,16 @@ export function filterEventsForScope(
   }
   if (scope.mode === "contact") {
     return events.filter((e) => e.contactId === scope.contactId);
+  }
+  if (scope.mode === "contact_graph") {
+    const dealSet = new Set(scope.dealIds.filter(Boolean));
+    const oppSet = new Set(scope.opportunityIds.filter(Boolean));
+    return events.filter((e) => {
+      if (e.contactId === scope.contactId) return true;
+      if (e.dealId && dealSet.has(e.dealId)) return true;
+      if (e.opportunityId && oppSet.has(e.opportunityId)) return true;
+      return false;
+    });
   }
   if (scope.mode === "lender") {
     const dealSet = new Set(scope.dealIds.filter(Boolean));
@@ -338,6 +345,29 @@ export async function loadTransactionActivityTimeline(
       contactId: scope.contactId,
       limit,
     });
+  } else if (scope.mode === "contact_graph") {
+    const dealIds = scope.dealIds.filter(Boolean).slice(0, 24);
+    const opportunityIds = scope.opportunityIds.filter(Boolean).slice(0, 24);
+    const batches = await Promise.all([
+      listEnterpriseActivity({ contactId: scope.contactId, limit: 80 }),
+      ...dealIds.map((dealId) => listEnterpriseActivity({ dealId, limit: 40 })),
+      ...opportunityIds.map((opportunityId) =>
+        listEnterpriseActivity({ opportunityId, limit: 40 }),
+      ),
+    ]);
+    const map = new Map<string, EnterpriseActivityEvent>();
+    const sourceSeen = new Set<string>();
+    for (const batch of batches) {
+      for (const e of batch) {
+        if (map.has(e.id)) continue;
+        const sourceKey =
+          e.sourceEventId && e.sourceSystem ? `${e.sourceSystem}:${e.sourceEventId}` : "";
+        if (sourceKey && sourceSeen.has(sourceKey)) continue;
+        if (sourceKey) sourceSeen.add(sourceKey);
+        map.set(e.id, e);
+      }
+    }
+    raw = Array.from(map.values());
   } else if (scope.mode === "lender") {
     const dealIds = scope.dealIds.filter(Boolean).slice(0, 40);
     const opportunityIds = (scope.opportunityIds ?? []).filter(Boolean).slice(0, 40);
@@ -398,6 +428,7 @@ export function formatTimelineWhen(iso: string): { day: string; time: string } {
     const time = d.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
       hour12: true,
     });
     return { day, time };

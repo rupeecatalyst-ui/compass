@@ -1,0 +1,11 @@
+{
+  "name": "mobile",
+  "width": 390,
+  "height": 844,
+  "file": "visual-mobile.png",
+  "desk": {
+    "width": 390,
+    "viewport": 390
+  },
+  "halfOrMore": true
+}

@@ -82,9 +82,34 @@ export function mapOpportunityRouteError(err: unknown): {
     };
   }
   if (err instanceof OpportunityValidationError) {
+    const status =
+      (err as { statusCode?: number }).statusCode === 403 ? 403 : 400;
     return {
-      status: 400,
-      body: { success: false, error: { code: err.code, message: err.message } },
+      status,
+      body: {
+        success: false,
+        error: {
+          code: (err as { code?: string }).code ?? err.code,
+          message: err.message,
+        },
+      },
+    };
+  }
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "statusCode" in err &&
+    typeof (err as { statusCode?: unknown }).statusCode === "number"
+  ) {
+    const status = (err as { statusCode: number }).statusCode;
+    const code =
+      "code" in err && typeof (err as { code?: unknown }).code === "string"
+        ? (err as { code: string }).code
+        : "OPPORTUNITY_ERROR";
+    const message = err instanceof Error ? err.message : "Opportunity request failed";
+    return {
+      status,
+      body: { success: false, error: { code, message } },
     };
   }
   const message = err instanceof Error ? err.message : "Opportunity request failed";

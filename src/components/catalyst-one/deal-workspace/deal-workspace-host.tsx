@@ -39,6 +39,7 @@ import { peekSessionDeal } from "@/lib/enterprise-session/deal-runtime-cache";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import { cn } from "@/lib/utils";
+import { DealCustomFieldsSection } from "@/components/catalyst-one/deal-workspace/deal-custom-fields-section";
 
 export function DealWorkspaceHost() {
   const router = useRouter();
@@ -486,6 +487,7 @@ export function DealWorkspaceHost() {
               }}
             />
           </div>
+          <DealCustomFieldsSection dealId={activeDeal.id} />
           {/* CO-C1-DIALOGUE-002A — EAR Activity Timeline (lazy; no sibling leakage) */}
           <details
             id="deal-activity-timeline-panel"

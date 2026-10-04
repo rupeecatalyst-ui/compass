@@ -48,7 +48,10 @@ export function LenderProgramPortalAdminWorkspace() {
     Array<{ productId: string; productCode: string; productLabel: string }>
   >([]);
   const [ttlDays, setTtlDays] = useState("14");
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [notes, setNotes] = useState("");
+  const [policyVersionId, setPolicyVersionId] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState<string | null>(null);
   const [comments, setComments] = useState("");
   const [scheduleAt, setScheduleAt] = useState("");
   const [createdLink, setCreatedLink] = useState<string | null>(null);
@@ -122,19 +125,26 @@ export function LenderProgramPortalAdminWorkspace() {
   }, [selected]);
 
   const createInvite = async () => {
-    if (!lenderId || productIds.length === 0) return;
+    if (!lenderId || productIds.length === 0 || !recipientEmail.trim()) return;
     setBusy(true);
     setError(null);
     setCreatedLink(null);
+    setDeliveryNote(null);
     try {
       const invite = await lenderProgramPortalClient.createInvite({
         lenderId,
         productIds,
+        recipientEmail: recipientEmail.trim(),
         ttlDays: Number(ttlDays) || 14,
         notes: notes.trim() || undefined,
       });
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       setCreatedLink(`${origin}${invite.portalPath}`);
+      setDeliveryNote(
+        invite.linkDelivery?.status === "sent"
+          ? `Secure link emailed to ${invite.linkDelivery.recipientEmail}.`
+          : "The link was created, but email delivery did not complete. Use the secure URL below only for this lender.",
+      );
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create invite");
@@ -175,6 +185,7 @@ export function LenderProgramPortalAdminWorkspace() {
         clarificationNotes: action === "clarify" ? comments : undefined,
         rejectionReason: action === "reject" ? comments : undefined,
         schedulePublishAt: action === "schedule" ? scheduleAt : undefined,
+        policyVersionId: action === "publish" ? policyVersionId.trim() : undefined,
       });
       setSelected(updated);
       await refresh();
@@ -294,6 +305,15 @@ export function LenderProgramPortalAdminWorkspace() {
               </p>
             </div>
             <div className="space-y-1">
+              <Label>Lender recipient email</Label>
+              <Input
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="name@lender.example"
+              />
+            </div>
+            <div className="space-y-1">
               <Label>Link TTL (days)</Label>
               <Input value={ttlDays} onChange={(e) => setTtlDays(e.target.value)} />
             </div>
@@ -302,11 +322,12 @@ export function LenderProgramPortalAdminWorkspace() {
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
             <Button
-              disabled={busy || !lenderId || productIds.length === 0}
+              disabled={busy || !lenderId || productIds.length === 0 || !recipientEmail.trim()}
               onClick={() => void createInvite()}
             >
-              {busy ? "Generating…" : "Generate secure URL"}
+              {busy ? "Sending…" : "Generate & Send Link"}
             </Button>
+            {deliveryNote ? <p className="text-xs text-muted-foreground">{deliveryNote}</p> : null}
             {createdLink ? (
               <div className="rounded-md border bg-muted/40 p-3 text-xs break-all">
                 <p className="mb-1 font-medium text-foreground">Share with lender:</p>
@@ -446,6 +467,9 @@ export function LenderProgramPortalAdminWorkspace() {
                 <p className="text-xs text-muted-foreground">
                   {selected.lenderName} · {selected.productCode} · v{selected.versionNumber} ·{" "}
                   {LENDER_PROGRAM_SUBMISSION_STATUS_LABELS[selected.status]}
+                  {selected.submittedAt
+                    ? ` · Submitted ${new Date(selected.submittedAt).toLocaleString()}`
+                    : ""}
                 </p>
                 <p className="mt-2 text-xs">
                   Submitted by {selected.verifier?.employeeName} (
@@ -529,6 +553,14 @@ export function LenderProgramPortalAdminWorkspace() {
                 <Label>Internal comments</Label>
                 <Textarea value={comments} onChange={(e) => setComments(e.target.value)} />
                 <div className="space-y-1">
+                  <Label>Published policy version</Label>
+                  <Input
+                    value={policyVersionId}
+                    onChange={(e) => setPolicyVersionId(e.target.value)}
+                    placeholder="Required before Publish"
+                  />
+                </div>
+                <div className="space-y-1">
                   <Label>Schedule publication (optional)</Label>
                   <Input
                     type="datetime-local"
@@ -578,12 +610,7 @@ export function LenderProgramPortalAdminWorkspace() {
                   </Button>
                   <Button
                     size="sm"
-                    disabled={
-                      busy ||
-                      (selected.status !== "approved" &&
-                        selected.status !== "scheduled" &&
-                        selected.status !== "pending_review")
-                    }
+                    disabled={busy || selected.status !== "approved" || !policyVersionId.trim()}
                     onClick={() => void review("publish")}
                   >
                     Publish now

@@ -1,24 +1,18 @@
 /**
- * CO-MARKETING-MKT-03 — Marketing Audience Engine.
- * Definitions + preview eligibility over external Sheets / fixture.
+ * CO-MARKETING-MKT-03 / REDESIGN-003 — Marketing Audience Engine.
+ * Definitions + eligibility over external Sheets / fixture.
  * Never mirrors rows · never creates Contacts / Opportunities / Leads · never sends.
  */
 
+import { ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED } from "@/constants/enterprise-marketing-engine";
+import { emptyFilterDefinition } from "@/lib/enterprise-marketing-engine/audience-filters";
 import {
-  ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED,
-} from "@/constants/enterprise-marketing-engine";
-import {
-  MARKETING_AUDIENCE_SCAN_MAX_ROWS,
-  MARKETING_AUDIENCE_SCAN_PAGE_SIZE,
-} from "@/constants/enterprise-marketing-engine/audience";
-import { evaluateFilterDefinition } from "@/lib/enterprise-marketing-engine/audience-filters";
-import {
-  assessMarketingRowQuality,
-  buildMarketingRecipientFingerprint,
-  detectMarketingSheetColumns,
-  isValidMarketingEmail,
-  normalizeMarketingPhone,
-} from "@/lib/enterprise-marketing-engine/data-quality";
+  confirmMarketingColumnMap,
+  suggestMarketingColumnMap,
+} from "@/lib/enterprise-marketing-engine/column-mapping";
+import { scanMarketingAudienceEligibility } from "@/lib/enterprise-marketing-engine/eligibility-scan";
+import { freezeApprovedAudienceSnapshot } from "@/lib/enterprise-marketing-engine/freeze-audience";
+import { getConfiguredMarketingDurabilityPorts } from "@/lib/enterprise-marketing-engine/durability/composition";
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import type {
   MarketingAudienceDefinition,
@@ -27,15 +21,18 @@ import type {
   MarketingFilterDefinition,
   MarketingSuppressionPolicy,
 } from "@/types/enterprise-marketing-audience";
+import type {
+  MarketingColumnMap,
+  MarketingConfirmedColumnMapping,
+} from "@/types/enterprise-marketing-durability";
 import { recordMarketingAuditEvent } from "./audit";
 import { marketingAudienceDefinitionStore } from "./audience-definition-store";
+import { marketingCampaignStore } from "./campaign-store";
 import { marketingDataSourceService } from "./data-source.service";
 import { marketingSuppressionStore } from "./suppression-store";
+import { ensureAudienceDurabilityPorts } from "./workbook-registry";
 
-const SCAN_MAX = MARKETING_AUDIENCE_SCAN_MAX_ROWS;
 function assertAudienceStaysNonOperational() {
-  // Audience definition/preview must never import rows. Module-level handoff /
-  // execution flags belong to other services and must not disable this desk.
   if (ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED) {
     throw new EnterpriseMarketingSafetyError("audience.import");
   }
@@ -45,36 +42,49 @@ function orgId(actorOrg?: string | null) {
   return marketingDataSourceService.resolveOrganizationId(actorOrg);
 }
 
-/** Match suppression across external-key / email / phone identity forms. */
-function suppressionCandidates(quality: {
-  fingerprint: string | null;
-  email?: string | null;
-  phone?: string | null;
-  externalKey?: string | null;
-}): string[] {
-  const set = new Set<string>();
-  if (quality.fingerprint) set.add(quality.fingerprint.toLowerCase());
-  const emailFp = buildMarketingRecipientFingerprint({
-    email: quality.email && isValidMarketingEmail(quality.email) ? quality.email : null,
-    phone: null,
-    externalKey: null,
-  });
-  const phoneFp = buildMarketingRecipientFingerprint({
-    email: null,
-    phone: quality.phone,
-    externalKey: null,
-  });
-  const extFp = buildMarketingRecipientFingerprint({
-    email: null,
-    phone: null,
-    externalKey: quality.externalKey,
-  });
-  if (emailFp) set.add(emailFp.toLowerCase());
-  if (phoneFp) set.add(phoneFp.toLowerCase());
-  if (extFp) set.add(extFp.toLowerCase());
-  const digits = normalizeMarketingPhone(quality.phone ?? null);
-  if (digits) set.add(`phone:${digits}`);
-  return [...set];
+function suppressionLookups(organizationId: string, applyOrgSuppression: boolean) {
+  return {
+    isSuppressed: (input: {
+      normalizedEmail: string;
+      fingerprint: string;
+      mobile: string;
+      sourceStableKey: string;
+      consentValue?: string | null;
+    }) => {
+      const candidates = [
+        input.fingerprint,
+        input.normalizedEmail ? `email:${input.normalizedEmail}` : "",
+        input.mobile ? `phone:${input.mobile}` : "",
+        input.sourceStableKey ? `ext:${input.sourceStableKey}` : "",
+      ].filter(Boolean);
+      const decision = marketingSuppressionStore.evaluateDelivery({
+        organizationId,
+        fingerprints: candidates,
+        channel: "EMAIL",
+        phase: "snapshot_approval",
+        consentValue: input.consentValue,
+        applyOptionalOrgSuppression: applyOrgSuppression,
+      });
+      return decision.blocked;
+    },
+    isPreviouslyContacted: (normalizedEmail: string) =>
+      previouslyContactedCache.get(`${organizationId}:${normalizedEmail}`) === true,
+  };
+}
+
+const previouslyContactedCache = new Map<string, boolean>();
+
+export function seedMarketingPreviouslyContacted(
+  organizationId: string,
+  emails: string[],
+): void {
+  for (const email of emails) {
+    previouslyContactedCache.set(`${organizationId}:${email.trim().toLowerCase()}`, true);
+  }
+}
+
+export function resetMarketingPreviouslyContacted(): void {
+  previouslyContactedCache.clear();
 }
 
 async function evaluateAudiencePreview(input: {
@@ -82,190 +92,136 @@ async function evaluateAudiencePreview(input: {
   bindingId: string;
   datasetId: string;
   filterDefinition: MarketingFilterDefinition;
+  exclusionDefinition?: MarketingFilterDefinition;
   suppressionPolicy: MarketingSuppressionPolicy;
   eligibilityRules: MarketingEligibilityRules;
+  columnMap?: MarketingColumnMap | null;
+  mapping?: MarketingConfirmedColumnMapping | null;
+  mappingConfirmed?: boolean;
+  purpose?: "preview" | "approval";
   audienceId?: string | null;
 }): Promise<MarketingAudiencePreviewResult> {
   assertAudienceStaysNonOperational();
   const port = marketingDataSourceService.getPort(input.organizationId);
-  if (!port.getSchema || !port.streamRows) {
+  if (!port.getSchema) {
     throw new EnterpriseMarketingSafetyError("audience.sourcePortIncomplete");
   }
-
   const schema = await port.getSchema(input.bindingId, input.datasetId);
-  const columns = detectMarketingSheetColumns(schema.headers);
-  const estimate = port.estimateAudience
-    ? await port.estimateAudience(input.bindingId, input.datasetId)
-    : null;
+  const suggestion = suggestMarketingColumnMap(schema.headers);
+  const mappingConfirmed = Boolean(input.mapping?.confirmed || input.mappingConfirmed);
+  const columnMap = input.mapping?.map ?? input.columnMap ?? suggestion.suggested;
+  const purpose = input.purpose ?? "preview";
 
-  const counts = {
-    scanned: 0,
-    eligible: 0,
-    excludedByFilter: 0,
-    invalid: 0,
-    duplicate: 0,
-    suppressed: 0,
-  };
-  const seen = new Set<string>();
-  const sampleDiagnostics: MarketingAudiencePreviewResult["sampleDiagnostics"] = [];
-  let cursor: string | undefined;
-  let scanCapped = false;
-
-  while (counts.scanned < SCAN_MAX) {
-    const remaining = SCAN_MAX - counts.scanned;
-    const pageSize = Math.min(MARKETING_AUDIENCE_SCAN_PAGE_SIZE, remaining);
-    const page = await port.streamRows({
-      bindingId: input.bindingId,
-      datasetId: input.datasetId,
-      cursor,
-      limit: pageSize,
-    });
-    if (page.rows.length === 0) break;
-
-    for (let i = 0; i < page.rows.length; i += 1) {
-      const row = page.rows[i]!;
-      const sourceRowNumber = page.sourceRowNumbers?.[i];
-      counts.scanned += 1;
-
-      const passesFilter = evaluateFilterDefinition(row, input.filterDefinition, columns);
-      if (!passesFilter) {
-        counts.excludedByFilter += 1;
-        if (sampleDiagnostics.length < 25) {
-          sampleDiagnostics.push({
-            sourceRowNumber,
-            disposition: "excluded",
-            issues: ["filter_mismatch"],
-          });
-        }
-        continue;
-      }
-
-      const quality = assessMarketingRowQuality(row, columns, {
-        sourceRowNumber,
-        seenFingerprints: input.eligibilityRules.excludeDuplicatesInScan ? seen : undefined,
-      });
-
-      const issues = [...quality.issues];
-      if (
-        input.eligibilityRules.requireValidEmailIfPresent &&
-        quality.email &&
-        !isValidMarketingEmail(quality.email) &&
-        !issues.includes("invalid_email")
-      ) {
-        issues.push("invalid_email");
-      }
-
-      if (input.eligibilityRules.requireIdentity && !quality.fingerprint) {
-        counts.invalid += 1;
-        if (sampleDiagnostics.length < 25) {
-          sampleDiagnostics.push({
-            sourceRowNumber,
-            disposition: "invalid",
-            issues: issues.length ? issues : ["missing_identity"],
-          });
-        }
-        continue;
-      }
-
-      if (issues.includes("duplicate_in_sample")) {
-        counts.duplicate += 1;
-        if (sampleDiagnostics.length < 25) {
-          sampleDiagnostics.push({
-            sourceRowNumber,
-            disposition: "duplicate",
-            issues,
-          });
-        }
-        continue;
-      }
-
-      if (issues.includes("invalid_email") && input.eligibilityRules.requireValidEmailIfPresent) {
-        counts.invalid += 1;
-        if (sampleDiagnostics.length < 25) {
-          sampleDiagnostics.push({
-            sourceRowNumber,
-            disposition: "invalid",
-            issues,
-          });
-        }
-        continue;
-      }
-
-      if (input.suppressionPolicy.applyOrgSuppression) {
-        let hit = null as ReturnType<typeof marketingSuppressionStore.findMatch>;
-        for (const fp of suppressionCandidates(quality)) {
-          hit = marketingSuppressionStore.findMatch(
-            input.organizationId,
-            fp,
-            input.suppressionPolicy.reasons,
-          );
-          if (hit) break;
-        }
-        if (hit) {
-          counts.suppressed += 1;
-          if (sampleDiagnostics.length < 25) {
-            sampleDiagnostics.push({
-              sourceRowNumber,
-              disposition: "suppressed",
-              issues: [`suppression:${hit.reason}`],
-            });
-          }
-          continue;
-        }
-      }
-
-      counts.eligible += 1;
-      if (sampleDiagnostics.length < 25) {
-        sampleDiagnostics.push({
-          sourceRowNumber,
-          disposition: "eligible",
-          issues: [],
-        });
-      }
-    }
-
-    if (!page.nextCursor) break;
-    cursor = page.nextCursor;
-    if (counts.scanned >= SCAN_MAX) {
-      scanCapped = true;
-      break;
-    }
-  }
-
-  if (counts.scanned >= SCAN_MAX) scanCapped = true;
+  const scan = await scanMarketingAudienceEligibility({
+    port,
+    bindingId: input.bindingId,
+    datasetId: input.datasetId,
+    columnMap,
+    mapping: mappingConfirmed && input.mapping ? input.mapping : { confirmed: mappingConfirmed },
+    inclusion: input.filterDefinition,
+    exclusion: input.exclusionDefinition ?? emptyFilterDefinition(),
+    eligibilityRules: input.eligibilityRules,
+    purpose,
+    lookups: suppressionLookups(input.organizationId, input.suppressionPolicy.applyOrgSuppression),
+  });
 
   return {
     audienceId: input.audienceId ?? null,
     bindingId: input.bindingId,
     datasetId: input.datasetId,
-    availableFields: schema.headers,
+    availableFields: scan.availableFields,
     detectedColumns: {
-      emailColumn: columns.emailColumn,
-      phoneColumn: columns.phoneColumn,
-      externalKeyColumn: columns.externalKeyColumn,
+      emailColumn: columnMap.email || null,
+      phoneColumn: columnMap.mobile || null,
+      externalKeyColumn: columnMap.sourceStableKey || null,
     },
-    scannedRows: counts.scanned,
-    scanCapped,
-    scanMaxRows: SCAN_MAX,
-    estimatedSourceRows: estimate?.dataRowEstimate ?? null,
+    scannedRows: scan.counts.scannedRows,
+    scanCapped: scan.scanCapped,
+    scanMaxRows: scan.scanMaxRows ?? 0,
+    estimatedSourceRows: scan.counts.totalRows,
+    mappingConfirmed,
+    usingSuggestedMapping: !mappingConfirmed,
     counts: {
-      scanned: counts.scanned,
-      eligible: counts.eligible,
-      excludedByFilter: counts.excludedByFilter,
-      invalid: counts.invalid,
-      duplicate: counts.duplicate,
-      suppressed: counts.suppressed,
+      totalRows: scan.counts.totalRows,
+      scanned: scan.counts.scannedRows,
+      validEmails: scan.counts.validEmails,
+      invalidEmails: scan.counts.invalidEmails,
+      eligible: scan.counts.eligible,
+      excludedByFilter: scan.counts.excludedByFilter,
+      invalid: scan.counts.invalidEmails,
+      duplicate: scan.counts.duplicates,
+      suppressed: scan.counts.suppressed,
+      previouslyContacted: scan.counts.previouslyContacted,
     },
-    sampleDiagnostics,
-    notice:
-      "Audience preview uses streamed source rows for counts only. Personal fields are not returned. Raw database remains external. No Contacts, Opportunities, Leads, or sends.",
+    sampleDiagnostics: scan.sampleDiagnostics,
+    sampleRecipients: scan.sampleRecipients,
+    notice: scan.notice,
   };
 }
 
+async function persistDurableAudienceDefinition(
+  actorUserId: string | null | undefined,
+  saved: MarketingAudienceDefinition,
+) {
+  const ports = ensureAudienceDurabilityPorts();
+  if (!ports) return;
+  await ports.audienceDefinitions.upsert({
+    id: saved.id,
+    organizationId: saved.organizationId,
+    campaignId: saved.campaignId ?? null,
+    bindingId: saved.bindingId,
+    sourceTabId: saved.datasetId,
+    sourceTabName: saved.datasetDisplayName ?? saved.datasetId,
+    columnMap: saved.columnMap ?? { email: "" },
+    name: saved.name,
+    description: saved.description ?? null,
+    filterDefinition: saved.filterDefinition,
+    exclusionDefinition: saved.exclusionDefinition,
+    suppressionPolicy: saved.suppressionPolicy,
+    eligibilityRules: saved.eligibilityRules,
+    mappingConfirmed: saved.mappingConfirmed,
+    mapping: saved.mapping,
+    lastSnapshotId: saved.lastSnapshotId,
+    lastSnapshotHash: saved.lastSnapshotHash,
+    createdByUserId: actorUserId ?? null,
+    updatedByUserId: actorUserId ?? null,
+    createdAt: saved.createdAt,
+    updatedAt: saved.updatedAt,
+  });
+}
+
+async function hydrateDurableAudienceDefinitions(organizationId: string) {
+  const ports = getConfiguredMarketingDurabilityPorts() ?? ensureAudienceDurabilityPorts();
+  if (!ports) return;
+  const rows = await ports.audienceDefinitions.list(organizationId);
+  for (const row of rows) {
+    marketingAudienceDefinitionStore.upsert({
+      id: row.id,
+      organizationId: row.organizationId,
+      name: row.name || "Audience",
+      description: row.description ?? null,
+      bindingId: row.bindingId,
+      datasetId: row.sourceTabId,
+      datasetDisplayName: row.sourceTabName,
+      campaignId: row.campaignId,
+      columnMap: row.columnMap,
+      mapping: row.mapping,
+      mappingConfirmed: Boolean(row.mappingConfirmed),
+      lastSnapshotId: row.lastSnapshotId,
+      lastSnapshotHash: row.lastSnapshotHash,
+      filterDefinition: row.filterDefinition as MarketingFilterDefinition | undefined,
+      exclusionDefinition: row.exclusionDefinition as MarketingFilterDefinition | undefined,
+      suppressionPolicy: row.suppressionPolicy as MarketingSuppressionPolicy | undefined,
+      eligibilityRules: row.eligibilityRules as MarketingEligibilityRules | undefined,
+    });
+  }
+}
+
 export const marketingAudienceService = {
-  list(actor: { userId?: string; organizationId?: string | null }) {
+  async list(actor: { userId?: string; organizationId?: string | null }) {
     assertAudienceStaysNonOperational();
     const organizationId = orgId(actor.organizationId);
+    await hydrateDurableAudienceDefinitions(organizationId);
     const items = marketingAudienceDefinitionStore.list(organizationId);
     recordMarketingAuditEvent({
       kind: "audience.list",
@@ -276,9 +232,10 @@ export const marketingAudienceService = {
     return items;
   },
 
-  get(actor: { userId?: string; organizationId?: string | null }, audienceId: string) {
+  async get(actor: { userId?: string; organizationId?: string | null }, audienceId: string) {
     assertAudienceStaysNonOperational();
     const organizationId = orgId(actor.organizationId);
+    await hydrateDurableAudienceDefinitions(organizationId);
     const item = marketingAudienceDefinitionStore.getForOrg(audienceId, organizationId);
     if (!item) {
       throw Object.assign(new Error("Audience not found"), {
@@ -289,7 +246,7 @@ export const marketingAudienceService = {
     return item;
   },
 
-  upsert(
+  async upsert(
     actor: { userId?: string; organizationId?: string | null },
     input: {
       id?: string;
@@ -298,33 +255,58 @@ export const marketingAudienceService = {
       bindingId: string;
       datasetId: string;
       datasetDisplayName?: string | null;
+      campaignId?: string | null;
       filterDefinition?: MarketingFilterDefinition;
+      exclusionDefinition?: MarketingFilterDefinition;
       suppressionPolicy?: MarketingSuppressionPolicy;
       eligibilityRules?: MarketingEligibilityRules;
+      columnMap?: MarketingColumnMap | null;
+      mapping?: MarketingConfirmedColumnMapping | null;
+      mappingConfirmed?: boolean;
+      confirmMapping?: boolean;
+      headers?: string[];
     },
-  ): MarketingAudienceDefinition {
+  ): Promise<MarketingAudienceDefinition> {
     assertAudienceStaysNonOperational();
     const organizationId = orgId(actor.organizationId);
-    // Ensure binding is visible to org (throws if sheets off)
     marketingDataSourceService.getPort(organizationId);
-    const binding = marketingDataSourceService
-      .listBindings(actor)
-      .find((b) => b.id === input.bindingId);
+    const bindings = await marketingDataSourceService.listBindings(actor);
+    const binding = bindings.find((b) => b.id === input.bindingId);
     if (!binding) {
       throw Object.assign(new Error("Data source binding not found for organization"), {
         statusCode: 404,
         code: "BINDING_NOT_FOUND",
       });
     }
+
+    let mapping = input.mapping ?? null;
+    if (input.confirmMapping && input.columnMap && input.headers) {
+      mapping = confirmMarketingColumnMap({
+        map: input.columnMap,
+        headers: input.headers,
+        confirmedByUserId: actor.userId ?? null,
+        channel: "EMAIL",
+      });
+    }
+
     const saved = marketingAudienceDefinitionStore.upsert({
       ...input,
       organizationId,
+      mapping,
+      columnMap: mapping?.map ?? input.columnMap ?? null,
+      mappingConfirmed: Boolean(mapping?.confirmed || input.mappingConfirmed),
     });
+    await persistDurableAudienceDefinition(actor.userId ?? null, saved);
     recordMarketingAuditEvent({
       kind: "audience.upsert",
       actorUserId: actor.userId ?? null,
       organizationId,
-      detail: { audienceId: saved.id, bindingId: saved.bindingId, datasetId: saved.datasetId },
+      detail: {
+        audienceId: saved.id,
+        bindingId: saved.bindingId,
+        datasetId: saved.datasetId,
+        mappingConfirmed: saved.mappingConfirmed,
+      },
     });
     return saved;
   },
@@ -354,8 +336,13 @@ export const marketingAudienceService = {
       bindingId: string;
       datasetId: string;
       filterDefinition: MarketingFilterDefinition;
+      exclusionDefinition?: MarketingFilterDefinition;
       suppressionPolicy?: MarketingSuppressionPolicy;
       eligibilityRules?: MarketingEligibilityRules;
+      columnMap?: MarketingColumnMap | null;
+      mapping?: MarketingConfirmedColumnMapping | null;
+      mappingConfirmed?: boolean;
+      fullScan?: boolean;
     },
   ) {
     assertAudienceStaysNonOperational();
@@ -365,6 +352,7 @@ export const marketingAudienceService = {
       bindingId: input.bindingId,
       datasetId: input.datasetId,
       filterDefinition: input.filterDefinition,
+      exclusionDefinition: input.exclusionDefinition,
       suppressionPolicy: input.suppressionPolicy ?? {
         applyOrgSuppression: true,
         reasons: [],
@@ -374,6 +362,10 @@ export const marketingAudienceService = {
         requireValidEmailIfPresent: true,
         excludeDuplicatesInScan: true,
       },
+      columnMap: input.columnMap,
+      mapping: input.mapping,
+      mappingConfirmed: input.mappingConfirmed,
+      purpose: input.fullScan ? "approval" : "preview",
     });
     recordMarketingAuditEvent({
       kind: "audience.preview",
@@ -384,6 +376,7 @@ export const marketingAudienceService = {
         datasetId: input.datasetId,
         eligible: result.counts.eligible,
         scanned: result.counts.scanned,
+        fullScan: Boolean(input.fullScan),
       },
     });
     return result;
@@ -392,21 +385,118 @@ export const marketingAudienceService = {
   async previewSaved(
     actor: { userId?: string; organizationId?: string | null },
     audienceId: string,
+    opts?: { fullScan?: boolean },
   ) {
-    const def = this.get(actor, audienceId);
+    const def = await this.get(actor, audienceId);
     return this.previewDraft(actor, {
       bindingId: def.bindingId,
       datasetId: def.datasetId,
       filterDefinition: def.filterDefinition,
+      exclusionDefinition: def.exclusionDefinition,
       suppressionPolicy: def.suppressionPolicy,
       eligibilityRules: def.eligibilityRules,
+      columnMap: def.columnMap,
+      mapping: def.mapping,
+      mappingConfirmed: def.mappingConfirmed,
+      fullScan: opts?.fullScan,
     }).then((r) => ({ ...r, audienceId: def.id }));
+  },
+
+  async freezeForCampaign(
+    actor: { userId?: string; organizationId?: string | null },
+    input: {
+      audienceId: string;
+      campaignId: string;
+      campaignVersionId: string;
+      channel?: "EMAIL" | "WHATSAPP" | "DIGITAL";
+    },
+  ) {
+    assertAudienceStaysNonOperational();
+    const ports = ensureAudienceDurabilityPorts();
+    if (!ports) {
+      throw Object.assign(new Error("Durable snapshot ports are not configured"), {
+        statusCode: 503,
+        code: "DURABLE_PERSISTENCE_UNAVAILABLE",
+      });
+    }
+    const organizationId = orgId(actor.organizationId);
+    const def = await this.get(actor, input.audienceId);
+    const campaign = await marketingCampaignStore.getForOrg(input.campaignId, organizationId);
+    const version = await marketingCampaignStore.getVersion(input.campaignVersionId);
+    if (!campaign || campaign.currentDraftVersionId !== input.campaignVersionId || version?.campaignId !== campaign.id) {
+      throw Object.assign(new Error("Audience snapshot requires the current campaign draft version"), {
+        statusCode: 400,
+        code: "CAMPAIGN_VERSION_MISMATCH",
+      });
+    }
+    if (!def.mapping || !def.mappingConfirmed) {
+      throw Object.assign(
+        new Error("Confirm the column mapping before freezing an audience snapshot"),
+        { statusCode: 400, code: "MAPPING_NOT_CONFIRMED" },
+      );
+    }
+    const port = marketingDataSourceService.getPort(organizationId);
+    const schema = port.getSchema
+      ? await port.getSchema(def.bindingId, def.datasetId)
+      : { headers: [] };
+    const datasets = await marketingDataSourceService.discover(actor, def.bindingId);
+    const tab = datasets.find((d) => d.externalDatasetId === def.datasetId);
+    const bindings = await marketingDataSourceService.listBindings(actor);
+    const binding = bindings.find((b) => b.id === def.bindingId);
+    if (!binding) {
+      throw Object.assign(new Error("Authorised workbook binding not found"), {
+        statusCode: 404,
+        code: "BINDING_NOT_FOUND",
+      });
+    }
+
+    const frozen = await freezeApprovedAudienceSnapshot({
+      ports,
+      port,
+      organizationId,
+      campaignId: input.campaignId,
+      campaignVersionId: input.campaignVersionId,
+      audienceDefinitionId: def.id,
+      sourceBindingId: def.bindingId,
+      sourceWorkbookId: binding.spreadsheetId,
+      sourceTabId: def.datasetId,
+      sourceTabName: tab?.displayName ?? def.datasetDisplayName ?? def.datasetId,
+      mapping: def.mapping,
+      headers: schema.headers,
+      inclusion: def.filterDefinition,
+      exclusion: def.exclusionDefinition,
+      eligibilityRules: def.eligibilityRules,
+      lookups: suppressionLookups(organizationId, def.suppressionPolicy.applyOrgSuppression),
+      channel: input.channel ?? "EMAIL",
+      actorUserId: actor.userId ?? null,
+    });
+
+    recordMarketingAuditEvent({
+      kind: "audience.freeze",
+      actorUserId: actor.userId ?? null,
+      organizationId,
+      detail: {
+        campaignId: input.campaignId,
+        snapshotId: frozen.snapshot.id,
+        snapshotHash: frozen.snapshotHash,
+        eligibleCount: frozen.eligibleCount,
+      },
+    });
+    const stamped = marketingAudienceDefinitionStore.upsert({
+      ...def,
+      lastSnapshotId: frozen.snapshot.id,
+      lastSnapshotHash: frozen.snapshotHash,
+    });
+    await persistDurableAudienceDefinition(actor.userId ?? null, stamped);
+    if (campaign.audienceId !== def.id) {
+      await marketingCampaignStore.updateCampaign(campaign.id, organizationId, { audienceId: def.id });
+    }
+    return frozen;
   },
 
   listSuppressions(actor: { userId?: string; organizationId?: string | null }) {
     assertAudienceStaysNonOperational();
     const organizationId = orgId(actor.organizationId);
-    // Return fingerprints + reasons only (fingerprints are already hashed identity keys)
     return marketingSuppressionStore.list(organizationId).map((r) => ({
       id: r.id,
       reason: r.reason,

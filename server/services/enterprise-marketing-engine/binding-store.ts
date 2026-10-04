@@ -60,6 +60,11 @@ export function ensureFixtureBinding(organizationId: string): MarketingDataSourc
   return binding;
 }
 
+/** Runtime cache used by Sheets adapters. Durable registry hydrates this. */
+export function hydrateRuntimeBinding(binding: MarketingDataSourceBinding): void {
+  bindings.set(binding.id, { ...binding });
+}
+
 export const marketingDataSourceBindingStore = {
   list(organizationId: string): MarketingDataSourceBinding[] {
     seedFromEnv();

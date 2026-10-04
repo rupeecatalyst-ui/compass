@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { CompassJourneyError } from "./compass-journey-errors";
 import type {
   CompassJourneySessionClaims,
@@ -6,6 +6,14 @@ import type {
 } from "@/types/compass-customer-gateway";
 
 const DEFAULT_TTL_SEC = 60 * 60 * 24; // 24h
+
+export function compassContactRef(contactId: string): string {
+  return `cpr_${createHash("sha256").update(contactId).digest("hex").slice(0, 16)}`;
+}
+
+export function sessionOwnsContact(contactRef: string, contactId: string): boolean {
+  return Boolean(contactId) && contactRef === compassContactRef(contactId);
+}
 
 function secret(): string {
   const s =

@@ -50,6 +50,7 @@ const SORT_MAP: Record<string, DealRegistrySortField> = {
   borrowerName: "borrowerName",
   product: "product",
   loanAmount: "loanAmount",
+  advantageCommitted: "advantageCommittedDisplay",
   assignedUsers: "assignedRm",
   assignedRm: "assignedRm",
   grossStage: "grossStageLabel",
@@ -256,6 +257,24 @@ export function DealRegistryTable({
           </span>
         ),
         exportValue: (row) => String(row.loanAmount),
+      },
+      {
+        id: "advantageCommitted",
+        label: "Advantage Committed (₹)",
+        sortable: true,
+        defaultOrder: 6,
+        defaultWidth: 160,
+        align: "right",
+        render: (row) => (
+          <span
+            className="tabular-nums"
+            data-field="advantage-committed"
+            data-status={row.advantageCommittedStatus}
+          >
+            {row.advantageCommittedDisplay ?? "Not applicable"}
+          </span>
+        ),
+        exportValue: (row) => row.advantageCommittedDisplay ?? "Not applicable",
       },
       {
         id: "assignedUsers",
@@ -582,6 +601,7 @@ export function DealRegistryTable({
     filters.priority !== "all" ||
     filters.status !== "all" ||
     filters.source !== "all" ||
+    filters.advantageCommitted !== "all" ||
     Boolean(filters.amountMin) ||
     Boolean(filters.amountMax) ||
     Boolean(filters.revenueMin) ||
@@ -602,6 +622,7 @@ export function DealRegistryTable({
     filters.state !== "all" ||
     filters.priority !== "all" ||
     filters.source !== "all" ||
+    filters.advantageCommitted !== "all" ||
     Boolean(filters.amountMin) ||
     Boolean(filters.amountMax) ||
     Boolean(filters.revenueMin) ||
@@ -895,6 +916,20 @@ export function DealRegistryTable({
                           {s}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={filters.advantageCommitted}
+                    onValueChange={(v) => patchFilters({ advantageCommitted: v })}
+                  >
+                    <SelectTrigger className={cn(selectClass, "w-[220px]")} aria-label="Advantage Committed (₹)">
+                      <SelectValue placeholder="Advantage Committed (₹)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Advantage Committed (₹)</SelectItem>
+                      <SelectItem value="committed">Committed</SelectItem>
+                      <SelectItem value="not_committed">Not committed</SelectItem>
+                      <SelectItem value="not_applicable">Not applicable</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

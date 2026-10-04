@@ -26,6 +26,7 @@ import { projectCreditIntelligence } from "@/lib/chanakya-credit-intelligence/pr
 import { assembleCreditIntelligence } from "@/lib/chanakya-credit-intelligence/credit-intelligence-core";
 import type { ChanakyaCreditIntelligenceContext } from "@/types/chanakya-credit-intelligence";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
+import { readDealProgrammeStamp } from "@/lib/product-programme-operations/deal-stamp";
 import { resolveOpportunityLoanPurpose } from "@/lib/enterprise-opportunity/resolve-loan-purpose";
 
 function displayOrUnavailable(value: unknown): { text: string; available: boolean } {
@@ -67,6 +68,16 @@ export interface ChanakyaCreditProposalContextPack {
   productLenderIntelligence: Record<string, unknown>;
   /** CO-CHANAKYA-CREDIT-INTELLIGENCE-010 — evidence-first credit analysis for proposal engine. */
   creditIntelligence: ChanakyaCreditIntelligenceContext;
+  programmeCitation?: {
+    lenderId: string;
+    programmeId: string;
+    programmeCode: string;
+    programmeVersion: number;
+    roiRange: string | null;
+    eligibilityBasis: string;
+    requiredDocuments: string[];
+    effectiveFrom: string | null;
+  } | null;
 }
 
 export async function gatherChanakyaCreditProposalContext(
@@ -397,5 +408,19 @@ export async function gatherChanakyaCreditProposalContext(
       unknown
     >,
     creditIntelligence,
+    programmeCitation: (() => {
+      const stamp = readDealProgrammeStamp(opp.lendingExtension);
+      if (!stamp) return null;
+      return {
+        lenderId: stamp.lenderId,
+        programmeId: stamp.programmeId,
+        programmeCode: stamp.programmeCode,
+        programmeVersion: stamp.programmeVersion,
+        roiRange: stamp.roiRange,
+        eligibilityBasis: stamp.eligibilityBasis,
+        requiredDocuments: stamp.requiredDocuments,
+        effectiveFrom: stamp.effectiveFrom,
+      };
+    })(),
   };
 }

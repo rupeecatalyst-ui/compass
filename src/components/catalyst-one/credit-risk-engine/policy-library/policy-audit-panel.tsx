@@ -1,6 +1,6 @@
 "use client";
 
-import { getAuditTrailForPolicy } from "@/lib/credit-risk-engine/audit-store";
+import type { CreditRiskAuditEntry } from "@/types/credit-risk-engine";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,12 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface PolicyAuditPanelProps {
-  policyId: string;
-}
+interface PolicyAuditPanelProps { entries: CreditRiskAuditEntry[]; }
 
-export function PolicyAuditPanel({ policyId }: PolicyAuditPanelProps) {
-  const entries = getAuditTrailForPolicy(policyId);
+export function PolicyAuditPanel({ entries }: PolicyAuditPanelProps) {
 
   return (
     <Card className="glass-card overflow-hidden border-border/60">

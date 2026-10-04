@@ -4,9 +4,12 @@
 
 import type { PipelineStage } from "@/types/catalyst-one";
 
-export const MY_DEALS_OFFICIAL_NAME = "My Deals";
+export const MY_DEALS_OFFICIAL_NAME = "My Deals · Loan Deal Registry";
 
-/** Business vertical tabs — Loans live; others are future placeholders. */
+/**
+ * Legacy vertical catalogue — retained so dedicated left-nav modules are not deleted.
+ * My Deals UI is loans-only and must not render these tabs.
+ */
 export const MY_DEALS_BUSINESS_TABS = [
   { id: "loans", label: "Loans", live: true },
   { id: "mutual_funds", label: "Mutual Funds", live: false },
@@ -19,9 +22,18 @@ export const MY_DEALS_BUSINESS_TABS = [
 
 export type MyDealsBusinessTabId = (typeof MY_DEALS_BUSINESS_TABS)[number]["id"];
 
-/** Data presentation modes only — Calendar belongs to Tasks / Planner (future). */
+/** Workspace views — Deals list + Deal-per-card Kanban share the same registry rows. */
+export const MY_DEALS_WORKSPACE_VIEWS = [
+  { id: "deals", label: "Deals" },
+  { id: "kanban", label: "Kanban" },
+] as const;
+
+export type MyDealsWorkspaceViewId = (typeof MY_DEALS_WORKSPACE_VIEWS)[number]["id"];
+
+/** @deprecated Prefer MY_DEALS_WORKSPACE_VIEWS. Kept for session restore mapping. */
 export const MY_DEALS_VIEWS = [
   { id: "kanban", label: "Kanban" },
+  { id: "deals", label: "Deals" },
   { id: "list", label: "List" },
   { id: "table", label: "Table" },
 ] as const;

@@ -29,6 +29,11 @@ import { WorkspaceNotesPanel } from "./workspace-notes-panel";
 import { WorkspaceDialoguePanel } from "./workspace-dialogue-panel";
 import { WorkspaceStrategicTabs } from "./workspace-strategic-tabs";
 import type { OwStrategicTabId } from "./strategic-tabs";
+import { OW_COMPASS_ASSESSMENT_NAV, OW_OPPORTUNITY_ASSESSMENT_NAV } from "./strategic-tabs";
+import { WorkspaceCompassAssessmentPanel } from "./workspace-compass-assessment-panel";
+import { WorkspaceOpportunityAssessmentPanel } from "./workspace-opportunity-assessment-panel";
+import { WorkspaceCompassDeskStrip } from "./workspace-compass-desk-strip";
+import { COMPASS_WEBSITE_SOURCE_CODE } from "@/constants/enterprise-opportunity/company-borrower-create";
 import { getStrategicCompetition } from "@/lib/strategic-competition";
 import {
   ContactCreationIntentScreen,
@@ -42,10 +47,6 @@ import { evaluateDocumentCompletionForLoanFile } from "@/lib/document-completion
 import { listEdieCriticalPending } from "@/lib/edie-certified";
 import type { EdieChecklistItem } from "@/types/edie-certified-rules";
 import { OpportunityActionCenter } from "@/components/catalyst-one/action-center";
-import {
-  AnalyzeDealTriggerButton,
-  AnalyzeDealWorkspace,
-} from "@/components/catalyst-one/analyze-deal";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import { BusinessNotesActionButton } from "@/components/catalyst-one/enterprise-business-notes";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
@@ -57,7 +58,6 @@ import {
 } from "@/lib/opportunity-loan-continuity";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
 import {
-  buildJourneyHref,
   getJourneyStageDisplayLabel,
 } from "@/constants/lead-opportunity-journey";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
@@ -70,10 +70,12 @@ import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-id
 import { MoveToDealConfirmDialog } from "@/components/catalyst-one/shared/move-to-deal-confirm-dialog";
 import { toast } from "sonner";
 import { ROUTES } from "@/constants/routes";
+import { buildDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
+import { OperationalCustomFieldsSection } from "@/components/catalyst-one/field-control-master/operational-custom-fields-section";
 
 function OpportunityWorkspaceShell() {
   const { user } = useAuthContext();
@@ -96,7 +98,14 @@ function OpportunityWorkspaceShell() {
     setFocus,
     refresh,
   } = useOpportunityWorkspace();
-  const [tab, setTab] = useState<OwStrategicTabId>("overview");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<OwStrategicTabId>(() =>
+    requestedTab === "opportunity_assessment" ? "opportunity_assessment" : "overview",
+  );
+  const appliedAssessmentTab = useRef<string | null>(
+    requestedTab === "opportunity_assessment" ? requestedTab : null,
+  );
 
   const [intentOpen, setIntentOpen] = useState(false);
   const [creationIntent, setCreationIntent] = useState<ContactCreationIntentResult | null>(null);
@@ -109,7 +118,6 @@ function OpportunityWorkspaceShell() {
   const [gateIntent, setGateIntent] = useState("continue");
   const [gateHasProceed, setGateHasProceed] = useState(false);
   const gateProceedRef = useRef<(() => void) | null>(null);
-  const [analyzeDealOpen, setAnalyzeDealOpen] = useState(false);
   const [competitionPromptOpen, setCompetitionPromptOpen] = useState(false);
   const [moveToDealOpen, setMoveToDealOpen] = useState(false);
   const [moveToDealBusy, setMoveToDealBusy] = useState(false);
@@ -121,6 +129,7 @@ function OpportunityWorkspaceShell() {
   }, [opportunityId]);
 
   useEffect(() => {
+    if (tab === "opportunity_assessment") return;
     const map: Partial<Record<WorkspaceFocus, OwStrategicTabId>> = {
       life: "funding_strategy",
       documents: "documents",
@@ -134,6 +143,13 @@ function OpportunityWorkspaceShell() {
     if (next) setTab(next);
     else if (focus === "overview" && tab === "timeline") setTab("overview");
   }, [focus, tab]);
+
+  useEffect(() => {
+    if (requestedTab !== "opportunity_assessment") return;
+    if (appliedAssessmentTab.current === requestedTab) return;
+    appliedAssessmentTab.current = requestedTab;
+    setTab("opportunity_assessment");
+  }, [requestedTab]);
 
   const activeLoan = useMemo(() => {
     // FS-01 — Opportunity projection (leadCaseFile) is runtime authority.
@@ -190,6 +206,8 @@ function OpportunityWorkspaceShell() {
       documents: "documents",
       tasks: "tasks",
       workflow: "workflow",
+      compass_assessment: "overview",
+      opportunity_assessment: "overview",
     };
     const mapped = focusMap[next];
     if (mapped) setFocus(mapped);
@@ -455,7 +473,6 @@ function OpportunityWorkspaceShell() {
                 lenderName: activeLoan?.lender || null,
               }}
             />
-            <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
             <OpportunityActionCenter
               entityId={opportunityId}
               entityLabel={`${headerBorrowerName || "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
@@ -476,9 +493,25 @@ function OpportunityWorkspaceShell() {
                 setEditContact(contact);
                 setEditOpen(true);
               }}
-              onUploadDocuments={() => openTab("documents")}
+              onUploadDocuments={() =>
+                router.push(
+                  buildDocumentWorkspaceHref({
+                    opportunityId: opportunityId || opportunity?.id || null,
+                    contactId: contact?.id ?? null,
+                  }),
+                )
+              }
               onActivitySaved={() => refresh()}
             />
+            {opportunityId ? (
+              <OperationalCustomFieldsSection
+                domain="opportunity"
+                entityId={opportunityId}
+                mode="edit"
+                productCode={registryOpportunity?.productCode ?? null}
+                employmentTypeCode={registryOpportunity?.employmentTypeCode ?? null}
+              />
+            ) : null}
             <LoanStructureCommandControl
               file={activeLoan}
               participants={activeLoan?.participants ?? []}
@@ -535,7 +568,19 @@ function OpportunityWorkspaceShell() {
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <WorkspaceStrategicTabs active={tab} onSelect={openTab} />
+            <WorkspaceStrategicTabs
+              active={tab}
+              onSelect={openTab}
+              extraTabs={[
+                OW_OPPORTUNITY_ASSESSMENT_NAV,
+                ...(registryOpportunity?.sourceCode === COMPASS_WEBSITE_SOURCE_CODE
+                  ? [OW_COMPASS_ASSESSMENT_NAV]
+                  : []),
+              ]}
+            />
+            {registryOpportunity?.sourceCode === COMPASS_WEBSITE_SOURCE_CODE && opportunityId ? (
+              <WorkspaceCompassDeskStrip opportunityId={opportunityId} />
+            ) : null}
             <div
               className={cn(
                 "min-h-0 flex-1",
@@ -568,6 +613,18 @@ function OpportunityWorkspaceShell() {
               {tab === "documents" && <WorkspaceDocumentRequestsPanel />}
               {tab === "tasks" && <WorkspaceTasksPanel />}
               {tab === "workflow" && <WorkspaceWorkflowPanel />}
+              {tab === "opportunity_assessment" && opportunityId ? (
+                <WorkspaceOpportunityAssessmentPanel
+                  opportunityId={opportunityId}
+                  opportunityContext={{
+                    productLabel: registryOpportunity.productLabel,
+                    cityLabel: registryOpportunity.cityLabel,
+                  }}
+                />
+              ) : null}
+              {tab === "compass_assessment" && opportunityId ? (
+                <WorkspaceCompassAssessmentPanel opportunityId={opportunityId} />
+              ) : null}
             </div>
           </div>
 
@@ -677,20 +734,6 @@ function OpportunityWorkspaceShell() {
         }
       />
 
-      <AnalyzeDealWorkspace
-        open={analyzeDealOpen}
-        onOpenChange={setAnalyzeDealOpen}
-        opportunityLabel={`${headerBorrowerName || "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
-        defaultProductLabel={productLabel}
-        defaultProductId={
-          productLabel?.toLowerCase().includes("lap") ||
-          productLabel?.toLowerCase().includes("against property")
-            ? "lap"
-            : productLabel?.toLowerCase().includes("business")
-              ? "business-loan"
-              : "home-loan"
-        }
-      />
     </div>
   );
 }

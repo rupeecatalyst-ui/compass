@@ -17,6 +17,13 @@ export const LENDER_PROGRAM_PORTAL_DEFAULT_TTL_DAYS = 14;
 
 export const LENDER_PROGRAM_OTP_TTL_MINUTES = 10;
 
+/** Launch: lender document upload stays out of the external form. */
+export const LENDER_PORTAL_LAUNCH_DOCUMENT_UPLOAD = false;
+
+export const LENDER_PORTAL_OTP_MAX_REQUESTS = 3;
+export const LENDER_PORTAL_OTP_REQUEST_WINDOW_MS = 15 * 60 * 1000;
+export const LENDER_PORTAL_OTP_MAX_FAILURES = 5;
+
 export const LENDER_PROGRAM_DOCUMENT_KINDS = [
   { id: "product_circular", label: "Product Circular" },
   { id: "credit_policy", label: "Credit Policy" },

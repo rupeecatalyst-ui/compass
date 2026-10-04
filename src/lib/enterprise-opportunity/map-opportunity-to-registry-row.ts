@@ -80,7 +80,21 @@ export function mapEnterpriseOpportunityToRegistryRow(
     companyId: opp.companyId ?? null,
     companyName: opp.companyName ?? null,
     requestedAmount: opp.requestedAmount ?? null,
+    compassDesk: (() => {
+      const ext = opp.lendingExtension && typeof opp.lendingExtension === "object" ? (opp.lendingExtension as Record<string, unknown>) : null;
+      const desk = ext?.compassDesk && typeof ext.compassDesk === "object" ? (ext.compassDesk as Record<string, unknown>) : null;
+      if (!desk) return null;
+      return {
+        offerKind: typeof desk.offerKind === "string" ? desk.offerKind : undefined,
+        expertSlaState: typeof desk.expertSlaState === "string" ? desk.expertSlaState : null,
+      };
+    })(),
     sourceCode: opp.sourceCode?.trim() || null,
     sourceLabel: opportunityBusinessSourceLabel(opp.sourceCode),
+    advantageCommittedAmount: opp.advantageCommittedAmount ?? null,
+    advantageCommittedDisplay: opp.advantageCommittedDisplay ?? "Not applicable",
+    advantageCommittedStatus: opp.advantageCommittedStatus ?? "not_applicable",
+    marketingCampaignName: opp.marketingCampaignName ?? opp.sourceCampaignLabel ?? null,
+    marketingSource: opp.marketingSource ?? opp.sourceCode ?? null,
   };
 }

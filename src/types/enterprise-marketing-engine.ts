@@ -15,14 +15,17 @@ export type EnterpriseMarketingFoundationStatus = {
   engineName: string;
   sprint: "CO-MARKETING-MKT-01" | "CO-MARKETING-MKT-02" | "CO-MARKETING-MKT-03" | "CO-MARKETING-MKT-04" | "CO-MARKETING-MKT-05" | "CO-MARKETING-MKT-06" | "CO-MARKETING-MKT-07" | "CO-MARKETING-MKT-08" | "CO-MARKETING-MKT-09" | "CO-MARKETING-MKT-10" | "CO-MARKETING-MKT-11" | "CO-MARKETING-MKT-12" | "CO-MARKETING-MKT-13" | "CO-MARKETING-ACTIVATION-002";
   safety: {
-    executionEnabled: false;
+    executionEnabled: boolean;
     executionDryRunEnabled?: boolean;
     handoffEnabled: boolean;
     handoffMode?: "fixture" | "live";
     audienceImportEnabled: false;
-    providerConnectEnabled: false;
+    providerConnectEnabled: boolean;
     sheetsMode: "off" | "fixture" | "live";
     sheetsReadEnabled: boolean;
+    sourceStatus?: "OFF" | "FIXTURE" | "LIVE" | "NOT_CONFIGURED";
+    sourceNotice?: string;
+    googleCredentialsConfigured?: boolean;
     emailMode?: "off" | "dry_run" | "live";
     whatsappMode?: "off" | "dry_run" | "live";
     notice: string;
@@ -85,12 +88,14 @@ export type MarketingAuditEventKind =
   | "navigation.opened"
   | "data_source.list"
   | "data_source.upsert"
+  | "data_source.revoke"
   | "data_source.discover"
   | "data_source.preview"
   | "audience.list"
   | "audience.upsert"
   | "audience.delete"
   | "audience.preview"
+  | "audience.freeze"
   | "campaign.create"
   | "campaign.save"
   | "campaign.clone"
@@ -109,15 +114,30 @@ export type MarketingAuditEventKind =
   | "campaign.cancel"
   | "asset.upload"
   | "asset.archive"
+  | "asset.replace"
+  | "asset.version"
+  | "asset.select_for_campaign"
+  | "asset.delete_blocked"
+  | "consent.add"
+  | "consent.lift"
+  | "consent.policy.update"
+  | "consent.export.prepare"
+  | "consent.public_unsubscribe"
   | "execution.configure"
   | "execution.batch.dry_run"
+  | "execution.batch.frozen_snapshot"
   | "email.sender_identity.upsert"
+  | "email.sender_identity.approve"
   | "email.delivery.dry_run"
   | "whatsapp.template.upsert"
   | "whatsapp.delivery.dry_run"
   | "analytics.dashboard.viewed"
   | "analytics.engagement.listed"
   | "analytics.execution.drilldown"
+  | "monitoring.dashboard.viewed"
+  | "monitoring.recipients.listed"
+  | "monitoring.timeline.viewed"
+  | "monitoring.retry.claimed"
   | "qualification.ingested"
   | "qualification.state_changed"
   | "qualification.handoff.complete"

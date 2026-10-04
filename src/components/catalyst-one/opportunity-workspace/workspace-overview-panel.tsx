@@ -1,6 +1,7 @@
 "use client";
 
 import { OwGlassPanel, OwSectionLabel } from "./workspace-design";
+import { OpportunityAdvantageCommitted360 } from "./opportunity-advantage-committed-360";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import type { OwStrategicTabId } from "./strategic-tabs";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ export function WorkspaceOverviewPanel({
 }: {
   onOpenTab: (tab: OwStrategicTabId) => void;
 }) {
-  const { productLabel, loanAmountLabel, selectedLender, stageCode, contact } =
+  const { productLabel, loanAmountLabel, selectedLender, stageCode, contact, registryOpportunity } =
     useOpportunityWorkspace();
 
   return (
@@ -36,6 +37,18 @@ export function WorkspaceOverviewPanel({
           </span>
         </p>
       </OwGlassPanel>
+
+      <OpportunityAdvantageCommitted360
+        amount={registryOpportunity?.advantageCommittedAmount}
+        productCode={registryOpportunity?.productCode}
+        productLabel={registryOpportunity?.productLabel ?? productLabel}
+        display={registryOpportunity?.advantageCommittedDisplay}
+        status={registryOpportunity?.advantageCommittedStatus}
+        campaignName={registryOpportunity?.marketingCampaignName ?? registryOpportunity?.sourceCampaignLabel}
+        marketingSource={registryOpportunity?.marketingSource ?? registryOpportunity?.sourceCode}
+        committedAt={registryOpportunity?.advantageCommittedAt}
+        committedByUserId={registryOpportunity?.advantageCommittedByUserId}
+      />
 
       <OwGlassPanel>
         <p className="text-xs font-semibold text-zinc-100">Continue planning</p>

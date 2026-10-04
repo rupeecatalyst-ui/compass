@@ -12,6 +12,8 @@ import type {
   Prisma,
 } from "@prisma/client";
 import { hydrateTransactionContactIdentity } from "@server/services/ecm/contact-ssot-propagate";
+import { overlayDealRcEmployeeDisplay } from "@/lib/enterprise-deal/rc-employee-assignment";
+import { serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
 
 function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
@@ -154,6 +156,47 @@ export function serializeDeal(deal: EnterpriseDeal) {
     deletedAt: iso(deal.deletedAt),
     deletedBy: deal.deletedBy,
     deletionReason: deal.deletionReason,
+  };
+}
+
+export function applyDisplayedRcEmployee<T extends {
+  relationshipManagerUserId?: string | null;
+  relationshipManagerName?: string | null;
+  assignmentMode?: string | null;
+  lendingExtension?: unknown;
+  primaryOwnerUserId?: string | null;
+  createdBy?: string | null;
+}>(
+  serialized: T,
+  opportunity?: {
+    relationshipManagerUserId?: string | null;
+    relationshipManagerName?: string | null;
+    primaryOwnerUserId?: string | null;
+    lendingExtension?: unknown;
+    createdBy?: string | null;
+  } | null,
+) {
+  const displayed = overlayDealRcEmployeeDisplay({
+    deal: serialized,
+    opportunity: opportunity ?? null,
+  });
+  return {
+    ...serialized,
+    relationshipManagerUserId: displayed.userId,
+    relationshipManagerName: displayed.name,
+    assignmentMode: displayed.assignmentMode,
+    rcEmployeeAssignmentSource: displayed.assignmentMode,
+    rcEmployeeResolvedFromOpportunity: displayed.resolvedFromOpportunity,
+  };
+}
+
+export function applyOpportunityAdvantageCommitted<T extends Record<string, unknown>>(
+  serialized: T,
+  opportunity?: Parameters<typeof serializeAdvantageCommittedApi>[0] | null,
+) {
+  return {
+    ...serialized,
+    ...serializeAdvantageCommittedApi(opportunity ?? serialized),
   };
 }
 

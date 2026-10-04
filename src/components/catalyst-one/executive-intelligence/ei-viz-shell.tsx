@@ -19,6 +19,8 @@ import type {
   EiHoverInsight,
 } from "@/types/executive-intelligence-capabilities";
 import { EI_VIZ_CAPABILITIES } from "@/types/executive-intelligence-capabilities";
+import { EnterpriseChartMetaStrip } from "@/components/enterprise/charts/enterprise-chart-frame";
+import type { EnterpriseChartMeta } from "@/types/enterprise-chart-readability";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,6 +49,7 @@ export interface EiVizShellProps {
   className?: string;
   /** AI explanation override; defaults from chapter narrative + whyThisViz */
   aiExplanation?: string;
+  chartMeta?: EnterpriseChartMeta;
 }
 
 /**
@@ -66,6 +69,7 @@ export function EiVizShell({
   hoverInsight,
   className,
   aiExplanation,
+  chartMeta,
 }: EiVizShellProps) {
   const interaction = useEiVizInteractionOptional();
   const [fullscreen, setFullscreen] = useState(false);
@@ -277,6 +281,21 @@ export function EiVizShell({
               {chapter.headline}
             </h2>
             <p className="ei-one-insight mt-2">{chapter.narrative}</p>
+            {chartMeta ? (
+              <EnterpriseChartMetaStrip meta={chartMeta} />
+            ) : (
+              <EnterpriseChartMetaStrip
+                meta={{
+                  measurementDefinition: chapter.whyThisViz,
+                  reportingPeriod: "Current operational view",
+                  unitLabel: "See visualization",
+                  lastUpdated: null,
+                  activeFilters: interaction && Object.keys(interaction.filters).length
+                    ? Object.entries(interaction.filters).map(([k, v]) => `${k}: ${String(v)}`)
+                    : [],
+                }}
+              />
+            )}
           </div>
           {toolbar}
         </header>
@@ -301,6 +320,7 @@ export function EiVizShell({
               </Button>
             </DialogTitle>
             <DialogDescription>{chapter.narrative}</DialogDescription>
+            {chartMeta ? <EnterpriseChartMetaStrip meta={chartMeta} /> : null}
           </DialogHeader>
           <div className="min-h-[50vh] pt-2">{loading || error || isEmpty ? body : children}</div>
         </DialogContent>

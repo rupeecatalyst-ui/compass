@@ -36,6 +36,9 @@ import {
 } from "@server/services/enterprise-opportunity/opportunity-serialize";
 import { syncContactIdentityPatchToEcm } from "@server/services/ecm/contact-ssot-propagate";
 import { emitOpportunityLifecycleToEarBestEffort } from "@server/services/enterprise-activity/opportunity-lifecycle-ear";
+import { propagateOpportunityRcEmployeeToInheritedDeals } from "@server/services/enterprise-deal/rc-employee-assignment.service";
+import { resolveRcEmployee } from "@/lib/enterprise-deal/rc-employee-assignment";
+import { parseCanonicalRecommendationFactBody } from "@/lib/lead-information/canonical-recommendation-facts";
 import {
   assertNonEmpty,
   assertOpportunityLifecycle,
@@ -46,6 +49,7 @@ import {
   parseOptionalAmount,
   assertProductRequestedAmountLimit,
 } from "@server/services/enterprise-opportunity/opportunity-validation";
+import { rejectOrdinaryAdvantageCommittedMutation } from "@server/services/advantage-committed/advantage-committed.service";
 
 const DEFAULT_REQUIREMENT_STAGE = "raw_lead";
 const DIALOGUE_REQUIREMENT_STAGE = "dialogue";
@@ -299,6 +303,7 @@ export class EnterpriseOpportunityService {
         "Opportunity must not accept lender pipeline fields (grossStage / lenderId). Create a Deal after lender assignment.",
       );
     }
+    rejectOrdinaryAdvantageCommittedMutation(null, body);
 
     let productId = body.productId ? String(body.productId) : null;
     let productCode = body.productCode ? String(body.productCode) : null;
@@ -425,6 +430,15 @@ export class EnterpriseOpportunityService {
         : null,
       sourceCampaignLabel: body.sourceCampaignLabel
         ? String(body.sourceCampaignLabel).trim()
+        : null,
+      marketingCampaignId: body.marketingCampaignId
+        ? String(body.marketingCampaignId).trim()
+        : null,
+      marketingSourceDetail: body.marketingSourceDetail
+        ? String(body.marketingSourceDetail).trim()
+        : null,
+      marketingProspectRef: body.marketingProspectRef
+        ? String(body.marketingProspectRef).trim()
         : null,
       commercialRevenueSharePercent: await resolveOpportunityCommercialShare({
         organizationId,
@@ -580,6 +594,10 @@ export class EnterpriseOpportunityService {
     opportunityId: string,
     body: Record<string, unknown>,
     actorUserId: string,
+    options?: {
+      db?: Prisma.TransactionClient;
+      afterRowUpdate?: (row: { id: string }) => Promise<void>;
+    },
   ) {
     const organizationId = await this.orgId();
     const existing = await enterpriseOpportunityRepository.requireOpportunity(
@@ -592,6 +610,10 @@ export class EnterpriseOpportunityService {
         "Opportunity must not accept lender pipeline fields (grossStage / lenderId).",
       );
     }
+    rejectOrdinaryAdvantageCommittedMutation(
+      (existing as { advantageCommittedAmount?: unknown }).advantageCommittedAmount,
+      body,
+    );
 
     const nextProductId =
       body.productId !== undefined
@@ -757,6 +779,17 @@ export class EnterpriseOpportunityService {
       patch.lifecycleStatus = nextLifecycle as OpportunityLifecycleStatus;
     }
     if (body.requestedAmount !== undefined) patch.requestedAmount = nextAmount;
+    const canonicalEmployment =
+      body.employmentTypeCode !== undefined
+        ? body.employmentTypeCode
+          ? String(body.employmentTypeCode)
+          : null
+        : existing.employmentTypeCode;
+    const canonicalFacts = parseCanonicalRecommendationFactBody(body, canonicalEmployment);
+    if (!canonicalFacts.ok) {
+      throw new OpportunityValidationError(canonicalFacts.message);
+    }
+    Object.assign(patch, canonicalFacts.patch);
     if (body.primaryContactName !== undefined) {
       patch.primaryContactName = body.primaryContactName
         ? String(body.primaryContactName)
@@ -841,6 +874,21 @@ export class EnterpriseOpportunityService {
         ? String(body.sourceCampaignLabel).trim()
         : null;
     }
+    if (body.marketingCampaignId !== undefined) {
+      patch.marketingCampaignId = body.marketingCampaignId
+        ? String(body.marketingCampaignId).trim()
+        : null;
+    }
+    if (body.marketingSourceDetail !== undefined) {
+      patch.marketingSourceDetail = body.marketingSourceDetail
+        ? String(body.marketingSourceDetail).trim()
+        : null;
+    }
+    if (body.marketingProspectRef !== undefined) {
+      patch.marketingProspectRef = body.marketingProspectRef
+        ? String(body.marketingProspectRef).trim()
+        : null;
+    }
 
     const nextSourceCode =
       patch.sourceCode !== undefined ? patch.sourceCode : existing.sourceCode;
@@ -878,13 +926,32 @@ export class EnterpriseOpportunityService {
         primaryBorrowerKind: existing.primaryBorrowerKind,
         body,
         actorUserId,
+        db: options?.db,
       });
 
       const updated = await enterpriseOpportunityRepository.updateOpportunity(
         organizationId,
         opportunityId,
         patch,
+        options?.db,
       );
+      if (options?.afterRowUpdate) await options.afterRowUpdate(updated);
+      const assignmentTouched =
+        body.relationshipManagerUserId !== undefined ||
+        body.relationshipManagerName !== undefined ||
+        body.primaryOwnerUserId !== undefined ||
+        body.lendingExtension !== undefined;
+      if (assignmentTouched) {
+        const beforeEmp = resolveRcEmployee(existing);
+        const afterEmp = resolveRcEmployee(updated);
+        if (beforeEmp.userId !== afterEmp.userId || beforeEmp.name !== afterEmp.name) {
+          await propagateOpportunityRcEmployeeToInheritedDeals({
+            organizationId,
+            opportunity: updated,
+            actorUserId,
+          });
+        }
+      }
       if (nextLifecycle !== existing.lifecycleStatus) {
         await emitOpportunityLifecycleToEarBestEffort({
           opportunityId: updated.id,

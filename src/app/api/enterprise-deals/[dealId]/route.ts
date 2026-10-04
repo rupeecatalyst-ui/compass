@@ -103,6 +103,7 @@ export async function PATCH(request: Request, context: Ctx) {
         const updated = await enterpriseDealService.updateDeal(dealId, {
           rowVersion: assertRowVersion(body.rowVersion),
           actorUserId: actor.userId,
+          actorRole: actor.role,
           fileNumber: body.fileNumber,
           productId: body.productId,
           productCode: body.productCode,
@@ -139,6 +140,7 @@ export async function PATCH(request: Request, context: Ctx) {
           lenderId: body.lenderId,
           lenderProgramId: body.lenderProgramId,
           reason: body.reason,
+          rcEmployeeAssignment: body.rcEmployeeAssignment,
         });
         const after = dealGovernanceSnapshot(updated as Record<string, unknown>);
         recordFieldAuditsFromDiff({
@@ -166,6 +168,7 @@ export async function PATCH(request: Request, context: Ctx) {
         const mapped = mapDealRouteError(err);
         if (
           mapped.status === 401 ||
+          mapped.status === 403 ||
           mapped.status === 404 ||
           mapped.status === 409 ||
           mapped.status === 503

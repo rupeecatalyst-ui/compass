@@ -13,16 +13,35 @@ function storageKey(productCode: string): string {
   return `compass.discovery.answers.v1.${productCode}`;
 }
 
+const SENSITIVE_ANSWER_KEYS = new Set([
+  "mobile",
+  "otp",
+  "otpVerified",
+  "monthlyIncome",
+  "existingEmi",
+  "displayName",
+  "personalEmail",
+  "approxCibilScore",
+  "annualTurnover",
+  "outstandingLoanAmount",
+  "fieldAnswers",
+]);
+
 export function persistDiscoveryAnswers(
   storage: DiscoverySessionStorage,
   productCode: string,
   answers: Record<string, unknown>,
 ): void {
-  const loanAmount = typeof answers.loanAmount === "number" ? Math.round(answers.loanAmount) : null;
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(answers)) {
+    if (SENSITIVE_ANSWER_KEYS.has(key)) continue;
+    safe[key] = value;
+  }
+  const loanAmount = typeof safe.loanAmount === "number" ? Math.round(safe.loanAmount) : null;
   storage.setItem(
     storageKey(productCode),
     JSON.stringify({
-      ...answers,
+      ...safe,
       ...(loanAmount != null ? { loanAmount } : {}),
     }),
   );
@@ -37,6 +56,7 @@ export function restoreDiscoveryAnswers(
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (!parsed || typeof parsed !== "object") return null;
+    for (const key of SENSITIVE_ANSWER_KEYS) delete parsed[key];
     if (typeof parsed.loanAmount === "number") {
       parsed.loanAmount = Math.round(parsed.loanAmount);
     }
@@ -62,4 +82,30 @@ export function restoreDiscoveryLoanAmount(
   const restored = restoreDiscoveryAnswers(storage, productCode);
   const amount = restored?.loanAmount;
   return typeof amount === "number" && Number.isInteger(amount) && amount > 0 ? amount : null;
+}
+
+function sessionKey(productCode: string): string {
+  return `compass.discovery.session.v1.${productCode}`;
+}
+
+export function persistJourneyToken(
+  storage: DiscoverySessionStorage,
+  productCode: string,
+  token: string,
+): void {
+  storage.setItem(sessionKey(productCode), JSON.stringify({ token }));
+}
+
+export function restoreJourneyToken(
+  storage: DiscoverySessionStorage,
+  productCode: string,
+): string | null {
+  const raw = storage.getItem(sessionKey(productCode));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { token?: unknown };
+    return typeof parsed.token === "string" && parsed.token.trim() ? parsed.token : null;
+  } catch {
+    return null;
+  }
 }

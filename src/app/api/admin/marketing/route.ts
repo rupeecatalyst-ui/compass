@@ -4,11 +4,10 @@
 
 import {
   errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import type { ApiResponse } from "@/types/api";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import { enterpriseMarketingFoundationService } from "@server/services/enterprise-marketing-engine";
 
 function requireAdministrator(actor: { role: string }) {
@@ -30,12 +29,8 @@ export async function GET(request: Request) {
     });
     return successResponse(status);
   } catch (err) {
-    const statusCode = (err as { statusCode?: number }).statusCode;
-    if (statusCode === 401 || statusCode === 403) {
-      return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-    }
-    return errorResponse(
-      500,
+    return fromMarketingUnknownError(
+      err,
       "MARKETING_STATUS_FAILED",
       err instanceof Error ? err.message : "Failed to load Marketing foundation status",
     );

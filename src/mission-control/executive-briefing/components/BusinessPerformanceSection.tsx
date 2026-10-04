@@ -12,29 +12,37 @@ import {
   YAxis,
 } from "recharts";
 import type { BusinessPerformanceModel } from "../types";
+import { EnterpriseChartTooltip } from "@/components/enterprise/charts/enterprise-chart-tooltip";
+import { EnterpriseChartMetaStrip } from "@/components/enterprise/charts/enterprise-chart-frame";
 
 function ChartShell({
   title,
+  definition,
+  unitLabel,
   children,
 }: {
   title: string;
+  definition: string;
+  unitLabel: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{title}</p>
+      <EnterpriseChartMetaStrip
+        meta={{
+          measurementDefinition: definition,
+          reportingPeriod: "Current briefing snapshot",
+          unitLabel,
+          lastUpdated: null,
+          activeFilters: [],
+        }}
+        className="text-zinc-500"
+      />
       <div className="mt-3 h-44 w-full">{children}</div>
     </div>
   );
 }
-
-const tooltipStyle = {
-  background: "#09090b",
-  border: "1px solid #27272a",
-  borderRadius: 8,
-  fontSize: 11,
-  color: "#e4e4e7",
-};
 
 export function BusinessPerformanceSection({
   model,
@@ -77,19 +85,27 @@ export function BusinessPerformanceSection({
           </ul>
         </div>
 
-        <ChartShell title="Loan Products">
+        <ChartShell
+          title="Loan Products"
+          definition="Deal or opportunity count by product in the briefing snapshot."
+          unitLabel="Count"
+        >
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={model.products} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+            <BarChart data={model.products} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid stroke="#27272a" vertical={false} />
-              <XAxis dataKey="name" tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} />
               <YAxis tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip content={<EnterpriseChartTooltip unit="count" period="Current briefing snapshot" unitLabel="Count" />} />
               <Bar dataKey="value" fill="#52525b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartShell>
 
-        <ChartShell title="Top Lenders">
+        <ChartShell
+          title="Top Lenders"
+          definition="Count by lender in the briefing snapshot."
+          unitLabel="Count"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={model.lenders}
@@ -101,12 +117,12 @@ export function BusinessPerformanceSection({
               <YAxis
                 type="category"
                 dataKey="name"
-                width={48}
+                width={88}
                 tick={{ fill: "#a1a1aa", fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
               />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip content={<EnterpriseChartTooltip unit="count" period="Current briefing snapshot" unitLabel="Count" />} />
               <Bar dataKey="value" fill="#3f3f46" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -134,9 +150,13 @@ export function BusinessPerformanceSection({
           </ul>
         </div>
 
-        <ChartShell title="Revenue Trend (Cr)">
+        <ChartShell
+          title="Revenue Trend (Cr)"
+          definition="Briefing revenue trend in crore. Compact INR display in tooltips."
+          unitLabel="₹ Cr"
+        >
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={model.revenueTrend} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+            <AreaChart data={model.revenueTrend} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
               <defs>
                 <linearGradient id="execRevenue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#71717a" stopOpacity={0.35} />
@@ -146,7 +166,7 @@ export function BusinessPerformanceSection({
               <CartesianGrid stroke="#27272a" vertical={false} />
               <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip content={<EnterpriseChartTooltip unit="inr" period="Current briefing snapshot" unitLabel="₹ value" />} />
               <Area
                 type="monotone"
                 dataKey="revenue"

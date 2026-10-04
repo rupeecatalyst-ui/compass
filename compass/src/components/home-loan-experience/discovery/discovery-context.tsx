@@ -1,20 +1,23 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { DiscoveryStepId } from "@/config/home-loan-discovery";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { discoveryCopy } from "@/config/home-loan-discovery";
 import {
   getDiscoveryStepOrder,
+  isCompassCatalogProduct,
   readProductCodeFromPathname,
 } from "@/config/compass-lending-products";
-import { persistDiscoveryAnswers, restoreDiscoveryAnswers } from "@/lib/discovery-session";
+import { persistDiscoveryAnswers, persistJourneyToken, restoreDiscoveryAnswers, restoreJourneyToken } from "@/lib/discovery-session";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
-import { isMonthlyIncomeStepRequired } from "@/lib/journey-config";
+import { governedDiscoveryStepOrder, isMonthlyIncomeStepRequired, publicStageOrder } from "@/lib/journey-config";
 import { clearDiscoveryLaunchUrl } from "@/discovery-template/launch-discovery";
 import {
   fetchCompassJourneyConfig,
   fetchCompassLod,
+  fetchCompassResume,
   fetchDiscoveryIntelligence,
+  persistCompassAnswers,
+  requestCompassTalkToExpert,
   startCompassJourney,
   submitCompassApplication,
   uploadCompassDocuments,
@@ -22,7 +25,6 @@ import {
 import { signalCompassCustomerEngaged } from "@/components/pwa/pwa-install-prompt";
 import type {
   CompassLodDto,
-  CompassProductCode,
   CompassSubmitResponse,
   DiscoveryIntelligenceResult,
 } from "@/services/catalyst-one/types";
@@ -32,9 +34,7 @@ export type DiscoveryAnswers = {
   propertyUsage?: string;
   loanAmount: number;
   propertyValue: number;
-  displayName: string;
   mobile: string;
-  personalEmail: string;
   otpVerified: boolean;
   incomeType?: string;
   monthlyIncome: number;
@@ -49,14 +49,30 @@ export type DiscoveryAnswers = {
   currentLender?: string;
   outstandingLoanAmount?: number;
   approxCibilScore?: string;
+  displayName?: string;
+  personalEmail?: string;
+  fieldAnswers?: Record<string, string>;
 };
+
+function resolveStepOrder(
+  productCode: string,
+  config: CompassJourneyConfig | null,
+  configUnavailable: boolean,
+): string[] | null {
+  if (configUnavailable || config?.journeyUnavailable) return null;
+  if (!config) return null;
+  const staged = publicStageOrder(productCode, config);
+  if (staged) return staged;
+  if (isCompassCatalogProduct(productCode)) {
+    return governedDiscoveryStepOrder(config, getDiscoveryStepOrder(productCode));
+  }
+  return null;
+}
 
 const defaultAnswers: DiscoveryAnswers = {
   loanAmount: discoveryCopy.loanAmount.default,
   propertyValue: discoveryCopy.propertyValue.default,
-  displayName: "",
   mobile: "",
-  personalEmail: "",
   otpVerified: false,
   monthlyIncome: discoveryCopy.monthlyIncome.default,
   existingEmi: discoveryCopy.existingEmi.default,
@@ -65,16 +81,29 @@ const defaultAnswers: DiscoveryAnswers = {
   projectCost: discoveryCopy.projectCost.default,
 };
 
-function readProductCodeFromLocation(): CompassProductCode {
-  if (typeof window === "undefined") return "home-loan";
+function shouldSkipAnsweredStage(candidate: string, merged: DiscoveryAnswers, mobileVerified: boolean): boolean {
+  if (mobileVerified && (candidate === "mobile" || candidate === "otp")) return true;
+  if (candidate === "displayName" && (merged.displayName ?? "").trim().length >= 2) return true;
+  if (
+    candidate === "email" &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((merged.personalEmail ?? "").trim())
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function readProductCodeFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
   return readProductCodeFromPathname(window.location.pathname, window.location.search);
 }
 
 type DiscoveryContextValue = {
   isOpen: boolean;
   launchKey: number;
-  productCode: CompassProductCode;
-  step: DiscoveryStepId;
+  productCode: string;
+  step: string;
+  configUnavailable: boolean;
   answers: DiscoveryAnswers;
   journeyConfig: CompassJourneyConfig | null;
   compassNudge: number;
@@ -93,15 +122,16 @@ type DiscoveryContextValue = {
   submitting: boolean;
   submissionResult: CompassSubmitResponse | null;
   submissionError: string | null;
-  launchDiscovery: (productCode?: CompassProductCode) => void;
+  launchDiscovery: (productCode?: string) => void;
   openDiscovery: () => void;
   closeDiscovery: () => void;
   setAnswer: <K extends keyof DiscoveryAnswers>(key: K, value: DiscoveryAnswers[K]) => void;
+  setFieldAnswer: (fieldId: string, value: string) => void;
   goNext: (arg?: Partial<DiscoveryAnswers> | { nativeEvent?: unknown }) => void;
   goBack: () => void;
   nudgeCompass: () => void;
   completeJourney: () => void;
-  startJourneySession: () => Promise<void>;
+  startJourneySession: (otpVerificationToken?: string) => Promise<void>;
   loadIntelligence: () => Promise<void>;
   loadLod: () => Promise<void>;
   uploadDocumentFiles: (files: File[], options?: { typeRef?: string }) => Promise<void>;
@@ -110,6 +140,7 @@ type DiscoveryContextValue = {
     declarationsAccepted: boolean;
     lenderShareAccepted: boolean;
   }) => Promise<void>;
+  requestTalkToExpert: () => Promise<DiscoveryIntelligenceResult["expertSla"]>;
   activateSarathi: () => void;
 };
 
@@ -131,8 +162,9 @@ function mergeStoredAnswers(stored: Record<string, unknown> | null): DiscoveryAn
 export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [launchKey, setLaunchKey] = useState(0);
-  const [productCode, setProductCode] = useState<CompassProductCode>("home-loan");
-  const [step, setStep] = useState<DiscoveryStepId>("welcome");
+  const [productCode, setProductCode] = useState("");
+  const [configUnavailable, setConfigUnavailable] = useState(false);
+  const [step, setStep] = useState("welcome");
   const [answers, setAnswers] = useState<DiscoveryAnswers>(defaultAnswers);
   const [journeyConfig, setJourneyConfig] = useState<CompassJourneyConfig | null>(null);
   const [compassNudge, setCompassNudge] = useState(0);
@@ -141,10 +173,10 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [journeySessionToken, setJourneySessionToken] = useState<string | null>(null);
   const [opportunityRef, setOpportunityRef] = useState<string | null>(null);
   const [otpRequired, setOtpRequired] = useState(false);
+  const [mobileVerified, setMobileVerified] = useState(false);
   const [intelligence, setIntelligence] = useState<DiscoveryIntelligenceResult | null>(null);
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
-  const intelligenceRequestId = useRef(0);
   const [lod, setLod] = useState<CompassLodDto | null>(null);
   const [lodLoading, setLodLoading] = useState(false);
   const [lodError, setLodError] = useState<string | null>(null);
@@ -153,11 +185,19 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [submissionResult, setSubmissionResult] = useState<CompassSubmitResponse | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-  const launchDiscovery = useCallback((nextProductCode?: CompassProductCode) => {
+  const launchDiscovery = useCallback((nextProductCode?: string) => {
     if (typeof window !== "undefined") {
       clearDiscoveryLaunchUrl();
     }
     const resolved = nextProductCode || readProductCodeFromLocation();
+    if (!resolved) {
+      setProductCode("");
+      setJourneyConfig(null);
+      setConfigUnavailable(true);
+      setIsOpen(true);
+      setStep("welcome");
+      return;
+    }
     setProductCode((previous) => {
       if (previous !== resolved) {
         setJourneyComplete(false);
@@ -172,6 +212,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
             : null;
         setAnswers(mergeStoredAnswers(stored));
         setJourneyConfig(null);
+        setConfigUnavailable(false);
       }
       return resolved;
     });
@@ -180,9 +221,47 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     setStep("welcome");
     setCompassNudge((n) => n + 1);
     document.body.style.overflow = "hidden";
+    const resumedToken =
+      typeof window !== "undefined" ? restoreJourneyToken(window.sessionStorage, resolved) : null;
+    if (resumedToken) {
+      setJourneySessionToken(resumedToken);
+      void fetchCompassResume(resumedToken)
+        .then((resume) => {
+          setOpportunityRef(resume.opportunityRef);
+          setMobileVerified(Boolean(resume.mobileVerified));
+          if (resume.journeyVersion) {
+            void fetchCompassJourneyConfig(resolved, resume.journeyVersion)
+              .then((config) => {
+                setJourneyConfig(config);
+                setConfigUnavailable(false);
+              })
+              .catch(() => setConfigUnavailable(true));
+          }
+          setAnswers((prev) => ({
+            ...prev,
+            displayName: resume.displayName ?? prev.displayName,
+            personalEmail: resume.personalEmail ?? prev.personalEmail,
+            fieldAnswers: {
+              ...prev.fieldAnswers,
+              ...Object.fromEntries(
+                Object.entries(resume.answers ?? {})
+                  .filter(([, value]) => value != null && String(value).trim())
+                  .map(([key, value]) => [key, String(value)]),
+              ),
+            },
+          }));
+        })
+        .catch(() => undefined);
+    }
     void fetchCompassJourneyConfig(resolved)
-      .then((config) => setJourneyConfig(config))
-      .catch(() => setJourneyConfig(null));
+      .then((config) => {
+        setJourneyConfig(config);
+        setConfigUnavailable(false);
+      })
+      .catch(() => {
+        setJourneyConfig(null);
+        setConfigUnavailable(true);
+      });
   }, []);
 
   const openDiscovery = launchDiscovery;
@@ -224,13 +303,28 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== "undefined") {
         persistDiscoveryAnswers(window.sessionStorage, productCode, next);
       }
+      if (journeySessionToken) {
+        void persistCompassAnswers(journeySessionToken, productCode, next);
+      }
       return next;
     });
-    if (key === "loanAmount") {
-      intelligenceRequestId.current += 1;
-      setIntelligence(null);
-    }
-  }, [productCode]);
+  }, [productCode, journeySessionToken]);
+
+  const setFieldAnswer = useCallback((fieldId: string, value: string) => {
+    setAnswers((prev) => {
+      const next = {
+        ...prev,
+        fieldAnswers: { ...prev.fieldAnswers, [fieldId]: value },
+      };
+      if (typeof window !== "undefined") {
+        persistDiscoveryAnswers(window.sessionStorage, productCode, next);
+      }
+      if (journeySessionToken) {
+        void persistCompassAnswers(journeySessionToken, productCode, next);
+      }
+      return next;
+    });
+  }, [productCode, journeySessionToken]);
 
   const nudgeCompass = useCallback(() => {
     setCompassNudge((n) => n + 1);
@@ -244,10 +338,12 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         ? { ...answers, ...(arg as Partial<DiscoveryAnswers>) }
         : answers;
     setStep((current) => {
-      const order = getDiscoveryStepOrder(productCode);
+      const order = resolveStepOrder(productCode, journeyConfig, configUnavailable);
+      if (!order) return current;
       const idx = order.indexOf(current);
       for (let i = idx + 1; i < order.length; i += 1) {
         const candidate = order[i];
+        if (shouldSkipAnsweredStage(candidate, merged, mobileVerified)) continue;
         if (
           candidate === "monthlyIncome" &&
           !isMonthlyIncomeStepRequired(journeyConfig, {
@@ -262,14 +358,16 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       return current;
     });
     nudgeCompass();
-  }, [nudgeCompass, productCode, journeyConfig, answers]);
+  }, [configUnavailable, nudgeCompass, productCode, journeyConfig, answers, mobileVerified]);
 
   const goBack = useCallback(() => {
     setStep((current) => {
-      const order = getDiscoveryStepOrder(productCode);
+      const order = resolveStepOrder(productCode, journeyConfig, configUnavailable);
+      if (!order) return current;
       const idx = order.indexOf(current);
       for (let i = idx - 1; i >= 0; i -= 1) {
         const candidate = order[i];
+        if (shouldSkipAnsweredStage(candidate, answers, mobileVerified)) continue;
         if (
           candidate === "monthlyIncome" &&
           !isMonthlyIncomeStepRequired(journeyConfig, {
@@ -285,37 +383,41 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       }
       return current;
     });
-  }, [productCode, journeyConfig, answers]);
+  }, [configUnavailable, productCode, journeyConfig, answers, mobileVerified]);
 
   const completeJourney = useCallback(() => {
     setJourneyComplete(true);
   }, []);
 
-  const startJourneySession = useCallback(async () => {
+  const startJourneySession = useCallback(async (otpVerificationToken?: string) => {
     const started = await startCompassJourney({
       productCode,
-      displayName: answers.displayName,
       mobile: answers.mobile,
-      personalEmail: answers.personalEmail,
       city: answers.city || undefined,
       consentAccepted: true,
+      otpVerificationToken,
     });
     setJourneySessionToken(started.journeySessionToken);
     setOpportunityRef(started.opportunityRef);
     setOtpRequired(started.otpRequired);
+    setMobileVerified(started.mobileVerified === true);
+    if (typeof window !== "undefined") {
+      persistJourneyToken(window.sessionStorage, productCode, started.journeySessionToken);
+    }
     signalCompassCustomerEngaged();
-    if (!started.otpRequired) {
+    if (started.mobileVerified === true) {
       setAnswer("otpVerified", true);
     }
-  }, [answers.city, answers.displayName, answers.mobile, answers.personalEmail, productCode, setAnswer]);
+    if (started.campaignEmail?.value && started.campaignEmail.independentlyVerified === false) {
+      setAnswer("personalEmail", started.campaignEmail.value);
+    }
+  }, [answers.city, answers.mobile, productCode, setAnswer]);
 
   const loadIntelligence = useCallback(async () => {
     if (!journeySessionToken) {
       setIntelligenceError("Your session could not be verified. Please restart the journey.");
       return;
     }
-    const requestId = intelligenceRequestId.current + 1;
-    intelligenceRequestId.current = requestId;
     setIntelligenceLoading(true);
     setIntelligenceError(null);
     try {
@@ -324,17 +426,13 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         answers,
         journeySessionToken,
       });
-      if (requestId !== intelligenceRequestId.current) return;
       setIntelligence(result);
     } catch {
-      if (requestId !== intelligenceRequestId.current) return;
       setIntelligenceError(
         "We could not complete analysis right now. Your details are saved — please try again shortly.",
       );
     } finally {
-      if (requestId === intelligenceRequestId.current) {
-        setIntelligenceLoading(false);
-      }
+      setIntelligenceLoading(false);
     }
   }, [answers, journeySessionToken, productCode]);
 
@@ -405,6 +503,21 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     [journeySessionToken],
   );
 
+  const requestTalkToExpert = useCallback(async () => {
+    if (!journeySessionToken) {
+      setIntelligenceError("Your session could not be verified. Please restart the journey.");
+      return null;
+    }
+    try {
+      const sla = await requestCompassTalkToExpert(journeySessionToken);
+      setIntelligence((prev) => (prev ? { ...prev, expertSla: sla } : prev));
+      return sla;
+    } catch (err) {
+      setIntelligenceError(err instanceof Error ? err.message : "Unable to request a specialist right now.");
+      return null;
+    }
+  }, [journeySessionToken]);
+
   const activateSarathi = useCallback(() => {
     setJourneyComplete(true);
     setSarathiActivated(true);
@@ -423,6 +536,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       step,
       answers,
       journeyConfig,
+      configUnavailable,
       compassNudge,
       journeyComplete,
       sarathiActivated,
@@ -443,6 +557,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       openDiscovery,
       closeDiscovery,
       setAnswer,
+      setFieldAnswer,
       goNext,
       goBack,
       nudgeCompass,
@@ -452,6 +567,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       loadLod,
       uploadDocumentFiles,
       submitApplication,
+      requestTalkToExpert,
       activateSarathi,
     }),
     [
@@ -461,6 +577,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       step,
       answers,
       journeyConfig,
+      configUnavailable,
       compassNudge,
       journeyComplete,
       sarathiActivated,
@@ -481,6 +598,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       openDiscovery,
       closeDiscovery,
       setAnswer,
+      setFieldAnswer,
       goNext,
       goBack,
       nudgeCompass,
@@ -490,6 +608,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       loadLod,
       uploadDocumentFiles,
       submitApplication,
+      requestTalkToExpert,
       activateSarathi,
     ],
   );

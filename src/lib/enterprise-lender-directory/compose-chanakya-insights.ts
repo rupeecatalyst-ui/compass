@@ -57,7 +57,9 @@ export function composeEldLenderChanakyaInsights(input: {
       source: "programs",
     });
   } else {
-    const missingPolicy = programs.filter((p) => !p.creditRiskPolicyRef?.trim()).length;
+    const missingPolicy = programs.filter(
+      (p) => !(p.policyVersionId ?? "").trim() && !(p.creditRiskPolicyRef ?? "").trim(),
+    ).length;
     if (missingPolicy > 0) {
       out.push({
         id: "policy-gaps",

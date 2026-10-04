@@ -5,8 +5,23 @@
  * Email + WhatsApp delivery infrastructure use dry_run mode by default.
  */
 
-/** Live campaign send (email / WhatsApp / digital bulk) — false until PO authorizes. */
-export const ENTERPRISE_MARKETING_EXECUTION_ENABLED = false as const;
+import {
+  isMarketingSheetsReadEnabled,
+  requestedMarketingSheetsMode,
+  type EnterpriseMarketingSheetsMode,
+} from "./sheets-runtime";
+
+export type { EnterpriseMarketingSheetsMode } from "./sheets-runtime";
+
+/**
+ * Live execution requires explicit server configuration and downstream safeguards.
+ */
+export function marketingGateEnabled(value: string | undefined): boolean {
+  return value === "true";
+}
+
+export const ENTERPRISE_MARKETING_EXECUTION_ENABLED =
+  typeof process !== "undefined" && marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED);
 
 /** MKT-06 — batch scheduler / dry-run execution foundation. */
 export const ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED = true as const;
@@ -34,28 +49,19 @@ export const ENTERPRISE_MARKETING_HANDOFF_MODE: EnterpriseMarketingHandoffMode =
 export const ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false as const;
 
 /**
- * Broad provider-connect kill switch for live ESP/WA/ads adapters.
- * Remains false in MKT-09 — dry_run adapters do not require this.
+ * Provider connection requires explicit server configuration.
  */
-export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false as const;
+export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED =
+  typeof process !== "undefined" && marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED);
 
 /**
  * CO-MARKETING-MKT-02 — Google Sheets data-source READ mode.
+ * Snapshot at module load only. Production status must call resolveMarketingSheetsSourceStatus().
  */
-export type EnterpriseMarketingSheetsMode = "off" | "fixture" | "live";
-
-function resolveSheetsMode(): EnterpriseMarketingSheetsMode {
-  const raw = (process.env.ENTERPRISE_MARKETING_SHEETS_MODE ?? "fixture").trim().toLowerCase();
-  if (raw === "fixture" || raw === "live" || raw === "off") return raw;
-  return "fixture";
-}
-
 export const ENTERPRISE_MARKETING_SHEETS_MODE: EnterpriseMarketingSheetsMode =
-  typeof process !== "undefined" ? resolveSheetsMode() : "fixture";
+  typeof process !== "undefined" ? requestedMarketingSheetsMode() : "fixture";
 
-export const ENTERPRISE_MARKETING_SHEETS_READ_ENABLED =
-  ENTERPRISE_MARKETING_SHEETS_MODE === "fixture" ||
-  ENTERPRISE_MARKETING_SHEETS_MODE === "live";
+export const ENTERPRISE_MARKETING_SHEETS_READ_ENABLED = isMarketingSheetsReadEnabled();
 
 export {
   ENTERPRISE_MARKETING_EMAIL_MODE,
@@ -78,6 +84,5 @@ export const ENTERPRISE_MARKETING_SAFETY = {
   sheetsMode: ENTERPRISE_MARKETING_SHEETS_MODE,
   sheetsReadEnabled: ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
   sprint: "CO-MARKETING-ACTIVATION-002",
-  notice:
-    "EME ACTIVATION-002 — Full Command Center workflow active in MARKETING TEST MODE (dry-run / fixture). Live unrestricted bulk email/WhatsApp remain OFF. No 100k audience mirror. Controlled qualified handoff only.",
+  notice: `EME ACTIVATION-002 — Live execution ${ENTERPRISE_MARKETING_EXECUTION_ENABLED ? "ON" : "OFF"}; provider connect ${ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED ? "ON" : "OFF"}. Campaign sends remain subject to approval, snapshot, and delivery safeguards.`,
 } as const;

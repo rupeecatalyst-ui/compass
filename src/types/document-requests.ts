@@ -124,6 +124,11 @@ export interface DocumentRequestUploadSession {
   borrowerTypeLabel: string;
   constitutionLabel: string;
   rmName?: string;
+  /** CO-C1-008 — locked Opportunity/Deal ids for this secure link only. */
+  lockedDealId?: string | null;
+  lockedContactId?: string | null;
+  lockedCompanyId?: string | null;
+  lockedRequestRefs?: string[];
   /** Customer-facing application status label (never internal IDs). */
   applicationStatus?: string;
   /** Customer-facing stage label (e.g. Document Collection). */

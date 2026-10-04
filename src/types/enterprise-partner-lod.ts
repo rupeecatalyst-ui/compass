@@ -29,6 +29,8 @@ export type PartnerLodItemDto = {
   /** Delete allowed only while Opportunity is still a draft (before enterprise submit). */
   canDelete: boolean;
   documentId: string | null;
+  /** Uploaded document name from the partner document projection. Not a second filename store. */
+  fileName: string | null;
   previewLabel: string | null;
   uploadedAt: string | null;
   uploadedByLabel: string | null;

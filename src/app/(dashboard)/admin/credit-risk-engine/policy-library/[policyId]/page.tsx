@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { getCreditRiskPolicyById } from "@/lib/credit-risk-engine/policy-store";
+import { getDurablePolicy, type DurablePolicyDetails } from "@/lib/credit-risk-engine/durable-policy-admin";
 import { PolicyDetailView } from "@/components/catalyst-one/credit-risk-engine/policy-library/policy-detail-view";
 import { CreditRiskEngineShell } from "@/components/catalyst-one/credit-risk-engine/credit-risk-engine-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,16 @@ import { Button } from "@/components/ui/button";
 function PolicyDetailPageContent() {
   const params = useParams();
   const policyId = params.policyId as string;
-  const policy = getCreditRiskPolicyById(policyId);
+  const [policy, setPolicy] = useState<DurablePolicyDetails>();
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void getDurablePolicy(policyId).then(record => { if (active) setPolicy(record); })
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [policyId]);
+
+  if (!policy && !error) return <p role="status" className="p-6">Loading durable policy…</p>;
 
   if (!policy) {
     return (
@@ -32,7 +41,7 @@ function PolicyDetailPageContent() {
     );
   }
 
-  return <PolicyDetailView policy={policy} />;
+  return <PolicyDetailView policy={policy} onUpdated={setPolicy} />;
 }
 
 export default function PolicyDetailPage() {

@@ -58,6 +58,11 @@ import type {
   EcwViewerDocument,
 } from "@/types/enterprise-credit-workspace";
 import { cn } from "@/lib/utils";
+import {
+  PublishedProgrammeEvidence,
+  useLivePublishedProgrammes,
+} from "@/components/catalyst-one/product-programme-operations/published-programme-evidence";
+import { readDealProgrammeStamp } from "@/lib/product-programme-operations/deal-stamp";
 
 /**
  * Credit Workbench — same workspace philosophy as Document Center.
@@ -90,6 +95,7 @@ export function EnterpriseCreditWorkspace() {
   const [previewCategory, setPreviewCategory] = useState<string | undefined>();
   const [proposalOpen, setProposalOpen] = useState(false);
   const [rmNote, setRmNote] = useState("");
+  const { program: publishedProgramme } = useLivePublishedProgrammes();
 
   useEffect(() => {
     let cancelled = false;
@@ -345,6 +351,14 @@ export function EnterpriseCreditWorkspace() {
               {toast}
             </div>
           ) : null}
+
+          <div className="px-3 py-2 sm:px-4 print:hidden">
+            <PublishedProgrammeEvidence
+              program={publishedProgramme}
+              stamp={readDealProgrammeStamp(opportunityRecord?.lendingExtension)}
+              title="Proposal programme / version"
+            />
+          </div>
 
           <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-1 sm:px-4 print:hidden">
             <Button

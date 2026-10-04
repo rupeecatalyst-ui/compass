@@ -12,14 +12,24 @@ import type {
 import { mapDirectoryProductIdToRegistryCode } from "@/lib/enterprise-lender-registry/map-to-directory";
 import { normalizeSupportedProductCodes } from "@/constants/enterprise-lender-registry/baseline-commercial-program-seed";
 
+/** Fields required by live-published commercial programme detection. */
+export type CommercialProgramPublicationFields = {
+  isDeleted?: boolean | null;
+  enabled?: boolean | null;
+  isLivePublished?: boolean | null;
+  publicationState?: string | null;
+  completenessState?: string | null;
+};
+
 export function isPublishedCommercialProgram(
-  program: EnterpriseLenderProgramRecord,
+  program: CommercialProgramPublicationFields,
 ): boolean {
   return (
-    !program.isDeleted &&
-    program.enabled &&
-    program.status === "active" &&
-    program.lifecycleStatus === "active"
+    program.isDeleted !== true &&
+    program.enabled === true &&
+    program.isLivePublished === true &&
+    program.publicationState === "published" &&
+    program.completenessState === "complete"
   );
 }
 

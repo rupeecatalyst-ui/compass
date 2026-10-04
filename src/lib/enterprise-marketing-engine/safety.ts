@@ -30,6 +30,12 @@ export function assertDryRunExecutionAllowed(operation = "execution.dry_run"): v
   }
 }
 
+export function assertMarketingLiveExecutionGate(
+  enabled: boolean = ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+): void {
+  if (!enabled) throw new EnterpriseMarketingSafetyError("campaign.execution");
+}
+
 /** Allows dry_run email delivery; live requires explicit flags + PO authorization. */
 export function assertEmailDeliveryAllowed(operation = "email.deliver"): void {
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {
@@ -98,6 +104,18 @@ export function refuseWhatsAppSend(): never {
 
 export function refuseDigitalLaunch(): never {
   return assertMarketingExecutionAllowed("digital.launch");
+}
+
+export function refuseSmsSend(): never {
+  throw new EnterpriseMarketingSafetyError("sms.send");
+}
+
+export function refuseMessengerSend(): never {
+  throw new EnterpriseMarketingSafetyError("messenger.send");
+}
+
+export function refuseLandingPagePublish(): never {
+  throw new EnterpriseMarketingSafetyError("landing_page.publish");
 }
 
 export function refuseContactCreate(): never {

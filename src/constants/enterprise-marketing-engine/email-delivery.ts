@@ -44,7 +44,7 @@ export const MARKETING_EMAIL_PROVIDER_TYPES = [
 export type EnterpriseMarketingEmailDeliveryMode = "off" | "dry_run" | "live";
 
 function resolveEmailMode(): EnterpriseMarketingEmailDeliveryMode {
-  const raw = (process.env.ENTERPRISE_MARKETING_EMAIL_MODE ?? "dry_run").trim().toLowerCase();
+  const raw = (process.env.ENTERPRISE_MARKETING_EMAIL_MODE ?? "live").trim().toLowerCase();
   if (raw === "off" || raw === "dry_run" || raw === "live") return raw;
   return "dry_run";
 }

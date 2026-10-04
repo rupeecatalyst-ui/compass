@@ -11,7 +11,8 @@ import { StrategicTabToolbar } from "./strategic-tab-toolbar";
 
 /** Requirement tab — inline edit for planning fields. */
 export function WorkspaceRequirementPanel() {
-  const { loanAmountLabel, productLabel, stageCode, opportunity } = useOpportunityWorkspace();
+  const { loanAmountLabel, productLabel, stageCode, opportunity, registryOpportunity } =
+    useOpportunityWorkspace();
   const [editing, setEditing] = useState(false);
   const [purpose, setPurpose] = useState("");
   const [notes, setNotes] = useState("");
@@ -27,6 +28,10 @@ export function WorkspaceRequirementPanel() {
       <OwGlassPanel>
         <dl className="grid gap-3 sm:grid-cols-2">
           <Fact label="Stated Loan Amount" value={loanAmountLabel} />
+          <Fact
+            label="Advantage Committed (₹)"
+            value={registryOpportunity?.advantageCommittedDisplay ?? "Not applicable"}
+          />
           <Fact label="Product Path" value={productLabel} />
           <Fact label="Opportunity" value={opportunity?.opportunityCode ?? "—"} />
           <Fact
@@ -70,7 +75,7 @@ export function WorkspaceRequirementPanel() {
 
 /** Solution Design (product) tab. */
 export function WorkspaceProductPanel() {
-  const { productLabel, loanAmountLabel, opportunity } = useOpportunityWorkspace();
+  const { productLabel, loanAmountLabel, opportunity, registryOpportunity } = useOpportunityWorkspace();
   const [editing, setEditing] = useState(false);
   const [structureNote, setStructureNote] = useState("");
 
@@ -86,6 +91,10 @@ export function WorkspaceProductPanel() {
         <dl className="space-y-3 text-sm">
           <Fact label="Selected Product" value={productLabel} />
           <Fact label="Aligned Requirement" value={loanAmountLabel} />
+          <Fact
+            label="Advantage Committed (₹)"
+            value={registryOpportunity?.advantageCommittedDisplay ?? "Not applicable"}
+          />
           <Fact label="Opportunity Code" value={opportunity?.opportunityCode ?? "—"} />
           <Fact label="Product Ref" value={opportunity?.productRef ?? "—"} />
         </dl>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Advantage Committed (₹) — local fixture surfaces</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font-family: "Segoe UI", sans-serif; background: #09090b; color: #fafafa; }
+    .page { padding: 24px; width: 1280px; min-height: 720px; box-sizing: border-box; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    h2 { font-size: 13px; color: #a1a1aa; font-weight: 600; margin: 0 0 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #27272a; }
+    th { color: #a1a1aa; font-size: 11px; text-transform: uppercase; }
+    .teal { color: #5eead4; font-variant-numeric: tabular-nums; }
+    .muted { color: #a1a1aa; }
+    .card { background: #0c0c0f; border: 1px solid #27272a; border-radius: 12px; padding: 14px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .kanban { width: 280px; background: #09090b; border: 1px solid #27272a; border-radius: 10px; padding: 10px; }
+    .banner { border: 1px solid #7f1d1d; background: #450a0a; color: #fecaca; padding: 10px; border-radius: 8px; font-size: 12px; }
+    .label { font-size: 11px; color: #a1a1aa; }
+    .value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <section class="page" data-shot="01-opportunity-list-committed">
+    <h1>My Opportunities</h1>
+    <h2>Advantage Committed (₹) — committed Home Loan</h2>
+    <table>
+      <thead>
+        <tr><th>Opportunity</th><th>Customer</th><th>Product</th><th>Required amount</th><th>Advantage Committed (₹)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>OPP-HL-1042</td><td>Anita Sharma</td><td>Home Loan</td>
+          <td class="teal">₹85,00,000</td><td class="teal" data-field="advantage-committed">₹1,25,000</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page" data-shot="02-opportunity-list-not-committed">
+    <h1>My Opportunities</h1>
+    <h2>Advantage Committed (₹) — applicable, not committed</h2>
+    <table>
+      <thead>
+        <tr><th>Opportunity</th><th>Customer</th><th>Product</th><th>Required amount</th><th>Advantage Committed (₹)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>OPP-HL-1108</td><td>Rahul Iyer</td><td>Home Loan</td>
+          <td class="teal">₹62,00,000</td><td class="muted" data-field="advantage-committed">Not committed</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page" data-shot="03-opportunity-list-not-applicable">
+    <h1>My Opportunities</h1>
+    <h2>Advantage Committed (₹) — ineligible product</h2>
+    <table>
+      <thead>
+        <tr><th>Opportunity</th><th>Customer</th><th>Product</th><th>Required amount</th><th>Advantage Committed (₹)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>OPP-PL-2219</td><td>Meera Joshi</td><td>Personal Loan</td>
+          <td class="teal">₹8,00,000</td><td class="muted" data-field="advantage-committed">Not applicable</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page" data-shot="04-opportunity-360">
+    <h1>Opportunity 360</h1>
+    <h2>OPP-HL-1042 · Anita Sharma</h2>
+    <div class="card">
+      <div class="label">Advantage Committed (₹)</div>
+      <div class="value teal">₹1,25,000</div>
+      <div class="grid" style="margin-top:16px">
+        <div><div class="label">Campaign name</div><div>HL Festival 2026</div></div>
+        <div><div class="label">Marketing source</div><div>marketing_engine</div></div>
+        <div><div class="label">Committed date</div><div>06 Sep 2026, 11:20 AM</div></div>
+        <div><div class="label">Committed by</div><div>Priya Nair</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" data-shot="05-deal-list">
+    <h1>My Deals</h1>
+    <h2>Inherited Opportunity value — never a Deal-owned amount</h2>
+    <table>
+      <thead>
+        <tr><th>Deal</th><th>Customer</th><th>Lender</th><th>Loan amount</th><th>Advantage Committed (₹)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>DEAL-8891</td><td>Anita Sharma</td><td>HDFC Bank</td>
+          <td class="teal">₹85,00,000</td><td class="teal">₹1,25,000</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page" data-shot="06-kanban-card">
+    <h1>My Deals Kanban</h1>
+    <h2>Loan amount and Advantage Committed (₹) are separate</h2>
+    <article class="kanban">
+      <div style="font-weight:600">Anita Sharma</div>
+      <div class="muted" style="font-size:12px">HDFC Bank</div>
+      <div class="muted" style="font-size:12px">Home Loan</div>
+      <div class="teal" style="font-weight:600">₹85,00,000</div>
+      <div style="font-size:11px"><span class="muted">Advantage Committed (₹): </span><span class="teal">₹1,25,000</span></div>
+    </article>
+  </section>
+
+  <section class="page" data-shot="07-deal-control">
+    <h1>Deal Control</h1>
+    <h2>Read-only Advantage Committed (₹) — no edit control</h2>
+    <div class="card" style="width:360px">
+      <div class="label">Loan Amount</div>
+      <div class="value">₹85,00,000</div>
+      <div class="label" style="margin-top:12px">Advantage Committed (₹)</div>
+      <div class="value teal">₹1,25,000</div>
+    </div>
+  </section>
+
+  <section class="page" data-shot="08-accounting-mismatch">
+    <h1>Accounting Cases</h1>
+    <h2>Inherited value is not revenue or invoice. Mismatch is blocking.</h2>
+    <div class="banner">Advantage Committed (₹) does not match the Opportunity. Handoff blocked until corrected.</div>
+    <table style="margin-top:16px">
+      <thead>
+        <tr><th>Deal</th><th>Customer / Product</th><th>Advantage Committed (₹)</th><th>Taxable / Invoice</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>DEAL-8891</td><td>Anita Sharma · Home Loan</td>
+          <td>₹1,25,000<br /><span style="color:#fca5a5;font-size:11px">Snapshot ₹99,000 does not match Opportunity</span></td>
+          <td>₹1,12,000 invoice · not this field</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page" data-shot="09-customer-360">
+    <h1>Customer 360</h1>
+    <h2>Per Opportunity — not aggregated</h2>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:8px">Opportunities</div>
+      <div>OPP-HL-1042 · Home Loan · Advantage Committed (₹): ₹1,25,000 · Campaign: HL Festival 2026</div>
+      <div style="margin-top:8px">OPP-HL-1108 · Home Loan · Advantage Committed (₹): Not committed</div>
+      <div style="margin-top:8px">OPP-PL-2219 · Personal Loan · Advantage Committed (₹): Not applicable</div>
+    </div>
+  </section>
+</body>
+</html>

@@ -1,0 +1,226 @@
+/**
+ * CO-MARKETING-REDESIGN-007 — Visual template gallery + block editor surfaces.
+ */
+
+.mkt-tpl-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.mkt-tpl-section h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 0 0 0.75rem;
+}
+
+.mkt-tpl-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .mkt-tpl-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .mkt-tpl-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.mkt-tpl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  padding: 0.9rem;
+  min-height: 16rem;
+}
+
+.mkt-tpl-thumb {
+  display: block;
+  width: 100%;
+  height: 8.5rem;
+  border-radius: 0.8rem;
+  background: color-mix(in oklab, var(--muted) 55%, var(--card));
+  overflow: hidden;
+}
+
+.mkt-tpl-thumb svg {
+  width: 100%;
+  height: 100%;
+}
+
+.mkt-tpl-meta {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.mkt-tpl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.mkt-tpl-empty {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.mkt-ve {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 1100px) {
+  .mkt-ve {
+    grid-template-columns: 11rem minmax(0, 1fr) 16rem;
+    align-items: start;
+  }
+}
+
+.mkt-ve-desktop-notice {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin: 0 0 0.75rem;
+}
+
+.mkt-ve a:focus-visible,
+.mkt-ve button:focus-visible,
+.mkt-ve input:focus-visible,
+.mkt-ve textarea:focus-visible,
+.mkt-ve [tabindex]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mkt-ve *,
+  .mkt-tpl-gallery * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.mkt-ve-palette,
+.mkt-ve-canvas,
+.mkt-ve-settings {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  padding: 0.85rem;
+}
+
+.mkt-ve-block {
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  padding: 0.65rem;
+  margin-bottom: 0.55rem;
+  background: color-mix(in oklab, var(--muted) 25%, var(--card));
+}
+
+.mkt-ve-block[data-selected="true"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.mkt-ve-block-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+.mkt-ve-preview-frame {
+  width: 100%;
+  min-height: 22rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: #f1f5f9;
+}
+
+.mkt-ve-source {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 0.8rem;
+  background: color-mix(in oklab, var(--muted) 40%, var(--card));
+}
+
+.mkt-ve-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, black 45%, transparent);
+  padding: 1.5rem;
+}
+
+.mkt-ve-dialog-card {
+  width: min(52rem, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 1.1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 1.1rem;
+}
+
+.mkt-preview-workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .mkt-preview-workspace {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  }
+}
+
+.mkt-preview-workspace-frame {
+  min-height: 28rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.mkt-preview-iframe {
+  width: 100%;
+  min-height: 420px;
+  border: 0;
+  background: #fff;
+}
+
+.mkt-preview-mobile .mkt-preview-iframe {
+  max-width: 360px;
+  margin: 0 auto;
+  display: block;
+}
+
+.mkt-test-lane,
+.mkt-production-lane {
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.mkt-test-lane {
+  border: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.mkt-production-lane {
+  border: 1px solid var(--border);
+}

@@ -32,6 +32,12 @@ function formatRoi(n: number | null | undefined): string {
   return `${n.toFixed(2)}%`;
 }
 
+function exactNumber(value: string | null | undefined): number | null {
+  if (value == null || value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function mapCategory(
   cat: LenderInstitutionCategory | string | null | undefined,
   classification?: string | null,
@@ -51,7 +57,7 @@ function mapCategory(
 }
 
 function programRoi(p: EnterpriseLenderProgramRecord): number | null {
-  const v = p.roiPercent ?? p.minRoiPercent ?? null;
+  const v = exactNumber(p.minRoiExact) ?? p.roiPercent ?? p.minRoiPercent ?? null;
   return v != null && Number.isFinite(v) ? Number(v) : null;
 }
 
@@ -142,7 +148,15 @@ export function composeEnterpriseLenderDirectoryRows(input: {
         activeOpportunities * 40 +
         activeDeals * 25 +
         Math.min(35, Math.round(pipelineValue / 1_00_000));
-      const maxLoan = primary?.maxFundingAmount ?? 0;
+      const maxLoan = primary
+        ? exactNumber(primary.maxLoanAmountExact) ?? primary.maxFundingAmount ?? 0
+        : 0;
+      const maxLtv = primary
+        ? exactNumber(primary.maxLtvExact) ?? primary.maxLtvPercent ?? null
+        : null;
+      const maxFoir = primary
+        ? exactNumber(primary.maxFoirExact) ?? primary.maxFoirPercent ?? null
+        : null;
       const shortName =
         lender.shortName?.trim() ||
         lender.displayName?.trim() ||
@@ -175,11 +189,11 @@ export function composeEnterpriseLenderDirectoryRows(input: {
         homeLoanRoiLabel: formatRoi(hlRoi),
         balanceTransferRoi: btRoi,
         balanceTransferRoiLabel: formatRoi(btRoi),
-        maxLtvPercent: primary?.maxLtvPercent ?? null,
+        maxLtvPercent: maxLtv,
         maxLtvLabel:
-          primary?.maxLtvPercent != null ? `${primary.maxLtvPercent}%` : "Not Specified",
+          maxLtv != null ? `${maxLtv}%` : "Not Specified",
         foirLabel:
-          primary?.maxFoirPercent != null ? `${primary.maxFoirPercent}%` : "Not Specified",
+          maxFoir != null ? `${maxFoir}%` : "Not Specified",
         minCibil: primary?.minCibil ?? null,
         minCibilLabel:
           primary?.minCibil != null ? String(primary.minCibil) : "Not Specified",
@@ -187,7 +201,13 @@ export function composeEnterpriseLenderDirectoryRows(input: {
         maxLoanAmountLabel: formatInr(maxLoan),
         processingFeeLabel:
           primary?.processingFeeLabel?.trim() ||
-          (primary?.processingFeePct != null ? `${primary.processingFeePct}%` : "Not Specified"),
+          (exactNumber(primary?.processingFeePctExact) != null
+            ? `${exactNumber(primary?.processingFeePctExact)}%`
+            : exactNumber(primary?.processingFeeAmountExact) != null
+              ? formatInr(exactNumber(primary?.processingFeeAmountExact))
+              : primary?.processingFeePct != null
+                ? `${primary.processingFeePct}%`
+                : "Not Specified"),
         averageTatDays: primary?.averageTatDays ?? 0,
         averageTatLabel:
           primary?.averageTatDays != null && primary.averageTatDays > 0

@@ -1,24 +1,24 @@
 "use client";
 
-/**
- * CO-MDM-001 / CO-MASTER-001 — Product Programs desk.
- * List + create (wizard) + inline edit of commercial / eligibility / policy / documents.
- */
-
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
 import { listProductMaster } from "@/lib/enterprise-product-master/admin-client";
-import { NewProductProgramWizard } from "@/components/catalyst-one/lender-registry-admin/new-product-program-wizard";
+import { ProductProgrammeEditor } from "@/components/catalyst-one/product-programme-operations/programme-editor";
 import { ROUTES } from "@/constants/routes";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -31,19 +31,57 @@ import type {
   EnterpriseLenderProgramRecord,
   EnterpriseLenderRecord,
 } from "@/types/enterprise-lender-registry";
-import { listSelectableCreditRiskPolicies } from "@/lib/enterprise-lender-registry/resolve-program-policy";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
-  listEdieDocumentTypeOptions,
-  type ProgramLodRequirement,
-} from "@/lib/document-requests/resolve-program-lod";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+  EMPTY_PROGRAMME_REGISTRY_FILTERS,
+  filterProgrammeRegistry,
+  programmeStatusLabel,
+} from "@/lib/product-programme-operations/registry-filters";
+import { PROGRAMME_EMPLOYMENT_TYPES } from "@/constants/product-programme-operations/controlled-masters";
+
+export async function loadProgrammesAndPolicyVersions<TPrograms, TPolicies>(
+  loadProgrammes: () => Promise<TPrograms>,
+  loadPolicies: () => Promise<TPolicies>,
+): Promise<{ programmes: TPrograms; policies: TPolicies | null; policyLoadFailed: boolean; policyError: unknown | null }> {
+  const [programmes, policies] = await Promise.allSettled([loadProgrammes(), loadPolicies()]);
+  if (programmes.status === "rejected") throw programmes.reason;
+  return {
+    programmes: programmes.value,
+    policies: policies.status === "fulfilled" ? policies.value : null,
+    policyLoadFailed: policies.status === "rejected",
+    policyError: policies.status === "rejected" ? policies.reason : null,
+  };
+}
+
+type PublishedPolicyVersion = { id: string; policyId: string; name: string; policyCode: string; versionNumber: number };
+type PolicyOption = { id: string; policyId: string; label: string };
+
+export function toPublishedPolicyOptions(versions: PublishedPolicyVersion[]): PolicyOption[] {
+  return versions.map((version) => ({
+    id: version.id,
+    policyId: version.policyId,
+    label: `${version.name} (${version.policyCode}, v${version.versionNumber})`,
+  }));
+}
+
+export async function fetchPublishedPolicyVersions(
+  fetcher: typeof authenticatedJsonFetch = authenticatedJsonFetch,
+): Promise<PublishedPolicyVersion[]> {
+  const response = await fetcher("/api/lender-registry/published-policy-versions");
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    const message = typeof result?.error?.message === "string" ? result.error.message : "Request failed";
+    throw new Error(`HTTP ${response.status}: ${message}`);
+  }
+  if (!Array.isArray(result.data) || !result.data.every((version: unknown) => {
+    if (!version || typeof version !== "object") return false;
+    const row = version as Record<string, unknown>;
+    return typeof row.id === "string" && typeof row.policyId === "string" &&
+      typeof row.name === "string" && typeof row.policyCode === "string" &&
+      typeof row.versionNumber === "number";
+  })) throw new Error("Published policy version response was invalid.");
+  return result.data as PublishedPolicyVersion[];
+}
 
 export function ProductProgramsWorkspace() {
   const { user } = useAuthContext();
@@ -52,90 +90,137 @@ export function ProductProgramsWorkspace() {
 
   const [programs, setPrograms] = useState<EnterpriseLenderProgramRecord[]>([]);
   const [lenders, setLenders] = useState<EnterpriseLenderRecord[]>([]);
-  const [products, setProducts] = useState<{ code: string; label: string }[]>([]);
+  const [products, setProducts] = useState<{ id?: string; code: string; label: string }[]>([]);
+  const [policies, setPolicies] = useState<PolicyOption[]>([]);
+  const [policyState, setPolicyState] = useState<{ status: "loading" | "loaded" | "empty" | "error"; message?: string }>({ status: "loading" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<EnterpriseLenderProgramRecord | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [preselectedLenderId, setPreselectedLenderId] = useState<string | undefined>();
+  const [filters, setFilters] = useState(EMPTY_PROGRAMME_REGISTRY_FILTERS);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const loadSequence = useRef(0);
+
+  useEffect(() => {
+    const search = filters.search.trim();
+    if (!search) {
+      setDebouncedSearch("");
+      return;
+    }
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [filters.search]);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError(null);
+    setPolicies([]);
+    setPolicyState({ status: "loading" });
     try {
-      const [progRes, prodRes, lenderRes] = await Promise.all([
-        lenderRegistryClient.queryPrograms({ pageSize: 200 }),
-        listProductMaster().catch(() => ({ items: [] as { code: string; label: string }[] })),
+      const [registry, prodRes, lenderRes] = await Promise.all([
+        loadProgrammesAndPolicyVersions(
+          () => lenderRegistryClient.queryPrograms({ pageSize: 200, search: debouncedSearch || undefined }),
+          fetchPublishedPolicyVersions,
+        ),
+        listProductMaster().catch(() => ({ items: [] as { id?: string; code: string; label: string }[] })),
         lenderRegistryClient.queryLenders({ pageSize: 200 }).catch(() => ({ items: [] })),
       ]);
-      setPrograms((progRes.items ?? []) as EnterpriseLenderProgramRecord[]);
+      if (sequence !== loadSequence.current) return;
+      setPolicies(toPublishedPolicyOptions(registry.policies ?? []));
+      setPrograms((registry.programmes.items ?? []) as EnterpriseLenderProgramRecord[]);
+      if (registry.policyLoadFailed) {
+        const message = registry.policyError instanceof Error ? registry.policyError.message : "Request failed";
+        setPolicyState({ status: "error", message: message.startsWith("HTTP ") ? message : "Unable to load published policy versions." });
+      } else {
+        setPolicyState({ status: registry.policies?.length ? "loaded" : "empty" });
+      }
       setProducts(
-        (prodRes.items ?? []).map((p: { code: string; label: string }) => ({
-          code: p.code,
-          label: p.label,
+        (prodRes.items ?? []).map((item: { id?: string; code: string; label: string }) => ({
+          id: item.id,
+          code: item.code,
+          label: item.label,
         })),
       );
       setLenders((lenderRes.items ?? []) as EnterpriseLenderRecord[]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load programs");
+    } catch (err) {
+      if (sequence !== loadSequence.current) return;
+      setError(err instanceof Error ? err.message : "Failed to load programs");
       setPrograms([]);
+      setPolicies([]);
+      setPolicyState({ status: "error", message: "Unable to load published policy versions." });
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      setEditing(null);
+      setPreselectedLenderId(params.get("lenderId")?.trim() || undefined);
+      setEditorOpen(true);
+      return;
+    }
+    const programId = params.get("programId");
+    if (!programId || programs.length === 0) return;
+    const match = programs.find((row) => row.id === programId);
+    if (match) {
+      setEditing(match);
+      setEditorOpen(true);
+    }
+  }, [programs]);
+
+  const searchPending = filters.search.trim() !== debouncedSearch;
+  const filtered = useMemo(
+    () => filterProgrammeRegistry(programs, { ...filters, search: "" }),
+    [programs, filters],
+  );
+
   const productLabel = (code: string | null | undefined) =>
-    products.find((p) => p.code === code)?.label ?? code ?? "—";
+    products.find((item) => item.code === code)?.label ?? code ?? "—";
 
   const lenderLabel = (id: string) => {
-    const l = lenders.find((x) => x.id === id);
-    return l?.displayName || l?.label || id.slice(0, 8);
+    const lender = lenders.find((item) => item.id === id);
+    return lender?.displayName || lender?.label || id.slice(0, 8);
   };
 
-  async function saveEdit() {
-    if (!editing) return;
-    setSaving(true);
-    try {
-      await lenderRegistryClient.updateProgram(
-        editing.id,
-        {
-          label: editing.label,
-          roiPercent: editing.roiPercent,
-          processingFeePct: editing.processingFeePct,
-          maxLtvPercent: editing.maxLtvPercent,
-          maxTenureMonths: editing.maxTenureMonths,
-          minCibil: editing.minCibil,
-          minIncomeAmount: editing.minIncomeAmount,
-          maxFoirPercent: editing.maxFoirPercent,
-          maxDbrPercent: editing.maxDbrPercent,
-          minFundingAmount: editing.minFundingAmount,
-          creditRiskPolicyRef: editing.creditRiskPolicyRef,
-          requiredDocuments: editing.requiredDocuments ?? undefined,
-          requiredDocumentTypeIds: undefined,
-          employmentType: editing.employmentType,
-          borrowerType: editing.borrowerType,
-        },
-        actor,
-      );
-      toast.success("Program saved.");
-      setEditing(null);
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
+  if (editorOpen) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8">
+        <ProductProgrammeEditor
+          key={editing?.id ?? `new-${preselectedLenderId ?? "none"}`}
+          lenders={lenders}
+          products={products}
+          policies={policies}
+          policyState={policyState}
+          initial={editing}
+          defaultLenderId={editing ? undefined : preselectedLenderId}
+          actor={actor}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditing(null);
+            setPreselectedLenderId(undefined);
+            window.history.replaceState({}, "", ROUTES.ADMIN_PRODUCT_PROGRAMS);
+          }}
+          onSaved={() => {
+            void load();
+          }}
+        />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4 p-4 md:p-6 lg:p-8">
       <PageHeader
-        title="Product Programs"
-        description="Lender × Product commercial programs — ROI, fees, LTV, tenure, FOIR/DBR eligibility, policy ref, and document types. SSOT: EnterpriseLenderProgram."
+        title="Product Programmes"
+        description="Structured lender programmes with controlled employment, constitution, policy, LOD and exact commercials."
         actions={
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => void load()}>
@@ -144,227 +229,177 @@ export function ProductProgramsWorkspace() {
             <Button type="button" size="sm" variant="outline" asChild>
               <Link href={ROUTES.ADMIN_PRODUCT_LENDER_MATRIX}>Product–Lender Matrix</Link>
             </Button>
-            <Button type="button" size="sm" onClick={() => setWizardOpen(true)}>
-              New Program
+            <Button
+              type="button"
+              size="sm"
+              data-testid="programme-new"
+              onClick={() => {
+                setEditing(null);
+                setPreselectedLenderId(undefined);
+                setEditorOpen(true);
+              }}
+            >
+              New Programme
             </Button>
           </div>
         }
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      {editing ? (
-        <Card className="space-y-3 border-border/60 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold">{editing.label}</p>
-              <p className="text-[11px] text-muted-foreground font-mono">{editing.code}</p>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>
-                Cancel
-              </Button>
-              <Button type="button" size="sm" disabled={saving} onClick={() => void saveEdit()}>
-                Save Changes
-              </Button>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <EditField
-              label="ROI %"
-              value={editing.roiPercent ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, roiPercent: v === "" ? null : Number(v) })
-              }
-            />
-            <EditField
-              label="Processing Fee %"
-              value={editing.processingFeePct ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, processingFeePct: v === "" ? null : Number(v) })
-              }
-            />
-            <EditField
-              label="Max LTV %"
-              value={editing.maxLtvPercent ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, maxLtvPercent: v === "" ? null : Number(v) })
-              }
-            />
-            <EditField
-              label="Max Tenure (months)"
-              value={editing.maxTenureMonths ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, maxTenureMonths: v === "" ? null : Number(v) })
-              }
-            />
-            <EditField
-              label="Min CIBIL"
-              value={editing.minCibil ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, minCibil: v === "" ? null : Number(v) })
-              }
-            />
-            <EditField
-              label="Min Income"
-              value={editing.minIncomeAmount ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, minIncomeAmount: v === "" ? null : Number(v) })
-              }
-            />
-            <EditField
-              label="Max FOIR %"
-              value={editing.maxFoirPercent ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, maxFoirPercent: v === "" ? null : Number(v) })
-              }
-            />
-            <EditField
-              label="Max DBR %"
-              value={editing.maxDbrPercent ?? ""}
-              onChange={(v) =>
-                setEditing({ ...editing, maxDbrPercent: v === "" ? null : Number(v) })
-              }
-            />
-            <div className="space-y-1 sm:col-span-3">
-              <Label className="text-xs">Credit & Risk Policy (published only)</Label>
-              <Select
-                value={editing.creditRiskPolicyRef || "__none__"}
-                onValueChange={(v) =>
-                  setEditing({
-                    ...editing,
-                    creditRiskPolicyRef: v === "__none__" ? null : v,
-                  })
-                }
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Select published policy" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  {listSelectableCreditRiskPolicies().map((p) => (
-                    <SelectItem key={p.policyId} value={p.policyId}>
-                      {p.policyName} ({p.policyCode})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 sm:col-span-3">
-              <Label className="text-xs">Program LOD (EDIE / Document types)</Label>
-              <p className="text-[10px] text-muted-foreground">
-                Mandatory / optional overlay for this program. Salaried vs Self-employed programs
-                should each configure their own set.
-              </p>
-              <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border p-2">
-                {listEdieDocumentTypeOptions().slice(0, 40).map((opt) => {
-                  const current = editing.requiredDocuments ?? [];
-                  const hit = current.find((r) => r.typeRef === opt.typeRef);
-                  const checked = Boolean(hit);
-                  const mandatory = hit?.mandatory !== false;
-                  return (
-                    <label
-                      key={opt.typeRef}
-                      className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/40"
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(on) => {
-                          const next: ProgramLodRequirement[] = (editing.requiredDocuments ?? []).filter(
-                            (r) => r.typeRef !== opt.typeRef,
-                          );
-                          if (on) {
-                            next.push({
-                              typeRef: opt.typeRef,
-                              mandatory: true,
-                              label: opt.label,
-                              applicability: "all",
-                              active: true,
-                            });
-                          }
-                          setEditing({ ...editing, requiredDocuments: next });
-                        }}
-                      />
-                      <span className="min-w-0 flex-1 truncate">{opt.label}</span>
-                      {checked ? (
-                        <button
-                          type="button"
-                          className="text-[10px] text-muted-foreground underline"
-                          onClick={() => {
-                            const next = (editing.requiredDocuments ?? []).map((r) =>
-                              r.typeRef === opt.typeRef
-                                ? { ...r, mandatory: !mandatory, optional: mandatory }
-                                : r,
-                            );
-                            setEditing({ ...editing, requiredDocuments: next });
-                          }}
-                        >
-                          {mandatory ? "Mandatory" : "Optional"}
-                        </button>
-                      ) : null}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </Card>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={filters.search}
+          onChange={(e) => setFilters((current) => ({ ...current, search: e.target.value }))}
+          placeholder="Search programme, code, product…"
+          className="h-8 max-w-xs"
+        />
+        <Select
+          value={filters.productCode}
+          onValueChange={(value) => setFilters((current) => ({ ...current, productCode: value }))}
+        >
+          <SelectTrigger className="h-8 w-[180px]"><SelectValue placeholder="Product" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All products</SelectItem>
+            {products.map((product) => (
+              <SelectItem key={product.code} value={product.code}>
+                {product.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.employmentType}
+          onValueChange={(value) => setFilters((current) => ({ ...current, employmentType: value }))}
+        >
+          <SelectTrigger className="h-8 w-[180px]"><SelectValue placeholder="Applicant" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All applicants</SelectItem>
+            {PROGRAMME_EMPLOYMENT_TYPES.map((item) => (
+              <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.status}
+          onValueChange={(value) =>
+            setFilters((current) => ({ ...current, status: value as typeof current.status }))
+          }
+        >
+          <SelectTrigger className="h-8 w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="pending_approval">Pending approval</SelectItem>
+            <SelectItem value="incomplete">Incomplete</SelectItem>
+            <SelectItem value="legacy_review">Legacy programme — review required</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+            <SelectItem value="superseded">Superseded</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.effectiveWindow}
+          onValueChange={(value) =>
+            setFilters((current) => ({
+              ...current,
+              effectiveWindow: value as typeof current.effectiveWindow,
+            }))
+          }
+        >
+          <SelectTrigger className="h-8 w-[160px]"><SelectValue placeholder="Effective" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Effective / expired</SelectItem>
+            <SelectItem value="effective">Effective now</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <Card className="overflow-hidden border-border/60">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Program</TableHead>
+              <TableHead>Programme</TableHead>
+              <TableHead>Code</TableHead>
               <TableHead>Lender</TableHead>
               <TableHead>Product</TableHead>
+              <TableHead>Employment</TableHead>
+              <TableHead>Constitution</TableHead>
+              <TableHead>Amount</TableHead>
               <TableHead>ROI</TableHead>
-              <TableHead>FOIR</TableHead>
+              <TableHead>Policy</TableHead>
+              <TableHead>Docs</TableHead>
+              <TableHead>Version</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {loading || searchPending ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-sm text-muted-foreground">
-                  Loading…
+                <TableCell colSpan={13} className="text-sm text-muted-foreground">
+                  {filters.search.trim() ? "Searching programmes…" : "Loading…"}
                 </TableCell>
               </TableRow>
-            ) : programs.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-sm text-muted-foreground">
-                  No programs yet. Create a program or map products on the Product–Lender Matrix.
+                <TableCell colSpan={13} className="text-sm text-muted-foreground">
+                  {filters.search.trim()
+                    ? "No programmes match this search."
+                    : "No programmes yet. Create a structured draft — the matrix will not auto-publish empty programmes."}
                 </TableCell>
               </TableRow>
             ) : (
-              programs.map((row) => (
+              filtered.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="text-xs font-medium">{row.label}</TableCell>
+                  <TableCell className="text-xs tabular-nums">{row.code}</TableCell>
                   <TableCell className="text-xs">{lenderLabel(row.lenderId)}</TableCell>
                   <TableCell className="text-xs">{productLabel(row.productCode)}</TableCell>
+                  <TableCell className="text-xs">{(row.employmentTypes ?? []).join(", ") || "—"}</TableCell>
+                  <TableCell className="text-xs">{(row.legalConstitutions ?? []).join(", ") || "—"}</TableCell>
                   <TableCell className="text-xs">
-                    {row.roiPercent != null ? `${row.roiPercent}%` : "—"}
+                    {row.minLoanAmountExact && row.maxLoanAmountExact
+                      ? `${row.minLoanAmountExact}–${row.maxLoanAmountExact}`
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-xs">
-                    {row.maxFoirPercent != null ? `${row.maxFoirPercent}%` : "—"}
+                    {row.minRoiExact && row.maxRoiExact
+                      ? `${row.minRoiExact}–${row.maxRoiExact}%`
+                      : row.minRoiExact
+                        ? `From ${row.minRoiExact}%`
+                        : row.maxRoiExact
+                          ? `Up to ${row.maxRoiExact}%`
+                      : row.roiPercent != null
+                        ? `${row.roiPercent}%`
+                        : "—"}
                   </TableCell>
+                  <TableCell className="text-xs">{row.policyVersionId ?? row.creditRiskPolicyRef ?? "—"}</TableCell>
+                  <TableCell className="text-xs tabular-nums">{(row.requiredDocumentTypeIds ?? []).length}</TableCell>
+                  <TableCell className="text-xs tabular-nums">v{row.versionNumber}</TableCell>
                   <TableCell>
-                    <Badge variant={row.enabled ? "default" : "outline"}>
-                      {row.status ?? (row.enabled ? "active" : "inactive")}
+                    <Badge
+                      variant={row.isLivePublished ? "default" : "outline"}
+                      data-testid={
+                        programmeStatusLabel(row) === "Legacy programme — review required"
+                          ? "legacy-programme-review-required"
+                          : undefined
+                      }
+                    >
+                      {programmeStatusLabel(row)}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => {
-                      const docs =
-                        row.requiredDocuments ??
-                        (row.requiredDocumentTypeIds ?? []).map((typeRef) => ({
-                          typeRef,
-                          mandatory: true,
-                          active: true,
-                          applicability: "all" as const,
-                        }));
-                      setEditing({ ...row, requiredDocuments: docs });
-                    }}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      data-testid="programme-edit"
+                      onClick={() => {
+                        setEditing(row);
+                        setEditorOpen(true);
+                      }}
+                    >
                       Edit
                     </Button>
                   </TableCell>
@@ -374,37 +409,6 @@ export function ProductProgramsWorkspace() {
           </TableBody>
         </Table>
       </Card>
-
-      <NewProductProgramWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        lenders={lenders}
-        onCompleted={() => void load()}
-      />
-    </div>
-  );
-}
-
-function EditField({
-  label,
-  value,
-  onChange,
-  text,
-}: {
-  label: string;
-  value: string | number;
-  onChange: (v: string) => void;
-  text?: boolean;
-}) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      <Input
-        type={text ? "text" : "number"}
-        step={text ? undefined : "0.01"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
     </div>
   );
 }

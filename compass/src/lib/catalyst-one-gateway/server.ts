@@ -58,8 +58,22 @@ async function callCatalystOne<T>(
 }
 
 export const catalystOneGateway = {
-  getJourneyConfig(productCode: string) {
-    return callCatalystOne(`/api/compass/journey/config?productCode=${encodeURIComponent(productCode)}`);
+  getJourneyConfig(
+    productCode: string,
+    journeyVersion?: number | null,
+    options?: { campaign?: string | null; requirePublished?: boolean },
+  ) {
+    const version =
+      journeyVersion && journeyVersion > 0
+        ? `&journeyVersion=${encodeURIComponent(String(journeyVersion))}`
+        : "";
+    const campaign = options?.campaign
+      ? `&campaign=${encodeURIComponent(options.campaign)}`
+      : "";
+    const requirePublished = options?.requirePublished ? "&requirePublished=1" : "";
+    return callCatalystOne(
+      `/api/compass/journey/config?productCode=${encodeURIComponent(productCode)}${version}${campaign}${requirePublished}`,
+    );
   },
   startJourney(body: unknown) {
     return callCatalystOne("/api/compass/journey/start", {
@@ -87,6 +101,12 @@ export const catalystOneGateway = {
       journeyToken,
     });
   },
+  resume(journeyToken: string) {
+    return callCatalystOne("/api/compass/journey/resume", {
+      method: "GET",
+      journeyToken,
+    });
+  },
   uploadDocuments(journeyToken: string, formData: FormData) {
     return callCatalystOne("/api/compass/journey/documents", {
       method: "POST",
@@ -99,6 +119,19 @@ export const catalystOneGateway = {
       method: "POST",
       journeyToken,
       body: JSON.stringify(body),
+    });
+  },
+  requestOtp(body: unknown) {
+    return callCatalystOne("/api/compass/journey/otp", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+  talkToExpert(journeyToken: string) {
+    return callCatalystOne("/api/compass/journey/expert", {
+      method: "POST",
+      journeyToken,
+      body: JSON.stringify({}),
     });
   },
 };

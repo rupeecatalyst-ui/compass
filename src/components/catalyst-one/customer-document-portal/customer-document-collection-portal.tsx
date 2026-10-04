@@ -37,6 +37,7 @@ import {
   getDocumentRegistryRecord,
   subscribeDocumentRegistryUpdated,
 } from "@/lib/document-registry";
+import { groupDocumentRequestItemsByOwner } from "@/lib/document-workspace/grouped-request";
 import type {
   DocumentRequestItemState,
   DocumentRequestItemStatus,
@@ -128,8 +129,13 @@ export function CustomerDocumentCollectionPortal({
   const [flash, setFlash] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
-  const [saarthiInput, setSaarthiInput] = useState("");
+  const [otpNeeded, setOtpNeeded] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpMessage, setOtpMessage] = useState<string | null>(null);
+  const [durableItemIds, setDurableItemIds] = useState<Record<string, string>>({});
   const [saarthiThread, setSaarthiThread] = useState<SaarthiMessage[]>([]);
+  const [saarthiInput, setSaarthiInput] = useState("");
   const openedRef = useRef(false);
 
   const reload = useCallback((opts?: { audit?: boolean }) => {
@@ -157,11 +163,27 @@ export function CustomerDocumentCollectionPortal({
     reload({ audit: true });
     const unsubDr = subscribeDocumentRequestsUpdated(() => reload({ audit: false }));
     const unsubReg = subscribeDocumentRegistryUpdated(() => reload({ audit: false }));
+    if (token) {
+      void fetch(`/api/document-workspace/upload-portal?token=${encodeURIComponent(token)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          const data = json?.data ?? json;
+          if (data?.ok) {
+            setOtpNeeded(true);
+            const map: Record<string, string> = {};
+            for (const item of data.items ?? []) {
+              if (item.requestRef) map[item.requestRef] = item.id;
+            }
+            setDurableItemIds(map);
+          }
+        })
+        .catch(() => undefined);
+    }
     return () => {
       unsubDr();
       unsubReg();
     };
-  }, [reload]);
+  }, [reload, token]);
 
   useEffect(() => {
     if (!state?.uploadSession || openedRef.current) return;
@@ -183,8 +205,10 @@ export function CustomerDocumentCollectionPortal({
     [state?.lodItems],
   );
 
-  const critical = (state?.lodItems ?? []).filter((i) => i.category === "critical");
-  const journey = (state?.lodItems ?? []).filter((i) => i.category === "journey");
+  const ownerGroups = useMemo(
+    () => groupDocumentRequestItemsByOwner(state?.lodItems ?? []),
+    [state?.lodItems],
+  );
   const lastVerification = (state?.lodItems ?? [])
     .filter((i) => i.status === "verified")
     .map((i) => i.uploadedAt)
@@ -213,6 +237,28 @@ export function CustomerDocumentCollectionPortal({
     }
     setBusyRef(getDocumentRequestRef(item));
     setFlash(null);
+    if (otpVerified) {
+      const requestItemId = durableItemIds[getDocumentRequestRef(item)];
+      if (!requestItemId) {
+        setFlash("This upload link does not include that document.");
+        setBusyRef(null);
+        return;
+      }
+      const form = new FormData();
+      form.set("token", token);
+      form.set("requestItemId", requestItemId);
+      form.set("file", file, file.name);
+      const res = await fetch("/api/document-workspace/upload-portal", {
+        method: "POST",
+        body: form,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        setFlash(json?.error?.message || json?.data?.message || "This file could not be accepted.");
+        setBusyRef(null);
+        return;
+      }
+    }
     const result = await ingestCustomerPortalDocument({
       session,
       item,
@@ -288,6 +334,71 @@ export function CustomerDocumentCollectionPortal({
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  if (otpNeeded && !otpVerified) {
+    return (
+      <main className="min-h-dvh bg-zinc-950 px-4 py-10 text-zinc-100" data-document-upload-otp="014">
+        <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-zinc-900/80 p-6">
+          <h1 className="text-lg font-semibold">Verify your email</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            Enter the email verification code sent to the selected party’s canonical email. Codes are not sent when delivery is disabled.
+          </p>
+          <input
+            className="mt-4 h-10 w-full rounded-md border border-white/20 bg-zinc-950 px-3 text-sm"
+            value={otpValue}
+            onChange={(e) => setOtpValue(e.target.value)}
+            inputMode="numeric"
+            maxLength={6}
+            aria-label="Email OTP"
+          />
+          {otpMessage ? <p className="mt-2 text-xs text-amber-300">{otpMessage}</p> : null}
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-white/20 px-3 py-2 text-xs"
+              onClick={() => {
+                void fetch("/api/document-workspace/upload-portal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "issue_otp", token }),
+                })
+                  .then((res) => res.json())
+                  .then((json) => {
+                    const data = json?.data ?? json;
+                    setOtpMessage(
+                      data?.deliveryEnabled
+                        ? "A code would be emailed when delivery is enabled."
+                        : "OTP generated but not sent (delivery disabled).",
+                    );
+                  });
+              }}
+            >
+              Request code
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-white px-3 py-2 text-xs text-zinc-950"
+              onClick={() => {
+                void fetch("/api/document-workspace/upload-portal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "verify_otp", token, otp: otpValue }),
+                })
+                  .then((res) => res.json())
+                  .then((json) => {
+                    const data = json?.data ?? json;
+                    if (data?.ok) setOtpVerified(true);
+                    else setOtpMessage(data?.message || "Verification failed.");
+                  });
+              }}
+            >
+              Verify
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (invalid) {
     if (embedded) {
@@ -447,25 +558,18 @@ export function CustomerDocumentCollectionPortal({
           </div>
         )}
 
-        <DocumentCategorySection
-          title="Critical Documents"
-          hint="Required before lender submission"
-          items={critical}
-          busyRef={busyRef}
-          onUpload={(item, file) => void onIngest(item, file, "upload")}
-          onReplace={(item, file) => void onIngest(item, file, "replace")}
-          onPreview={(item) => void onPreview(item)}
-        />
-
-        <DocumentCategorySection
-          title="Journey Documents"
-          hint="May be collected during processing"
-          items={journey}
-          busyRef={busyRef}
-          onUpload={(item, file) => void onIngest(item, file, "upload")}
-          onReplace={(item, file) => void onIngest(item, file, "replace")}
-          onPreview={(item) => void onPreview(item)}
-        />
+        {ownerGroups.map((group) => (
+          <DocumentCategorySection
+            key={`${group.ownerRoleLabel}:${group.ownerLabel}`}
+            title={`${group.ownerRoleLabel} — ${group.ownerLabel}`}
+            hint="Upload files for this owner only"
+            items={group.items}
+            busyRef={busyRef}
+            onUpload={(item, file) => void onIngest(item, file, "upload")}
+            onReplace={(item, file) => void onIngest(item, file, "replace")}
+            onPreview={(item) => void onPreview(item)}
+          />
+        ))}
 
         {/* Communication */}
         <section className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
@@ -479,13 +583,6 @@ export function CustomerDocumentCollectionPortal({
                 state.communications[0]
                   ? `${state.communications[0].kind.replace(/_/g, " ")} · ${formatDate(state.communications[0].at)}`
                   : "—"
-              }
-            />
-            <Meta
-              label="RM Remarks"
-              value={
-                state.lodItems.find((i) => i.remarks?.trim())?.remarks ||
-                "No remarks from your Relationship Manager yet."
               }
             />
           </dl>
@@ -593,9 +690,31 @@ function DocumentCategorySection({
 }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">{title}</h2>
-        <p className="text-[10px] text-zinc-500">{hint}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] text-zinc-500">{hint}</p>
+          <label className="cursor-pointer text-[10px] font-medium text-teal-300">
+            Upload folder
+            <input
+              type="file"
+              className="hidden"
+              multiple
+              {...{ webkitdirectory: "", directory: "" }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                for (const file of files) {
+                  const name = file.name.toLowerCase();
+                  const match =
+                    items.find((item) => item.label.toLowerCase().split(" ").some((token) => token.length > 3 && name.includes(token.toLowerCase()))) ||
+                    items.find((item) => needsUpload(item.status));
+                  if (match) onUpload(match, file);
+                }
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
       </div>
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-zinc-500">No documents in this category.</p>
@@ -605,6 +724,14 @@ function DocumentCategorySection({
             <li
               key={getDocumentRequestRef(item)}
               className="rounded-xl border border-white/10 bg-zinc-950/55 p-3"
+              onDragOver={(e) => {
+                e.preventDefault();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files?.[0];
+                if (file) onUpload(item, file);
+              }}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -615,9 +742,6 @@ function DocumentCategorySection({
                       ? ` · Verification: ${displayStatus(item.status)}`
                       : ""}
                   </p>
-                  {item.remarks && (
-                    <p className="mt-1 text-[11px] text-zinc-400">Remarks: {item.remarks}</p>
-                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {needsUpload(item.status) && (

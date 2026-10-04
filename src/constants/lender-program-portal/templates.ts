@@ -1,7 +1,17 @@
 /**
  * CO-LEND-001 — Product-driven program templates (metadata SSOT).
  * Home Loan and HL BT+Top-up share one template.
+ * Controlled choices reuse Product Programme masters. They do not define policy.
  */
+import {
+  PROGRAMME_BENCHMARKS,
+  PROGRAMME_EMPLOYMENT_TYPES,
+  PROGRAMME_INCOME_ASSESSMENT_METHODS,
+  PROGRAMME_LEGAL_CONSTITUTIONS,
+  PROGRAMME_PROPERTY_TYPES,
+  PROGRAMME_RATE_TYPES,
+  PROGRAMME_RESIDENCY,
+} from "@/constants/product-programme-operations/controlled-masters";
 
 export type LenderProgramTemplateKey =
   | "home_loan"
@@ -30,6 +40,7 @@ export type LenderProgramFieldDef = {
   section: string;
   required?: boolean;
   options?: string[];
+  optionItems?: ReadonlyArray<{ id: string; label: string }>;
   common?: boolean;
 };
 
@@ -44,19 +55,27 @@ export type LenderProgramTemplate = {
 
 const COMMON_FIELDS: LenderProgramFieldDef[] = [
   { key: "programName", label: "Program Name", type: "text", section: "Program", required: true, common: true },
-  { key: "effectiveDate", label: "Effective Date", type: "date", section: "Program", common: true },
-  { key: "expiryDate", label: "Expiry Date", type: "date", section: "Program", common: true },
+  { key: "effectiveDate", label: "Effective Date", type: "date", section: "Program", required: true, common: true },
+  { key: "expiryDate", label: "Expiry Date", type: "date", section: "Program", required: true, common: true },
   { key: "interestRate", label: "Interest Rate (%)", type: "percent", section: "Pricing", required: true, common: true },
-  { key: "interestType", label: "Interest Type", type: "select", section: "Pricing", common: true, options: ["Floating", "Fixed", "Hybrid"] },
+  { key: "interestType", label: "Rate type", type: "select", section: "Pricing", required: true, common: true, optionItems: PROGRAMME_RATE_TYPES },
+  { key: "benchmarkCode", label: "Benchmark", type: "select", section: "Pricing", required: true, common: true, optionItems: PROGRAMME_BENCHMARKS },
   { key: "processingFee", label: "Processing Fee", type: "text", section: "Pricing", common: true },
-  { key: "minLoanAmount", label: "Minimum Loan", type: "currency", section: "Limits", common: true },
-  { key: "maxLoanAmount", label: "Maximum Loan", type: "currency", section: "Limits", common: true },
-  { key: "minIncome", label: "Minimum Income", type: "currency", section: "Eligibility", common: true },
-  { key: "maxFoir", label: "Maximum FOIR (%)", type: "percent", section: "Eligibility", common: true },
-  { key: "minCibil", label: "Minimum CIBIL", type: "number", section: "Eligibility", common: true },
-  { key: "maxTenureMonths", label: "Maximum Tenure (months)", type: "number", section: "Limits", common: true },
-  { key: "eligibleCustomerType", label: "Eligible Customer Type", type: "text", section: "Eligibility", common: true },
-  { key: "eligiblePropertyType", label: "Eligible Property Type", type: "text", section: "Eligibility", common: true },
+  { key: "minLoanAmount", label: "Minimum Loan", type: "currency", section: "Limits", required: true, common: true },
+  { key: "maxLoanAmount", label: "Maximum Loan", type: "currency", section: "Limits", required: true, common: true },
+  { key: "minTenureMonths", label: "Minimum Tenure (months)", type: "number", section: "Limits", required: true, common: true },
+  { key: "maxTenureMonths", label: "Maximum Tenure (months)", type: "number", section: "Limits", required: true, common: true },
+  { key: "employmentType", label: "Employment category", type: "select", section: "Eligibility", required: true, common: true, optionItems: PROGRAMME_EMPLOYMENT_TYPES },
+  { key: "incomeAssessmentMethod", label: "Income assessment", type: "select", section: "Eligibility", required: true, common: true, optionItems: PROGRAMME_INCOME_ASSESSMENT_METHODS },
+  { key: "legalConstitution", label: "Legal constitution", type: "select", section: "Eligibility", required: true, common: true, optionItems: PROGRAMME_LEGAL_CONSTITUTIONS },
+  { key: "residencyEligibility", label: "Residency", type: "select", section: "Eligibility", required: true, common: true, optionItems: PROGRAMME_RESIDENCY },
+  { key: "propertyType", label: "Property type", type: "select", section: "Eligibility", required: true, common: true, optionItems: PROGRAMME_PROPERTY_TYPES },
+  { key: "minIncome", label: "Minimum income or turnover", type: "currency", section: "Eligibility", common: true },
+  { key: "maxFoir", label: "Maximum FOIR (%) — salaried income only", type: "percent", section: "Eligibility", common: true },
+  { key: "minCibil", label: "Minimum CIBIL", type: "number", section: "Eligibility", required: true, common: true },
+  { key: "minAge", label: "Minimum age", type: "number", section: "Eligibility", required: true, common: true },
+  { key: "maxAge", label: "Maximum age", type: "number", section: "Eligibility", required: true, common: true },
+  { key: "geographyState", label: "Eligible state", type: "text", section: "Eligibility", required: true, common: true },
   { key: "requiredDocuments", label: "Required Documents", type: "textarea", section: "Documentation", common: true },
   { key: "specialConditions", label: "Special Conditions", type: "textarea", section: "Conditions", common: true },
   { key: "remarks", label: "Remarks", type: "textarea", section: "Conditions", common: true },

@@ -100,6 +100,12 @@ function FeedRow({
             {row.opportunityNumber} · {row.product} ·{" "}
             {formatNewOpportunityAmount(row.requestedAmount)}
           </p>
+          <p
+            className="truncate text-[11px] tabular-nums text-muted-foreground"
+            data-field="advantage-committed"
+          >
+            Advantage Committed (₹): {row.advantageCommittedDisplay ?? "Not applicable"}
+          </p>
           <p className="truncate text-[11px] text-muted-foreground">
             Source: {row.sourceLabel} · {row.sourceName}
           </p>

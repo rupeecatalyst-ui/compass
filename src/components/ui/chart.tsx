@@ -2,6 +2,8 @@ import * as React from "react";
 import * as RechartsPrimitive from "recharts";
 
 import { cn } from "@/lib/utils";
+import { formatCount } from "@/lib/format-currency";
+import { resolveChartCategoryLabel } from "@/lib/enterprise-chart-readability/format";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
@@ -131,10 +133,17 @@ const ChartTooltipContent = React.forwardRef<
       const [item] = payload;
       const key = `${labelKey || item?.dataKey || item?.name || "value"}`;
       const itemConfig = getPayloadConfigFromPayload(config, item, key);
-      const value =
-        !labelKey && typeof label === "string"
-          ? config[label as keyof typeof config]?.label || label
+      const payloadLabel =
+        item?.payload && typeof item.payload === "object"
+          ? (item.payload as { label?: unknown; period?: unknown; name?: unknown }).label ??
+            (item.payload as { period?: unknown }).period ??
+            (item.payload as { name?: unknown }).name
+          : undefined;
+      const rawLabel =
+        !labelKey && label != null
+          ? config[String(label) as keyof typeof config]?.label || label
           : itemConfig?.label;
+      const value = resolveChartCategoryLabel(rawLabel ?? payloadLabel, "");
 
       if (labelFormatter) {
         return (
@@ -217,14 +226,14 @@ const ChartTooltipContent = React.forwardRef<
                         <div className="grid gap-1.5">
                           {nestLabel ? tooltipLabel : null}
                           <span className="text-muted-foreground">
-                            {itemConfig?.label || item.name}
+                            {resolveChartCategoryLabel(itemConfig?.label || item.name, "Series")}
                           </span>
                         </div>
-                        {item.value && (
+                        {item.value != null && item.value !== "" ? (
                           <span className="font-mono font-medium tabular-nums text-foreground">
-                            {item.value.toLocaleString()}
+                            {typeof item.value === "number" ? formatCount(item.value) : String(item.value)}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </>
                   )}

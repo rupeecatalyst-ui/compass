@@ -13,6 +13,8 @@ import {
 } from "@/lib/enterprise-persistence/server";
 import { recordBusinessAudit } from "@/lib/ops";
 import { ecmContactService } from "@server/services/ecm/contact.service";
+import { CustomFieldValueError } from "@/lib/field-control-master/custom-field-value";
+import { commitContactWithCustomFields } from "@/lib/field-control-master/operational-custom-field-commit";
 import {
   EcmContactActiveExistsError,
   EcmContactSoftDeletedError,
@@ -119,7 +121,10 @@ export async function POST(request: Request) {
         configureEcmPersistencePorts();
         const actor = requireAccessToken(request);
         const body = await request.json();
-        const contact = await ecmContactService.register({
+        if ("organizationId" in body || "organisationId" in body) {
+          return errorResponse(400, "ORGANIZATION_CONTEXT_REJECTED", "Organization is taken from the server context.");
+        }
+        const registerInput = {
           name: String(body.name ?? ""),
           mobilePrimary: String(body.mobilePrimary ?? ""),
           createdBy: actor.userId,
@@ -135,7 +140,15 @@ export async function POST(request: Request) {
           ownerName: body.ownerName,
           ownerId: body.ownerId,
           strategicContact: body.strategicContact,
-        });
+        };
+        const contact =
+          body.customFieldValues !== undefined
+            ? await commitContactWithCustomFields({
+                contact: registerInput,
+                customFieldValues: body.customFieldValues,
+                actorUserId: actor.userId,
+              })
+            : await ecmContactService.register(registerInput);
         await syncEcmPortsFromPrisma();
         const entityId =
           contact && typeof contact === "object" && "id" in contact
@@ -164,6 +177,14 @@ export async function POST(request: Request) {
           err instanceof EcmContactActiveExistsError
         ) {
           return identityConflictResponse(err, correlationId);
+        }
+        if (err instanceof CustomFieldValueError) {
+          return errorResponse(err.statusCode, err.code, err.message, undefined, {
+            correlationId,
+            module: "Customer",
+            action: "create",
+            endpoint: "/api/ecm/contacts",
+          });
         }
         const message = err instanceof Error ? err.message : "Failed to create contact";
         const safe =

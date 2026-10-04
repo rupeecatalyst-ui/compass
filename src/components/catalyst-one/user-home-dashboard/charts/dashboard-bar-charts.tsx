@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
   Legend,
   Line,
   LineChart,
@@ -12,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { EnterpriseChartTooltip } from "@/components/enterprise/charts/enterprise-chart-tooltip";
 import { formatINRCompact } from "@/lib/format-currency";
 import type {
   DashboardAgeBucket,
@@ -44,24 +46,22 @@ export function DashboardHorizontalBarChart({
           margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
         >
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgb(148 163 184 / 0.25)" />
-          <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+          <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} label={{ value: "Opportunities (count)", position: "insideBottom", offset: -2, fontSize: 10 }} />
           <YAxis
             type="category"
             dataKey="label"
-            width={88}
+            width={96}
             tick={{ fontSize: 10 }}
+            interval={0}
           />
           <Tooltip
-            content={({ active, payload }) => {
-              if (!active || !payload?.[0]) return null;
-              const item = payload[0].payload as DashboardNamedSlice;
-              return (
-                <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-[11px] shadow-md">
-                  <p className="font-semibold">{item.label}</p>
-                  <p>{item.count} Opportunities</p>
-                </div>
-              );
-            }}
+            content={
+              <EnterpriseChartTooltip
+                unit="opportunities"
+                unitLabel="Opportunities"
+                period="Current operational view"
+              />
+            }
           />
           <Bar
             dataKey="count"
@@ -72,7 +72,9 @@ export function DashboardHorizontalBarChart({
               const slice = data as unknown as DashboardNamedSlice;
               if (slice?.key) onBarClick?.(slice);
             }}
-          />
+          >
+            <LabelList dataKey="count" position="right" fontSize={10} />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -108,21 +110,13 @@ export function DashboardAgeingStackedBar({
           <XAxis dataKey="name" tick={{ fontSize: 10 }} />
           <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
           <Tooltip
-            content={({ active, payload }) => {
-              if (!active || !payload?.length) return null;
-              return (
-                <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-[11px] shadow-md">
-                  {payload.map((p) => {
-                    const bucket = buckets.find((b) => b.id === p.dataKey);
-                    return (
-                      <p key={String(p.dataKey)}>
-                        {bucket?.label ?? String(p.dataKey)}: {String(p.value ?? 0)}
-                      </p>
-                    );
-                  })}
-                </div>
-              );
-            }}
+            content={
+              <EnterpriseChartTooltip
+                unit="count"
+                unitLabel="Opportunities"
+                period="Current operational view"
+              />
+            }
           />
           <Legend
             wrapperStyle={{ fontSize: 10 }}
@@ -156,12 +150,22 @@ export function DashboardTrendLineChart({ series }: { series: DashboardTrendPoin
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={series} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+        <LineChart data={series} margin={{ top: 8, right: 12, left: 8, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgb(148 163 184 / 0.25)" />
-          <XAxis dataKey="period" tick={{ fontSize: 10 }} />
-          <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+          <XAxis dataKey="period" tick={{ fontSize: 10 }} interval={0} />
+          <YAxis
+            allowDecimals={false}
+            tick={{ fontSize: 10 }}
+            label={{ value: "Count", angle: -90, position: "insideLeft", fontSize: 10 }}
+          />
           <Tooltip
-            contentStyle={{ fontSize: 11 }}
+            content={
+              <EnterpriseChartTooltip
+                unit="count"
+                unitLabel="Count"
+                period="Selected trend range"
+              />
+            }
           />
           <Legend wrapperStyle={{ fontSize: 10 }} />
           <Line
@@ -206,28 +210,27 @@ export function DashboardDisbursementBarChart({
         <BarChart data={periods} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgb(148 163 184 / 0.25)" />
           <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-          <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 10 }} />
+          <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 10 }} label={{ value: "Cases", angle: -90, position: "insideLeft", fontSize: 10 }} />
           <YAxis
             yAxisId="right"
             orientation="right"
             tick={{ fontSize: 10 }}
             tickFormatter={(v) => formatINRCompact(Number(v))}
+            label={{ value: "₹ value", angle: 90, position: "insideRight", fontSize: 10 }}
           />
           <Tooltip
-            content={({ active, payload }) => {
-              if (!active || !payload?.[0]) return null;
-              const item = payload[0].payload as DashboardDisbursementPeriod;
-              return (
-                <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-[11px] shadow-md">
-                  <p className="font-semibold">{item.label}</p>
-                  <p>{item.count} cases</p>
-                  <p>{formatINRCompact(item.value)} Opportunity value</p>
-                </div>
-              );
-            }}
+            content={
+              <EnterpriseChartTooltip
+                unit="count"
+                unitLabel="Cases / ₹ value"
+                period="Current operational view"
+              />
+            }
           />
           <Legend wrapperStyle={{ fontSize: 10 }} />
-          <Bar yAxisId="left" dataKey="count" name="Cases" fill="#0f766e" radius={[6, 6, 0, 0]} />
+          <Bar yAxisId="left" dataKey="count" name="Cases" fill="#0f766e" radius={[6, 6, 0, 0]}>
+            <LabelList dataKey="count" position="top" fontSize={10} />
+          </Bar>
           <Bar
             yAxisId="right"
             dataKey="value"

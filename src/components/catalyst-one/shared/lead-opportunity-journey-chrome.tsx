@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
+import { Sparkles } from "lucide-react";
+import { ChanakyaRecommendationWorkspace } from "@/components/catalyst-one/chanakya/chanakya-recommendation-workspace";
 import {
   buildJourneyHref,
   getLeadJourneyModule,
@@ -58,6 +60,7 @@ import {
   listPendingMandatoryDocuments,
 } from "@/components/catalyst-one/shared/disbursement-document-gate-dialog";
 import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { Button } from "@/components/ui/button";
 import { WorkspaceExitNav } from "@/components/enterprise/navigation";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import { derivePhaseReadiness } from "@/lib/enterprise-phase-readiness";
@@ -210,6 +213,7 @@ export function LeadOpportunityJourneyChrome({
   acknowledgeCleanClose = false,
   collapseOnScroll = true,
 }: LeadOpportunityJourneyChromeProps) {
+  const [chanakyaOpen, setChanakyaOpen] = useState(false);
   const router = useRouter();
   const [chromeSaving, setChromeSaving] = useState(false);
   const mod = getLeadJourneyModule(moduleId);
@@ -651,6 +655,17 @@ export function LeadOpportunityJourneyChrome({
                 onBeforeStageNavigate={handleBeforeStageNavigate}
               />
             ) : null}
+            {opportunityId ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                onClick={() => setChanakyaOpen(true)}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                CHANAKYA Recommendation
+              </Button>
+            ) : null}
             {headerActions}
             {!hideTransition ? (
               <BusinessTransitionCard
@@ -733,6 +748,13 @@ export function LeadOpportunityJourneyChrome({
         pendingItems={gatePending}
         onUploaded={refreshDisbursementGate}
       />
+      {opportunityId ? (
+        <ChanakyaRecommendationWorkspace
+          opportunityId={opportunityId}
+          open={chanakyaOpen}
+          onClose={() => setChanakyaOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

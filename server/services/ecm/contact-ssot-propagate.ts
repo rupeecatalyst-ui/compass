@@ -3,6 +3,7 @@
  * ECM Contact Registry owns identity; Opportunity/Deal fields are refreshed mirrors.
  */
 
+import type { Prisma } from "@prisma/client";
 import { ecmContactService } from "@server/services/ecm/contact.service";
 import { prisma } from "@server/lib/prisma";
 
@@ -85,12 +86,15 @@ export async function hydrateTransactionContactIdentity(input: {
   };
 }
 
-export async function propagateContactIdentityToTransactions(input: {
-  organizationId: string;
-  contactId: string;
-  contact: ContactIdentitySnapshot;
-  modifiedBy: string;
-}): Promise<{ opportunitiesUpdated: number; dealsUpdated: number }> {
+export async function propagateContactIdentityToTransactions(
+  input: {
+    organizationId: string;
+    contactId: string;
+    contact: ContactIdentitySnapshot;
+    modifiedBy: string;
+  },
+  db?: Prisma.TransactionClient,
+): Promise<{ opportunitiesUpdated: number; dealsUpdated: number }> {
   const email = resolveContactEmail(input.contact);
   const data = {
     primaryContactName: input.contact.name,
@@ -100,24 +104,26 @@ export async function propagateContactIdentityToTransactions(input: {
     stateLabel: input.contact.state?.trim() || null,
     updatedBy: input.modifiedBy,
   };
+  const opportunityWhere = {
+    organizationId: input.organizationId,
+    primaryContactId: input.contactId,
+    isDeleted: false,
+  };
+  const dealWhere = {
+    organizationId: input.organizationId,
+    primaryContactId: input.contactId,
+    isDeleted: false,
+  };
+
+  if (db) {
+    const opp = await db.enterpriseOpportunity.updateMany({ where: opportunityWhere, data });
+    const deal = await db.enterpriseDeal.updateMany({ where: dealWhere, data });
+    return { opportunitiesUpdated: opp.count, dealsUpdated: deal.count };
+  }
 
   const [opp, deal] = await prisma.$transaction([
-    prisma.enterpriseOpportunity.updateMany({
-      where: {
-        organizationId: input.organizationId,
-        primaryContactId: input.contactId,
-        isDeleted: false,
-      },
-      data,
-    }),
-    prisma.enterpriseDeal.updateMany({
-      where: {
-        organizationId: input.organizationId,
-        primaryContactId: input.contactId,
-        isDeleted: false,
-      },
-      data,
-    }),
+    prisma.enterpriseOpportunity.updateMany({ where: opportunityWhere, data }),
+    prisma.enterpriseDeal.updateMany({ where: dealWhere, data }),
   ]);
 
   return { opportunitiesUpdated: opp.count, dealsUpdated: deal.count };
@@ -133,6 +139,7 @@ export async function syncContactIdentityPatchToEcm(input: {
   primaryBorrowerKind?: string | null;
   body: Record<string, unknown>;
   actorUserId: string;
+  db?: Prisma.TransactionClient;
 }): Promise<boolean> {
   if (!input.primaryContactId || !isIndividualBorrower(input.primaryBorrowerKind)) {
     return false;
@@ -163,6 +170,6 @@ export async function syncContactIdentityPatchToEcm(input: {
     throw new Error("Primary mobile is required.");
   }
 
-  await ecmContactService.update(input.primaryContactId, patch, input.actorUserId);
+  await ecmContactService.update(input.primaryContactId, patch, input.actorUserId, input.db);
   return true;
 }

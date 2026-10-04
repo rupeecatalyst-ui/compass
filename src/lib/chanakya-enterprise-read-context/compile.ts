@@ -39,6 +39,8 @@ import {
 } from "./redact-pii";
 
 import { assertNoDocumentBinaryInAiContext } from "@/lib/chanakya-document-intelligence/ocr-integration-core";
+import { actorMayIncludeDocumentExcerpts } from "@/lib/chanakya-conversation-intelligence/document-excerpt-gate";
+import { scopeTransactionAttentionForActor } from "@/lib/chanakya-conversation-intelligence/scope-actor";
 
 import {
 
@@ -136,6 +138,17 @@ export async function compileChanakyaEnterpriseReadContext(
 
   ];
 
+  const allowDocumentExcerpts =
+    Boolean(request.includeDocumentExcerpts) &&
+    actorMayIncludeDocumentExcerpts(request.actorRole);
+
+  if (request.includeDocumentExcerpts && !allowDocumentExcerpts) {
+    limitations.push(
+      "Document excerpts omitted — actor lacks document download permission.",
+    );
+  }
+
+
 
 
   let opportunity360 = null as ChanakyaEnterpriseReadCompileResult["opportunity360"];
@@ -208,7 +221,7 @@ export async function compileChanakyaEnterpriseReadContext(
 
         opportunityRef: request.opportunityRef,
 
-        includeDocumentExcerpts: Boolean(request.includeDocumentExcerpts),
+        includeDocumentExcerpts: allowDocumentExcerpts,
 
       });
 
@@ -258,7 +271,7 @@ export async function compileChanakyaEnterpriseReadContext(
 
         dealRef: request.dealRef,
 
-        includeDocumentExcerpts: Boolean(request.includeDocumentExcerpts),
+        includeDocumentExcerpts: allowDocumentExcerpts,
 
       });
 
@@ -406,6 +419,17 @@ export async function compileChanakyaEnterpriseReadContext(
 
         };
 
+      }
+
+      if (request.actorRole && transactionAttention) {
+        transactionAttention = scopeTransactionAttentionForActor(
+          transactionAttention,
+          {
+            userId: request.actorUserId,
+            role: request.actorRole,
+          },
+          request.actorUserId ? [request.actorUserId] : [],
+        );
       }
 
 

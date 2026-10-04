@@ -1,0 +1,154 @@
+import {
+  errorResponse,
+  fromAuthError,
+  requireAccessToken,
+  successResponse,
+} from "@/lib/api/auth-route-utils";
+import type { ApiResponse } from "@/types/api";
+import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
+import {
+  createLenderCategoryDraft,
+  createUnapprovedDraftMasters,
+  ensureProductWeightDraft,
+  listHlRecommendationMasters,
+  saveWeightDraft,
+  simulateHomeLoanRecommendation,
+  transitionHlMaster,
+} from "@server/services/home-loan-recommendation/hl-recommendation-masters.service";
+import {
+  ensureProductJourneyDraft,
+  listProductJourneyDefinitions,
+  saveProductJourneyDraft,
+  transitionProductJourneyDefinition,
+} from "@server/services/product-journey/product-journey-definition.service";
+import type { CustomerAssessmentInput } from "@/lib/home-loan-recommendation/assisted-offer";
+
+const WRITE_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
+
+export async function GET(request: Request) {
+  try {
+    const actor = requireAccessToken(request);
+    if (!WRITE_ROLES.has(actor.role)) {
+      return errorResponse(403, "FORBIDDEN", "Administrator access is required.");
+    }
+    const organizationId = await resolvePilotOrganizationId();
+    const [data, journey] = await Promise.all([
+      listHlRecommendationMasters(organizationId),
+      listProductJourneyDefinitions(organizationId),
+    ]);
+    return successResponse({ ...data, ...journey });
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "status" in err) {
+      return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
+    }
+    return errorResponse(400, "HL_MASTERS_LIST_FAILED", err instanceof Error ? err.message : "Unable to list masters.");
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const actor = requireAccessToken(request);
+    if (!WRITE_ROLES.has(actor.role)) {
+      return errorResponse(403, "FORBIDDEN", "Administrator access is required.");
+    }
+    const organizationId = await resolvePilotOrganizationId();
+    const body = (await request.json().catch(() => ({}))) as {
+      intent?: string;
+      kind?: "weights" | "cibil" | "ltv" | "category";
+      id?: string;
+      action?: "submit_review" | "approve" | "reject" | "activate";
+      comment?: string;
+      lenderId?: string;
+      category?: unknown;
+      reason?: string;
+      customer?: CustomerAssessmentInput;
+      productCode?: string;
+      weightsJson?: Record<string, number>;
+      fieldsJson?: unknown;
+    };
+    if (body.intent === "ensure_journey_draft" && body.productCode) {
+      const data = await ensureProductJourneyDraft({
+        organizationId,
+        productCode: body.productCode,
+        makerUserId: actor.userId,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "save_journey_draft" && body.id && body.fieldsJson) {
+      const data = await saveProductJourneyDraft({
+        organizationId,
+        id: body.id,
+        actorUserId: actor.userId,
+        fieldsJson: body.fieldsJson,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "transition_journey" && body.id && body.action) {
+      const data = await transitionProductJourneyDefinition({
+        organizationId,
+        id: body.id,
+        action: body.action,
+        actorUserId: actor.userId,
+        comment: body.comment,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "ensure_weight_draft" && body.productCode) {
+      const data = await ensureProductWeightDraft({
+        organizationId,
+        productCode: body.productCode,
+        makerUserId: actor.userId,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "create_unapproved_drafts") {
+      const data = await createUnapprovedDraftMasters({
+        organizationId,
+        makerUserId: actor.userId,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "simulate") {
+      if (!body.customer) {
+        return errorResponse(400, "CUSTOMER_REQUIRED", "Simulation requires a customer assessment payload.");
+      }
+      return successResponse(simulateHomeLoanRecommendation(body.customer));
+    }
+    if (body.intent === "save_weight_draft" && body.id && body.weightsJson) {
+      const data = await saveWeightDraft({
+        organizationId,
+        id: body.id,
+        actorUserId: actor.userId,
+        weightsJson: body.weightsJson,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "create_category_draft") {
+      const data = await createLenderCategoryDraft({
+        organizationId,
+        lenderId: body.lenderId ?? "",
+        category: body.category,
+        makerUserId: actor.userId,
+        reason: body.reason,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "transition" && body.kind && body.id && body.action) {
+      const data = await transitionHlMaster({
+        organizationId,
+        kind: body.kind,
+        id: body.id,
+        action: body.action,
+        actorUserId: actor.userId,
+        comment: body.comment,
+      });
+      return successResponse(data);
+    }
+    return errorResponse(400, "UNKNOWN_INTENT", "Unsupported master action.");
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "status" in err) {
+      return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
+    }
+    return errorResponse(400, "HL_MASTERS_WRITE_FAILED", err instanceof Error ? err.message : "Unable to update masters.");
+  }
+}

@@ -1,68 +1,103 @@
 "use client";
 
 /**
- * CO-MARKETING-MKT-01 / ACTIVATION-002 — Marketing Command Center home.
+ * CO-MARKETING-REDESIGN-005 — Marketing Home command centre.
+ * Premium dark Catalyst One overview. Honest metrics. TEST MODE while live send is off.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, Megaphone, ShieldCheck } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, Megaphone, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
   ENTERPRISE_MARKETING_ENGINE_NAME,
   ENTERPRISE_MARKETING_MODULE_TITLE,
-  MARKETING_COMMAND_CENTER_SECTIONS,
+  MARKETING_PERMISSIONS,
 } from "@/constants/enterprise-marketing-engine";
+import { MARKETING_HOME_OUTCOME_CARDS } from "@/constants/enterprise-marketing-engine/home-registry";
+import { ROUTES } from "@/constants/routes";
+import {
+  composeMarketingHomeOverview,
+  formatMarketingMetricValue,
+  type MarketingHomeOverview,
+} from "@/lib/enterprise-marketing-engine/home-overview";
+import { hasMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 import type { EnterpriseMarketingFoundationStatus } from "@/types/enterprise-marketing-engine";
+import type { MarketingCampaign } from "@/types/enterprise-marketing-campaign";
+import type { MarketingAnalyticsDashboard } from "@/types/enterprise-marketing-analytics";
+import type { MarketingQualificationRecord } from "@/types/enterprise-marketing-qualification";
 import { MarketingModuleNav } from "./marketing-module-nav";
+import "@/styles/marketing-command-centre.css";
 
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: { message?: string } };
 
-function modeLabel(value: boolean | string | undefined, whenTrue: string, whenFalse: string) {
-  if (typeof value === "boolean") return value ? whenTrue : whenFalse;
-  if (!value) return whenFalse;
-  return String(value);
+function MetricFace({ label, metric }: { label: string; metric: MarketingHomeOverview["qualifiedResponses"] }) {
+  const unavailable = metric.availability !== "available" || metric.value == null;
+  return (
+    <article className="mkt-cc-card" aria-label={label}>
+      <p className="mkt-cc-card-label">{label}</p>
+      <p className={unavailable ? "mkt-cc-card-value is-unavailable" : "mkt-cc-card-value"}>
+        {formatMarketingMetricValue(metric)}
+      </p>
+    </article>
+  );
 }
 
 export function MarketingCommandCenter() {
   const [status, setStatus] = useState<EnterpriseMarketingFoundationStatus | null>(null);
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[] | null>(null);
+  const [qualifications, setQualifications] = useState<MarketingQualificationRecord[] | null>(null);
+  const [analytics, setAnalytics] = useState<MarketingAnalyticsDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [campaignCount, setCampaignCount] = useState<number | null>(null);
-  const [audienceCount, setAudienceCount] = useState<number | null>(null);
+  const canCreate = hasMarketingPermission({ role: "ADMIN" }, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [res, campRes, audRes] = await Promise.all([
+        const [statusRes, campRes, qualRes, analyticsRes] = await Promise.all([
           authenticatedJsonFetch("/api/admin/marketing"),
           authenticatedJsonFetch("/api/admin/marketing/campaigns"),
-          authenticatedJsonFetch("/api/admin/marketing/audiences"),
+          authenticatedJsonFetch("/api/admin/marketing/qualifications"),
+          authenticatedJsonFetch("/api/admin/marketing/analytics"),
         ]);
-        const body = (await res.json()) as ApiEnvelope<EnterpriseMarketingFoundationStatus>;
         if (cancelled) return;
-        if (!res.ok || !body.success || !body.data) {
-          setError(body.error?.message ?? "Failed to load Marketing foundation status");
+        const statusBody = (await statusRes.json()) as ApiEnvelope<EnterpriseMarketingFoundationStatus>;
+        if (!statusRes.ok || !statusBody.success || !statusBody.data) {
+          setError(statusBody.error?.message ?? "Failed to load Marketing foundation status");
         } else {
-          setStatus(body.data);
+          setStatus(statusBody.data);
         }
         if (campRes.ok) {
-          const campBody = (await campRes.json()) as ApiEnvelope<{ campaigns: unknown[] }>;
-          if (campBody.success && campBody.data?.campaigns) {
-            setCampaignCount(campBody.data.campaigns.length);
-          }
+          const campBody = (await campRes.json()) as ApiEnvelope<{ campaigns: MarketingCampaign[] }>;
+          setCampaigns(campBody.data?.campaigns ?? []);
+        } else {
+          setCampaigns([]);
         }
-        if (audRes.ok) {
-          const audBody = (await audRes.json()) as ApiEnvelope<{ audiences: unknown[] }>;
-          if (audBody.success && audBody.data?.audiences) {
-            setAudienceCount(audBody.data.audiences.length);
-          }
+        if (qualRes.ok) {
+          const qualBody = (await qualRes.json()) as ApiEnvelope<{
+            qualifications?: MarketingQualificationRecord[];
+            items?: MarketingQualificationRecord[];
+          } | MarketingQualificationRecord[]>;
+          const payload = qualBody.data;
+          const list = Array.isArray(payload)
+            ? payload
+            : payload?.qualifications ?? payload?.items ?? null;
+          setQualifications(list);
+        } else {
+          setQualifications(null);
+        }
+        if (analyticsRes.ok) {
+          const analyticsBody = (await analyticsRes.json()) as ApiEnvelope<MarketingAnalyticsDashboard>;
+          setAnalytics(analyticsBody.data ?? null);
+        } else {
+          setAnalytics(null);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load Marketing foundation status");
+          setError(err instanceof Error ? err.message : "Failed to load Marketing Command Center");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -73,158 +108,169 @@ export function MarketingCommandCenter() {
     };
   }, []);
 
-  const sections = MARKETING_COMMAND_CENTER_SECTIONS.filter((s) => s.id !== "home");
+  const overview = useMemo(() => {
+    if (!status) return null;
+    return composeMarketingHomeOverview({
+      campaigns: campaigns ?? [],
+      qualifications,
+      analytics,
+      safety: {
+        executionEnabled: status.safety.executionEnabled,
+        providerConnectEnabled: status.safety.providerConnectEnabled,
+        sheetsMode: status.safety.sheetsMode,
+        handoffEnabled: status.safety.handoffEnabled,
+      },
+    });
+  }, [status, campaigns, qualifications, analytics]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-      <header className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Administration · {ENTERPRISE_MARKETING_ENGINE_NAME}
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Megaphone className="h-7 w-7 text-primary" aria-hidden />
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {ENTERPRISE_MARKETING_MODULE_TITLE}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Bounded acquisition OS — MARKETING TEST MODE active; live bulk send separately gated.
-            </p>
+    <div className="mkt-cc mkt-cc-page">
+      <header className="space-y-3">
+        <p className="mkt-cc-kicker">Administration · {ENTERPRISE_MARKETING_ENGINE_NAME}</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <Megaphone className="mt-1 h-8 w-8 shrink-0 text-primary" aria-hidden />
+            <div>
+              <h1 className="mkt-cc-title">{ENTERPRISE_MARKETING_MODULE_TITLE}</h1>
+              <p className="mt-1 max-w-2xl text-base text-muted-foreground">
+                Operating overview for acquisition campaigns. Metrics appear only from durable records.
+              </p>
+            </div>
           </div>
+          {canCreate ? (
+            <Button asChild size="lg" className="rounded-xl px-5">
+              <Link href={`${ROUTES.ADMIN_MARKETING_CAMPAIGNS}?create=1`}>
+                <Plus className="mr-2 h-4 w-4" aria-hidden />
+                Create Campaign
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </header>
 
       <MarketingModuleNav activeId="home" />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            Foundation status
-          </CardTitle>
-          <CardDescription>
-            Sprint {status?.sprint ?? "CO-MARKETING-ACTIVATION-002"} — workflow active with honest
-            safety gates.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {loading ? (
-            <p className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading module status…
-            </p>
-          ) : error ? (
-            <p className="text-destructive">{error}</p>
-          ) : status ? (
-            <>
-              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-950 dark:text-amber-100">
-                MARKETING TEST MODE — controlled dry-run / fixture execution. Live unrestricted bulk
-                send is OFF.
-              </p>
-              <p className="text-muted-foreground">{status.safety.notice}</p>
-              <dl className="grid gap-2 sm:grid-cols-2">
+      {overview?.testMode ? (
+        <div className="mkt-cc-banner" role="status">
+          {overview.testModeBanner}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <p className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Loading Marketing Command Center…
+        </p>
+      ) : error ? (
+        <p className="text-destructive" role="alert">
+          {error}
+        </p>
+      ) : overview ? (
+        <>
+          <section aria-label="Campaign lifecycle" className="mkt-cc-grid">
+            {overview.lifecycleCards.map((card) => (
+              <MetricFace key={card.id} label={card.label} metric={card.metric} />
+            ))}
+            <MetricFace
+              label={MARKETING_HOME_OUTCOME_CARDS[0].label}
+              metric={overview.qualifiedResponses}
+            />
+            <MetricFace
+              label={MARKETING_HOME_OUTCOME_CARDS[1].label}
+              metric={overview.opportunitiesCreated}
+            />
+            <MetricFace
+              label={MARKETING_HOME_OUTCOME_CARDS[2].label}
+              metric={overview.attributedPipeline}
+            />
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="mkt-cc-panel" aria-labelledby="mkt-attention">
+              <h2 id="mkt-attention" className="text-lg font-semibold tracking-tight">
+                Campaigns requiring attention
+              </h2>
+              {overview.requiringAttention.length === 0 ? (
+                <p className="mt-3 text-sm text-muted-foreground">Nothing needs attention right now.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {overview.requiringAttention.map((campaign) => (
+                    <li key={campaign.id}>
+                      <Link
+                        className="flex justify-between gap-3 rounded-lg px-2 py-2 hover:bg-accent hover:text-accent-foreground"
+                        href={`${ROUTES.ADMIN_MARKETING_REGISTRY}?status=${campaign.status}`}
+                      >
+                        <span className="font-medium">{campaign.name}</span>
+                        <span className="text-sm text-muted-foreground">{campaign.status}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="mkt-cc-panel" aria-labelledby="mkt-activity">
+              <h2 id="mkt-activity" className="text-lg font-semibold tracking-tight">
+                Recent campaign activity
+              </h2>
+              {overview.recentActivity.length === 0 ? (
+                <p className="mt-3 text-sm text-muted-foreground">No durable activity recorded yet.</p>
+              ) : (
+                <ul className="mt-3 space-y-2 text-sm">
+                  {overview.recentActivity.map((event) => (
+                    <li key={`${event.campaignId}-${event.at}-${event.action}`} className="flex flex-col gap-0.5">
+                      <span className="font-medium">{event.campaignName}</span>
+                      <span className="text-muted-foreground">
+                        {event.action} · {event.from} → {event.to}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="mkt-cc-panel" aria-labelledby="mkt-health">
+              <h2 id="mkt-health" className="text-lg font-semibold tracking-tight">
+                Delivery health
+              </h2>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Live bulk execution</dt>
-                  <dd className="font-medium">
-                    {status.safety.executionEnabled ? "Enabled" : "Disabled (production gate)"}
-                  </dd>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Sent</dt>
+                  <dd className="text-lg font-semibold">{formatMarketingMetricValue(overview.deliveryHealth.sent)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Dry-run / test execution</dt>
-                  <dd className="font-medium">
-                    {status.safety.executionDryRunEnabled ? "Active" : "Disabled"}
-                  </dd>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Failed</dt>
+                  <dd className="text-lg font-semibold">{formatMarketingMetricValue(overview.deliveryHealth.failed)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Handoff</dt>
-                  <dd className="font-medium">
-                    {status.safety.handoffEnabled
-                      ? `Enabled · mode ${status.safety.handoffMode ?? "fixture"}`
-                      : "Disabled"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Provider connect</dt>
-                  <dd className="font-medium">
-                    {status.safety.providerConnectEnabled ? "Connected" : "NOT CONNECTED"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Email channel</dt>
-                  <dd className="font-medium">
-                    {modeLabel(status.safety.emailMode, "live", status.safety.emailMode ?? "off")}
-                    {status.safety.emailMode === "dry_run" ? " · TEST MODE" : ""}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">WhatsApp channel</dt>
-                  <dd className="font-medium">
-                    {modeLabel(
-                      status.safety.whatsappMode,
-                      "live",
-                      status.safety.whatsappMode ?? "off",
-                    )}
-                    {status.safety.whatsappMode === "dry_run" ? " · TEST MODE" : ""}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Audience import</dt>
-                  <dd className="font-medium">Disabled (Sheets stream only)</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Sheets adapter</dt>
-                  <dd className="font-medium">
-                    {status.safety.sheetsMode}
-                    {status.safety.sheetsReadEnabled ? " (read)" : " (off)"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Audience engine</dt>
-                  <dd className="font-medium">
-                    {status.capabilities.audienceEngine === "definition_preview"
-                      ? "Definition + preview"
-                      : "Disabled"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Campaigns (this process)</dt>
-                  <dd className="font-medium">
-                    {campaignCount == null ? "—" : campaignCount}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase text-muted-foreground">Audiences (this process)</dt>
-                  <dd className="font-medium">
-                    {audienceCount == null ? "—" : audienceCount}
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Delivered</dt>
+                  <dd className="text-lg font-semibold">
+                    {formatMarketingMetricValue(overview.deliveryHealth.delivered)}
                   </dd>
                 </div>
               </dl>
-              <p className="text-xs text-muted-foreground">
-                Future handoff: {status.boundaries.futureHandoff}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Ports registered: {status.ports.length} · Permissions defined:{" "}
-                {status.permissions.length}
-              </p>
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
+            </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {sections.map((section) => (
-          <Link key={section.id} href={section.href} className="group">
-            <Card className="h-full transition-colors group-hover:border-primary/40 group-hover:bg-accent/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">{section.title}</CardTitle>
-                <CardDescription>{section.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <span className="text-xs font-medium text-primary">Open →</span>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </section>
+            <section className="mkt-cc-panel" aria-labelledby="mkt-config">
+              <h2 id="mkt-config" className="text-lg font-semibold tracking-tight">
+                Provider and Google configuration
+              </h2>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Email / WhatsApp provider</dt>
+                  <dd className="mt-1 font-semibold">{overview.providerStatus}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Google Sheets</dt>
+                  <dd className="mt-1 font-semibold">{overview.googleStatus}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

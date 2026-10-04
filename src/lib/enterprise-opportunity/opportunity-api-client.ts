@@ -39,6 +39,21 @@ export type EnterpriseOpportunityApiRecord = {
   relationshipManagerName?: string | null;
   relationshipManagerUserId?: string | null;
   requestedAmount?: number | null;
+  borrowerAgeYears?: number | null;
+  borrowerLegalConstitution?: string | null;
+  requestedTenureMonths?: number | null;
+  monthlyIncomeRupees?: number | null;
+  existingMonthlyObligationsRupees?: number | null;
+  propertyValueRupees?: number | null;
+  propertyCategory?: string | null;
+  constructionStatus?: string | null;
+  residency?: string | null;
+  currentRoiPercent?: number | null;
+  currentHomeLoanEmiRupees?: number | null;
+  remainingTenureMonths?: number | null;
+  loanStartDate?: string | null;
+  repaymentTrack?: string | null;
+  delayedEmiCount?: number | null;
   /** ADR-018 — Product + Required Amount present. */
   requirementCaptured?: boolean;
   employmentTypeCode?: string | null;
@@ -52,6 +67,16 @@ export type EnterpriseOpportunityApiRecord = {
   participationRole?: string | null;
   commercialRevenueSharePercent?: number | null;
   sourceCampaignLabel?: string | null;
+  advantageCommittedAmount?: string | null;
+  advantageCommittedDisplay?: string | null;
+  advantageCommittedStatus?: string | null;
+  advantageCommittedAt?: string | null;
+  advantageCommittedByUserId?: string | null;
+  marketingCampaignId?: string | null;
+  marketingCampaignName?: string | null;
+  marketingSource?: string | null;
+  marketingSourceDetail?: string | null;
+  marketingProspectRef?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   rowVersion?: number;
@@ -161,6 +186,21 @@ export type OpportunityUpdateBody = {
   productLabel?: string | null;
   productFamily?: string;
   requestedAmount?: number | null;
+  borrowerAgeYears?: number | null;
+  borrowerLegalConstitution?: string | null;
+  requestedTenureMonths?: number | null;
+  monthlyIncomeRupees?: number | null;
+  existingMonthlyObligationsRupees?: number | null;
+  propertyValueRupees?: number | null;
+  propertyCategory?: string | null;
+  constructionStatus?: string | null;
+  residency?: string | null;
+  currentRoiPercent?: number | null;
+  currentHomeLoanEmiRupees?: number | null;
+  remainingTenureMonths?: number | null;
+  loanStartDate?: string | null;
+  repaymentTrack?: string | null;
+  delayedEmiCount?: number | null;
   transactionType?: string | null;
   requirementStage?: string;
   requirementSubStage?: string | null;
@@ -189,6 +229,8 @@ export type OpportunityUpdateBody = {
   overrideReason?: string;
   /** CO-OPP-002 — promote Requirement Captured → In Progress when continuing journey. */
   markInProgress?: boolean;
+  /** FCM custom values committed with this Opportunity update. */
+  customFieldValues?: Array<{ fieldLineageId: string; value: unknown }>;
 };
 
 export const enterpriseOpportunityApiClient = {
@@ -314,6 +356,7 @@ export const enterpriseOpportunityApiClient = {
   async searchOpportunities(query: {
     q?: string;
     primaryContactId?: string;
+    companyId?: string;
     requirementStage?: string;
     sourceCode?: string;
     sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
@@ -334,6 +377,7 @@ export const enterpriseOpportunityApiClient = {
     const params = new URLSearchParams();
     if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.primaryContactId) params.set("primaryContactId", query.primaryContactId);
+    if (query.companyId) params.set("companyId", query.companyId);
     if (query.requirementStage) params.set("requirementStage", query.requirementStage);
     if (query.sourceCode) params.set("sourceCode", query.sourceCode);
     if (query.sourceBucket) params.set("sourceBucket", query.sourceBucket);

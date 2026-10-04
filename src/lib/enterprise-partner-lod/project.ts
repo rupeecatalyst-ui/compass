@@ -68,6 +68,7 @@ export type ProjectPartnerLodOptions = {
   /** Soft display context from Recommendation Engine (does not invent documents). */
   recommendationTitle?: string | null;
   contactChannelPolicy?: "full" | "compass_public";
+  publishedProgramme?: import("@/lib/document-requests/generate-lod").GenerateOpportunityLodInput["publishedProgramme"];
 };
 
 /**
@@ -104,6 +105,7 @@ export function projectPartnerOpportunityLod(
       constitution: borrower.constitution,
       transactionType,
       contactChannelPolicy: opts?.contactChannelPolicy ?? "full",
+      publishedProgramme: opts?.publishedProgramme ?? null,
     });
 
     const docs = detail.documents ?? [];
@@ -139,6 +141,7 @@ export function projectPartnerOpportunityLod(
         canPreview: Boolean(match),
         canDelete: Boolean(match?.documentId) && isDraft,
         documentId: match?.documentId ?? null,
+        fileName: match?.fileName?.trim() || null,
         previewLabel: match
           ? `${match.fileName || match.title} · ${match.statusLabel}${
               match.sizeBytes ? ` · ${Math.round(match.sizeBytes / 1024)} KB` : ""

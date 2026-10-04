@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { DevelopmentOnlyDemoBanner } from "@/components/catalyst-one/shared/development-only-demo-banner";
@@ -16,6 +16,10 @@ import { purgeClientDemoBusinessDataIfNeeded } from "@/lib/demo-seed";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { isEnterpriseRegistryDocumentScrollPath, isEnterpriseRegistryFullWidthPath } from "@/constants/enterprise-registry-workspace";
+import {
+  CHANAKYA_DASHBOARD_MODE_PARAM,
+  CHANAKYA_DASHBOARD_MODE_VALUE,
+} from "@/constants/chanakya-dashboard-intelligence";
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
@@ -29,6 +33,10 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { open, setOpen } = useCommandPalette();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isChanakyaChatDesk =
+    pathname === "/dashboard" &&
+    searchParams.get(CHANAKYA_DASHBOARD_MODE_PARAM) === CHANAKYA_DASHBOARD_MODE_VALUE;
 
   useEffect(() => {
     purgeClientDemoBusinessDataIfNeeded();
@@ -67,7 +75,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     (isRegistryFullWidth && !isRegistryDocumentScroll) ||
     pathname.startsWith("/loan-files") ||
     pathname.startsWith("/deals") ||
-    pathname.startsWith("/admin/credit-risk-engine");
+    pathname.startsWith("/admin/credit-risk-engine") ||
+    isChanakyaChatDesk;
 
   return (
     <AuthGuard>
@@ -113,8 +122,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       : "h-full",
                   ),
                 (pathname === "/dashboard" || pathname === "/chanakya-radar") &&
+                  !isChanakyaChatDesk &&
                   !isRegistryFullWidth &&
                   "mx-auto w-full max-w-none p-4 md:p-6 lg:p-8",
+                isChanakyaChatDesk && "h-full max-w-none overflow-hidden p-0 md:p-0 lg:p-0",
               )}
             >
               {children}

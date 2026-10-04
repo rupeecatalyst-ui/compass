@@ -6,11 +6,10 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Legend,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -18,6 +17,10 @@ import {
 } from "recharts";
 import { formatINRCompact } from "@/lib/format-currency";
 import { deriveRevenueAnalytics } from "@/lib/revenue-analytics";
+import { EnterpriseChartTooltip } from "@/components/enterprise/charts/enterprise-chart-tooltip";
+import { EnterpriseDoughnutChart } from "@/components/enterprise/charts/enterprise-doughnut-chart";
+import { buildEnterpriseChartMeta } from "@/lib/enterprise-chart-readability";
+import { ENTERPRISE_CHART_CATEGORY_COLORS } from "@/constants/enterprise-chart-readability";
 import {
   enterpriseAccountingCaseClient,
   type EnterpriseAccountingCaseDto,
@@ -32,15 +35,7 @@ import type { DerivedAccountingPaymentSummary } from "@/types/enterprise-account
 import type { EbiSnapshot } from "@/types/enterprise-business-intelligence";
 import { cn } from "../shared/cn";
 
-const CHART_COLORS = ["#0d9488", "#38bdf8", "#a78bfa", "#fbbf24", "#f472b6", "#34d399"];
-
-const tooltipStyle = {
-  background: "#09090b",
-  border: "1px solid #27272a",
-  borderRadius: 8,
-  fontSize: 11,
-  color: "#e4e4e7",
-};
+const CHART_COLORS = [...ENTERPRISE_CHART_CATEGORY_COLORS];
 
 const STATE_LABEL: Record<string, string> = {
   expected: "Expected / accrued (Deal registry)",
@@ -118,14 +113,12 @@ function WaterfallChart({ model }: { model: RevenueAnalyticsModel }) {
             height={70}
           />
           <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} tickFormatter={(v) => formatINRCompact(v)} />
-          <Tooltip
-            contentStyle={tooltipStyle}
-            formatter={(value: number) => [formatINRCompact(value), "Amount"]}
-          />
+          <Tooltip content={<EnterpriseChartTooltip unit="inr" unitLabel="₹ value" period="Current accounting / EBI snapshot" />} />
           <Bar dataKey="value" radius={[4, 4, 0, 0]}>
             {data.map((entry, i) => (
               <Cell key={entry.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />
             ))}
+            <LabelList dataKey="value" position="top" fontSize={10} fill="#e4e4e7" formatter={(v: number) => formatINRCompact(v)} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -152,7 +145,7 @@ function ProductMixChart({ model }: { model: RevenueAnalyticsModel }) {
             height={60}
           />
           <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} tickFormatter={(v) => formatINRCompact(v)} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatINRCompact(v)} />
+          <Tooltip content={<EnterpriseChartTooltip unit="inr" unitLabel="₹ value" period="Current accounting / EBI snapshot" />} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="expected" name="Expected" fill="#a78bfa" radius={[4, 4, 0, 0]} />
           <Bar dataKey="invoiced" name="Invoiced" fill="#38bdf8" radius={[4, 4, 0, 0]} />
@@ -184,7 +177,7 @@ function LenderContributionChart({ model }: { model: RevenueAnalyticsModel }) {
             width={120}
             tick={{ fill: "#a1a1aa", fontSize: 10 }}
           />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatINRCompact(v)} />
+          <Tooltip content={<EnterpriseChartTooltip unit="inr" unitLabel="₹ value" period="Current accounting / EBI snapshot" />} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="invoiced" name="Invoiced" fill="#38bdf8" radius={[0, 4, 4, 0]} />
           <Bar dataKey="received" name="Received" fill="#0d9488" radius={[0, 4, 4, 0]} />
@@ -213,7 +206,7 @@ function RmContributionChart({ model }: { model: RevenueAnalyticsModel }) {
             height={60}
           />
           <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} tickFormatter={(v) => formatINRCompact(v)} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatINRCompact(v)} />
+          <Tooltip content={<EnterpriseChartTooltip unit="inr" unitLabel="₹ value" period="Current accounting / EBI snapshot" />} />
           <Bar dataKey="expected" name="Expected pipeline" fill="#a78bfa" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -234,7 +227,7 @@ function TrendChart({ model }: { model: RevenueAnalyticsModel }) {
           <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
           <XAxis dataKey="period" tick={{ fill: "#a1a1aa", fontSize: 10 }} />
           <YAxis tick={{ fill: "#a1a1aa", fontSize: 10 }} tickFormatter={(v) => formatINRCompact(v)} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatINRCompact(v)} />
+          <Tooltip content={<EnterpriseChartTooltip unit="inr" unitLabel="₹ value" period="Current accounting / EBI snapshot" />} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Line type="monotone" dataKey="invoiced" name="Invoiced" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
           <Line type="monotone" dataKey="received" name="Received" stroke="#0d9488" strokeWidth={2} dot={{ r: 3 }} />
@@ -248,27 +241,22 @@ function RealisationDonut({ model }: { model: RevenueAnalyticsModel }) {
   const invoiced = model.waterfall.find((s) => s.state === "invoiced")?.value ?? 0;
   const received = model.waterfall.find((s) => s.state === "received")?.value ?? 0;
   const outstanding = model.waterfall.find((s) => s.state === "outstanding")?.value ?? 0;
-  const data = [
-    { name: "Received", value: received, fill: "#0d9488" },
-    { name: "Outstanding", value: outstanding, fill: "#fbbf24" },
+  const slices = [
+    { key: "received", label: "Received", value: received, color: "#0d9488" },
+    { key: "outstanding", label: "Outstanding", value: outstanding, color: "#fbbf24" },
   ].filter((d) => d.value > 0);
-  if (invoiced <= 0 || data.length === 0) {
+  if (invoiced <= 0 || slices.length === 0) {
     return <EmptyChart message="Realisation mix requires invoiced revenue." />;
   }
   return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie data={data} dataKey="value" nameKey="name" innerRadius={64} outerRadius={96} paddingAngle={2}>
-            {data.map((d) => (
-              <Cell key={d.name} fill={d.fill} stroke="transparent" />
-            ))}
-          </Pie>
-          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatINRCompact(v)} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
+    <EnterpriseDoughnutChart
+      slices={slices}
+      unit="inr"
+      period="Current accounting snapshot"
+      unitLabel="₹ value"
+      centerLabel="Invoiced mix"
+      height={280}
+    />
   );
 }
 
@@ -317,6 +305,23 @@ function EmptyChart({ message }: { message: string }) {
 }
 
 function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
+  const meta = (
+    id: string,
+    title: string,
+    definition: string,
+    kind: "kpi" | "waterfall" | "line" | "bar" | "doughnut" | "column",
+  ) =>
+    buildEnterpriseChartMeta({
+      id,
+      title,
+      measurementDefinition: definition,
+      reportingPeriod: "Current accounting / EBI snapshot",
+      unit: "inr",
+      lastUpdated: model.asOf,
+      dataSource: model.sources.join(" · ") || "Accounting + EBI",
+      kind,
+    });
+
   if (!model.hasAccountingData && !model.hasPipelineData) {
     return (
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-8 text-center">
@@ -332,13 +337,18 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
   return (
     <div className="flex flex-col gap-4">
       <RevenueStateLegend />
-      <McAnalyticsExpandCard title="Revenue KPIs" subtitle="Expected · Invoiced · Received · Outstanding · GST">
+      <McAnalyticsExpandCard
+        title="Revenue KPIs"
+        subtitle="Expected · Invoiced · Received · Outstanding · GST"
+        meta={meta("rev-kpis", "Revenue KPIs", "Expected, invoiced, received, outstanding and GST from Accounting + EBI.", "kpi")}
+      >
         <KpiStrip model={model} />
       </McAnalyticsExpandCard>
 
       <McAnalyticsExpandCard
         title="GST Breakup"
         subtitle="Taxable revenue and CGST / SGST / IGST from generated invoice determinations"
+        meta={meta("rev-gst", "GST Breakup", "Taxable revenue and GST heads from generated invoice determinations.", "kpi")}
       >
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {(
@@ -363,6 +373,7 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
       <McAnalyticsExpandCard
         title="Revenue Realisation Waterfall"
         subtitle="Pipeline → Expected → Invoiced → Received → Outstanding"
+        meta={meta("rev-waterfall", "Revenue Realisation Waterfall", "Pipeline to outstanding realisation path. States are not merged.", "waterfall")}
       >
         <WaterfallChart model={model} />
       </McAnalyticsExpandCard>
@@ -370,6 +381,7 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
       <McAnalyticsExpandCard
         title="Revenue Trend by Period"
         subtitle="Monthly invoiced vs posted collections (last 6 months)"
+        meta={meta("rev-trend", "Revenue Trend by Period", "Monthly invoiced vs posted collections for the last 6 months.", "line")}
       >
         <TrendChart model={model} />
       </McAnalyticsExpandCard>
@@ -377,6 +389,7 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
       <McAnalyticsExpandCard
         title="Product Contribution"
         subtitle="Expected (EBI) vs Invoiced vs Received by product"
+        meta={meta("rev-product", "Product Contribution", "Expected (EBI) vs invoiced vs received by product.", "bar")}
       >
         <ProductMixChart model={model} />
       </McAnalyticsExpandCard>
@@ -384,6 +397,7 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
       <McAnalyticsExpandCard
         title="Lender / Invoice Party Contribution"
         subtitle="Invoiced and received by commission invoice party"
+        meta={meta("rev-lender", "Lender / Invoice Party Contribution", "Invoiced and received by commission invoice party.", "bar")}
       >
         <LenderContributionChart model={model} />
       </McAnalyticsExpandCard>
@@ -391,6 +405,7 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
       <McAnalyticsExpandCard
         title="RM Pipeline Contribution"
         subtitle="Expected revenue by relationship manager (EBI snapshot)"
+        meta={meta("rev-rm", "RM Pipeline Contribution", "Expected revenue by relationship manager from the EBI snapshot.", "bar")}
       >
         <RmContributionChart model={model} />
       </McAnalyticsExpandCard>
@@ -398,6 +413,7 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
       <McAnalyticsExpandCard
         title="Invoiced Revenue Realisation"
         subtitle="Share of invoiced amount received vs outstanding"
+        meta={meta("rev-realisation", "Invoiced Revenue Realisation", "Share of invoiced amount received versus outstanding.", "doughnut")}
       >
         <RealisationDonut model={model} />
       </McAnalyticsExpandCard>
@@ -405,6 +421,7 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
       <McAnalyticsExpandCard
         title="Disbursement vs Revenue"
         subtitle="Accounting Case disbursed amounts compared to invoiced and received"
+        meta={meta("rev-disbursement", "Disbursement vs Revenue", "Accounting Case disbursed amounts compared to invoiced and received.", "bar")}
       >
         <DisbursementCompare model={model} />
       </McAnalyticsExpandCard>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { catalystOneGateway } from "@/lib/catalyst-one-gateway/server";
+import { customerSafeError, rejectCrossOrigin } from "@/lib/public-request-guard";
 
 function readToken(request: Request): string | null {
   const auth = request.headers.get("authorization")?.trim();
@@ -14,12 +15,14 @@ export async function GET(request: Request) {
     const data = await catalystOneGateway.getLod(token);
     return NextResponse.json(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "LOD unavailable.";
+    const message = customerSafeError(error, "LOD unavailable.");
     return NextResponse.json({ error: message }, { status: 503 });
   }
 }
 
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const token = readToken(request);
   if (!token) return NextResponse.json({ error: "Missing journey session" }, { status: 401 });
   try {
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
     const data = await catalystOneGateway.uploadDocuments(token, formData);
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Upload failed.";
+    const message = customerSafeError(error, "Upload failed.");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

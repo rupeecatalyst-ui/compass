@@ -38,8 +38,10 @@ import {
   Gauge,
   Handshake,
   Eraser,
+  StickyNote,
   Mail,
   History,
+  Library,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -159,10 +161,12 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Lender Program Portal", href: ROUTES.ADMIN_LENDER_PROGRAM_PORTAL },
   { title: "Lookup Masters", href: ROUTES.ADMIN_REFERENCE_MASTERS },
   { title: "Product Programs", href: ROUTES.ADMIN_PRODUCT_PROGRAMS },
+  { title: "Product Journey & Recommendation Master", href: ROUTES.ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS },
   { title: "Document Types", href: ROUTES.ADMIN_DOCUMENT_TYPES },
   { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY },
   { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS },
   { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER },
+  { title: "Field Control Master", href: ROUTES.ADMIN_FIELD_CONTROL_MASTER },
   { title: "Enterprise Recovery Center", href: ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER },
   { title: "Foundation Libraries", href: ROUTES.ADMIN_FOUNDATION_LIBRARIES },
   { title: "Universal Guided Journey", href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY },
@@ -184,8 +188,9 @@ export const administrationChildren: NavSubItem[] = [
 ];
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
- * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey · Investments ·
- * Tasks · Activity & Dialogue · Documents · Enterprise Lender Directory · Accounting · Mission Control · Horizon · Administration · Settings
+ * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey ·
+ * Document Workspace · Investments · Tasks · Sticky Notes · Activity & Dialogue · Enterprise Lender Directory ·
+ * Accounting · Mission Control · Horizon · Administration · Settings
  * Mission Control primary href = Executive Briefing (Radar remains a separate primary item).
  * CO-SPRINT-111: Administration is a single entry → Administration Console (not an expandable tree).
  * CO-ARCH-003: My Opportunities = Opportunity Registry; My Deals = Deal Registry.
@@ -205,17 +210,18 @@ export const primaryDomainNavigation: NavGroup = {
       href: buildDashboardHref(ROUTES.LOAN_JOURNEY),
       icon: Landmark,
     },
+    {
+      title: "Document Workspace",
+      href: ROUTES.DOCUMENT_WORKSPACE,
+      icon: FileStack,
+    },
     { title: "Investments", href: ROUTES.INVESTMENTS, icon: LineChart, badge: "Soon" },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo },
+    { title: "Sticky Notes", href: ROUTES.STICKY_NOTES, icon: StickyNote },
     {
       title: "Activity & Dialogue",
       href: ROUTES.ACTIVITY,
       icon: History,
-    },
-    {
-      title: "Documents",
-      href: buildDashboardHref(ROUTES.DOCUMENT_CENTER),
-      icon: FileStack,
     },
     { title: "Enterprise Lender Directory", href: ROUTES.LENDERS, icon: Building2 },
     { title: "Wealth Partners", href: ROUTES.WEALTH_PARTNERS, icon: Handshake },
@@ -392,6 +398,7 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY, icon: Package },
     { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS, icon: Boxes },
     { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER, icon: Scale },
+    { title: "Field Control Master", href: ROUTES.ADMIN_FIELD_CONTROL_MASTER, icon: Library },
     { title: "Enterprise Recovery Center", href: ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER, icon: History },
     { title: "Foundation Libraries", href: ROUTES.ADMIN_FOUNDATION_LIBRARIES, icon: BookMarked },
     { title: "Universal Guided Journey", href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY, icon: MessageSquareHeart },
