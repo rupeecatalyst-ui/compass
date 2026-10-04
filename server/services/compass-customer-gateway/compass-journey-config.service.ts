@@ -120,8 +120,8 @@ function mapIdcField(
     notRequiredWhenFilled: field.notRequiredWhenFilled,
     maxWhenField: isMonthlyIncome ? field.requiredWhenField || EMPLOYMENT_TYPE_FIELD_KEY : undefined,
     maxWhenMap: isMonthlyIncome ? monthlyIncomeMaxWhenMap() : undefined,
-    purpose: classifyPublicField({ fieldId: field.key, journeyRole: field.journeyRole }),
-    purposeSource: journeyRoleSource({ journeyRole: field.journeyRole }),
+    purpose: classifyPublicField({ fieldId: field.key }),
+    purposeSource: journeyRoleSource({}),
   };
 }
 
@@ -425,7 +425,6 @@ export async function buildIdcJourneyDraft(
       transactionType: definition.transactionType,
       lendingType: definition.isSecured ? "secured" : "unsecured",
     },
-    includeValueGatedFields: true,
   });
   const fields: CompassJourneyFieldDef[] = [];
   for (const section of sections) {
@@ -571,6 +570,7 @@ export function buildCompassJourneyConfigFromRows(
     borrowerKind: definition.borrowerKind,
     configVersion: partnerConfig.version || ENTERPRISE_IDC_VERSION,
     fields,
+    stages: [],
     otpEnabled: compassOtpEnabled(),
     requestedAmountMax: getApprovedMaxRequestedAmountRupees(definition.enterpriseProductCode),
     requestedAmountMaxLabel: getApprovedRequestedAmountMaxLabel(definition.enterpriseProductCode),

@@ -106,11 +106,14 @@ export function compassPersistedAnswerKeys(productCode: CompassProductCode): Set
 export function sanitizeCompassJourneyAnswers(
   productCode: CompassProductCode,
   answers: Record<string, string | number | boolean | null | undefined>,
+  configuredFieldIds?: readonly string[],
 ): Record<string, string | number | boolean | null> {
   const allowed = compassPersistedAnswerKeys(productCode);
+  const published = configuredFieldIds ? new Set(configuredFieldIds) : null;
   const out: Record<string, string | number | boolean | null> = {};
   for (const [key, raw] of Object.entries(answers)) {
     if (!allowed.has(key) || raw == null) continue;
+    if (published && !published.has(key)) continue;
     if (typeof raw === "string" && !raw.trim()) continue;
     out[key] = raw;
   }

@@ -24,7 +24,7 @@ export function projectCompassLod(detail: PartnerOpportunityDetailDto): CompassL
     participantLabel: null,
     uploadStatus:
       item.documentId && item.status !== "missing" ? customerChecklistStatus(item.status) : "missing",
-    fileName: item.originalFilename?.trim() || null,
+    fileName: item.fileName?.trim() || null,
     explanation:
       item.status === "rejected" || item.status === "re_upload_required"
         ? "Please upload this document again."

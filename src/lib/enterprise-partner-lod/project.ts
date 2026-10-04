@@ -141,6 +141,7 @@ export function projectPartnerOpportunityLod(
         canPreview: Boolean(match),
         canDelete: Boolean(match?.documentId) && isDraft,
         documentId: match?.documentId ?? null,
+        fileName: match?.fileName?.trim() || null,
         previewLabel: match
           ? `${match.fileName || match.title} · ${match.statusLabel}${
               match.sizeBytes ? ` · ${Math.round(match.sizeBytes / 1024)} KB` : ""
