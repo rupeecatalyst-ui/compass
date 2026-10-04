@@ -46,6 +46,7 @@ import {
   normalizeMobileCapture,
   normalizeOtpVerification,
   resolvePublishedJourney,
+  type JourneyCondition,
   type JourneyDraft,
 } from "@/lib/product-journey/publication";
 
@@ -55,12 +56,25 @@ function compassOtpEnabled(): boolean {
   return readCompassOtpConfig().deliveryEnabled;
 }
 
-function equalsCondition(condition: { op?: string; fieldId?: string; value?: string | number | boolean } | undefined): {
-  field?: string;
-  values?: string[];
-} {
-  if (!condition || condition.op !== "equals" || !condition.fieldId || condition.value == null) return {};
-  return { field: condition.fieldId, values: [String(condition.value)] };
+/**
+ * Public visibility is one controller field plus its allowed values.
+ * A single equals stays a one-value list. A same-field OR becomes that list.
+ * The published condition is not rewritten, and fields stay in the DTO.
+ */
+export function projectPublicEqualsGate(
+  condition: JourneyCondition | undefined,
+): { field?: string; values?: string[] } {
+  if (!condition) return {};
+  if (condition.op === "equals") {
+    if (!condition.fieldId || condition.value == null) return {};
+    return { field: condition.fieldId, values: [String(condition.value)] };
+  }
+  if (condition.op !== "or" || condition.conditions.length === 0) return {};
+  const parts = condition.conditions.map((child) => projectPublicEqualsGate(child));
+  if (parts.some((part) => !part.field || !part.values?.length)) return {};
+  const field = parts[0]?.field;
+  if (!field || parts.some((part) => part.field !== field)) return {};
+  return { field, values: parts.flatMap((part) => part.values ?? []) };
 }
 
 function monthlyIncomeMaxWhenMap(): Record<string, number> {
@@ -300,10 +314,10 @@ export async function buildCompassJourneyConfig(
       purpose: field.purpose || "application",
       purposeSource: "configured" as const,
       stageId: field.stageId,
-      visibleWhenField: equalsCondition(field.visibleWhen).field,
-      visibleWhenValues: equalsCondition(field.visibleWhen).values,
-      requiredWhenField: equalsCondition(field.requiredWhen).field,
-      requiredWhenValues: equalsCondition(field.requiredWhen).values,
+      visibleWhenField: projectPublicEqualsGate(field.visibleWhen).field,
+      visibleWhenValues: projectPublicEqualsGate(field.visibleWhen).values,
+      requiredWhenField: projectPublicEqualsGate(field.requiredWhen).field,
+      requiredWhenValues: projectPublicEqualsGate(field.requiredWhen).values,
       notRequiredWhenFilled: field.notRequiredWhenFilled,
     })),
     mobileCapture,
@@ -373,10 +387,10 @@ export async function buildPublishedProductJourneyConfig(
       purpose: field.purpose === "" ? undefined : field.purpose,
       purposeSource: "configured" as const,
       stageId: field.stageId,
-      visibleWhenField: equalsCondition(field.visibleWhen).field,
-      visibleWhenValues: equalsCondition(field.visibleWhen).values,
-      requiredWhenField: equalsCondition(field.requiredWhen).field,
-      requiredWhenValues: equalsCondition(field.requiredWhen).values,
+      visibleWhenField: projectPublicEqualsGate(field.visibleWhen).field,
+      visibleWhenValues: projectPublicEqualsGate(field.visibleWhen).values,
+      requiredWhenField: projectPublicEqualsGate(field.requiredWhen).field,
+      requiredWhenValues: projectPublicEqualsGate(field.requiredWhen).values,
       notRequiredWhenFilled: field.notRequiredWhenFilled,
     })),
     mobileCapture,

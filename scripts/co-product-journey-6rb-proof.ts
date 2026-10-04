@@ -9,7 +9,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PROPERTY_TYPES } from "../src/constants/loan-stage-master";
-import { buildIdcJourneyDraft } from "../server/services/compass-customer-gateway/compass-journey-config.service";
+import { buildIdcJourneyDraft, projectPublicEqualsGate } from "../server/services/compass-customer-gateway/compass-journey-config.service";
 import { compassJourneyService } from "../server/services/compass-customer-gateway/compass-journey.service";
 import { CompassJourneyError } from "../server/services/compass-customer-gateway/compass-journey-errors";
 import { projectRegistryProgrammeRecommendations } from "../server/services/compass-customer-gateway/compass-recommendations.service";
@@ -135,11 +135,76 @@ function assertHomeLoanShape(draft: JourneyDraft, label: string) {
   assert.ok(employmentIndex < creditIndex && creditIndex < propertyIndex && propertyIndex < amountIndex);
 }
 
+/** Same rule as COMPASS discovery-configured-question. The field stays in the config. */
+function publicFieldVisible(
+  gate: { field?: string; values?: string[] },
+  answers: Record<string, string>,
+): boolean {
+  if (!gate.field) return true;
+  return (gate.values ?? []).includes(answers[gate.field] ?? "");
+}
+
+function publicFieldRequired(
+  field: JourneyDraft["fields"][number],
+  answers: Record<string, string>,
+): boolean {
+  const visible = publicFieldVisible(projectPublicEqualsGate(field.visibleWhen), answers);
+  if (!visible) return false;
+  if (field.notRequiredWhenFilled?.some((key) => (answers[key] ?? "").trim())) return false;
+  const required = projectPublicEqualsGate(field.requiredWhen);
+  if (required.field) return (required.values ?? []).includes(answers[required.field] ?? "");
+  return field.required;
+}
+
+function assertPublicVisibilityContract(draft: JourneyDraft) {
+  const employer = projectPublicEqualsGate(field(draft, "employerName").visibleWhen);
+  const occupation = projectPublicEqualsGate(field(draft, "occupation").visibleWhen);
+  const turnover = projectPublicEqualsGate(field(draft, "annualTurnoverLabel").visibleWhen);
+  const income = field(draft, "monthlyIncomeLabel");
+  assert.deepEqual(employer, { field: "employmentTypeCode", values: ["salaried"] });
+  assert.deepEqual(occupation, {
+    field: "employmentTypeCode",
+    values: ["self-employed-professional", "self-employed-business"],
+  });
+  assert.equal(turnover.field, "employmentTypeCode");
+  assert.ok(turnover.values?.includes("self-employed-professional"));
+  assert.ok(turnover.values?.includes("self-employed-business"));
+  assert.equal(turnover.values?.includes("salaried"), false);
+  assert.equal(projectPublicEqualsGate(income.visibleWhen).field, undefined);
+  assert.deepEqual(projectPublicEqualsGate(income.requiredWhen), {
+    field: "employmentTypeCode",
+    values: ["salaried"],
+  });
+  assert.deepEqual(draft.fields.map((item) => item.fieldId), [...TARGET_FIELDS]);
+
+  const salaried = { employmentTypeCode: "salaried" };
+  assert.equal(publicFieldVisible(employer, salaried), true);
+  assert.equal(publicFieldVisible(occupation, salaried), false);
+  assert.equal(publicFieldVisible(turnover, salaried), false);
+  assert.equal(publicFieldRequired(income, salaried), true);
+
+  for (const code of ["self-employed-professional", "self-employed-business"] as const) {
+    const answers = { employmentTypeCode: code };
+    assert.equal(publicFieldVisible(employer, answers), false, code);
+    assert.equal(publicFieldVisible(occupation, answers), true, code);
+    assert.equal(publicFieldVisible(turnover, answers), true, code);
+    assert.equal(publicFieldRequired(income, answers), false, code);
+  }
+
+  const unanswered = {};
+  assert.equal(publicFieldVisible(employer, unanswered), false);
+  assert.equal(publicFieldVisible(occupation, unanswered), false);
+  assert.equal(publicFieldVisible(turnover, unanswered), false);
+  assert.equal(publicFieldVisible(projectPublicEqualsGate(income.visibleWhen), unanswered), true);
+  assert.equal(publicFieldRequired(income, unanswered), false);
+}
+
 async function main() {
   const homeLoan = await buildIdcJourneyDraft("HOME-LOAN");
   const lower = await buildIdcJourneyDraft("home-loan");
   const canonical = await buildIdcJourneyDraft("HOME_LOAN");
   assertHomeLoanShape(homeLoan, "HOME-LOAN");
+  assertPublicVisibilityContract(homeLoan);
   assert.deepEqual(lower.fields.map((item) => item.fieldId), homeLoan.fields.map((item) => item.fieldId));
   assert.deepEqual(canonical.productCode, "HOME_LOAN");
   assert.equal(lower.productCode, "HOME_LOAN");
