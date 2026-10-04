@@ -339,6 +339,26 @@ async function main() {
   assert.match(analyzeSource, /projectRegistryProgrammeRecommendations/);
   assert.doesNotMatch(analyzeSource, /GOVERNED_CUSTOMER_RECOMMENDATION/);
   assert.equal(compassJourneyService.startJourney.toString().includes("CONSENT_REQUIRED"), false);
+  const serviceSource = readFileSync(
+    join(__dirname, "../server/services/compass-customer-gateway/compass-journey.service.ts"),
+    "utf8",
+  );
+  const startSource = serviceSource.slice(
+    serviceSource.indexOf("async startJourney"),
+    serviceSource.indexOf("async patchAnswers"),
+  );
+  assert.doesNotMatch(startSource, /compassConsentAt|compassConsentVersion/);
+  const beforeSubmit = serviceSource.slice(
+    serviceSource.indexOf("async patchAnswers"),
+    serviceSource.indexOf("async submit"),
+  );
+  assert.doesNotMatch(beforeSubmit, /compassConsentAt\s*:/);
+  const submitSource = serviceSource.slice(
+    serviceSource.indexOf("async submit"),
+    serviceSource.indexOf("async talkToExpert"),
+  );
+  assert.ok(submitSource.indexOf("CONSENT_REQUIRED") < submitSource.indexOf("compassConsentAt"));
+  assert.match(submitSource, /compassConsentVersion: "compass-consent-v1"/);
 
   const startRoute = readFileSync(
     join(__dirname, "../compass/src/app/api/journey/start/route.ts"),

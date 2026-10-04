@@ -61,6 +61,8 @@ async function main() {
   assert.equal(plainRow?.sourceCode, "website_compass");
   assert.equal(plainRow?.sourceCampaignLabel, "COMPASS Website");
   assert.equal(snapshotOf(plainRow).compassCampaignId, undefined);
+  assert.equal(snapshotOf(plainRow).compassConsentVersion, undefined);
+  assert.equal(snapshotOf(plainRow).compassConsentAt, undefined);
 
   const token = issueCampaignRecipientToken(
     {
@@ -92,6 +94,8 @@ async function main() {
   assert.equal(validSnapshot.compassCampaignIdentity, "separate");
   assert.equal(validSnapshot.compassMobileVerified, false);
   assert.equal(validSnapshot.compassJourneyVersion, 1);
+  assert.equal(validSnapshot.compassConsentVersion, undefined);
+  assert.equal(validSnapshot.compassConsentAt, undefined);
 
   const tampered = await start({
     productCode: "home-loan",

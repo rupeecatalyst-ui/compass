@@ -561,6 +561,7 @@ export const compassJourneyService = {
         cityLabel: input.city?.trim() || null,
         sourceCode: campaign?.claims.sourceCode || COMPASS_WEBSITE_SOURCE_CODE,
         sourceCampaignLabel: campaign?.claims.campaignLabel || "COMPASS Website",
+        // Final compass-consent-v1 is written only by submit, after the review declarations.
         snapshot: {
           compassChannel: campaign ? "campaign" : "website",
           ...(campaign
@@ -571,9 +572,7 @@ export const compassJourneyService = {
               }
             : {}),
           compassMobileVerified: otpOn,
-          compassConsentAt: new Date().toISOString(),
           compassProductCode: definition.enterpriseProductCode,
-          compassConsentVersion: journeyConfig.consentVersion,
           ...(journeyConfig.journeyVersion
             ? { compassJourneyVersion: journeyConfig.journeyVersion }
             : {}),
@@ -1065,11 +1064,13 @@ export const compassJourneyService = {
 
     const previousLifecycle = row.lifecycleStatus;
     const alreadyHandedOff = snapshotHasOperationalHandoff(row.snapshot);
+    const acceptedAt = new Date().toISOString();
     const nextSnapshot = {
       ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
-      compassSubmittedAt: new Date().toISOString(),
+      compassSubmittedAt: acceptedAt,
       compassSubmissionConsent: true,
       compassConsentVersion: "compass-consent-v1",
+      compassConsentAt: acceptedAt,
       ...(alreadyHandedOff ? {} : { [COMPASS_OPERATIONAL_HANDOFF_SNAPSHOT_KEY]: new Date().toISOString() }),
     };
 
