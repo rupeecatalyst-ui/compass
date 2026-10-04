@@ -83,7 +83,8 @@ export type CompassJourneyStartRequest = {
   mobile: string;
   displayName?: string;
   city?: string;
-  consentAccepted: boolean;
+  /** Submission consent is collected on review, not at session start. */
+  consentAccepted?: boolean;
   otpVerificationToken?: string;
   campaignToken?: string;
 };
@@ -221,6 +222,7 @@ export type CompassAnalysisDto = {
 
 export type CompassSubmitRequest = {
   consentAccepted: boolean;
+  lenderShareAccepted: boolean;
   declarationsAccepted: boolean;
 };
 

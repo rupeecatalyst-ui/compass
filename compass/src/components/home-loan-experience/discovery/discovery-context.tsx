@@ -394,7 +394,6 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       productCode,
       mobile: answers.mobile,
       city: answers.city || undefined,
-      consentAccepted: true,
       otpVerificationToken,
     });
     setJourneySessionToken(started.journeySessionToken);
@@ -489,6 +488,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       try {
         const result = await submitCompassApplication(journeySessionToken, {
           consentAccepted: input.consentAccepted,
+          lenderShareAccepted: input.lenderShareAccepted,
           declarationsAccepted: input.declarationsAccepted,
         });
         setSubmissionResult(result);

@@ -122,6 +122,8 @@ export function buildPartnerRecommendationLoanFile(
     createdAt: detail.createdAt || new Date().toISOString(),
     enterpriseOpportunityId: detail.opportunityId,
     propertyType: product.propertyType || undefined,
+    propertyCategory: product.propertyCategory || undefined,
+    constructionStatus: product.constructionStatus || undefined,
     businessDetails: {
       monthlySalary: parseAmountLabel(borrower.monthlyIncomeLabel),
       annualTurnover: parseAmountLabel(borrower.annualTurnoverLabel),

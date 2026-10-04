@@ -52,9 +52,14 @@ function fieldMatchesBorrower(
   return field.visibleWhenBorrower === primaryBorrowerKind;
 }
 
-function fieldMatchesValueGate(field: IdcFieldDef, values: Record<string, string>): boolean {
+function fieldMatchesValueGate(
+  field: IdcFieldDef,
+  values: Record<string, string>,
+  deferUnknownValueGates: boolean,
+): boolean {
   if (!field.visibleWhenField) return true;
   const current = (values[field.visibleWhenField] ?? "").trim();
+  if (!current) return deferUnknownValueGates;
   const allowed = field.visibleWhenValues ?? [];
   if (!allowed.length) return current.length > 0;
   return allowed.includes(current);
@@ -66,12 +71,17 @@ export function isIdcFieldVisible(
     primaryBorrowerKind: "individual" | "company";
     productFamily: string;
     values: Record<string, string>;
+    /**
+     * Import-only. An unanswered controlling field keeps the definition so
+     * runtime visibility can apply later. Known answers still exclude it.
+     */
+    deferUnknownValueGates?: boolean;
   },
 ): boolean {
   return (
     fieldMatchesBorrower(field, ctx.primaryBorrowerKind) &&
     fieldMatchesProductFamily(field, ctx.productFamily) &&
-    fieldMatchesValueGate(field, ctx.values)
+    fieldMatchesValueGate(field, ctx.values, ctx.deferUnknownValueGates === true)
   );
 }
 
@@ -87,6 +97,7 @@ export function resolveVisibleIdcSections(
     /** Merged values across buckets for field-level gates. */
     values?: Record<string, string>;
     journeyFields?: import("@/types/product-journey-definition").ProductJourneyFieldRow[] | null;
+    deferUnknownValueGates?: boolean;
   },
 ): IdcSectionDef[] {
   const family = resolveProductFieldFamily(ctx.productCode);
@@ -114,6 +125,7 @@ export function resolveVisibleIdcSections(
             primaryBorrowerKind: ctx.primaryBorrowerKind,
             productFamily: family,
             values,
+            deferUnknownValueGates: ctx.deferUnknownValueGates,
           }),
         )
         .filter((f) => {

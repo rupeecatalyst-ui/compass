@@ -24,6 +24,7 @@ import {
   getCompassProductDefinition,
   parseActiveCompassProductCode,
 } from "@/constants/compass-customer-gateway/product-registry";
+import { canonicalizeProductCode } from "@/lib/product-programme-operations/product-aliases";
 import {
   getApprovedMaxRequestedAmountRupees,
   getApprovedRequestedAmountMaxLabel,
@@ -303,6 +304,7 @@ export async function buildCompassJourneyConfig(
       visibleWhenValues: equalsCondition(field.visibleWhen).values,
       requiredWhenField: equalsCondition(field.requiredWhen).field,
       requiredWhenValues: equalsCondition(field.requiredWhen).values,
+      notRequiredWhenFilled: field.notRequiredWhenFilled,
     })),
     mobileCapture,
     otpVerification,
@@ -375,6 +377,7 @@ export async function buildPublishedProductJourneyConfig(
       visibleWhenValues: equalsCondition(field.visibleWhen).values,
       requiredWhenField: equalsCondition(field.requiredWhen).field,
       requiredWhenValues: equalsCondition(field.requiredWhen).values,
+      notRequiredWhenFilled: field.notRequiredWhenFilled,
     })),
     mobileCapture,
     otpVerification,
@@ -400,9 +403,10 @@ export async function buildPublishedProductJourneyConfig(
 function compassCodeForJourneyImport(productCode: string): CompassProductCode | null {
   const active = parseActiveCompassProductCode(productCode);
   if (active) return active;
-  const enterpriseCode = productCode.trim().toUpperCase();
+  const canonical = canonicalizeProductCode(productCode);
+  if (!canonical) return null;
   return (
-    COMPASS_PRODUCT_REGISTRY.find((entry) => entry.enterpriseProductCode === enterpriseCode)?.compassCode ??
+    COMPASS_PRODUCT_REGISTRY.find((entry) => entry.enterpriseProductCode === canonical)?.compassCode ??
     null
   );
 }
@@ -425,13 +429,26 @@ export async function buildIdcJourneyDraft(
       transactionType: definition.transactionType,
       lendingType: definition.isSecured ? "secured" : "unsecured",
     },
+    deferUnknownValueGates: true,
   });
-  const fields: CompassJourneyFieldDef[] = [];
+  const fields: Array<CompassJourneyFieldDef & { sectionOrder: number }> = [];
   for (const section of sections) {
     for (const field of section.fields) {
-      fields.push(mapIdcField(field, partnerConfig.optionSets, section.sectionId, definition.enterpriseProductCode));
+      fields.push({
+        ...mapIdcField(field, partnerConfig.optionSets, section.sectionId, definition.enterpriseProductCode),
+        sectionOrder: section.displayOrder,
+      });
     }
   }
+  fields.sort(
+    (a, b) =>
+      a.sectionOrder - b.sectionOrder ||
+      (a.sequence ?? 0) - (b.sequence ?? 0) ||
+      a.fieldId.localeCompare(b.fieldId),
+  );
+  fields.forEach((field, index) => {
+    field.sequence = index + 1;
+  });
   const projected = { fields };
   const stageIds = [
     "welcome",
@@ -465,6 +482,7 @@ export async function buildIdcJourneyDraft(
       visibleWhenValues: field.visibleWhenValues,
       requiredWhenField: field.requiredWhenField,
       requiredWhenValues: field.requiredWhenValues,
+      notRequiredWhenFilled: field.notRequiredWhenFilled,
       min: field.min,
       max: field.max,
     })),

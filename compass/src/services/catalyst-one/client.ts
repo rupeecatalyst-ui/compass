@@ -122,7 +122,6 @@ export async function startCompassJourney(input: {
       productCode: input.productCode,
       mobile: input.mobile,
       city: input.city,
-      consentAccepted: input.consentAccepted ?? true,
       otpVerificationToken: input.otpVerificationToken,
       ...(campaignToken ? { campaignToken } : {}),
     }),
@@ -294,7 +293,7 @@ export async function uploadCompassDocuments(
 
 export async function submitCompassApplication(
   journeySessionToken: string,
-  input: { consentAccepted: boolean; declarationsAccepted: boolean },
+  input: { consentAccepted: boolean; lenderShareAccepted: boolean; declarationsAccepted: boolean },
 ): Promise<CompassSubmitResponse> {
   const response = await fetch("/api/journey/submit", {
     method: "POST",
