@@ -59,7 +59,10 @@ import {
   getApprovedMaxRequestedAmountRupees,
   toIntegerRupees,
 } from "@/constants/enterprise-product-master";
-import { sanitizeCompassJourneyAnswers } from "@/constants/compass-customer-gateway/snapshot-answers";
+import {
+  publishedJourneyAnswerAuthority,
+  sanitizeCompassJourneyAnswers,
+} from "@/constants/compass-customer-gateway/snapshot-answers";
 import {
   COMPASS_WEBSITE_SOURCE_CODE,
   compassSubmitMissingCompany,
@@ -646,18 +649,24 @@ export const compassJourneyService = {
     const sanitizedAnswers: Record<string, string | number | boolean | null> = {
       ...quarantineInapplicableAnswers(
         config.fields as PublicQuestionField[],
-        sanitizeCompassJourneyAnswers(claims.productCode, patch.answers, configuredIds),
+        sanitizeCompassJourneyAnswers(
+          claims.productCode,
+          patch.answers,
+          configuredIds,
+          publishedJourneyAnswerAuthority(config),
+        ),
       ).answers,
     };
-    if (sanitizedAnswers.loanAmount != null) {
+    for (const key of ["requestedAmountLabel", "loanAmount"] as const) {
+      if (sanitizedAnswers[key] == null) continue;
       const limit = assertRequestedAmountWithinProductLimit({
         enterpriseProductCode: definition.enterpriseProductCode,
-        amountRupees: sanitizedAnswers.loanAmount,
+        amountRupees: sanitizedAnswers[key],
       });
       if (!limit.ok) {
         throw new CompassJourneyError(limit.code, limit.message, 400);
       }
-      sanitizedAnswers.loanAmount = limit.amount;
+      sanitizedAnswers[key] = key === "loanAmount" ? limit.amount : String(limit.amount);
     }
     const mapped = answersToSnapshotFields(sanitizedAnswers);
     mapped.productFields.lendingType = definition.isSecured ? "secured" : "unsecured";
@@ -1013,13 +1022,23 @@ export const compassJourneyService = {
       );
     }
 
+    const storedAnswers =
+      ((row.snapshot as Record<string, unknown> | null)?.compassAnswers as Record<
+        string,
+        string | number | boolean | null
+      >) || {};
+    const pin = pinnedJourneyVersion(row.snapshot);
+    const pinnedConfig =
+      pin == null
+        ? null
+        : await buildCompassJourneyConfig(organizationId, claims.productCode, pin);
+    if (pin != null) await requirePinnedJourney(organizationId, claims.productCode, row.snapshot);
     const mapped = answersToSnapshotFields(
       sanitizeCompassJourneyAnswers(
         claims.productCode,
-        ((row.snapshot as Record<string, unknown> | null)?.compassAnswers as Record<
-          string,
-          string | number | boolean | null
-        >) || {},
+        storedAnswers,
+        pinnedConfig?.fields.map((field) => field.fieldId),
+        publishedJourneyAnswerAuthority(pinnedConfig),
       ),
     );
 

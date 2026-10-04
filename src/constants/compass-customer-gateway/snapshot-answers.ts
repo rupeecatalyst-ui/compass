@@ -10,6 +10,25 @@ import {
 
 const CORE_KEYS = ["loanAmount", "mobile", "otpVerified", "city", "displayName", "personalEmail"] as const;
 
+/**
+ * Name and email are journey stages, not published question ids.
+ * They stay server-validated identity fields. They are not a product allow-list.
+ */
+const PUBLISHED_JOURNEY_IDENTITY_KEYS = ["displayName", "personalEmail"] as const;
+
+export type CompassAnswerAuthority = "legacy" | "published";
+
+export function publishedJourneyAnswerAuthority(config: {
+  dtoSource?: string | null;
+  journeyVersion?: number | null;
+} | null | undefined): CompassAnswerAuthority {
+  return config?.dtoSource === "published_product_journey" &&
+    typeof config.journeyVersion === "number" &&
+    config.journeyVersion > 0
+    ? "published"
+    : "legacy";
+}
+
 export function compassPersistedAnswerKeys(productCode: CompassProductCode): Set<string> {
   const definition = getCompassProductDefinition(productCode);
   const keys = new Set<string>(CORE_KEYS);
@@ -107,10 +126,23 @@ export function sanitizeCompassJourneyAnswers(
   productCode: CompassProductCode,
   answers: Record<string, string | number | boolean | null | undefined>,
   configuredFieldIds?: readonly string[],
+  authority: CompassAnswerAuthority = "legacy",
 ): Record<string, string | number | boolean | null> {
+  const out: Record<string, string | number | boolean | null> = {};
+  if (authority === "published") {
+    const published = new Set(configuredFieldIds ?? []);
+    const identity = new Set<string>(PUBLISHED_JOURNEY_IDENTITY_KEYS);
+    for (const [key, raw] of Object.entries(answers)) {
+      if (raw == null) continue;
+      if (typeof raw === "string" && !raw.trim()) continue;
+      if (!published.has(key) && !identity.has(key)) continue;
+      out[key] = raw;
+    }
+    return out;
+  }
+
   const allowed = compassPersistedAnswerKeys(productCode);
   const published = configuredFieldIds ? new Set(configuredFieldIds) : null;
-  const out: Record<string, string | number | boolean | null> = {};
   for (const [key, raw] of Object.entries(answers)) {
     if (!allowed.has(key) || raw == null) continue;
     if (published && !published.has(key)) continue;
