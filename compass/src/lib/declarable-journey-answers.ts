@@ -68,6 +68,7 @@ export type DeclarableAnswerState = {
   loanPurpose?: string;
   constitution?: string;
   fieldAnswers?: Record<string, string>;
+  fieldLabels?: Record<string, string>;
   collectedFacts?: Partial<Record<DeclarableNumericKey, true>>;
 };
 
@@ -107,10 +108,7 @@ function formatAnswerValue(fieldId: string, raw: string, field?: ReviewFieldDef)
   const option = field?.options?.find((item) => item.value === raw);
   if (option) return option.label;
   const numeric = Number(String(raw).replace(/,/g, ""));
-  const money =
-    field?.fieldType === "currency" ||
-    field?.fieldType === "number" ||
-    MONEY_FIELD_IDS.has(fieldId);
+  const money = field?.fieldType === "currency" || MONEY_FIELD_IDS.has(fieldId);
   if (money && Number.isFinite(numeric) && numeric > 0) return formatInr(numeric);
   return raw;
 }
@@ -147,7 +145,12 @@ export function buildReviewDeclarationRows(
     }
     const raw = bag[field.fieldId];
     if (!hasText(raw)) continue;
-    push(field.fieldId, field.label, formatAnswerValue(field.fieldId, raw.trim(), field));
+    const label = answers.fieldLabels?.[field.fieldId];
+    push(
+      field.fieldId,
+      field.label,
+      label?.trim() || formatAnswerValue(field.fieldId, raw.trim(), field),
+    );
   }
 
   for (const key of Object.keys(DISCOVERY_VISUAL_DEFAULTS) as DeclarableNumericKey[]) {

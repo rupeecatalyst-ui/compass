@@ -56,7 +56,7 @@ function DiscoveryScreen({
 
 function QuestionHeader({ heading, helper }: { heading: string; helper: string }) {
   return (
-    <div className="mb-8 space-y-3 text-center sm:mb-10">
+    <div className="mx-auto mb-8 w-full max-w-md space-y-3 text-center sm:mb-10">
       <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground sm:text-3xl lg:text-4xl">
         {heading}
       </h2>

@@ -58,6 +58,14 @@ async function callCatalystOne<T>(
 }
 
 export const catalystOneGateway = {
+  searchCities(query: { q?: string; id?: string }) {
+    const params = new URLSearchParams();
+    if (query.id) params.set("id", query.id);
+    if (query.q) params.set("q", query.q);
+    return callCatalystOne<{
+      cities: { id: string; city: string; state: string; label: string }[];
+    }>(`/api/compass/journey/cities?${params.toString()}`);
+  },
   getJourneyConfig(
     productCode: string,
     journeyVersion?: number | null,

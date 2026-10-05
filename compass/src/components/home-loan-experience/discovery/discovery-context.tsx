@@ -53,6 +53,8 @@ export type DiscoveryAnswers = {
   displayName?: string;
   personalEmail?: string;
   fieldAnswers?: Record<string, string>;
+  /** Presentation labels for governed master values such as a city id. */
+  fieldLabels?: Record<string, string>;
   /** Set only when the applicant confirms a slider. Visual defaults stay unflagged. */
   collectedFacts?: Partial<
     Record<
@@ -141,7 +143,7 @@ type DiscoveryContextValue = {
   openDiscovery: () => void;
   closeDiscovery: () => void;
   setAnswer: <K extends keyof DiscoveryAnswers>(key: K, value: DiscoveryAnswers[K]) => void;
-  setFieldAnswer: (fieldId: string, value: string) => void;
+  setFieldAnswer: (fieldId: string, value: string, displayLabel?: string) => void;
   goNext: (arg?: Partial<DiscoveryAnswers> | { nativeEvent?: unknown }) => void;
   goBack: () => void;
   nudgeCompass: () => void;
@@ -334,11 +336,15 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     });
   }, [productCode, journeySessionToken]);
 
-  const setFieldAnswer = useCallback((fieldId: string, value: string) => {
+  const setFieldAnswer = useCallback((fieldId: string, value: string, displayLabel?: string) => {
     setAnswers((prev) => {
+      const fieldLabels = { ...prev.fieldLabels };
+      if (!value.trim()) delete fieldLabels[fieldId];
+      else if (displayLabel?.trim()) fieldLabels[fieldId] = displayLabel.trim();
       const next = {
         ...prev,
         fieldAnswers: { ...prev.fieldAnswers, [fieldId]: value },
+        fieldLabels,
       };
       if (typeof window !== "undefined") {
         persistDiscoveryAnswers(window.sessionStorage, productCode, next);
