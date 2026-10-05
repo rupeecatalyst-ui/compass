@@ -2,11 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
+import { GovernedMonetaryQuestion } from "@/components/home-loan-experience/discovery/governed-monetary-question";
 import {
   DiscoveryQuestionFrame,
   GOVERNED_CONTROL,
 } from "@/components/home-loan-experience/discovery/discovery-question-frame";
-import type { CompassJourneyConfigField } from "@/lib/journey-config";
+import { discoveryCopy } from "@/config/home-loan-discovery";
+import { isGovernedMonetaryField } from "@/lib/governed-monetary-answer";
+import {
+  resolveMonthlyIncomeBounds,
+  resolveRequestedAmountBounds,
+  type CompassJourneyConfigField,
+} from "@/lib/journey-config";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
@@ -38,7 +45,9 @@ export function DiscoveryConfiguredQuestions({
   const { journeyConfig, answers, setFieldAnswer, goNext, nudgeCompass } = useDiscovery();
   const [draft, setDraft] = useState("");
   const [cities, setCities] = useState<CityHit[]>([]);
+  const [skipped, setSkipped] = useState<string[]>([]);
   const bag = answers.fieldAnswers ?? {};
+  const monetaryControl = (journeyConfig?.journeyVersion ?? 0) >= 2;
 
   const fields = useMemo(() => {
     const all = [...(journeyConfig?.fields ?? [])].sort(
@@ -54,8 +63,17 @@ export function DiscoveryConfiguredQuestions({
   const field =
     fields.find((item) => {
       if (!visible(item, bag) || (bag[item.fieldId] ?? "").trim()) return false;
-      return required(item, bag) || Boolean(item.visibleWhenField);
+      if (skipped.includes(item.fieldId)) return false;
+      return (
+        required(item, bag) ||
+        Boolean(item.visibleWhenField) ||
+        (monetaryControl && isGovernedMonetaryField(item.fieldId))
+      );
     }) ?? null;
+
+  useEffect(() => {
+    setSkipped([]);
+  }, [purpose, stageId]);
 
   useEffect(() => {
     setDraft("");
@@ -126,6 +144,74 @@ export function DiscoveryConfiguredQuestions({
   const draftInvalid = Boolean(draft.trim()) && !withinBounds(draft.trim());
   const currency = field.fieldType === "currency";
   const numeric = currency || field.fieldType === "number";
+
+  if (monetaryControl && isGovernedMonetaryField(field.fieldId)) {
+    const bounds =
+      field.fieldId === "requestedAmountLabel"
+        ? resolveRequestedAmountBounds(journeyConfig, {
+            min: discoveryCopy.loanAmount.min,
+            max: discoveryCopy.loanAmount.max,
+          })
+        : field.fieldId === "monthlyIncomeLabel"
+          ? resolveMonthlyIncomeBounds(journeyConfig, bag.employmentTypeCode, {
+              min: discoveryCopy.monthlyIncome.min,
+              max: discoveryCopy.monthlyIncome.max,
+            })
+          : {
+              min: field.min ?? (field.fieldId === "propertyValueLabel"
+                ? discoveryCopy.propertyValue.min
+                : discoveryCopy.annualTurnover.min),
+              max: field.max ?? (field.fieldId === "propertyValueLabel"
+                ? discoveryCopy.propertyValue.max
+                : discoveryCopy.annualTurnover.max),
+            };
+    const requiredNow = required(field, bag);
+    return (
+      <GovernedMonetaryQuestion
+        key={field.fieldId}
+        fieldId={field.fieldId}
+        label={field.label}
+        helpText={field.helpText}
+        min={bounds.min}
+        max={bounds.max}
+        required={requiredNow}
+        onCommit={(exact) => {
+          const nextBag = { ...bag, [field.fieldId]: exact };
+          for (const item of fields) {
+            if (item.visibleWhenField !== field.fieldId) continue;
+            if ((item.visibleWhenValues ?? []).includes(exact)) continue;
+            nextBag[item.fieldId] = "";
+            setFieldAnswer(item.fieldId, "");
+          }
+          setFieldAnswer(field.fieldId, exact);
+          nudgeCompass();
+          const remaining = fields.some((item) => {
+            if (!visible(item, nextBag) || (nextBag[item.fieldId] ?? "").trim()) return false;
+            return (
+              required(item, nextBag) ||
+              Boolean(item.visibleWhenField) ||
+              (monetaryControl && isGovernedMonetaryField(item.fieldId))
+            );
+          });
+          if (!remaining) goNext();
+        }}
+        onSkip={() => {
+          const nextSkipped = [...skipped, field.fieldId];
+          setSkipped(nextSkipped);
+          const remaining = fields.some((item) => {
+            if (!visible(item, bag) || (bag[item.fieldId] ?? "").trim()) return false;
+            if (nextSkipped.includes(item.fieldId)) return false;
+            return (
+              required(item, bag) ||
+              Boolean(item.visibleWhenField) ||
+              (monetaryControl && isGovernedMonetaryField(item.fieldId))
+            );
+          });
+          if (!remaining) goNext();
+        }}
+      />
+    );
+  }
 
   return (
     <DiscoveryQuestionFrame
