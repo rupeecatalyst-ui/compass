@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { DRAFT_SOURCE_ALLOWLIST } from "./draft-source-allowlist";
 import { CREATE_FIELD_SAFETY_COPY } from "./draft-creation-presentation";
-import { listFieldInventoryEntries } from "./field-inventory-catalogue";
+import { assertFieldInventoryIntegrity, fieldInventoryGroupCounts, listFieldInventoryEntries } from "./field-inventory-catalogue";
 import { fieldInventoryMatchesSearch } from "./field-inventory-presentation";
 import { isFieldControlMasterAdminPath } from "./field-control-master-route";
 
@@ -21,6 +21,20 @@ const checks: Array<[string, boolean]> = [];
 function check(name: string, passed: boolean): void {
   checks.push([name, passed]);
   assert.equal(passed, true, name);
+}
+
+function expectIntegrityFailure(
+  name: string,
+  entries: ReturnType<typeof listFieldInventoryEntries>,
+  needle: string,
+): void {
+  try {
+    assertFieldInventoryIntegrity(entries);
+    check(name, false);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    check(name, message.includes(needle));
+  }
 }
 
 function source(path: string): string {
@@ -39,28 +53,54 @@ function main(): void {
   const ids = entries.map((entry) => entry.identity);
   const unique = new Set(ids);
   check("unique_identities", unique.size === entries.length);
-  check("historical_155", entries.filter((entry) => entry.boundary === "historical_155").length === 155);
-  check("outside_raw_10", entries.filter((entry) => entry.boundary === "outside_v1_5_raw").length === 10);
-  check("total_165", entries.length === 165);
+  const outsideAllowlist = DRAFT_SOURCE_ALLOWLIST.filter((entry) => entry.sourceBinding.kind === "column").map((entry) => entry.fieldId);
+  const outsideIds = entries.filter((entry) => entry.boundary === "outside_v1_5_raw").map((entry) => entry.identity);
+  check(
+    "outside_matches_allowlist",
+    outsideIds.length === outsideAllowlist.length && outsideAllowlist.every((id) => outsideIds.includes(id)),
+  );
+  check(
+    "boundary_tags_cover_every_entry",
+    entries.every((entry) => entry.boundary === "historical_155" || entry.boundary === "outside_v1_5_raw"),
+  );
 
-  const groups = {
-    assessment: 0,
-    idc: 0,
-    ppo: 0,
-    derived: 0,
-    certified_column: 0,
-    legacy_alias: 0,
-    outside_raw: 0,
-  };
-  for (const entry of entries) groups[entry.group] += 1;
-  check("assessment_63", groups.assessment === 63);
-  check("idc_29", groups.idc === 29);
-  check("ppo_38", groups.ppo === 38);
-  check("derived_9", groups.derived === 9);
-  check("certified_columns_8", groups.certified_column === 8);
-  check("legacy_aliases_8", groups.legacy_alias === 8);
+  const groups = fieldInventoryGroupCounts();
+  check("group_counts_match_rendered_entries", Object.values(groups).reduce((sum, count) => sum + count, 0) === entries.length);
+  check("rendered_inventory_has_no_omission", entries.length === unique.size && entries.length > 0);
+  console.log(`FIELD_INVENTORY_RENDERED count=${entries.length} ${JSON.stringify(groups)}`);
 
   const byId = new Map(entries.map((entry) => [entry.identity, entry]));
+  check(
+    "legitimate_additive_field_passes",
+    groups.assessment !== 63 && byId.has("assessment:borrower.ageYears"),
+  );
+  check("current_catalogue_passes", entries.some((entry) => entry.identity === "assessment:borrower.ageYears"));
+  check(
+    "catalogue_with_v2_age_and_residency_passes",
+    byId.has("idc:ageYears") &&
+      byId.has("idc:residency") &&
+      byId.has("assessment:borrower.ageYears") &&
+      byId.has("assessment:borrower.residency") &&
+      byId.get("idc:ageYears")?.source !== byId.get("assessment:borrower.ageYears")?.source &&
+      byId.get("idc:residency")?.source !== byId.get("assessment:borrower.residency")?.source &&
+      byId.has("derived:ageYears") &&
+      byId.get("derived:ageYears")?.group === "derived",
+  );
+
+  const duplicatedKey = entries.map((entry) => ({ ...entry }));
+  duplicatedKey.push({ ...duplicatedKey[0]! });
+  expectIntegrityFailure("duplicate_canonical_key_fails", duplicatedKey, "duplicate canonical key");
+
+  const duplicatedDurable = entries.map((entry) => ({ ...entry }));
+  const durableSource = duplicatedDurable.find((entry) => entry.fcmFieldId);
+  const durableTarget = duplicatedDurable.find((entry) => entry.identity !== durableSource?.identity);
+  if (durableSource && durableTarget) durableTarget.fcmFieldId = durableSource.fcmFieldId;
+  expectIntegrityFailure("duplicate_durable_identity_fails", duplicatedDurable, "duplicate durable identity");
+
+  const malformed = entries.map((entry) => ({ ...entry }));
+  malformed[0] = { ...malformed[0]!, businessLabel: " " };
+  expectIntegrityFailure("malformed_definition_fails", malformed, "malformed field definition");
+
   const certified = [
     "contact.dateOfBirth",
     "contact.name",

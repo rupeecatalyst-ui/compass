@@ -267,8 +267,14 @@ async function main(): Promise<void> {
   const active = await submit("ADMIN", "maker-1", { expectedUpdatedAt: STAMP }, memory([row({ lifecycleStatus: "active" })]));
   check("submit_from_active_is_409", active.result.ok === false && active.result.status === 409 && active.store.writes.length === 0);
 
-  const inventoryBefore = listFieldInventoryEntries().length;
-  check("inventory_count_unchanged", inventoryBefore === 165);
+  const inventory = listFieldInventoryEntries();
+  const inventoryAgain = listFieldInventoryEntries();
+  check(
+    "inventory_stable_after_lifecycle",
+    inventory.length > 0 &&
+      inventory.length === inventoryAgain.length &&
+      new Set(inventory.map((entry) => entry.identity)).size === inventory.length,
+  );
   const lifecycleSource = readFileSync(join(here, "production-governance-lifecycle.ts"), "utf8");
   const routes = [
     readFileSync(join(repoRoot, "src/app/api/admin/field-control-definitions/[id]/submit-review/route.ts"), "utf8"),

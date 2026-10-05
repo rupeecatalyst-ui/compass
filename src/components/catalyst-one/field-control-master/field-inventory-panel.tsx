@@ -78,7 +78,7 @@ export function FieldInventoryPanel({ entries }: { entries: readonly FieldInvent
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">{FIELD_INVENTORY_TITLE}</h1>
         <p className="max-w-4xl text-sm leading-6 text-foreground">{FIELD_INVENTORY_INTRO}</p>
         <p className="text-sm text-muted-foreground">
-          {historicalCount} reviewed catalogue identities and {outsideCount} additional physical sources already on the
+          {historicalCount} catalogue identities and {outsideCount} additional physical sources already on the
           V1.5 allowlist. Showing {visible.length} of {entries.length}.
         </p>
       </header>

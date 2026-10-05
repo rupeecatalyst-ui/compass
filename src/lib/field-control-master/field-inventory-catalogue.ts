@@ -1,16 +1,23 @@
 /**
- * Reviewed Field Inventory catalogue.
+ * Field Inventory catalogue.
  * Identities come from the existing discovery walker plus the inspection-registry
- * identities that walker does not emit, plus the ten V1.5 raw sources outside that set.
- * Governance status is an explicit reviewed map. Inspection-registry certified_binding
- * is not production certification. This module does not read or write the database.
- * It is not every physical column.
+ * identities that walker does not emit, plus the V1.5 raw sources outside that set.
+ * Integrity is semantic: unique keys, valid definitions, and source ownership.
+ * A larger legitimate catalogue is not corruption. This module does not read or
+ * write the database. It is not every physical column.
  */
+import { getEnterpriseIdcCatalog } from "@/constants/enterprise-initial-data-collection/catalog";
 import { DRAFT_SOURCE_ALLOWLIST } from "./draft-source-allowlist";
 import { listFieldControlDefinitions, sourceBindingLabel } from "./registry";
 import {
+  discoverAssessmentFields,
   discoverCanonicalRecommendationFields,
+  discoverDerivedCalculatorFields,
+  discoverIdcFields,
+  discoverProgrammeConstraintFields,
 } from "@/lib/product-recommendation/discover-canonical-fields";
+import { HOME_LOAN_V2_RECOMMENDATION_ORDER } from "@/lib/product-journey/home-loan-v2-draft";
+import { partnerOpportunityJourneyConfigService } from "@server/services/partner-gateway/partner-opportunity-journey-config.service";
 import type { ProjectedRecommendationField } from "@/lib/product-recommendation/types";
 import type { FieldControlDefinition } from "@/types/field-control-master";
 import {
@@ -182,17 +189,28 @@ const AMBIGUITY_NOTES: Record<string, string> = {
     "Assessment copy. Distinct from EnterpriseOpportunity.cityLabel and from EcmContact.city.",
   "assessment:borrower.journeyState":
     "Assessment copy. Distinct from EnterpriseOpportunity.stateLabel and from EcmContact.state.",
+  "assessment:borrower.ageYears":
+    "Assessment fact. Distinct from idc:ageYears and from derived:ageYears. Similar labels are not equivalence.",
+  "idc:ageYears":
+    "Initial data collection key. Distinct from assessment:borrower.ageYears and from derived:ageYears.",
+  "idc:residency":
+    "Initial data collection key. Distinct from assessment:borrower.residency.",
+  "derived:ageYears":
+    "Derived calculator output. Distinct from assessment:borrower.ageYears and from idc:ageYears.",
 };
 
-const EXPECTED_GROUPS: Record<FieldInventoryGroup, number> = {
-  assessment: 63,
-  idc: 29,
-  ppo: 38,
-  derived: 9,
-  certified_column: 8,
-  legacy_alias: 8,
-  outside_raw: 10,
-};
+const FIELD_INVENTORY_DATA_TYPES = new Set([
+  "Percentage",
+  "Currency",
+  "Integer",
+  "Number",
+  "Date",
+  "Boolean",
+  "Text",
+  "Long text",
+  "Yes / no",
+  "Selection",
+]);
 
 const certified = new Set<string>(PRODUCTION_CERTIFIED_FIELD_IDS);
 const available = new Set<string>(AVAILABLE_FOR_REGISTRATION_IDS);
@@ -455,27 +473,144 @@ function outsideRawEntries(seen: Set<string>): FieldInventoryEntry[] {
   return rows;
 }
 
-function assertReviewedBoundary(entries: readonly FieldInventoryEntry[]): void {
-  const ids = new Set<string>();
-  const counts: Record<FieldInventoryGroup, number> = {
-    assessment: 0,
-    idc: 0,
-    ppo: 0,
-    derived: 0,
-    certified_column: 0,
-    legacy_alias: 0,
-    outside_raw: 0,
-  };
-  for (const entry of entries) {
-    if (ids.has(entry.identity)) {
-      throw new Error(`FIELD_INVENTORY: duplicate identity ${entry.identity}`);
-    }
-    ids.add(entry.identity);
-    counts[entry.group] += 1;
+function visibleIdcFields() {
+  const catalog = getEnterpriseIdcCatalog();
+  const fields = [...catalog.customerCapture.fields];
+  for (const section of catalog.detailSections) {
+    if ((section.visibility ?? "visible") === "hidden") continue;
+    fields.push(...section.fields);
   }
-  for (const group of Object.keys(EXPECTED_GROUPS) as FieldInventoryGroup[]) {
-    if (counts[group] !== EXPECTED_GROUPS[group]) {
-      throw new Error(`FIELD_INVENTORY: ${group} count ${counts[group]} does not match reviewed ${EXPECTED_GROUPS[group]}`);
+  return fields;
+}
+
+function assertIdcCatalogueOwnership(): void {
+  const seen = new Map<string, string>();
+  const optionSets = partnerOpportunityJourneyConfigService.getConfig().optionSets;
+  for (const field of visibleIdcFields()) {
+    const identity = `idc:${field.key}`;
+    if (!field.key.trim() || !field.label.trim() || !field.control) {
+      throw new Error(`FIELD_INVENTORY: malformed field definition ${identity}`);
+    }
+    const signature = `${field.label}\0${field.control}\0${field.optionSet ?? ""}`;
+    const prior = seen.get(field.key);
+    if (prior) {
+      if (prior !== signature) throw new Error(`FIELD_INVENTORY: duplicate canonical key ${identity}`);
+      continue;
+    }
+    seen.set(field.key, signature);
+    if (field.control !== "select") continue;
+    const optionSet = field.optionSet?.trim() ?? "";
+    const options = optionSet ? optionSets[optionSet] : undefined;
+    if (!optionSet || !options?.length || options.some((option) => !option.value.trim() || !option.label.trim())) {
+      throw new Error(`FIELD_INVENTORY: invalid option definition ${identity}`);
+    }
+  }
+}
+
+/**
+ * Semantic integrity for a field inventory.
+ * Catalogue size is not an invariant. Duplicate keys, duplicate durable
+ * identities, malformed definitions, and broken source mappings still fail closed.
+ */
+export function assertFieldInventoryIntegrity(entries: readonly FieldInventoryEntry[]): void {
+  const discovered = {
+    assessment: new Set(discoverAssessmentFields().map((row) => row.id)),
+    idc: new Set(discoverIdcFields().map((row) => row.id)),
+    ppo: new Set(discoverProgrammeConstraintFields().map((row) => row.id)),
+    derived: new Set(discoverDerivedCalculatorFields().map((row) => row.id)),
+  };
+  const registryIds = new Set(listFieldControlDefinitions().map((definition) => definition.fieldId));
+  const outsideIds = new Set(
+    DRAFT_SOURCE_ALLOWLIST.filter((entry) => entry.sourceBinding.kind === "column").map((entry) => entry.fieldId),
+  );
+  const identities = new Set<string>();
+  const durableIdentities = new Set<string>();
+
+  for (const entry of entries) {
+    const identity = entry.identity.trim();
+    if (!identity || !entry.businessLabel.trim() || !entry.source.trim() || !entry.dataType.trim() || !entry.domain.trim()) {
+      throw new Error(`FIELD_INVENTORY: malformed field definition ${identity || "(missing identity)"}`);
+    }
+    if (!FIELD_INVENTORY_DATA_TYPES.has(entry.dataType)) {
+      throw new Error(`FIELD_INVENTORY: malformed field definition ${identity}`);
+    }
+    if (identities.has(identity)) {
+      throw new Error(`FIELD_INVENTORY: duplicate canonical key ${identity}`);
+    }
+    identities.add(identity);
+    if (entry.fcmFieldId) {
+      if (durableIdentities.has(entry.fcmFieldId)) {
+        throw new Error(`FIELD_INVENTORY: duplicate durable identity ${entry.fcmFieldId}`);
+      }
+      durableIdentities.add(entry.fcmFieldId);
+    }
+    if (discovered.assessment.has(identity)) {
+      const path = identity.slice("assessment:".length);
+      if (entry.group !== "assessment" || entry.source !== `EnterpriseOpportunityAssessment.draftFactsJson:${path}`) {
+        throw new Error(`FIELD_INVENTORY: broken mapping ${identity}`);
+      }
+      continue;
+    }
+    if (discovered.idc.has(identity)) {
+      const key = identity.slice("idc:".length);
+      if (entry.group !== "idc" || entry.source !== `enterprise-initial-data-collection:${key}`) {
+        throw new Error(`FIELD_INVENTORY: broken mapping ${identity}`);
+      }
+      continue;
+    }
+    if (discovered.ppo.has(identity)) {
+      const key = identity.slice("ppo:".length);
+      if (entry.group !== "ppo" || entry.source !== `product-programme:${key}`) {
+        throw new Error(`FIELD_INVENTORY: broken mapping ${identity}`);
+      }
+      continue;
+    }
+    if (discovered.derived.has(identity)) {
+      if (entry.group !== "derived" || !entry.source.includes("#")) {
+        throw new Error(`FIELD_INVENTORY: broken mapping ${identity}`);
+      }
+      continue;
+    }
+    if (outsideIds.has(identity)) {
+      if (entry.group !== "outside_raw" || entry.boundary !== "outside_v1_5_raw") {
+        throw new Error(`FIELD_INVENTORY: broken mapping ${identity}`);
+      }
+      continue;
+    }
+    if (registryIds.has(identity)) {
+      if (entry.group !== "certified_column" && entry.group !== "legacy_alias") {
+        throw new Error(`FIELD_INVENTORY: broken mapping ${identity}`);
+      }
+      continue;
+    }
+    throw new Error(`FIELD_INVENTORY: broken mapping ${identity}`);
+  }
+
+  for (const id of discovered.assessment) {
+    if (!identities.has(id)) throw new Error(`FIELD_INVENTORY: missing governed field ${id}`);
+  }
+  for (const id of discovered.idc) {
+    if (!identities.has(id)) throw new Error(`FIELD_INVENTORY: missing governed field ${id}`);
+  }
+  for (const id of discovered.ppo) {
+    if (!identities.has(id)) throw new Error(`FIELD_INVENTORY: missing governed field ${id}`);
+  }
+  for (const id of discovered.derived) {
+    if (!identities.has(id)) throw new Error(`FIELD_INVENTORY: missing governed field ${id}`);
+  }
+  for (const id of registryIds) {
+    if (!identities.has(id)) throw new Error(`FIELD_INVENTORY: missing governed field ${id}`);
+  }
+  for (const id of outsideIds) {
+    if (!identities.has(id)) throw new Error(`FIELD_INVENTORY: missing governed field ${id}`);
+  }
+
+  assertIdcCatalogueOwnership();
+
+  for (const fieldId of HOME_LOAN_V2_RECOMMENDATION_ORDER) {
+    const identity = fieldId.includes(":") ? fieldId : `idc:${fieldId}`;
+    if (!identities.has(identity)) {
+      throw new Error(`FIELD_INVENTORY: invalid Product Journey reference ${fieldId}`);
     }
   }
 }
@@ -489,7 +624,7 @@ export function listFieldInventoryEntries(): readonly FieldInventoryEntry[] {
   const entries: FieldInventoryEntry[] = [];
   const seen = new Set<string>();
   for (const row of discoverCanonicalRecommendationFields()) {
-    if (seen.has(row.id)) throw new Error(`FIELD_INVENTORY: discovery duplicate ${row.id}`);
+    if (seen.has(row.id)) throw new Error(`FIELD_INVENTORY: duplicate canonical key ${row.id}`);
     entries.push(fromDiscovery(row, registryById.get(row.id)));
     seen.add(row.id);
   }
@@ -500,11 +635,21 @@ export function listFieldInventoryEntries(): readonly FieldInventoryEntry[] {
   }
   entries.push(...outsideRawEntries(seen));
   entries.sort((left, right) => left.identity.localeCompare(right.identity));
-  assertReviewedBoundary(entries);
+  assertFieldInventoryIntegrity(entries);
   cached = entries;
   return cached;
 }
 
 export function fieldInventoryGroupCounts(): Record<FieldInventoryGroup, number> {
-  return { ...EXPECTED_GROUPS };
+  const counts: Record<FieldInventoryGroup, number> = {
+    assessment: 0,
+    idc: 0,
+    ppo: 0,
+    derived: 0,
+    certified_column: 0,
+    legacy_alias: 0,
+    outside_raw: 0,
+  };
+  for (const entry of listFieldInventoryEntries()) counts[entry.group] += 1;
+  return counts;
 }
