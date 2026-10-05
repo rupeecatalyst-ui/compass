@@ -25,6 +25,47 @@ function inr(value: number | null | undefined): string | null {
   return `₹${value.toLocaleString("en-IN")}`;
 }
 
+/**
+ * Customer-facing explanation for a successful published-programme match.
+ * Programme codes and policy ids stay on the internal ranker reason.
+ */
+export const PUBLIC_PROGRAMME_MATCH_EXPLANATION =
+  "This published programme matches the details you provided.";
+
+/**
+ * EnterpriseOpportunity.requestedAmount only.
+ * Formatted labels (commas, rupee signs, lakh, crore) are not parsed.
+ */
+export function authoritativeRequestedAmountRupees(amount: unknown): number | null {
+  if (typeof amount === "number") {
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    return Math.round(amount);
+  }
+  if (typeof amount === "string") {
+    const trimmed = amount.trim();
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return Math.round(parsed);
+  }
+  if (
+    amount &&
+    typeof amount === "object" &&
+    "toNumber" in amount &&
+    typeof (amount as { toNumber?: unknown }).toNumber === "function"
+  ) {
+    const parsed = (amount as { toNumber: () => number }).toNumber();
+    if (typeof parsed !== "number" || !Number.isFinite(parsed) || parsed <= 0) return null;
+    return Math.round(parsed);
+  }
+  return null;
+}
+
+export function publicRequestedAmountLabel(amount: unknown): string | null {
+  const rupees = authoritativeRequestedAmountRupees(amount);
+  return rupees == null ? null : inr(rupees);
+}
+
 export function projectHlBtEngineRecommendations(
   result: HomeLoanRecommendationEngineResult,
 ): CompassRecommendationsDto {
@@ -101,6 +142,8 @@ export function projectRegistryProgrammeRecommendations(input: {
   detail: PartnerOpportunityDetailDto;
   lenders: PublishedLenderOption[];
   programs: EnterpriseLenderProgramRecord[];
+  /** EnterpriseOpportunity.requestedAmount. Not a formatted label. */
+  requestedAmount?: unknown;
 }): CompassRecommendationsDto {
   const file = buildPartnerRecommendationLoanFile(input.detail);
   const ranked = recommendPublishedLendersFromOptions(input.lenders, {
@@ -109,6 +152,7 @@ export function projectRegistryProgrammeRecommendations(input: {
     limit: 12,
     matchInput: projectPublicProgrammeMatchInput(input.detail),
   });
+  const requestedAmountLabel = publicRequestedAmountLabel(input.requestedAmount);
   const cards: CompassRecommendationCardDto[] = ranked.map((row) => ({
     lenderRef: row.lenderRef,
     displayName: row.lenderName,
@@ -117,8 +161,10 @@ export function projectRegistryProgrammeRecommendations(input: {
     interestRateLabel: null,
     estimatedEmiLabel: null,
     processingTimeLabel: null,
-    reasons: [row.reason].filter(Boolean),
+    reasons: [PUBLIC_PROGRAMME_MATCH_EXPLANATION],
     benefits: [],
+    requestedAmountLabel,
+    whyThisRecommendation: PUBLIC_PROGRAMME_MATCH_EXPLANATION,
     programmeVersion: row.programmeVersion,
     dtoSource: "enterprise_compass_recommendations" as const,
   }));

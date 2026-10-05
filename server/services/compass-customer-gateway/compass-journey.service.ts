@@ -912,6 +912,7 @@ export const compassJourneyService = {
           detail,
           lenders,
           programs,
+          requestedAmount: row.requestedAmount,
         });
       } catch {
         recommendations = {
