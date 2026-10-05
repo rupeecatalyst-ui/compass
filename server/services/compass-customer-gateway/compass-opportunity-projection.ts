@@ -167,6 +167,16 @@ export function answersToSnapshotFields(
       if (key === "propertyCity") productFields.propertyCity = value;
       continue;
     }
+    if (key === "assessment:borrower.ageYears" || key === "ageYears") {
+      borrowerFields.ageYears = value;
+      borrowerFields["assessment:borrower.ageYears"] = value;
+      continue;
+    }
+    if (key === "assessment:borrower.residency" || key === "residency") {
+      borrowerFields.residency = value;
+      borrowerFields["assessment:borrower.residency"] = value;
+      continue;
+    }
     if (key === "incomeType" || key === "employmentTypeCode") {
       borrowerFields.employmentTypeCode = normalizeEcmEmploymentTypeId(value) ?? value;
       continue;

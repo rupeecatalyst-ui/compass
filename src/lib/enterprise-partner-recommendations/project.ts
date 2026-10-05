@@ -40,7 +40,7 @@ function parseAmountLabel(label: string | null | undefined): number | undefined 
   return Math.round(num);
 }
 
-function mapEmployment(code: string | undefined): string {
+export function mapEmployment(code: string | undefined): string {
   const c = (code || "").trim().toLowerCase();
   if (c === "salaried") return "salaried";
   if (c.includes("self-employed") || c.includes("self_employed")) return "self_employed";

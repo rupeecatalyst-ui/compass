@@ -13,7 +13,10 @@ import { dedupeLendersForSelection } from "@/lib/enterprise-lender-registry/pres
 import type { LoanFile } from "@/types/catalyst-one";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import { authenticatedJsonFetch } from "@/lib/api-client";
-import { matchPublishedProgramme } from "@/lib/product-programme-operations/match-published";
+import {
+  matchPublishedProgramme,
+  type ProgrammeMatchInput,
+} from "@/lib/product-programme-operations/match-published";
 import { canonicalizeProductCode } from "@/lib/product-programme-operations/product-aliases";
 import { approxCibilBandToLowerBound } from "@/lib/product-programme-operations/cibil-band";
 
@@ -36,25 +39,30 @@ export type RegistryLenderRecommendation = {
   unavailableReason?: string;
 };
 
+function matchInputFromLoanFile(file: LoanFile): ProgrammeMatchInput {
+  return {
+    productCode: canonicalizeProductCode(file.loanProduct) ?? file.loanProduct,
+    employmentType: file.employmentType,
+    constitution: file.businessDetails?.constitution ?? null,
+    residency: null,
+    loanAmountExact: file.loanAmount != null ? String(Math.round(file.loanAmount)) + ".00" : null,
+    cibil: approxCibilBandToLowerBound(file.approxCibilScore),
+    city: file.city ?? null,
+    transactionType: file.transactionType ?? null,
+    propertyType: file.propertyType ?? null,
+    propertyCategory: file.propertyCategory ?? null,
+    constructionStatus: file.constructionStatus ?? null,
+  };
+}
+
 function scoreLender(
   lender: PublishedLenderOption,
   file: LoanFile,
   programme?: EnterpriseLenderProgramRecord | null,
+  matchInput?: ProgrammeMatchInput,
 ): { score: number; reason: string } {
   if (programme) {
-    const match = matchPublishedProgramme(programme, {
-      productCode: canonicalizeProductCode(file.loanProduct) ?? file.loanProduct,
-      employmentType: file.employmentType,
-      constitution: file.businessDetails?.constitution ?? null,
-      residency: null,
-      loanAmountExact: file.loanAmount != null ? String(Math.round(file.loanAmount)) + ".00" : null,
-      cibil: approxCibilBandToLowerBound(file.approxCibilScore),
-      city: file.city ?? null,
-      transactionType: file.transactionType ?? null,
-      propertyType: file.propertyType ?? null,
-      propertyCategory: file.propertyCategory ?? null,
-      constructionStatus: file.constructionStatus ?? null,
-    });
+    const match = matchPublishedProgramme(programme, matchInput ?? matchInputFromLoanFile(file));
     if (!match.matched) {
       return { score: 0, reason: match.reason };
     }
@@ -139,12 +147,18 @@ export async function recommendPublishedLendersFromRegistryAsync(input: {
  */
 export function recommendPublishedLendersFromOptions(
   options: PublishedLenderOption[],
-  input: { file: LoanFile; limit?: number; programmes?: EnterpriseLenderProgramRecord[] },
+  input: {
+    file: LoanFile;
+    limit?: number;
+    programmes?: EnterpriseLenderProgramRecord[];
+    /** When supplied, this is the only matcher input. Missing facts stay missing. */
+    matchInput?: ProgrammeMatchInput;
+  },
 ): RegistryLenderRecommendation[] {
   const limit = input.limit ?? 8;
   const canonical = options.filter(isCanonicalDealLenderOption);
   if (canonical.length === 0) return [];
-  return scoreAndRank(canonical, input.file, limit, input.programmes ?? []);
+  return scoreAndRank(canonical, input.file, limit, input.programmes ?? [], input.matchInput);
 }
 
 function scoreAndRank(
@@ -152,25 +166,16 @@ function scoreAndRank(
   file: LoanFile,
   limit: number,
   programmes: EnterpriseLenderProgramRecord[],
+  matchInput?: ProgrammeMatchInput,
 ): RegistryLenderRecommendation[] {
+  const input = matchInput ?? matchInputFromLoanFile(file);
   const scored = options.map((lender) => {
     const programme =
       programmes.find((item) => {
         if (item.lenderId !== lender.id) return false;
-        return matchPublishedProgramme(item, {
-          productCode: canonicalizeProductCode(file.loanProduct) ?? file.loanProduct,
-          employmentType: file.employmentType,
-          constitution: file.businessDetails?.constitution ?? null,
-          loanAmountExact: file.loanAmount != null ? String(Math.round(file.loanAmount)) + ".00" : null,
-          cibil: approxCibilBandToLowerBound(file.approxCibilScore),
-          city: file.city ?? null,
-          transactionType: file.transactionType ?? null,
-          propertyType: file.propertyType ?? null,
-          propertyCategory: file.propertyCategory ?? null,
-          constructionStatus: file.constructionStatus ?? null,
-        }).matched;
+        return matchPublishedProgramme(item, input).matched;
       }) ?? null;
-    const { score, reason } = scoreLender(lender, file, programme);
+    const { score, reason } = scoreLender(lender, file, programme, input);
     return { lender, score, reason, programme };
   });
 

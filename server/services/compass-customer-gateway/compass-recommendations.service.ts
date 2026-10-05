@@ -6,6 +6,7 @@ import type {
 import { deriveChanakyaOpportunityRecommendationsFromOptions } from "@/lib/chanakya-opportunity-recommendations";
 import { recommendPublishedLendersFromOptions } from "@/lib/enterprise-lender-registry/recommend-from-registry";
 import { buildPartnerRecommendationLoanFile } from "@/lib/enterprise-partner-recommendations/project";
+import { projectPublicProgrammeMatchInput } from "@/lib/compass-customer-gateway/public-programme-match";
 import type { PartnerOpportunityDetailDto } from "@/types/enterprise-partner-business";
 import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/published-directory";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
@@ -105,7 +106,8 @@ export function projectRegistryProgrammeRecommendations(input: {
   const ranked = recommendPublishedLendersFromOptions(input.lenders, {
     file,
     programmes: input.programs,
-    limit: 8,
+    limit: 12,
+    matchInput: projectPublicProgrammeMatchInput(input.detail),
   });
   const cards: CompassRecommendationCardDto[] = ranked.map((row) => ({
     lenderRef: row.lenderRef,

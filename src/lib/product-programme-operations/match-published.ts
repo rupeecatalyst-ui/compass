@@ -1,4 +1,5 @@
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { applicantStateMatchesProgramme } from "@/lib/product-programme-operations/pan-india-geography";
 import { canonicalizeProductCode, productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
@@ -75,7 +76,7 @@ export function matchPublishedProgramme(
   }
   if ((program.eligibleStates ?? []).length > 0) {
     if (!input.state?.trim()) return unverified("State");
-    if (!program.eligibleStates?.includes(input.state)) {
+    if (!applicantStateMatchesProgramme(input.state, program.eligibleStates ?? [])) {
       return { matched: false, reason: "Geography is outside programme coverage." };
     }
   }
@@ -104,7 +105,8 @@ export function matchPublishedProgramme(
   }
   // Legacy published records retain their existing propertyTypes data and matching behavior.
   // Do not reinterpret legacy values as either a category or a construction status.
-  // Property value, tenure, obligations, and age are not invented here.
+  // Property value, tenure, obligations, income, FOIR, and LTV are not invented here.
+  // Age is evaluated only when the programme publishes a bound and the applicant supplied an age.
   if (program.minCibil != null || program.maxCibil != null) {
     if (input.cibil == null) return unverified("CIBIL");
     if (!inRange(input.cibil, program.minCibil, program.maxCibil)) {

@@ -52,6 +52,10 @@ export const LEGACY_JOURNEY_ROLE_FALLBACK = {
     "employerName",
     "propertyCategory",
     "constructionStatus",
+    "assessment:borrower.ageYears",
+    "ageYears",
+    "assessment:borrower.residency",
+    "residency",
   ],
   enrichment: ["remarks"],
   documentPrefix: "document",
@@ -87,6 +91,10 @@ const RECOMMENDATION_KEYS = new Set([
   "employerName",
   "propertyCategory",
   "constructionStatus",
+  "assessment:borrower.ageYears",
+  "ageYears",
+  "assessment:borrower.residency",
+  "residency",
 ]);
 
 const ENRICHMENT_KEYS = new Set(["remarks"]);

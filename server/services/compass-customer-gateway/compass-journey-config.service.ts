@@ -24,6 +24,7 @@ import {
   getCompassProductDefinition,
   parseActiveCompassProductCode,
 } from "@/constants/compass-customer-gateway/product-registry";
+import { findCompassProductDefinition } from "@/lib/compass-customer-gateway/public-programme-match";
 import { canonicalizeProductCode } from "@/lib/product-programme-operations/product-aliases";
 import {
   getApprovedMaxRequestedAmountRupees,
@@ -179,6 +180,12 @@ export async function buildCompassJourneyConfig(
   const fields: CompassJourneyFieldDef[] = [];
   for (const section of visibleSections) {
     for (const field of section.fields) {
+      if (
+        definition.enterpriseProductCode === "HOME_LOAN_BT" &&
+        (field.key === "ageYears" || field.key === "residency")
+      ) {
+        continue;
+      }
       if (captureRows.length > 0 && !IDENTITY_KEYS.has(field.key) && !captureRows.some((row) => journeyFieldMatchesIdcKey(row, field.key))) {
         continue;
       }
@@ -365,13 +372,17 @@ export async function buildPublishedProductJourneyConfig(
     mobileCapture,
     otpVerification,
   );
+  const productFacts = findCompassProductDefinition(published.productCode);
+  if (!productFacts) {
+    throw new Error("PRODUCT_CONFIGURATION_UNAVAILABLE");
+  }
   return {
     productCode: published.productCode,
-    enterpriseProductCode: published.productCode,
-    productLabel: published.productLabel,
-    transactionType: "fresh",
-    isSecured: true,
-    borrowerKind: "individual",
+    enterpriseProductCode: productFacts.enterpriseProductCode,
+    productLabel: productFacts.productLabel,
+    transactionType: productFacts.transactionType,
+    isSecured: productFacts.isSecured,
+    borrowerKind: productFacts.borrowerKind,
     configVersion: `journey-v${published.journeyVersion}`,
     fields: published.fields.map((field) => ({
       fieldId: field.fieldId,
@@ -448,6 +459,12 @@ export async function buildIdcJourneyDraft(
   const fields: Array<CompassJourneyFieldDef & { sectionOrder: number }> = [];
   for (const section of sections) {
     for (const field of section.fields) {
+      if (
+        definition.enterpriseProductCode === "HOME_LOAN_BT" &&
+        (field.key === "ageYears" || field.key === "residency")
+      ) {
+        continue;
+      }
       fields.push({
         ...mapIdcField(field, partnerConfig.optionSets, section.sectionId, definition.enterpriseProductCode),
         sectionOrder: section.displayOrder,
@@ -533,6 +550,12 @@ export function buildCompassJourneyConfigFromRows(
   const fields: CompassJourneyFieldDef[] = [];
   for (const section of visibleSections) {
     for (const field of section.fields) {
+      if (
+        definition.enterpriseProductCode === "HOME_LOAN_BT" &&
+        (field.key === "ageYears" || field.key === "residency")
+      ) {
+        continue;
+      }
       if (captureRows.length > 0 && !IDENTITY_KEYS.has(field.key) && !captureRows.some((row) => journeyFieldMatchesIdcKey(row, field.key))) {
         continue;
       }

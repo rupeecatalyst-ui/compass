@@ -24,6 +24,7 @@ import { PROPERTY_TYPES } from "@/constants/loan-stage-master";
 import {
   PROGRAMME_CONSTRUCTION_STATUSES,
   PROGRAMME_PROPERTY_CATEGORIES,
+  PROGRAMME_RESIDENCY,
 } from "@/constants/product-programme-operations/controlled-masters";
 import { getOccupancyMaster } from "@/constants/occupancy-master";
 import { PARTNER_RECOMMENDATION_PRESENTATION } from "@/constants/enterprise-partner-recommendations";
@@ -95,7 +96,8 @@ function deriveLegacyProjections(sections: PartnerJourneySectionDef[]): {
 } {
   const individual = sections
     .filter((s) => s.visibleWhenBorrower === "individual" && s.valueBucket === "borrower")
-    .flatMap((s) => s.fields);
+    .flatMap((s) => s.fields)
+    .filter((field) => !field.visibleWhenProductFamilies?.length);
   const company = sections
     .filter((s) => s.visibleWhenBorrower === "company" && s.valueBucket === "borrower")
     .flatMap((s) => s.fields);
@@ -209,6 +211,12 @@ export function buildPartnerOpportunityJourneyConfig(): PartnerOpportunityJourne
         value: o.value,
         label: o.label,
       })),
+      residency: PROGRAMME_RESIDENCY.filter((item) => item.id === "resident" || item.id === "nri" || item.id === "pio").map(
+        (item) => ({
+          value: item.id,
+          label: item.id === "resident" ? "Resident" : item.id === "nri" ? "NRI" : "PIO",
+        }),
+      ),
       propertyUsage: getOccupancyMaster()
         .filter((o) => o.enabled)
         .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label))

@@ -9,6 +9,14 @@ import {
   type PublicQuestionField,
 } from "@/lib/compass-customer-gateway/public-question-plan";
 import {
+  HOME_LOAN_AGE_FIELD_ID,
+  HOME_LOAN_PROPERTY_CITY_FIELD_ID,
+  HOME_LOAN_RESIDENCY_FIELD_ID,
+  parseHomeLoanEntryAge,
+  parseHomeLoanResidency,
+  resolveCityMasterIdentity,
+} from "@/lib/compass-customer-gateway/public-programme-match";
+import {
   isCompassPlaceholderName,
   parseCompassDisplayName,
   parseCompassOptionalEmail,
@@ -672,6 +680,44 @@ export const compassJourneyService = {
       }
       sanitizedAnswers[key] = key === "loanAmount" ? limit.amount : String(limit.amount);
     }
+    if (
+      sanitizedAnswers[HOME_LOAN_AGE_FIELD_ID] != null &&
+      String(sanitizedAnswers[HOME_LOAN_AGE_FIELD_ID]).trim() !== ""
+    ) {
+      const age = parseHomeLoanEntryAge(sanitizedAnswers[HOME_LOAN_AGE_FIELD_ID]);
+      if (age == null) {
+        throw new CompassJourneyError(
+          "INVALID_AGE",
+          "Enter your age as a whole number from 18 to 80.",
+          400,
+        );
+      }
+      sanitizedAnswers[HOME_LOAN_AGE_FIELD_ID] = String(age);
+    }
+    if (
+      sanitizedAnswers[HOME_LOAN_RESIDENCY_FIELD_ID] != null &&
+      String(sanitizedAnswers[HOME_LOAN_RESIDENCY_FIELD_ID]).trim() !== ""
+    ) {
+      const residency = parseHomeLoanResidency(sanitizedAnswers[HOME_LOAN_RESIDENCY_FIELD_ID]);
+      if (!residency) {
+        throw new CompassJourneyError("INVALID_RESIDENCY", "Select a residency status.", 400);
+      }
+      sanitizedAnswers[HOME_LOAN_RESIDENCY_FIELD_ID] = residency;
+    }
+    if (
+      sanitizedAnswers[HOME_LOAN_PROPERTY_CITY_FIELD_ID] != null &&
+      String(sanitizedAnswers[HOME_LOAN_PROPERTY_CITY_FIELD_ID]).trim() !== ""
+    ) {
+      const city = resolveCityMasterIdentity(String(sanitizedAnswers[HOME_LOAN_PROPERTY_CITY_FIELD_ID]));
+      if (!city) {
+        throw new CompassJourneyError(
+          "INVALID_PROPERTY_CITY",
+          "Select a property city from the city list.",
+          400,
+        );
+      }
+      sanitizedAnswers[HOME_LOAN_PROPERTY_CITY_FIELD_ID] = city.id;
+    }
     const mapped = answersToSnapshotFields(sanitizedAnswers);
     mapped.productFields.lendingType = definition.isSecured ? "secured" : "unsecured";
     mapped.productFields.transactionType = definition.transactionType;
@@ -790,10 +836,22 @@ export const compassJourneyService = {
         ? ((row.snapshot as { compassAnswers?: Record<string, string | number | boolean | null> })
             .compassAnswers ?? {})
         : {};
-    const readiness = recommendationReadiness(config.fields as PublicQuestionField[], {
+    const readinessAnswers = {
       ...storedAnswers,
       ...snapshotAnswers,
-    });
+    };
+    const readiness = recommendationReadiness(config.fields as PublicQuestionField[], readinessAnswers);
+    const cityAnswer = readinessAnswers[HOME_LOAN_PROPERTY_CITY_FIELD_ID];
+    if (
+      config.fields.some((field) => field.fieldId === HOME_LOAN_PROPERTY_CITY_FIELD_ID && field.required) &&
+      cityAnswer != null &&
+      String(cityAnswer).trim() !== "" &&
+      !resolveCityMasterIdentity(String(cityAnswer)) &&
+      !readiness.missingPublicFieldKeys.includes(HOME_LOAN_PROPERTY_CITY_FIELD_ID)
+    ) {
+      readiness.missingPublicFieldKeys.push(HOME_LOAN_PROPERTY_CITY_FIELD_ID);
+      readiness.ready = false;
+    }
     const requestedAmount = parseLoanAmount(snapshotAnswers.loanAmount) || null;
     const requestedAmountMax = getApprovedMaxRequestedAmountRupees(definition.enterpriseProductCode);
     if (!readiness.ready) {
