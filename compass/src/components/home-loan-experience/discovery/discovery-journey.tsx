@@ -469,6 +469,7 @@ export function DiscoveryJourney() {
                       setAmountError(overLimitMessage);
                       return;
                     }
+                    setAnswer("loanAmount", answers.loanAmount);
                     goNext();
                   }}
                 >
@@ -497,7 +498,14 @@ export function DiscoveryJourney() {
               />
               <MiniHomePreview scale={0.9 + (answers.propertyValue / c.max) * 0.25} />
               <div className="mt-8 flex justify-center">
-                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  onClick={() => {
+                    setAnswer("propertyValue", answers.propertyValue);
+                    goNext();
+                  }}
+                >
                   {c.cta}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -760,7 +768,14 @@ export function DiscoveryJourney() {
                 onChange={(v) => setAnswer("annualTurnover", v)}
               />
               <div className="mt-8 flex justify-center">
-                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  onClick={() => {
+                    setAnswer("annualTurnover", answers.annualTurnover ?? c.default);
+                    goNext();
+                  }}
+                >
                   {c.cta}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -785,7 +800,14 @@ export function DiscoveryJourney() {
                 onChange={(v) => setAnswer("projectCost", v)}
               />
               <div className="mt-8 flex justify-center">
-                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  onClick={() => {
+                    setAnswer("projectCost", answers.projectCost ?? c.default);
+                    goNext();
+                  }}
+                >
                   {c.cta}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -857,7 +879,14 @@ export function DiscoveryJourney() {
                 onChange={(v) => setAnswer("monthlyIncome", v)}
               />
               <div className="mt-8 flex justify-center">
-                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  onClick={() => {
+                    setAnswer("monthlyIncome", value);
+                    goNext();
+                  }}
+                >
                   {c.cta}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -929,7 +958,14 @@ export function DiscoveryJourney() {
                 onChange={(v) => setAnswer("existingEmi", v)}
               />
               <div className="mt-8 flex justify-center">
-                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  onClick={() => {
+                    setAnswer("existingEmi", answers.existingEmi);
+                    goNext();
+                  }}
+                >
                   {c.cta}
                   <ArrowRight className="h-4 w-4" />
                 </Button>

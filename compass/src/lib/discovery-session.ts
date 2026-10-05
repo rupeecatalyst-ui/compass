@@ -1,7 +1,14 @@
 /**
  * Browser session resume for COMPASS discovery answers.
  * Values are presentation-only; Catalyst One remains the persisted SSOT after patch.
+ * Unconfirmed slider defaults are not stored as answers.
  */
+
+import {
+  isAuthoritativeNumeric,
+  isDeclarableNumericKey,
+  type DeclarableAnswerState,
+} from "@/lib/declarable-journey-answers";
 
 export type DiscoverySessionStorage = {
   getItem(key: string): string | null;
@@ -32,9 +39,16 @@ export function persistDiscoveryAnswers(
   productCode: string,
   answers: Record<string, unknown>,
 ): void {
+  const collected = (answers as DeclarableAnswerState).collectedFacts;
   const safe: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(answers)) {
     if (SENSITIVE_ANSWER_KEYS.has(key)) continue;
+    if (
+      isDeclarableNumericKey(key) &&
+      !isAuthoritativeNumeric(key, typeof value === "number" ? value : null, collected)
+    ) {
+      continue;
+    }
     safe[key] = value;
   }
   const loanAmount = typeof safe.loanAmount === "number" ? Math.round(safe.loanAmount) : null;

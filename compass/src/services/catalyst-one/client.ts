@@ -10,6 +10,7 @@ import type {
   DiscoveryIntelligenceResult,
   JourneyStartResponse,
 } from "@/services/catalyst-one/types";
+import { buildCompassAnswersPayload, compassSubmitDeclarationBody } from "@/lib/declarable-journey-answers";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
 
 function initials(name: string): string {
@@ -20,44 +21,13 @@ function initials(name: string): string {
 }
 
 function answersPayload(productCode: string, answers: DiscoveryAnswers) {
-  const raw: Record<string, string | number | boolean | undefined> = {
-    propertyType: answers.propertyType,
-    propertyUsage: answers.propertyUsage,
-    loanAmount: answers.loanAmount,
-    propertyValue: answers.propertyValue,
-    mobile: answers.mobile,
-    otpVerified: answers.otpVerified,
-    incomeType: answers.incomeType,
-    employmentTypeCode: answers.fieldAnswers?.employmentTypeCode || answers.incomeType,
-    monthlyIncome: answers.monthlyIncome,
-    existingEmi: answers.existingEmi,
-    city: answers.city,
-    loanPurpose: answers.loanPurpose,
-    companyName: answers.companyName,
-    constitution: answers.constitution,
-    annualTurnover: answers.annualTurnover,
-    facilityType: answers.facilityType,
-    projectCost: answers.projectCost,
-    currentLender: answers.currentLender,
-    outstandingLoanAmount: answers.outstandingLoanAmount,
-    approxCibilScore: answers.approxCibilScore,
-    displayName: answers.displayName,
-    personalEmail: answers.personalEmail,
-    ...answers.fieldAnswers,
-  };
   const allowed = new Set(
     isCompassCatalogProduct(productCode) ? getPersistedDiscoveryAnswerKeys(productCode) : [],
   );
   allowed.add("displayName");
   allowed.add("personalEmail");
   for (const key of Object.keys(answers.fieldAnswers ?? {})) allowed.add(key);
-  const payload: Record<string, string | number | boolean> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    if (!allowed.has(key) || value == null) continue;
-    if (typeof value === "string" && !value.trim()) continue;
-    payload[key] = value;
-  }
-  return payload;
+  return buildCompassAnswersPayload(answers, allowed);
 }
 
 async function patchAnswers(token: string, productCode: string, answers: DiscoveryAnswers) {
@@ -301,7 +271,7 @@ export async function submitCompassApplication(
       "Content-Type": "application/json",
       Authorization: `Bearer ${journeySessionToken}`,
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(compassSubmitDeclarationBody(input)),
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;

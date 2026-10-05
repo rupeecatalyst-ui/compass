@@ -8,6 +8,7 @@ import { discoveryCopy } from "@/config/home-loan-discovery";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { compassAdvantageIsDisplayable } from "@/services/catalyst-one/types";
+import { authoritativeRequestedAmountRupees } from "@/lib/declarable-journey-answers";
 
 function formatInrWhole(value: string | number | null | undefined): string | null {
   if (value == null || value === "") return null;
@@ -30,13 +31,15 @@ export function DiscoveryAdvantageStep() {
   const c = discoveryCopy.advantage;
 
   const advantage = intelligence?.advantage;
+  const requestedFromAnswersAmount = authoritativeRequestedAmountRupees(answers);
   const requestedFromCalculation = formatInrWhole(advantage?.requestedLoanAmount);
-  const requestedFromAnswers = formatInrWhole(answers.loanAmount);
+  const requestedFromAnswers = formatInrWhole(requestedFromAnswersAmount);
   const requestedLoanAmount = advantage?.requestedLoanAmount;
   const calculationMatchesCurrentAmount =
+    requestedFromAnswersAmount != null &&
     requestedLoanAmount != null &&
     requestedLoanAmount !== "" &&
-    Math.round(Number(requestedLoanAmount)) === Math.round(answers.loanAmount);
+    Math.round(Number(requestedLoanAmount)) === requestedFromAnswersAmount;
   const displayable =
     compassAdvantageIsDisplayable(advantage) && calculationMatchesCurrentAmount;
 

@@ -7,6 +7,7 @@ import {
   isCompassCatalogProduct,
   readProductCodeFromPathname,
 } from "@/config/compass-lending-products";
+import { isDeclarableNumericKey } from "@/lib/declarable-journey-answers";
 import { persistDiscoveryAnswers, persistJourneyToken, restoreDiscoveryAnswers, restoreJourneyToken } from "@/lib/discovery-session";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
 import { governedDiscoveryStepOrder, isMonthlyIncomeStepRequired, publicStageOrder } from "@/lib/journey-config";
@@ -52,6 +53,19 @@ export type DiscoveryAnswers = {
   displayName?: string;
   personalEmail?: string;
   fieldAnswers?: Record<string, string>;
+  /** Set only when the applicant confirms a slider. Visual defaults stay unflagged. */
+  collectedFacts?: Partial<
+    Record<
+      | "loanAmount"
+      | "propertyValue"
+      | "monthlyIncome"
+      | "existingEmi"
+      | "outstandingLoanAmount"
+      | "annualTurnover"
+      | "projectCost",
+      true
+    >
+  >;
 };
 
 function resolveStepOrder(
@@ -79,6 +93,7 @@ const defaultAnswers: DiscoveryAnswers = {
   city: "",
   annualTurnover: discoveryCopy.annualTurnover.default,
   projectCost: discoveryCopy.projectCost.default,
+  collectedFacts: {},
 };
 
 function shouldSkipAnsweredStage(candidate: string, merged: DiscoveryAnswers, mobileVerified: boolean): boolean {
@@ -152,10 +167,15 @@ function mergeStoredAnswers(stored: Record<string, unknown> | null): DiscoveryAn
     typeof stored.loanAmount === "number" && stored.loanAmount > 0
       ? Math.round(stored.loanAmount)
       : defaultAnswers.loanAmount;
+  const storedFacts =
+    stored.collectedFacts && typeof stored.collectedFacts === "object"
+      ? (stored.collectedFacts as DiscoveryAnswers["collectedFacts"])
+      : {};
   return {
     ...defaultAnswers,
     ...stored,
     loanAmount,
+    collectedFacts: storedFacts,
   } as DiscoveryAnswers;
 }
 
@@ -300,6 +320,10 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const setAnswer = useCallback(<K extends keyof DiscoveryAnswers>(key: K, value: DiscoveryAnswers[K]) => {
     setAnswers((prev) => {
       const next = { ...prev, [key]: value };
+      const factKey = String(key);
+      if (isDeclarableNumericKey(factKey)) {
+        next.collectedFacts = { ...prev.collectedFacts, [factKey]: true };
+      }
       if (typeof window !== "undefined") {
         persistDiscoveryAnswers(window.sessionStorage, productCode, next);
       }

@@ -6,17 +6,13 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
-import { isCompassCatalogProduct, productShowsPropertyPreview } from "@/config/compass-lending-products";
-import { cibilFieldOptions, findJourneyField } from "@/lib/journey-config";
+import { isCompassCatalogProduct } from "@/config/compass-lending-products";
+import { buildReviewDeclarationRows } from "@/lib/declarable-journey-answers";
 import { journeyConsent } from "@/config/legal";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 import { compassAdvantageIsDisplayable } from "@/services/catalyst-one/types";
-
-function formatCurrency(value: number): string {
-  return `₹${Math.round(value).toLocaleString("en-IN")}`;
-}
 
 export function DiscoveryReviewStep() {
   const {
@@ -37,6 +33,7 @@ export function DiscoveryReviewStep() {
   const [consentDeclarations, setConsentDeclarations] = useState(false);
 
   const canSubmit = consentPrivacy && consentLender && consentDeclarations && !submitting;
+  const declarationRows = buildReviewDeclarationRows(answers, journeyConfig?.fields ?? []);
 
   const onSubmit = () => {
     void submitApplication({
@@ -80,86 +77,12 @@ export function DiscoveryReviewStep() {
             {c.answersLabel}
           </h3>
           <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Full name</dt>
-              <dd className="font-medium">{(answers.displayName ?? "").trim() || "Not Specified"}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Mobile</dt>
-              <dd className="font-medium">{answers.mobile}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Email</dt>
-              <dd className="font-medium">
-                {(answers.personalEmail ?? "").trim() || "Not Specified"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Loan amount</dt>
-              <dd className="font-medium">{formatCurrency(answers.loanAmount)}</dd>
-            </div>
-            {productShowsPropertyPreview(productCode) ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Property value</dt>
-                <dd className="font-medium">{formatCurrency(answers.propertyValue)}</dd>
+            {declarationRows.map((row) => (
+              <div key={row.id} className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">{row.label}</dt>
+                <dd className="font-medium">{row.value}</dd>
               </div>
-            ) : null}
-            {productCode === "home-loan-balance-transfer" && answers.currentLender ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Current lender</dt>
-                <dd className="font-medium">{answers.currentLender}</dd>
-              </div>
-            ) : null}
-            {productCode === "home-loan-balance-transfer" && answers.outstandingLoanAmount ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Outstanding balance</dt>
-                <dd className="font-medium">{formatCurrency(answers.outstandingLoanAmount)}</dd>
-              </div>
-            ) : null}
-            {answers.companyName ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Business</dt>
-                <dd className="font-medium">{answers.companyName}</dd>
-              </div>
-            ) : null}
-            {answers.facilityType ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Facility</dt>
-                <dd className="font-medium">{answers.facilityType.replace(/_/g, " ")}</dd>
-              </div>
-            ) : null}
-            {answers.incomeType ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">
-                  {findJourneyField(journeyConfig, "employmentTypeCode")?.label || "Employment"}
-                </dt>
-                <dd className="font-medium">
-                  {findJourneyField(journeyConfig, "employmentTypeCode")?.options?.find(
-                    (opt) => opt.value === answers.incomeType,
-                  )?.label || answers.incomeType}
-                </dd>
-              </div>
-            ) : null}
-            {answers.monthlyIncome ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">
-                  {findJourneyField(journeyConfig, "monthlyIncomeLabel", "monthlyIncome")?.label ||
-                    "Monthly income"}
-                </dt>
-                <dd className="font-medium">{formatCurrency(answers.monthlyIncome)}</dd>
-              </div>
-            ) : null}
-            {answers.approxCibilScore ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">
-                  {findJourneyField(journeyConfig, "approxCibilScore")?.label || "Expected CIBIL Score"}
-                </dt>
-                <dd className="font-medium">
-                  {cibilFieldOptions(journeyConfig).find((opt) => opt.value === answers.approxCibilScore)
-                    ?.label || answers.approxCibilScore}
-                </dd>
-              </div>
-            ) : null}
+            ))}
           </dl>
         </section>
 
