@@ -5,7 +5,7 @@
  * Save Draft never publishes. Steps 1–5 cannot send. Exit returns to Registry.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -139,6 +139,9 @@ export function MarketingCampaignBuilderPage({
   const [exclusions, setExclusions] = useState<MarketingFilterDefinition>(emptyMarketingFilters());
   const [eligibleCount, setEligibleCount] = useState<number | null>(null);
   const [audienceCounts, setAudienceCounts] = useState<MarketingAudiencePreviewResult["counts"] | null>(null);
+  const [preview, setPreview] = useState<MarketingAudiencePreviewResult | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewPending, setPreviewPending] = useState(false);
   const [executionSummary, setExecutionSummary] = useState<MarketingExecutionSummary | null>(null);
   const [snapshotStatus, setSnapshotStatus] = useState<MarketingBuilderDraft["snapshotStatus"]>("Unavailable");
   const [senderName, setSenderName] = useState("");
@@ -425,6 +428,25 @@ export function MarketingCampaignBuilderPage({
     };
   }, [bindingId, datasetId]);
 
+  const previewScope = JSON.stringify({
+    bindingId,
+    datasetId,
+    columnMap,
+    mappingConfirmed,
+    filters,
+    exclusions,
+  });
+  const previewScopeRef = useRef(previewScope);
+  useEffect(() => {
+    if (previewScopeRef.current === previewScope) return;
+    previewScopeRef.current = previewScope;
+    setPreview(null);
+    setPreviewError(null);
+    setEligibleCount(null);
+    setAudienceCounts(null);
+    setSnapshotStatus((current) => (current === "Frozen" ? current : "Unavailable"));
+  }, [previewScope]);
+
   async function persistAudience(): Promise<string | null> {
     if (!bindingId || !datasetId || !columnMap.email) return audienceId || null;
     const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
@@ -519,15 +541,27 @@ export function MarketingCampaignBuilderPage({
   }
 
   async function runPreviewEligibility() {
-    if (!bindingId || !datasetId) return;
+    if (!bindingId || !datasetId) {
+      const message = "Select the authorised workbook and worksheet tab before running eligibility preview.";
+      setPreview(null);
+      setPreviewError(message);
+      setEligibleCount(null);
+      setAudienceCounts(null);
+      toast.error(message);
+      return;
+    }
     setBusy(true);
+    setPreviewPending(true);
+    setPreview(null);
+    setPreviewError(null);
+    setEligibleCount(null);
+    setAudienceCounts(null);
     try {
       const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "preview",
-          audienceId: audienceId || undefined,
           bindingId,
           datasetId,
           filterDefinition: filters,
@@ -536,18 +570,15 @@ export function MarketingCampaignBuilderPage({
           mappingConfirmed,
         }),
       });
-      const body = (await res.json()) as ApiEnvelope<{
-        preview: {
-          counts: MarketingAudiencePreviewResult["counts"];
-          sampleRecipients?: MarketingPersonalisationSampleRecipient[];
-        };
-      }>;
-      if (!res.ok || !body.success || !body.data?.preview) {
-        throw new Error(body.error?.message ?? "Eligibility preview failed");
+      const body = (await res.json()) as ApiEnvelope<{ preview: MarketingAudiencePreviewResult }>;
+      const nextPreview = body.data?.preview;
+      if (!res.ok || !body.success || !nextPreview || typeof nextPreview.counts?.eligible !== "number") {
+        throw new Error(body.error?.message || "Eligibility preview failed");
       }
-      setAudienceCounts(body.data.preview.counts);
-      setEligibleCount(body.data.preview.counts.eligible);
-      const samples = body.data.preview.sampleRecipients ?? [];
+      setPreview(nextPreview);
+      setAudienceCounts(nextPreview.counts);
+      setEligibleCount(nextPreview.counts.eligible);
+      const samples = nextPreview.sampleRecipients ?? [];
       setSampleRecipients(samples);
       setSelectedSampleId(samples[0]?.id ?? null);
       if (samples[0]) {
@@ -558,17 +589,28 @@ export function MarketingCampaignBuilderPage({
           }),
         );
       }
-      setSnapshotStatus(mappingConfirmed ? "Not frozen" : "Unavailable");
+      setSnapshotStatus((current) => {
+        if (current === "Frozen") return current;
+        return mappingConfirmed ? "Not frozen" : "Unavailable";
+      });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Eligibility preview failed");
+      const message = err instanceof Error ? err.message : "Eligibility preview failed";
+      setPreview(null);
+      setPreviewError(message);
       setEligibleCount(null);
       setAudienceCounts(null);
+      toast.error(message);
     } finally {
+      setPreviewPending(false);
       setBusy(false);
     }
   }
 
   async function freezeAudienceSnapshot() {
+    if (!preview || previewError || previewPending) {
+      toast.error("Run a successful eligibility preview before freezing a snapshot");
+      return;
+    }
     if (!mappingConfirmed || !columnMap.email) {
       toast.error("Confirm the email column mapping before freezing a snapshot");
       return;
@@ -797,6 +839,7 @@ export function MarketingCampaignBuilderPage({
   }
 
   const currentStep = MARKETING_CAMPAIGN_BUILDER_STEPS[step - 1];
+  const eligibilityPreviewReady = preview != null && previewError == null && !previewPending;
 
   return (
     <div className="mkt-cc mkt-cc-page mkt-builder-shell">
@@ -1188,20 +1231,53 @@ export function MarketingCampaignBuilderPage({
               </div>
               <h3 className="font-semibold">Eligibility preview</h3>
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" variant="outline" disabled={busy} onClick={() => void runPreviewEligibility()}>
-                  Eligibility preview
+                <Button type="button" variant="outline" disabled={busy} onClick={() => void runPreviewEligibility()} data-mkt-eligibility-preview="true">
+                  {previewPending ? "Checking eligibility…" : "Eligibility preview"}
                 </Button>
                 <Button
                   type="button"
-                  disabled={busy || !mappingConfirmed || !columnMap.email}
+                  disabled={busy || !eligibilityPreviewReady || !mappingConfirmed || !columnMap.email}
                   onClick={() => void freezeAudienceSnapshot()}
                   data-mkt-freeze-snapshot="true"
                 >
                   Freeze audience snapshot
                 </Button>
-                <p className="text-sm">Eligible: {eligibleCount ?? "Unavailable"}</p>
-                <p className="text-sm">Snapshot: {snapshotStatus}</p>
               </div>
+              {previewError ? (
+                <p role="alert" data-mkt-eligibility-error="true" className="text-sm font-semibold text-destructive">
+                  {previewError}
+                </p>
+              ) : null}
+              {previewPending ? (
+                <p className="text-sm text-muted-foreground" data-mkt-eligibility-pending="true">
+                  Checking eligibility…
+                </p>
+              ) : null}
+              <div
+                className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4"
+                data-mkt-eligibility-result={preview ? "ready" : "unavailable"}
+              >
+                <p>Eligible: {preview ? preview.counts.eligible : "Unavailable"}</p>
+                <p>Snapshot: {snapshotStatus}</p>
+                {preview ? (
+                  <>
+                    <p>Source rows: {preview.counts.totalRows}</p>
+                    <p>Scanned: {preview.counts.scanned}</p>
+                    <p>Ineligible: {Math.max(0, preview.counts.scanned - preview.counts.eligible)}</p>
+                    <p>Invalid or missing email: {preview.counts.invalid}</p>
+                    <p>Duplicates: {preview.counts.duplicate}</p>
+                    <p>Suppressed or unsubscribed: {preview.counts.suppressed}</p>
+                    <p>Filter exclusions: {preview.counts.excludedByFilter}</p>
+                    <p>Previously contacted: {preview.counts.previouslyContacted}</p>
+                  </>
+                ) : null}
+              </div>
+              {preview?.scanCapped ? (
+                <p className="text-xs text-muted-foreground">
+                  Preview scanned the first {preview.scanMaxRows} rows.
+                </p>
+              ) : null}
+              {preview?.notice ? <p className="text-xs text-muted-foreground">{preview.notice}</p> : null}
             </div>
           ) : null}
 
