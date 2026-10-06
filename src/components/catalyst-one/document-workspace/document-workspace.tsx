@@ -92,7 +92,6 @@ import { mapDealLenderRecipients } from "@/lib/document-workspace/lender-pack";
 import { fetchDocumentWorkspaceContext } from "@/lib/document-workspace/context-client";
 import { sendTransactionOperationalEmail } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
 import { createUnclassifiedDocumentTypeRef } from "@/constants/document-intake";
-import { appendCorporateEmailSignature } from "@/lib/enterprise-communication-center/corporate-identity";
 import {
   buildDocumentWorkspaceHref,
   composerMustRefuseStaleContext,
@@ -1772,7 +1771,7 @@ export function DocumentWorkspace() {
               dealId: dealId || null,
               eventType: mailbox === "request" ? "document_request" : "customer_communication",
               subject,
-              textBody: appendCorporateEmailSignature(textBody, { senderDisplayName: actor, profileCode: "CUSTOMERS" }),
+              textBody,
               documentIds, primaryToRole, internalUserId, includePrimaryTo, toRecipients, ccRecipients,
             });
             if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) return;

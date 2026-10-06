@@ -16,7 +16,7 @@ import * as lockPolicy from "../src/lib/document-workspace/context-lock.ts";
 import { validateLockedDocumentSelection } from "../src/lib/document-workspace/selection.ts";
 import { mergeDocumentWorkspaceRows } from "../src/lib/document-workspace/merge-rows.ts";
 import { deriveDocumentWorkspaceReviewStatus } from "../src/lib/document-workspace/review-status.ts";
-import { appendCorporateEmailSignature } from "../src/lib/enterprise-communication-center/corporate-identity.ts";
+import * as transactionSignature from "../src/lib/enterprise-communication-center/transaction-email-signature.ts";
 
 // Offline tests: real changed functions; database, HTTP and SMTP boundaries are in-memory doubles.
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -147,7 +147,7 @@ const document = { id: "document_registered", clientRecordId: "dreg_local", orga
 let binaryReads = 0;
 const access = {
   resolveDocumentWorkspaceAccess: async input => {
-    assert.equal(input.userId, manager.id);
+    assert.ok(employees.some(user => user.id === input.userId && user.isActive && user.role !== "VIEWER"));
     if (input.claimedOrganizationId && input.claimedOrganizationId !== org) throw new Error("Cross organization");
     return { organizationId: org, opportunityId: input.opportunityId, dealId: input.dealId || null, actor: canonicalActor, lock: { customerName: "Customer", opportunityNumber: "OPP-TEST" } };
   },
@@ -198,6 +198,7 @@ const dispatch = load("server/services/enterprise-communication-center/operation
   "@server/services/enterprise-communication-center/smtp-transport.service": { sendOperationalSmtpMessage: async input => { smtpCalls.push(input); return { ok: true, message: "offline simulation", smtpResponse: "250 fixture" }; } },
   "@server/services/enterprise-notification/enterprise-notification.service": { enterpriseNotificationService: { fanOutBestEffort: async () => {} } },
   "./transaction-email-attachments.service": attachments,
+  "@/lib/enterprise-communication-center/transaction-email-signature": transactionSignature,
   "@server/services/document-workspace/document-workspace-access.service": actorService,
 });
 const dispatchInput = { ...recipientInput, dealId: deal, actorUserId: manager.id, actorName: "Manager", subject: "Custom subject", textBody: "Custom body", documentIds: [document.id] };
@@ -330,7 +331,7 @@ const globals = {
   DOCUMENT_WORKSPACE_STALE_CONTEXT: "stale", lockedOpportunityId: opp, dealId: deal, mailbox: "send",
   toast: { error: message => staleErrors.push(message), success() {} }, setMailbox: () => { closed = true; },
   sendTransactionOperationalEmail: async input => { sendCalls.push(input); return { ok: true, deliveryStatus: "sent" }; },
-  appendCorporateEmailSignature, actor: "Manager",
+  actor: "Manager",
 };
 const queue = evaluate(`module.exports = ${callback("onQueue")};`, {}, globals);
 await queue({ subject: "Custom subject", textBody: "Custom body", documentIds: [document.id], primaryToRole: "customer", internalUserId: null });
@@ -452,3 +453,25 @@ for (const [extension,mime,header] of [
 for(const extension of ['exe','bat','cmd','ps1','sh','js']) assert.equal(fileSecurity.validateDocumentWorkspaceUpload({filename:'Unsafe.'+extension,declaredMime:'application/octet-stream',byteLength:8,bytes:new Uint8Array(8)}).ok,false,extension);
 assert.equal(fileSecurity.validateDocumentWorkspaceUpload({filename:'Forged.pdf',declaredMime:'application/pdf',byteLength:4,bytes:Uint8Array.from([0x89,0x50,0x4e,0x47])}).ok,false);
 console.log('PASS: Registry business formats/signatures accepted; executable/script and forged signature rejected.');
+
+// Actual dispatcher obtains signature identity from User SSOT, independently of owner/client name.
+const ketan = {id:'user_ketan_signature',firstName:'Ketan',lastName:'Kapoor',email:'ketan@example.test',isActive:true,role:'MANAGER'};
+employees.push(ketan);
+const message='Dear Mr Shah,\n\nPlease find the requested documents attached.  ';
+for(const user of [manager,ketan]) {
+ const before=smtpCalls.length;
+ await dispatch.dispatchOperationalTransactionEmail({...dispatchInput,actorUserId:user.id,actorName:'Forged owner name',textBody:message});
+ assert.equal(smtpCalls.length,before+1);
+ const sent=smtpCalls.at(-1),name=user.firstName+' '+user.lastName;
+ assert.equal(sent.textBody,message+'\n\nRegards,\n\n'+name+'\nRupee Catalyst');
+ assert.ok(sent.cc.includes(user.email));
+ assert.equal(sent.textBody.split('Rupee Catalyst').length-1,1);
+ for(const unwanted of ['Website','LinkedIn','Support:','Corporate Signature','Official operational communication','Forged owner name','Rupee Catalyst Connect','Corporate Office'])assert.ok(!sent.textBody.includes(unwanted));
+ const html='<p>Dear Mr Shah,</p><p>Please find the requested documents attached.</p>';
+ assert.equal(transactionSignature.appendTransactionEmailHtmlSignature(html,name),html+'<p>Regards,</p><p>'+name+'<br>Rupee Catalyst</p>');
+ const mime=transport.buildMimeMessage({fromEmail:user.email,fromName:name,replyToEmail:user.email,to:sent.to,cc:sent.cc,subject:'Signature proof',textBody:sent.textBody});
+ assert.equal(mime.split('Regards,').length-1,1,'SMTP does not append a second signature');
+}
+assert.ok(!read('src/components/catalyst-one/document-workspace/document-workspace.tsx').includes('appendCorporateEmailSignature'));
+assert.equal(transactionSignature.appendTransactionEmailHtmlSignature('<p>Unchanged</p>','A & B'),'<p>Unchanged</p><p>Regards,</p><p>A &amp; B<br>Rupee Catalyst</p>');
+console.log('PASS signature A?O: Rahul/Ketan User SSOT, owner/client ignored, exactly one clean signature, body preserved, text/HTML correct, SMTP no stacking; existing security proofs pass.');

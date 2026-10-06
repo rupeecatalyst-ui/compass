@@ -1,3 +1,4 @@
+import { appendTransactionEmailSignature } from "@/lib/enterprise-communication-center/transaction-email-signature";
 import type { EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 /**
  * CO-C1-COMMUNICATION-001 — Unified server-side operational transaction email dispatch.
@@ -330,7 +331,7 @@ export async function dispatchOperationalTransactionEmail(
     to: recipients.to,
     cc: recipients.cc,
     subject,
-    textBody,
+    textBody: appendTransactionEmailSignature(input.textBody, initiatingUser.displayName ?? ""),
     messageId,
     attachments,
     ehloName: "catalyst-one-transaction-email",
