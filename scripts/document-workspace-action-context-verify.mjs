@@ -58,7 +58,10 @@ const ownerReset = source.slice(source.indexOf("const owner = `${activePartyKey}
 for (const reset of ["setSelectedIds([])", "setMailbox(null)", "setMailboxFingerprint(null)"]) assert.ok(ownerReset.includes(reset));
 assert.ok(source.includes("setMailboxFingerprint(null)"));
 assert.ok(source.includes("setMailbox(null)"));
-assert.ok(source.includes("!res.ok || data?.ok === false || currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext"));
+assert.ok(source.includes("currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext"));
+assert.ok(source.includes('if (!result.ok || result.deliveryStatus !== "sent")'), "Failed operational dispatch must not be reported as sent");
+const operationalApi = fs.readFileSync(new URL("../src/lib/enterprise-communication-center/operational-transaction-email-api.ts", import.meta.url), "utf8");
+assert.ok(operationalApi.slice(operationalApi.indexOf("export async function sendTransactionOperationalEmail")).includes("if (!res.ok)"), "Failed validation responses must reject before reporting delivery");
 const openEmail = source.slice(source.indexOf('if (id === "custom_email"'), source.indexOf('if (id === "whatsapp"'));
 assert.ok(openEmail.includes('setMailbox("send")'));
 assert.ok(!/queueOutboxMessage|authenticatedJsonFetch|requestDocumentItems/.test(openEmail));

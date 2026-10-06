@@ -11,8 +11,8 @@ import {
   enterpriseOpportunityApiGuard,
   mapOpportunityRouteError,
 } from "@/app/api/enterprise-opportunities/_lib/route-utils";
-import { enterpriseOpportunityService } from "@server/services/enterprise-opportunity";
 import { dispatchOperationalTransactionEmail } from "@server/services/enterprise-communication-center/operational-email-dispatch.service";
+import { resolveDocumentWorkspaceAccess } from "@server/services/document-workspace/document-workspace-access.service";
 
 /** POST — unified server-side transaction operational email (RecipientRouter + SMTP). */
 export async function POST(request: Request) {
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       textBody?: string;
       customerDisplayName?: string | null;
       opportunityReference?: string | null;
+      documentIds?: string[];
     };
 
     const opportunityId = String(body.opportunityId || "").trim();
@@ -51,14 +52,14 @@ export async function POST(request: Request) {
       return errorResponse(400, "SUBJECT_BODY_REQUIRED", "Subject and message body are required");
     }
 
-    const opp = await enterpriseOpportunityService.getOpportunity(opportunityId);
+    const authorised = await resolveDocumentWorkspaceAccess({ userId: actor.userId, capability: "share", opportunityId, dealId: body.dealId });
     const actorName = actor.email || actor.userId || "Relationship Manager";
 
     const result = await dispatchOperationalTransactionEmail({
-      organizationId: opp.organizationId,
+      organizationId: authorised.organizationId,
       eventType,
-      opportunityId: opp.id,
-      dealId: body.dealId?.trim() || null,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
       actorUserId: actor.userId,
       actorName,
       subject,
@@ -66,8 +67,9 @@ export async function POST(request: Request) {
       primaryToRole: body.primaryToRole ?? "customer",
       internalUserId: body.internalUserId ?? null,
       customerDisplayName:
-        body.customerDisplayName?.trim() || opp.primaryContactName || null,
-      opportunityReference: body.opportunityReference?.trim() || opp.opportunityNumber || null,
+        authorised.lock.customerName,
+      opportunityReference: authorised.lock.opportunityNumber,
+      documentIds: Array.isArray(body.documentIds) ? body.documentIds : [],
       sourceSystem: "operational_email",
     });
 

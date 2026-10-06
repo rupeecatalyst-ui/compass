@@ -20,6 +20,7 @@ import {
 import { appendCorporateEmailSignature } from "@/lib/enterprise-communication-center";
 import { sendTransactionOperationalEmail } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
 import type { TransactionPrimaryToRole } from "@/lib/enterprise-communication-center/recipient-router";
+import { internalUserIdForParticipant } from "@/lib/enterprise-communication-center/recipient-router";
 import { searchAssignableUsers } from "@/lib/assigned-users";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { ContextWorkspaceShell } from "@/components/catalyst-one/action-center/context-workspace-shell";
@@ -228,7 +229,7 @@ export function EmailContextWorkspace({
     if (!open || recipientGroup !== "internal_employee") return;
     let cancelled = false;
     const handle = window.setTimeout(() => {
-      void searchAssignableUsers(employeeQuery)
+      void searchAssignableUsers(employeeQuery, { authorised: true })
         .then((rows) => {
           if (!cancelled) setEmployeeOptions(rows.slice(0, 8));
         })
@@ -266,8 +267,8 @@ export function EmailContextWorkspace({
 
     const primaryToRole: TransactionPrimaryToRole = recipientGroup;
     const internalUserId =
-      recipientGroup === "internal_employee" && pickedEmployee?.id
-        ? pickedEmployee.id.replace(/^employee:/, "")
+      recipientGroup === "internal_employee"
+        ? internalUserIdForParticipant(recipient)
         : null;
 
     const signedBody = appendCorporateEmailSignature(body, {

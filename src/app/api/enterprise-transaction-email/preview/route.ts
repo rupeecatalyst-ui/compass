@@ -11,9 +11,9 @@ import {
   enterpriseOpportunityApiGuard,
   mapOpportunityRouteError,
 } from "@/app/api/enterprise-opportunities/_lib/route-utils";
-import { enterpriseOpportunityService } from "@server/services/enterprise-opportunity";
+import { resolveDocumentWorkspaceAccess } from "@server/services/document-workspace/document-workspace-access.service";
+import { enforceMandatoryInitiatingSenderCc } from "@/lib/enterprise-communication-center/initiating-sender-cc";
 import {
-  dispatchOperationalTransactionEmail,
   previewOperationalTransactionEmail,
 } from "@server/services/enterprise-communication-center/operational-email-dispatch.service";
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       return errorResponse(503, "PERSISTENCE_REQUIRED", "Requires prisma persistence");
     }
     enterpriseOpportunityApiGuard();
-    requireAccessToken(request);
+    const actor = requireAccessToken(request);
 
     const body = (await request.json().catch(() => ({}))) as {
       opportunityId?: string;
@@ -44,16 +44,27 @@ export async function POST(request: Request) {
       return errorResponse(400, "UNSUPPORTED_EVENT", `Unsupported event type: ${eventType}`);
     }
 
-    const opp = await enterpriseOpportunityService.getOpportunity(opportunityId);
+    const authorised = await resolveDocumentWorkspaceAccess({ userId: actor.userId, capability: "share", opportunityId, dealId: body.dealId });
 
     const result = await previewOperationalTransactionEmail({
-      organizationId: opp.organizationId,
+      organizationId: authorised.organizationId,
       eventType,
-      opportunityId: opp.id,
-      dealId: body.dealId?.trim() || null,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
       primaryToRole: body.primaryToRole ?? "customer",
       internalUserId: body.internalUserId ?? null,
     });
+
+    if (result.recipientResolution.ok) {
+      const senderCc = enforceMandatoryInitiatingSenderCc({
+        to: result.recipientResolution.to,
+        cc: result.recipientResolution.cc,
+        initiatingUser: { id: authorised.actor.userId, email: authorised.actor.email, isActive: authorised.actor.isActive },
+      });
+      if (!senderCc.ok) return errorResponse(422, senderCc.code, senderCc.message);
+      result.recipientResolution.to = senderCc.to;
+      result.recipientResolution.cc = senderCc.cc;
+    }
 
     return successResponse(result);
   } catch (err) {

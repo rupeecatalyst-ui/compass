@@ -90,6 +90,9 @@ import {
 } from "@/lib/document-workspace";
 import { mapDealLenderRecipients } from "@/lib/document-workspace/lender-pack";
 import { fetchDocumentWorkspaceContext } from "@/lib/document-workspace/context-client";
+import { sendTransactionOperationalEmail } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
+import { createUnclassifiedDocumentTypeRef } from "@/constants/document-intake";
+import { appendCorporateEmailSignature } from "@/lib/enterprise-communication-center/corporate-identity";
 import {
   buildDocumentWorkspaceHref,
   composerMustRefuseStaleContext,
@@ -195,6 +198,8 @@ export function DocumentWorkspace() {
   const [linkedParties, setLinkedParties] = useState<DocumentWorkspaceLinkedParty[]>([]);
   const [activePartyKey, setActivePartyKey] = useState("primary");
   const [mailbox, setMailbox] = useState<"request" | "send" | null>(null);
+  const [mailboxKind, setMailboxKind] = useState<"custom" | "template">("template");
+  const [mailboxRequestedList, setMailboxRequestedList] = useState<string[]>([]);
   const [mailboxFingerprint, setMailboxFingerprint] = useState<string | null>(null);
   const mailboxScope = `${mailboxFingerprint || ""}|${mailbox || ""}|${activePartyKey}|${ownerTab}`;
   const currentMailboxScope = useRef(mailboxScope);
@@ -376,6 +381,7 @@ export function DocumentWorkspace() {
       setLenderRecipientId(transition.lenderRecipientId);
       setMailbox(transition.mailbox);
       setMailboxFingerprint(null);
+      setMailboxRequestedList([]);
       setWhatsappShareOpen(false);
       setRowDialog(null);
       setDueDate("");
@@ -432,6 +438,7 @@ export function DocumentWorkspace() {
     setSelectedIds([]);
     setMailbox(null);
     setMailboxFingerprint(null);
+    setMailboxRequestedList([]);
     setWhatsappShareOpen(false);
     setRowDialog(null);
   }, [activePartyKey, ownerTab]);
@@ -791,6 +798,8 @@ export function DocumentWorkspace() {
       });
       toast.message("Request drafted. Nothing has been sent.");
       setMailboxFingerprint(lock!.fingerprint);
+      setMailboxKind("template");
+      setMailboxRequestedList(target.map(row => row.typeLabel));
       setMailbox("request");
       return;
     }
@@ -811,6 +820,7 @@ export function DocumentWorkspace() {
         return;
       }
       setMailboxFingerprint(lock!.fingerprint);
+      setMailboxKind(id === "custom_email" ? "custom" : "template");
       setMailbox("send");
       return;
     }
@@ -1681,23 +1691,51 @@ export function DocumentWorkspace() {
       ) : null}
 
       <DocumentWorkspaceMailbox
-        key={`${activePartyKey}|${ownerTab}`}
+        key={`${activePartyKey}|${ownerTab}|${mailbox || "closed"}`}
         open={Boolean(mailbox) && !composerMustRefuseStaleContext({
           openedFingerprint: mailboxFingerprint,
           currentFingerprint: currentCommunicationFingerprint.current,
           authorised: Boolean(currentCommunicationFingerprint.current),
         })}
         contextFingerprint={lock?.fingerprint || contextKey}
+        opportunityId={lockedOpportunityId}
+        dealId={dealId || null}
+        initialKind={mailboxKind}
+        onAttachDocument={async uploaded => {
+          if (!lockedLinks || !canUploadDocuments(user) || currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
+            throw new Error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+          }
+          const { record } = await uploadDocumentToRegistry({
+            file: uploaded,
+            typeRef: createUnclassifiedDocumentTypeRef(),
+            categoryLabel: "Other Documents",
+            uploadedBy: actor,
+            uploadedByUserId: user?.id,
+            links: {
+              ...lockedLinks,
+              participantId: activeParty?.entityKind === "context" ? undefined : activeParty?.participantRowId || undefined,
+              ownerEntityId: activeParty?.entityId || undefined,
+              participantRole: activeParty?.entityKind === "context" ? undefined : activeParty?.role,
+              documentScope: activeParty?.key === "shared" || activeParty?.key === "property" || !activeParty?.entityId ? "shared" : "applicant",
+            },
+            uploadSource: "email",
+            requireServerPersistence: true,
+          });
+          if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
+            throw new Error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+          }
+          return { id: record.id, filename: record.displayName, versionLabel: `v${record.version}` };
+        }}
         mode={mailbox === "request" ? "request" : "send"}
         fromEmail={user?.email || ""}
         senderCc={user?.email || ""}
         initialTo={activeParty?.email || ""}
-        attachments={selectedRows.map((row) => ({
-          id: row.id,
+        attachments={selectedRows.filter(row => row.record).map((row) => ({
+          id: row.record!.id,
           filename: row.record?.displayName || row.typeLabel,
           versionLabel: `v${row.record?.versions.find((v) => v.isCurrent)?.version ?? row.record?.version ?? 1}`,
         }))}
-        requestedList={selectedRows.map((row) => row.typeLabel)}
+        requestedList={mailboxRequestedList}
         secureLink={mailbox === "request" ? secureLink : undefined}
         onClose={() => setMailbox(null)}
         onSaveDraft={({ subject, htmlBody }) => {
@@ -1718,84 +1756,30 @@ export function DocumentWorkspace() {
           pauseOutboxCountdown(queued.id);
           toast.message("Draft saved to Outbox. Nothing has been sent.");
         }}
-        onQueue={({ to, cc, subject, htmlBody, zip }) => {
+        onQueue={async ({ subject, textBody, documentIds, primaryToRole, internalUserId }) => {
           if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
             toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
             return;
           }
-          const requestRefs = selectedRequestRefs(
-            selectedRows.filter((row) => row.lodItem && mapReviewStatusToRequestable(row.reviewStatus)).map((row) => row.lodItem!),
-          );
-          const prepare = requestRefs.length
-            ? authenticatedJsonFetch("/api/document-workspace/refinement-014", {
-                method: "POST",
-                body: JSON.stringify({
-                  action: "prepare_handoff",
-                  opportunityId: lockedOpportunityId,
-                  dealId: dealId || null,
-                  channel: "email",
-                  selectedRefs: requestRefs,
-                  to,
-                  cc,
-                  htmlBody,
-                  queueEmail: true,
-                }),
-              })
-            : authenticatedJsonFetch("/api/document-workspace/refinement-014", {
-                method: "POST",
-                body: JSON.stringify({
-                  action: "compose_validate",
-                  opportunityId: lockedOpportunityId,
-                  dealId: dealId || null,
-                  documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
-                  to,
-                  cc,
-                  htmlBody,
-                }),
-              });
-          void prepare.then(async (res) => {
-            const json = await res.json().catch(() => ({}));
-            const data = json?.data ?? json;
-            if (!res.ok || data?.ok === false || currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
-              toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
-              return;
-            }
-            if (!data?.ok && data?.code === "MISSING_OR_INVALID_SENDER_EMAIL") {
-              toast.error(data?.message || DOCUMENT_WORKSPACE_SENDER_CC_MISSING);
-              return;
-            }
-            if (data?.sent) {
-              toast.error("Email was not sent.");
-              return;
-            }
-            const queued = queueOutboxMessage({
-              channel: "email",
-              entityType: "opportunity",
-              entityId: lockedOpportunityId,
-              recipientId: activeParty?.entityId || "customer",
-              recipientName: to[0] || lock?.customerName || "Customer",
-              recipientType: "customer",
+          try {
+            const result = await sendTransactionOperationalEmail({
+              opportunityId: lockedOpportunityId,
+              dealId: dealId || null,
+              eventType: mailbox === "request" ? "document_request" : "customer_communication",
               subject,
-              body: data.text || htmlBody,
+              textBody: appendCorporateEmailSignature(textBody, { senderDisplayName: actor, profileCode: "CUSTOMERS" }),
+              documentIds, primaryToRole, internalUserId,
             });
-            pauseOutboxCountdown(queued.id);
-            void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
-              method: "POST",
-              body: JSON.stringify({
-                action: "share_event",
-                opportunityId: lockedOpportunityId,
-                dealId: dealId || null,
-                recipientLabel: to[0] || "Recipient",
-                recipientEmail: to[0] || null,
-                documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
-                versionIds: selectedRows.map((row) => row.record?.versions.find((v) => v.isCurrent)?.id).filter(Boolean),
-                attachmentMode: zip ? "zip" : "individual",
-                outboxId: queued.id,
-              }),
-            });
-            toast.message("Queued to Outbox (paused). No email or OTP was sent.");
+            if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) return;
+            if (!result.ok || result.deliveryStatus !== "sent") {
+              toast.error(result.message || "Email was not sent.");
+              return;
+            }
+            toast.success("Email sent");
             setMailbox(null);
-          });
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Email was not sent.");
+          }
         }}
       />
 

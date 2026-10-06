@@ -39,6 +39,7 @@ async function fileToBase64(file: Blob): Promise<string | null> {
 
 async function syncLargeBinaryToServer(input: {
   opportunityId: string;
+  dealId?: string | null;
   clientRecordId: string;
   contentBlob: Blob;
   filename?: string;
@@ -47,6 +48,7 @@ async function syncLargeBinaryToServer(input: {
   if (!token) return false;
   const form = new FormData();
   form.set("opportunityId", input.opportunityId);
+  if (input.dealId) form.set("dealId", input.dealId);
   form.set("clientRecordId", input.clientRecordId);
   form.set("file", input.contentBlob, input.filename || "document.pdf");
   try {
@@ -102,12 +104,12 @@ async function backfillMetadataOnlyLargeDocumentsFromLocalBlob(input: {
 export async function syncDocumentRecordToServer(
   record: DocumentRegistryRecord,
   opts?: { opportunityNumber?: string | null; contentBlob?: Blob | null },
-): Promise<void> {
-  if (typeof window === "undefined") return;
-  if (!isEnterprisePersistencePrisma()) return;
-  if (!getAccessToken()) return;
+): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (!isEnterprisePersistencePrisma()) return false;
+  if (!getAccessToken()) return false;
   const opportunityId = record.links.opportunityId?.trim();
-  if (!opportunityId) return;
+  if (!opportunityId) return false;
 
   const blob = opts?.contentBlob ?? null;
   const isLarge = Boolean(blob && blob.size > ETD_INLINE_CONTENT_BYTES_MAX);
@@ -118,7 +120,7 @@ export async function syncDocumentRecordToServer(
   }
 
   try {
-    await authenticatedJsonFetch("/api/enterprise-transaction-documents", {
+    const response = await authenticatedJsonFetch("/api/enterprise-transaction-documents", {
       method: "POST",
       body: JSON.stringify({
         opportunityId,
@@ -151,17 +153,22 @@ export async function syncDocumentRecordToServer(
         contentBase64,
       }),
     });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) return false;
 
     if (isLarge && blob) {
-      await syncLargeBinaryToServer({
+      return await syncLargeBinaryToServer({
         opportunityId,
+        dealId: record.links.dealId,
         clientRecordId: record.id,
         contentBlob: blob,
         filename: record.originalFilename,
       });
     }
+    return !blob || Boolean(result.data?.hasContent);
   } catch {
     /* non-blocking — local registry remains authoring cache */
+    return false;
   }
 }
 

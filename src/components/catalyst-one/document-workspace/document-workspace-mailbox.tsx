@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { previewTransactionOperationalEmail, type TransactionOperationalEmailPreview } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
+import type { TransactionPrimaryToRole } from "@/lib/enterprise-communication-center/recipient-router";
+import { searchAssignableUsers } from "@/lib/assigned-users";
+import type { AssignableUserOption } from "@/types/assigned-users";
+import { DOCUMENT_WORKSPACE_ALLOWED_EXTENSIONS } from "@/constants/document-workspace-security";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,10 +26,13 @@ export type MailboxAttachment = {
 export function DocumentWorkspaceMailbox({
   open,
   contextFingerprint,
+  opportunityId,
+  dealId,
+  initialKind = "template",
+  onAttachDocument,
   mode,
   fromEmail,
   senderCc,
-  initialTo,
   attachments,
   requestedList,
   secureLink,
@@ -33,6 +42,10 @@ export function DocumentWorkspaceMailbox({
 }: {
   open: boolean;
   contextFingerprint?: string | null;
+  opportunityId: string;
+  dealId?: string | null;
+  initialKind?: DocumentWorkspaceComposerKind;
+  onAttachDocument: (file: File) => Promise<MailboxAttachment>;
   mode: DocumentWorkspaceMailboxMode;
   fromEmail: string;
   senderCc: string;
@@ -48,27 +61,75 @@ export function DocumentWorkspaceMailbox({
     subject: string;
     htmlBody: string;
     zip: boolean;
-  }) => void;
+    documentIds: string[];
+    primaryToRole: TransactionPrimaryToRole;
+    internalUserId: string | null;
+    textBody: string;
+  }) => Promise<void>;
   onSaveDraft: (input: { subject: string; htmlBody: string; to: string }) => void;
 }) {
-  const [kind, setKind] = useState<DocumentWorkspaceComposerKind>("template");
-  const [to, setTo] = useState(initialTo);
+  const [kind, setKind] = useState<DocumentWorkspaceComposerKind>(initialKind);
+  const [to, setTo] = useState("");
   const [kept, setKept] = useState(attachments);
   const [subject, setSubject] = useState(
     mode === "request" ? "Document request" : "Documents for your review",
   );
   const [body, setBody] = useState("");
-  const [zip, setZip] = useState(mode === "send");
+  const zip = false;
+  const [primaryToRole, setPrimaryToRole] = useState<TransactionPrimaryToRole>("customer");
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [employeeQuery, setEmployeeQuery] = useState("");
+  const [employeeOptions, setEmployeeOptions] = useState<AssignableUserOption[]>([]);
+  const [resolution, setResolution] = useState<TransactionOperationalEmailPreview | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const filePicker = useRef<HTMLInputElement>(null);
+  const recipientScope = `${contextFingerprint}|${primaryToRole}|${internalUserId || ""}`;
+  const latestScope = useRef(recipientScope);
+  latestScope.current = recipientScope;
+  const [resolvedScope, setResolvedScope] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
-  const senderValid = Boolean(senderCc.trim());
-  const ccLocked = senderCc.trim();
+  const recipientValid = resolvedScope === recipientScope && resolution?.recipientResolution.ok === true;
+  const senderValid = recipientValid && Boolean(resolution?.sender?.senderEmail);
+  const ccLocked = resolution?.recipientResolution.ok ? resolution.recipientResolution.cc.join(", ") : senderCc.trim();
 
   useEffect(() => {
-    setKept(attachments);
-  }, [attachments]);
+    if (!open || !opportunityId) return;
+    let cancelled = false;
+    setResolution(null);
+    setResolvedScope(null);
+    setTo("");
+    if (primaryToRole === "internal_employee" && !internalUserId) return;
+    setResolving(true);
+    void previewTransactionOperationalEmail({ opportunityId, dealId, primaryToRole, internalUserId })
+      .then(result => {
+        if (cancelled || latestScope.current !== recipientScope) return;
+        setResolution(result);
+        setResolvedScope(recipientScope);
+        setTo(result.recipientResolution.ok ? result.recipientResolution.to.join(", ") : "");
+      })
+      .catch(error => { if (!cancelled) toast.error(error instanceof Error ? error.message : "Recipient resolution failed"); })
+      .finally(() => { if (!cancelled) setResolving(false); });
+    return () => { cancelled = true; };
+  }, [open, opportunityId, dealId, recipientScope, primaryToRole, internalUserId]);
 
   useEffect(() => {
-    setTo(initialTo);
+    if (!open || primaryToRole !== "internal_employee") return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchAssignableUsers(employeeQuery, { authorised: true }).then(users => {
+        if (!cancelled) setEmployeeOptions(users);
+      }).catch(() => { if (!cancelled) setEmployeeOptions([]); });
+    }, 200);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [open, primaryToRole, employeeQuery]);
+
+  useEffect(() => {
+    setTo("");
+    setResolution(null);
+    setInternalUserId(null);
+    setPrimaryToRole("customer");
     setKept(attachments);
     setSubject(mode === "request" ? "Document request" : "Documents for your review");
     setBody("");
@@ -77,12 +138,13 @@ export function DocumentWorkspaceMailbox({
   }, [contextFingerprint]);
 
   const htmlBody = useMemo(() => {
+    const escape = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const list =
       mode === "request"
-        ? requestedList.map((item) => `<li>${item}</li>`).join("")
-        : kept.map((item) => `<li>${item.filename} (${item.versionLabel})</li>`).join("");
-    const link = secureLink ? `<p>Secure upload: ${secureLink}</p>` : "";
-    return `<p>${body || (kind === "template" ? "Please find the requested details below." : "")}</p><ul>${list}</ul>${link}`;
+        ? requestedList.map((item) => `<li>${escape(item)}</li>`).join("")
+        : kept.map((item) => `<li>${escape(item.filename)} (${escape(item.versionLabel)})</li>`).join("");
+    const link = secureLink ? `<p>Secure upload: ${escape(secureLink)}</p>` : "";
+    return `<p>${escape(body || (kind === "template" ? "Please find the requested details below." : ""))}</p><ul>${list}</ul>${link}`;
   }, [kept, body, kind, mode, requestedList, secureLink]);
 
   if (!open) return null;
@@ -100,7 +162,7 @@ export function DocumentWorkspaceMailbox({
             {mode === "request" ? "Request Documents" : "Send Documents"}
           </h2>
           <p className="text-xs text-muted-foreground">
-            Large mailbox composer · existing Outbox · no live send from this desk
+            Recipients are verified before sending. Documents stay in Document Workspace.
           </p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={onClose}>
@@ -125,11 +187,24 @@ export function DocumentWorkspaceMailbox({
         <div className="mx-auto grid max-w-5xl gap-3">
           <div>
             <Label className="text-xs">From</Label>
-            <Input value={fromEmail || "Catalyst One (CUSTOMERS profile)"} readOnly />
+            <Input value={resolution?.sender?.senderEmail || fromEmail || "Resolving sender…"} readOnly />
           </div>
           <div>
             <Label className="text-xs">To</Label>
-            <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Canonical contact email" />
+            <select aria-label="Recipient type" value={primaryToRole} onChange={e => { setPrimaryToRole(e.target.value as TransactionPrimaryToRole); setInternalUserId(null); }} className="mb-2 h-9 w-full rounded-md border bg-background px-3 text-sm">
+              <option value="customer">Customer</option>
+              <option value="internal_employee">Internal Employee</option>
+              {dealId ? <option value="lender">Lender</option> : null}
+            </select>
+            {primaryToRole === "internal_employee" ? <>
+              <Input aria-label="Search internal employee" placeholder="Search authorized employee" value={employeeQuery} onChange={e => setEmployeeQuery(e.target.value)} />
+              <select aria-label="Internal employee" value={internalUserId || ""} onChange={e => setInternalUserId(e.target.value || null)} className="my-2 h-9 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="">Select an employee</option>
+                {employeeOptions.map(employee => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}
+              </select>
+            </> : null}
+            <Input value={recipientValid ? to : ""} readOnly placeholder={resolving ? "Resolving recipient…" : "No authorized recipient resolved"} />
+            {resolution?.recipientResolution.ok === false ? <p className="mt-1 text-xs text-destructive">{resolution.recipientResolution.message}</p> : null}
           </div>
           <div>
             <Label className="text-xs">CC (mandatory sender copy)</Label>
@@ -154,12 +229,21 @@ export function DocumentWorkspaceMailbox({
               onChange={(e) => setBody(e.target.value)}
             />
           </div>
-          {mode === "send" ? (
-            <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={zip} onChange={(e) => setZip(e.target.checked)} />
-              Consolidate as ZIP (email attachment, never stored as a document)
-            </label>
-          ) : null}
+          {mode === "send" ? <div>
+            <input ref={filePicker} type="file" className="hidden" accept={[...DOCUMENT_WORKSPACE_ALLOWED_EXTENSIONS].map(extension => `.${extension}`).join(",")} onChange={async event => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              const openedScope = recipientScope;
+              setUploading(true);
+              try {
+                const attachment = await onAttachDocument(file);
+                if (latestScope.current === openedScope) setKept(current => [...current.filter(item => item.id !== attachment.id), attachment]);
+              } catch (error) { toast.error(error instanceof Error ? error.message : "Document upload failed"); }
+              finally { setUploading(false); }
+            }} />
+            <Button type="button" variant="outline" disabled={uploading || sending} onClick={() => filePicker.current?.click()}>{uploading ? "Uploading…" : "Attach Document"}</Button>
+          </div> : null}
           <div className="rounded-md border border-border/70 p-3 text-xs">
             <p className="font-medium">
               {mode === "request" ? "Exact requested documents" : "Attachments / versions"}
@@ -209,19 +293,25 @@ export function DocumentWorkspaceMailbox({
         <Button
           type="button"
           size="sm"
-          disabled={!senderValid || !to.trim()}
-          onClick={() =>
-            onQueue({
+          disabled={!senderValid || !recipientValid || !resolution?.operationalDeliveryEnabled || !subject.trim() || (kind === "custom" && !body.trim()) || sending || uploading || resolving}
+          onClick={async () => {
+            if (!recipientValid) return;
+            setSending(true);
+            try { await onQueue({
               kind,
               to: to.split(",").map((item) => item.trim()).filter(Boolean),
               cc: senderValid ? [ccLocked] : [],
               subject,
               htmlBody,
               zip,
-            })
-          }
+              documentIds: kept.map(item => item.id),
+              primaryToRole,
+              internalUserId,
+              textBody: [body || "Please find the requested details below.", mode === "request" ? requestedList.join("\n") : "", mode === "request" && secureLink ? `Secure upload: ${secureLink}` : ""].filter(Boolean).join("\n\n"),
+            }); } finally { setSending(false); }
+          }}
         >
-          Queue / Send
+          {sending ? "Sending…" : "Send Email"}
         </Button>
       </footer>
     </div>

@@ -4,6 +4,7 @@
  */
 
 import tls from "node:tls";
+import { randomUUID } from "node:crypto";
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
@@ -75,7 +76,9 @@ async function expectCode(
   return line;
 }
 
-function buildMimeMessage(input: {
+export type OperationalSmtpAttachment = { filename: string; mimeType: string; bytes: Uint8Array };
+
+export function buildMimeMessage(input: {
   fromEmail: string;
   fromName: string;
   replyToEmail: string;
@@ -84,6 +87,7 @@ function buildMimeMessage(input: {
   subject: string;
   textBody: string;
   messageId?: string;
+  attachments?: OperationalSmtpAttachment[];
 }): string {
   const date = new Date().toUTCString();
   const toHeader = input.to.join(", ");
@@ -96,11 +100,26 @@ function buildMimeMessage(input: {
     lines.push(`Cc: ${input.cc.join(", ")}`);
   }
   lines.push(
-    `Subject: ${input.subject}`,
+    `Subject: =?UTF-8?B?${base64(input.subject.replace(/[\r\n]/g, " "))}?=`,
     `Date: ${date}`,
   );
   if (input.messageId?.trim()) {
     lines.push(`Message-ID: ${input.messageId.trim()}`);
+  }
+  if (input.attachments?.length) {
+    const boundary = `c1-${randomUUID()}`;
+    const wrapBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64").match(/.{1,76}/g)?.join("\r\n") || "";
+    lines.push("MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "",
+      `--${boundary}`, "Content-Type: text/plain; charset=utf-8", "Content-Transfer-Encoding: base64", "",
+      wrapBase64(Buffer.from(input.textBody, "utf8")));
+    for (const attachment of input.attachments) {
+      const filename = encodeURIComponent(attachment.filename).replace(/'/g, "%27");
+      const mime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(attachment.mimeType) ? attachment.mimeType : "application/octet-stream";
+      lines.push(`--${boundary}`, `Content-Type: ${mime}`, "Content-Transfer-Encoding: base64",
+        `Content-Disposition: attachment; filename*=UTF-8''${filename}`, "", wrapBase64(attachment.bytes));
+    }
+    lines.push(`--${boundary}--`);
+    return lines.join("\r\n");
   }
   lines.push(
     "MIME-Version: 1.0",
@@ -126,6 +145,7 @@ export type OperationalSmtpSendInput = {
   ehloName?: string;
   timeoutMs?: number;
   messageId?: string;
+  attachments?: OperationalSmtpAttachment[];
 };
 
 export type OperationalSmtpSendResult = {
@@ -188,6 +208,7 @@ export async function sendOperationalSmtpMessage(
             subject: input.subject,
             textBody: input.textBody,
             messageId: input.messageId,
+            attachments: input.attachments,
           });
           writeLine(socket, body);
           writeLine(socket, ".");

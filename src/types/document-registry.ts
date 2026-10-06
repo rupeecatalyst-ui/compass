@@ -117,6 +117,8 @@ export interface DocumentRegistryFilters {
 }
 
 export interface DocumentUploadInput {
+  /** Composer attachments must wait for authoritative storage before being selectable. */
+  requireServerPersistence?: boolean;
   file: File;
   typeRef: string;
   categoryLabel: string;

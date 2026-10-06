@@ -47,6 +47,14 @@ export type TransactionPrimaryToRole =
   | "wealth_partner"
   | "internal_employee";
 
+/** Resolve a selected participant's durable identity, never its displayed email/name. */
+export function internalUserIdForParticipant(participant: { id: string; identityRef?: string } | null): string | null {
+  if (!participant) return null;
+  const identity = participant.identityRef?.match(/^identity:user:([^\s:]+)$/)?.[1];
+  if (identity) return identity;
+  return participant.id.match(/^(?:employee|rm):([^\s:@]+)$/)?.[1] || null;
+}
+
 export type RecipientLenderContactSnapshot = {
   lenderId: string;
   email: string | null;

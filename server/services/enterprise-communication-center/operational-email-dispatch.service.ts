@@ -23,6 +23,7 @@ import { prisma } from "@server/lib/prisma";
 import { enforceMandatoryInitiatingSenderCc } from "@/lib/enterprise-communication-center/initiating-sender-cc";
 import { sendOperationalSmtpMessage } from "@server/services/enterprise-communication-center/smtp-transport.service";
 import { enterpriseNotificationService } from "@server/services/enterprise-notification/enterprise-notification.service";
+import { loadTransactionEmailAttachments } from "./transaction-email-attachments.service";
 
 export type OperationalEmailDeliveryStatus =
   | "sent"
@@ -77,6 +78,7 @@ export type DispatchOperationalTransactionEmailInput = {
   customerDisplayName?: string | null;
   opportunityReference?: string | null;
   sourceSystem?: string;
+  documentIds?: string[];
 };
 
 function resolveCustomersProfile(
@@ -301,6 +303,10 @@ export async function dispatchOperationalTransactionEmail(
   }
 
   const messageId = buildMessageId(sourceEventId);
+  const attachments = await loadTransactionEmailAttachments({
+    actorUserId: input.actorUserId, organizationId: input.organizationId,
+    opportunityId: input.opportunityId, dealId, documentIds: input.documentIds ?? [],
+  });
 
   const send = await sendOperationalSmtpMessage({
     host,
@@ -315,6 +321,7 @@ export async function dispatchOperationalTransactionEmail(
     subject,
     textBody,
     messageId,
+    attachments,
     ehloName: "catalyst-one-transaction-email",
   });
 
@@ -401,6 +408,7 @@ export async function dispatchOperationalTransactionEmail(
       primaryToRole,
       messageId,
       kind: "email_sent",
+      documentIds: input.documentIds ?? [],
     },
   });
 

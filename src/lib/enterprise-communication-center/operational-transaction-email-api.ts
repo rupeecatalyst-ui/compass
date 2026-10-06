@@ -82,6 +82,7 @@ export async function sendTransactionOperationalEmail(input: {
   textBody: string;
   customerDisplayName?: string | null;
   opportunityReference?: string | null;
+  documentIds?: string[];
 }): Promise<TransactionOperationalEmailResult> {
   const res = await authenticatedJsonFetch("/api/enterprise-transaction-email/send", {
     method: "POST",
@@ -95,11 +96,12 @@ export async function sendTransactionOperationalEmail(input: {
       textBody: input.textBody,
       customerDisplayName: input.customerDisplayName ?? null,
       opportunityReference: input.opportunityReference ?? null,
+      documentIds: input.documentIds ?? [],
     }),
   });
   const json = await res.json().catch(() => ({}));
   const data = (json?.data ?? json) as TransactionOperationalEmailResult;
-  if (!res.ok && !data?.deliveryStatus) {
+  if (!res.ok) {
     throw new Error(json?.error?.message || "Failed to send transaction email");
   }
   return data;

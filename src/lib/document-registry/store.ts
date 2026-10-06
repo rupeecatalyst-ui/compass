@@ -489,13 +489,12 @@ export async function uploadDocumentToRegistry(
         ...target.versions.map((v) => ({ ...v, isCurrent: false })),
       ],
     };
+    const sync = import("./server-sync").then(({ syncDocumentRecordToServer }) => syncDocumentRecordToServer(updated, { contentBlob: input.file }));
+    if (input.requireServerPersistence && !await sync) throw new Error("Document could not be saved securely. Retry the upload before attaching it.");
     const idx = snap.records.findIndex((r) => r.id === target!.id);
     snap.records[idx] = updated;
     writeSnapshot(snap);
     syncLoanFileDocument(input.links, input.categoryLabel, input.categoryLabel, input.uploadedBy);
-    void import("./server-sync").then(({ syncDocumentRecordToServer }) =>
-      syncDocumentRecordToServer(updated, { contentBlob: input.file }),
-    );
     return { record: updated, isNewVersion: true };
   }
 
@@ -530,13 +529,12 @@ export async function uploadDocumentToRegistry(
     uploadSource: input.uploadSource ?? "manual_upload",
   };
 
+  const sync = import("./server-sync").then(({ syncDocumentRecordToServer }) => syncDocumentRecordToServer(record, { contentBlob: input.file }));
+  if (input.requireServerPersistence && !await sync) throw new Error("Document could not be saved securely. Retry the upload before attaching it.");
   snap.records.unshift(record);
   writeSnapshot(snap);
   syncLoanFileDocument(input.links, input.categoryLabel, input.categoryLabel, input.uploadedBy);
   // CO-DOC-002 — durable server sync (best-effort; never blocks upload UX)
-  void import("./server-sync").then(({ syncDocumentRecordToServer }) =>
-    syncDocumentRecordToServer(record, { contentBlob: input.file }),
-  );
   return { record, isNewVersion: false };
 }
 

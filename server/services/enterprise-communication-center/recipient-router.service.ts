@@ -18,6 +18,7 @@ import {
 } from "@/lib/enterprise-communication-center/recipient-router";
 import type { EnterpriseCommunicationEventType } from "@/types/enterprise-communication-center";
 import { prisma } from "@server/lib/prisma";
+import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 
 export type LoadRecipientRouterInput = {
   organizationId: string;
@@ -52,6 +53,10 @@ export async function loadAndResolveTransactionOperationalRecipients(
   const organizationId = input.organizationId.trim();
   const opportunityId = input.opportunityId?.trim() || null;
   const dealId = input.dealId?.trim() || null;
+  // User accounts belong to the existing single pilot organization (User has no org column).
+  if (organizationId !== await resolvePilotOrganizationId()) {
+    throw Object.assign(new Error("Unauthorized recipient organization"), { statusCode: 404, code: "NOT_FOUND" });
+  }
 
   let deal: RecipientDealSnapshot | null = null;
   let dealLenderId: string | null = null;
@@ -83,6 +88,9 @@ export async function loadAndResolveTransactionOperationalRecipients(
   }
 
   const oppIdToLoad = opportunityId || deal?.opportunityId || null;
+  if (dealId && (!deal || (opportunityId && deal.opportunityId !== opportunityId))) {
+    throw Object.assign(new Error("Deal does not belong to this Opportunity"), { statusCode: 404, code: "NOT_FOUND" });
+  }
   let opportunity: RecipientOpportunitySnapshot | null = null;
   if (oppIdToLoad) {
     const oppRow = await prisma.enterpriseOpportunity.findFirst({
@@ -130,6 +138,7 @@ export async function loadAndResolveTransactionOperationalRecipients(
 
   const contactsById: Record<string, RecipientContactSnapshot | undefined> = {};
   const usersById: Record<string, RecipientUserSnapshot | undefined> = {};
+  const authorisedInternalIds = new Set<string>();
   const wealthPartnersById: Record<string, RecipientWealthPartnerSnapshot | undefined> =
     {};
 
@@ -151,9 +160,10 @@ export async function loadAndResolveTransactionOperationalRecipients(
   if (userIds.size > 0) {
     const users = await prisma.user.findMany({
       where: { id: { in: [...userIds] } },
-      select: { id: true, email: true, isActive: true },
+      select: { id: true, email: true, isActive: true, role: true },
     });
     for (const u of users) {
+      if (u.isActive && u.role !== "VIEWER") authorisedInternalIds.add(u.id);
       usersById[u.id] = {
         id: u.id,
         email: u.email,
@@ -239,7 +249,7 @@ export async function loadAndResolveTransactionOperationalRecipients(
   }
 
   const internalUser =
-    primaryToRole === "internal_employee" && internalUserId
+    primaryToRole === "internal_employee" && internalUserId && authorisedInternalIds.has(internalUserId)
       ? usersById[internalUserId] ?? null
       : null;
 
