@@ -296,6 +296,7 @@ export function DocumentWorkspaceMailbox({
               finally { setUploading(false); }
             }} />
             <Button type="button" variant="outline" disabled={uploading || sending} onClick={() => filePicker.current?.click()}>{uploading ? "Uploading…" : "Attach Document"}</Button>
+            <p className="mt-1 text-xs text-muted-foreground">Upload from your computer. Removing an attachment from this email keeps the document in Document Workspace.</p>
           </div> : null}
           <div className="rounded-md border border-border/70 p-3 text-xs">
             <p className="font-medium">
@@ -316,7 +317,7 @@ export function DocumentWorkspaceMailbox({
                         className="h-6 px-2"
                         onClick={() => setKept((rows) => rows.filter((row) => row.id !== item.id))}
                       >
-                        Remove
+                        Remove from email
                       </Button>
                     </li>
                   ))}

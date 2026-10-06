@@ -373,14 +373,14 @@ assert.equal(nodes(tree).filter(node => String(node.props?.["aria-label"] || "")
 await nodes(tree).find(node => node.type === "input" && node.props.type === "file").props.onChange({ target: { files: [uploadFile], value: "" } });
 assert.equal(uiUploads, 1); assert.equal(uiSends.length, 0);
 tree = renderMailbox();
-nodes(tree).find(node => node.type === "Button" && node.props.children === "Remove").props.onClick();
+nodes(tree).find(node => node.type === "Button" && node.props.children === "Remove from email").props.onClick();
 mailboxProps.attachments = [...mailboxProps.attachments]; tree = renderMailbox();
 sendButton = nodes(tree).find(node => node.type === "Button" && node.props.children === "Send Email"); await sendButton.props.onClick();
 assert.equal(uiSends.length, 1); assert.deepEqual(Array.from(uiSends[0].documentIds), ["document_new"], "Removed registered document stays excluded after parent rerender");
 assert.equal(uiSends[0].toRecipients.length, 2); assert.equal(uiSends[0].ccRecipients.length, 2);
 assert.ok(uiSends[0].toRecipients.every(ref => !Object.hasOwn(ref, "email")), "Only durable references leave the composer");
 mailboxProps.contextFingerprint = "canonical_b"; mailboxProps.attachments = []; renderMailbox(); tree = renderMailbox();
-assert.equal(nodes(tree).filter(node => node.type === "Button" && node.props.children === "Remove").length, 0, "Context reset discards all A attachments");
+assert.equal(nodes(tree).filter(node => node.type === "Button" && node.props.children === "Remove from email").length, 0, "Context reset discards all A attachments");
 assert.equal(nodes(tree).filter(node => /^Remove (TO|CC) /.test(node.props?.["aria-label"] || "")).length, 0, "A recipient selections do not survive B");
 assert.equal(nodes(tree).find(node => node.props?.["aria-label"] === "Search email recipients").props.value, "");
 console.log("PASS A–K: actual composer adds multiple TO/CC chips, locks sender CC, deduplicates repeated picks, submits identities only, resets recipient/attachment/search state on A → B; server dispatch and directory enforce authority.");
