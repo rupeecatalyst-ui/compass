@@ -141,6 +141,10 @@ export type TransactionOperationalResolveInput = RecipientRouterResolveInput & {
   primaryToRole: TransactionPrimaryToRole;
   lenderContact?: RecipientLenderContactSnapshot | null;
   internalUser?: RecipientUserSnapshot | null;
+  includePrimaryTo?: boolean;
+  /** Server-resolved SSOT addresses only. */
+  additionalToEmails?: string[];
+  additionalCcEmails?: string[];
 };
 
 const BASIC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -446,7 +450,8 @@ export function resolveTransactionOperationalRecipients(
 
   let toEmail: string | null = null;
 
-  if (input.primaryToRole === "customer") {
+  const includePrimaryTo = input.includePrimaryTo !== false;
+  if (includePrimaryTo && input.primaryToRole === "customer") {
     toEmail = customerEmail;
     partyRefs.unshift({
       role: "customer",
@@ -461,7 +466,7 @@ export function resolveTransactionOperationalRecipients(
         partyRefs,
       });
     }
-  } else if (input.primaryToRole === "lender") {
+  } else if (includePrimaryTo && input.primaryToRole === "lender") {
     const lenderEmail = input.lenderContact?.email?.trim() || "";
     if (!isValidEmailAddress(lenderEmail)) {
       return fail(
@@ -477,7 +482,7 @@ export function resolveTransactionOperationalRecipients(
       entityId: input.lenderContact?.lenderId ?? null,
       email: toEmail,
     });
-  } else if (input.primaryToRole === "wealth_partner") {
+  } else if (includePrimaryTo && input.primaryToRole === "wealth_partner") {
     const wpId = input.opportunity?.sourceWealthPartnerId?.trim() || null;
     if (!wpId || !wealthPartnerEmail) {
       return fail(
@@ -492,7 +497,7 @@ export function resolveTransactionOperationalRecipients(
       (e) => normalizeEmailForCompare(e) === normalizeEmailForCompare(toEmail!),
     );
     if (wpCcIdx >= 0) ccCandidates.splice(wpCcIdx, 1);
-  } else if (input.primaryToRole === "internal_employee") {
+  } else if (includePrimaryTo && input.primaryToRole === "internal_employee") {
     const internal = input.internalUser;
     if (!internal?.isActive || !isValidEmailAddress(internal.email)) {
       return fail(
@@ -511,8 +516,8 @@ export function resolveTransactionOperationalRecipients(
   }
 
   const { to, cc } = dedupeRecipients({
-    to: [toEmail!],
-    cc: ccCandidates,
+    to: [...(toEmail ? [toEmail] : []), ...(input.additionalToEmails ?? [])],
+    cc: [...ccCandidates, ...(input.additionalCcEmails ?? [])],
   });
 
   if (to.length === 0) {

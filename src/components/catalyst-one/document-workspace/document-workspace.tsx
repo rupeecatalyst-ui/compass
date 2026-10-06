@@ -1756,7 +1756,7 @@ export function DocumentWorkspace() {
           pauseOutboxCountdown(queued.id);
           toast.message("Draft saved to Outbox. Nothing has been sent.");
         }}
-        onQueue={async ({ subject, textBody, documentIds, primaryToRole, internalUserId }) => {
+        onQueue={async ({ subject, textBody, documentIds, primaryToRole, internalUserId, includePrimaryTo, toRecipients, ccRecipients }) => {
           if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
             toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
             return;
@@ -1768,7 +1768,7 @@ export function DocumentWorkspace() {
               eventType: mailbox === "request" ? "document_request" : "customer_communication",
               subject,
               textBody: appendCorporateEmailSignature(textBody, { senderDisplayName: actor, profileCode: "CUSTOMERS" }),
-              documentIds, primaryToRole, internalUserId,
+              documentIds, primaryToRole, internalUserId, includePrimaryTo, toRecipients, ccRecipients,
             });
             if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) return;
             if (!result.ok || result.deliveryStatus !== "sent") {

@@ -191,7 +191,7 @@ export async function sendOperationalSmtpMessage(
           writeLine(socket, `MAIL FROM:<${input.fromEmail}>`);
           await expectCode(readLine, ["250"]);
 
-          for (const addr of [...to, ...cc]) {
+          for (const addr of uniqueSmtpRecipients(to, cc)) {
             writeLine(socket, `RCPT TO:<${addr}>`);
             await expectCode(readLine, ["250"]);
           }
@@ -249,4 +249,9 @@ export async function sendOperationalSmtpMessage(
       });
     });
   });
+}
+
+/** One RCPT per canonical address, including sender selected in TO and mandatory CC. */
+export function uniqueSmtpRecipients(to: string[], cc: string[]): string[] {
+  return [...new Map([...to, ...cc].map(email => [email.trim().toLowerCase(), email.trim()])).values()];
 }

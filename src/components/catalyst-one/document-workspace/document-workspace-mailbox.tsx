@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { previewTransactionOperationalEmail, type TransactionOperationalEmailPreview } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
+import { previewTransactionOperationalEmail, searchTransactionEmailRecipients, type TransactionOperationalEmailPreview } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
+import { recipientIdentityKey, type EmailRecipientOption, type EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 import type { TransactionPrimaryToRole } from "@/lib/enterprise-communication-center/recipient-router";
 import { searchAssignableUsers } from "@/lib/assigned-users";
 import type { AssignableUserOption } from "@/types/assigned-users";
@@ -64,6 +65,9 @@ export function DocumentWorkspaceMailbox({
     documentIds: string[];
     primaryToRole: TransactionPrimaryToRole;
     internalUserId: string | null;
+    includePrimaryTo: boolean;
+    toRecipients: EmailRecipientSelections["toRecipients"];
+    ccRecipients: EmailRecipientSelections["ccRecipients"];
     textBody: string;
   }) => Promise<void>;
   onSaveDraft: (input: { subject: string; htmlBody: string; to: string }) => void;
@@ -78,6 +82,13 @@ export function DocumentWorkspaceMailbox({
   const zip = false;
   const [primaryToRole, setPrimaryToRole] = useState<TransactionPrimaryToRole>("customer");
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [includePrimaryTo, setIncludePrimaryTo] = useState(true);
+  const [toSelections, setToSelections] = useState<EmailRecipientOption[]>([]);
+  const [ccSelections, setCcSelections] = useState<EmailRecipientOption[]>([]);
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [recipientTarget, setRecipientTarget] = useState<"to" | "cc">("to");
+  const [recipientOptions, setRecipientOptions] = useState<EmailRecipientOption[]>([]);
+  const recipientRefs = (options: EmailRecipientOption[]) => options.map(({ kind, id }) => ({ kind, id }));
   const [employeeQuery, setEmployeeQuery] = useState("");
   const [employeeOptions, setEmployeeOptions] = useState<AssignableUserOption[]>([]);
   const [resolution, setResolution] = useState<TransactionOperationalEmailPreview | null>(null);
@@ -85,7 +96,7 @@ export function DocumentWorkspaceMailbox({
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const filePicker = useRef<HTMLInputElement>(null);
-  const recipientScope = `${contextFingerprint}|${primaryToRole}|${internalUserId || ""}`;
+  const recipientScope = JSON.stringify([contextFingerprint, primaryToRole, internalUserId, includePrimaryTo, recipientRefs(toSelections), recipientRefs(ccSelections)]);
   const latestScope = useRef(recipientScope);
   latestScope.current = recipientScope;
   const [resolvedScope, setResolvedScope] = useState<string | null>(null);
@@ -100,9 +111,9 @@ export function DocumentWorkspaceMailbox({
     setResolution(null);
     setResolvedScope(null);
     setTo("");
-    if (primaryToRole === "internal_employee" && !internalUserId) return;
+    if (includePrimaryTo && primaryToRole === "internal_employee" && !internalUserId) { setResolving(false); return; }
     setResolving(true);
-    void previewTransactionOperationalEmail({ opportunityId, dealId, primaryToRole, internalUserId })
+    void previewTransactionOperationalEmail({ opportunityId, dealId, primaryToRole, internalUserId, includePrimaryTo, toRecipients: recipientRefs(toSelections), ccRecipients: recipientRefs(ccSelections) })
       .then(result => {
         if (cancelled || latestScope.current !== recipientScope) return;
         setResolution(result);
@@ -113,6 +124,18 @@ export function DocumentWorkspaceMailbox({
       .finally(() => { if (!cancelled) setResolving(false); });
     return () => { cancelled = true; };
   }, [open, opportunityId, dealId, recipientScope, primaryToRole, internalUserId]);
+
+  useEffect(() => {
+    setRecipientOptions([]);
+    if (!open || !recipientQuery.trim()) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchTransactionEmailRecipients({ opportunityId, dealId, search: recipientQuery })
+        .then(options => { if (!cancelled) setRecipientOptions(options); })
+        .catch(() => { if (!cancelled) setRecipientOptions([]); });
+    }, 200);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [open, opportunityId, dealId, contextFingerprint, recipientQuery]);
 
   useEffect(() => {
     if (!open || primaryToRole !== "internal_employee") return;
@@ -130,6 +153,13 @@ export function DocumentWorkspaceMailbox({
     setResolution(null);
     setInternalUserId(null);
     setPrimaryToRole("customer");
+    setIncludePrimaryTo(true);
+    setToSelections([]);
+    setCcSelections([]);
+    setRecipientQuery("");
+    setRecipientOptions([]);
+    setEmployeeQuery("");
+    setEmployeeOptions([]);
     setKept(attachments);
     setSubject(mode === "request" ? "Document request" : "Documents for your review");
     setBody("");
@@ -191,7 +221,7 @@ export function DocumentWorkspaceMailbox({
           </div>
           <div>
             <Label className="text-xs">To</Label>
-            <select aria-label="Recipient type" value={primaryToRole} onChange={e => { setPrimaryToRole(e.target.value as TransactionPrimaryToRole); setInternalUserId(null); }} className="mb-2 h-9 w-full rounded-md border bg-background px-3 text-sm">
+            <select aria-label="Recipient type" value={primaryToRole} onChange={e => { setPrimaryToRole(e.target.value as TransactionPrimaryToRole); setInternalUserId(null); setIncludePrimaryTo(true); }} className="mb-2 h-9 w-full rounded-md border bg-background px-3 text-sm">
               <option value="customer">Customer</option>
               <option value="internal_employee">Internal Employee</option>
               {dealId ? <option value="lender">Lender</option> : null}
@@ -204,11 +234,20 @@ export function DocumentWorkspaceMailbox({
               </select>
             </> : null}
             <Input value={recipientValid ? to : ""} readOnly placeholder={resolving ? "Resolving recipient…" : "No authorized recipient resolved"} />
+            {includePrimaryTo ? <Button type="button" size="sm" variant="ghost" onClick={() => setIncludePrimaryTo(false)}>Remove primary recipient</Button> : null}
+            {toSelections.map(option => <span key={recipientIdentityKey(option)} className="m-1 inline-flex items-center gap-1 rounded border px-2 py-1 text-xs">
+              {option.name} &lt;{option.email}&gt;
+              <Button type="button" size="sm" variant="ghost" aria-label={`Remove TO ${option.name}`} onClick={() => setToSelections(rows => rows.filter(row => recipientIdentityKey(row) !== recipientIdentityKey(option)))}>×</Button>
+            </span>)}
             {resolution?.recipientResolution.ok === false ? <p className="mt-1 text-xs text-destructive">{resolution.recipientResolution.message}</p> : null}
           </div>
           <div>
             <Label className="text-xs">CC (mandatory sender copy)</Label>
             <Input value={ccLocked} readOnly data-mandatory-sender-cc="" />
+            {ccSelections.map(option => <span key={recipientIdentityKey(option)} className="m-1 inline-flex items-center gap-1 rounded border px-2 py-1 text-xs">
+              {option.name} &lt;{option.email}&gt;
+              <Button type="button" size="sm" variant="ghost" aria-label={`Remove CC ${option.name}`} onClick={() => setCcSelections(rows => rows.filter(row => recipientIdentityKey(row) !== recipientIdentityKey(option)))}>×</Button>
+            </span>)}
             {!senderValid ? (
               <p className="mt-1 text-xs text-destructive">{DOCUMENT_WORKSPACE_SENDER_CC_MISSING}</p>
             ) : (
@@ -216,6 +255,20 @@ export function DocumentWorkspaceMailbox({
                 Authenticated user copy cannot be removed. Manager / RC-owner CC is preserved server-side.
               </p>
             )}
+          </div>
+          <div>
+            <Label className="text-xs">Add recipients from Contacts, Lenders or Employees</Label>
+            <select aria-label="Add recipient to" value={recipientTarget} onChange={event => setRecipientTarget(event.target.value as "to" | "cc")} className="mb-2 h-9 rounded-md border bg-background px-3 text-sm">
+              <option value="to">TO</option><option value="cc">CC</option>
+            </select>
+            <Input aria-label="Search email recipients" placeholder="Search name or email" value={recipientQuery} onChange={event => setRecipientQuery(event.target.value)} />
+            <div role="listbox" aria-label="Authorized email recipients">
+              {recipientOptions.map(option => <Button key={recipientIdentityKey(option)} type="button" variant="ghost" className="block h-auto text-left" onClick={() => {
+                const setSelection = recipientTarget === "to" ? setToSelections : setCcSelections;
+                setSelection(rows => rows.some(row => recipientIdentityKey(row) === recipientIdentityKey(option) || row.email.toLowerCase() === option.email.toLowerCase()) ? rows : [...rows, option]);
+                setRecipientQuery(""); setRecipientOptions([]);
+              }}>{option.name} &lt;{option.email}&gt; · {option.kind === "user" ? "Employee" : option.kind === "lender_contact" ? "Lender" : "Contact"}</Button>)}
+            </div>
           </div>
           <div>
             <Label className="text-xs">Subject</Label>
@@ -307,6 +360,9 @@ export function DocumentWorkspaceMailbox({
               documentIds: kept.map(item => item.id),
               primaryToRole,
               internalUserId,
+              includePrimaryTo,
+              toRecipients: recipientRefs(toSelections),
+              ccRecipients: recipientRefs(ccSelections),
               textBody: [body || "Please find the requested details below.", mode === "request" ? requestedList.join("\n") : "", mode === "request" && secureLink ? `Secure upload: ${secureLink}` : ""].filter(Boolean).join("\n\n"),
             }); } finally { setSending(false); }
           }}

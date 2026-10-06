@@ -1,3 +1,4 @@
+import type { EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 /**
  * CO-C1-COMMUNICATION-001 — Unified server-side operational transaction email dispatch.
  * RecipientRouter → ECC CUSTOMERS → Hostinger SMTP → EAR + ENE.
@@ -75,6 +76,9 @@ export type DispatchOperationalTransactionEmailInput = {
   textBody: string;
   primaryToRole?: TransactionPrimaryToRole;
   internalUserId?: string | null;
+  includePrimaryTo?: EmailRecipientSelections["includePrimaryTo"];
+  toRecipients?: EmailRecipientSelections["toRecipients"];
+  ccRecipients?: EmailRecipientSelections["ccRecipients"];
   customerDisplayName?: string | null;
   opportunityReference?: string | null;
   sourceSystem?: string;
@@ -114,6 +118,9 @@ export async function previewOperationalTransactionEmail(input: {
   dealId?: string | null;
   primaryToRole?: TransactionPrimaryToRole;
   internalUserId?: string | null;
+  includePrimaryTo?: EmailRecipientSelections["includePrimaryTo"];
+  toRecipients?: EmailRecipientSelections["toRecipients"];
+  ccRecipients?: EmailRecipientSelections["ccRecipients"];
 }): Promise<OperationalEmailPreviewResult> {
   const primaryToRole = input.primaryToRole ?? "customer";
   const recipientResolution = await loadAndResolveTransactionOperationalRecipients({
@@ -123,6 +130,9 @@ export async function previewOperationalTransactionEmail(input: {
     dealId: input.dealId ?? null,
     primaryToRole,
     internalUserId: input.internalUserId ?? null,
+    includePrimaryTo: input.includePrimaryTo,
+    toRecipients: input.toRecipients,
+    ccRecipients: input.ccRecipients,
   });
 
   const profile = await loadCustomersProfile();
@@ -213,6 +223,9 @@ export async function dispatchOperationalTransactionEmail(
     dealId,
     primaryToRole,
     internalUserId: input.internalUserId ?? null,
+    includePrimaryTo: input.includePrimaryTo,
+    toRecipients: input.toRecipients,
+    ccRecipients: input.ccRecipients,
   });
 
   if (!recipients.ok) {

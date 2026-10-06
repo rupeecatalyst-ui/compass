@@ -1,3 +1,4 @@
+import type { EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 import {
   errorResponse,
   fromAuthError,
@@ -32,6 +33,9 @@ export async function POST(request: Request) {
       eventType?: string;
       primaryToRole?: TransactionPrimaryToRole;
       internalUserId?: string | null;
+      includePrimaryTo?: EmailRecipientSelections["includePrimaryTo"];
+      toRecipients?: EmailRecipientSelections["toRecipients"];
+      ccRecipients?: EmailRecipientSelections["ccRecipients"];
     };
 
     const opportunityId = String(body.opportunityId || "").trim();
@@ -53,6 +57,9 @@ export async function POST(request: Request) {
       dealId: authorised.dealId,
       primaryToRole: body.primaryToRole ?? "customer",
       internalUserId: body.internalUserId ?? null,
+      includePrimaryTo: body.includePrimaryTo,
+      toRecipients: body.toRecipients,
+      ccRecipients: body.ccRecipients,
     });
 
     if (result.recipientResolution.ok) {

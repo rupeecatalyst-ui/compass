@@ -10,6 +10,7 @@ import * as fileSecurity from "../src/lib/document-workspace/file-security.ts";
 import * as policy from "../src/constants/document-registry/index.ts";
 import * as intake from "../src/constants/document-intake/index.ts";
 import * as ccPolicy from "../src/lib/enterprise-communication-center/initiating-sender-cc.ts";
+import * as recipientSelection from "../src/lib/enterprise-communication-center/recipient-selection.ts";
 import * as lockPolicy from "../src/lib/document-workspace/context-lock.ts";
 import { validateLockedDocumentSelection } from "../src/lib/document-workspace/selection.ts";
 import { mergeDocumentWorkspaceRows } from "../src/lib/document-workspace/merge-rows.ts";
@@ -35,14 +36,34 @@ const org = "organization_current", opp = "opportunity_current", deal = "cdeal_c
 const manager = { id: "user_manager", email: "manager@example.test", isActive: true, role: "MANAGER" };
 const employees = [manager, { id: "user_employee_one", email: "one@example.test", isActive: true, role: "ANALYST" }, { id: "user_employee_two", email: "two@example.test", isActive: true, role: "MANAGER" }, { id: "user_viewer", email: "viewer@example.test", isActive: true, role: "VIEWER" }, { id: "user_inactive", email: "inactive@example.test", isActive: false, role: "ANALYST" }];
 let missingCustomer = false;
+const contactFixtures = [
+  { id: "contact_current", organizationId: org, name: "Customer", officialEmail: "customer@example.test", personalEmail: null, enabled: true, isDeleted: false, status: "active" },
+  { id: "contact_extra", organizationId: org, name: "Existing Contact", officialEmail: "extra@example.test", personalEmail: null, enabled: true, isDeleted: false, status: "active" },
+  { id: "contact_foreign", organizationId: "foreign", name: "Foreign", officialEmail: "foreign@example.test", enabled: true, isDeleted: false, status: "active" },
+];
+const lenderFixtures = [{ id: "lender_contact", organizationId: org, name: "Lender Contact", email: "lender@example.test", enabled: true, isDeleted: false }];
+function eligible(rows, where) {
+  return rows.filter(row => (!where.organizationId || row.organizationId === where.organizationId)
+    && (!where.id || where.id.in.includes(row.id)) && (!where.enabled || row.enabled)
+    && (!where.isActive || row.isActive) && (where.isDeleted !== false || !row.isDeleted)
+    && (!where.role || row.role !== where.role.not) && (!where.status || row.status !== where.status.not)
+    && (!where.OR || where.OR.some(clause => Object.entries(clause).some(([key, condition]) => String(row[key] || "").toLowerCase().includes(condition.contains.toLowerCase())))));
+}
 const prisma = {
   enterpriseDeal: { findFirst: async ({ where }) => where.organizationId === org && where.id === deal ? { id: deal, opportunityId: opp, primaryContactId: "contact_current", relationshipManagerUserId: manager.id, lenderId: "lender_current" } : null },
   enterpriseOpportunity: { findFirst: async ({ where }) => where.organizationId === org && where.id === opp ? { id: opp, primaryContactId: "contact_current", relationshipManagerUserId: manager.id } : null },
-  ecmContact: { findMany: async () => missingCustomer ? [] : [{ id: "contact_current", officialEmail: "customer@example.test", personalEmail: null, isDeleted: false }] },
-  user: { findMany: async ({ where }) => employees.filter(u => where.id.in.includes(u.id)), findFirst: async ({ where }) => employees.find(u => u.id === where.id) },
-  enterpriseLenderContact: { findFirst: async () => ({ lenderId: "lender_current", email: "lender@example.test" }) },
+  ecmContact: { findMany: async ({ where }) => missingCustomer ? [] : eligible(contactFixtures, where) },
+  user: { findMany: async ({ where }) => eligible(employees, where), findFirst: async ({ where }) => employees.find(u => u.id === where.id) },
+  enterpriseLenderContact: { findFirst: async () => ({ lenderId: "lender_current", email: "lender@example.test" }), findMany: async ({ where }) => eligible(lenderFixtures, where) },
 };
+const directory = load("server/services/enterprise-communication-center/recipient-directory.service.ts", {
+  "@/lib/enterprise-communication-center/recipient-router": router,
+  "@/lib/enterprise-communication-center/recipient-selection": recipientSelection,
+  "@server/lib/prisma": { prisma },
+  "@server/repositories/ecm/organization.repository": { resolvePilotOrganizationId: async () => org },
+});
 const recipients = load("server/services/enterprise-communication-center/recipient-router.service.ts", {
+  "./recipient-directory.service": directory,
   "@/lib/enterprise-communication-center/recipient-router": router,
   "@server/lib/prisma": { prisma },
   "@server/repositories/ecm/organization.repository": { resolvePilotOrganizationId: async () => org },
@@ -64,6 +85,27 @@ const lender = await recipients.loadAndResolveTransactionOperationalRecipients({
 assert.equal(lender.ok, true); assert.equal(lender.to[0], "lender@example.test");
 missingCustomer = true; assert.equal((await recipients.loadAndResolveTransactionOperationalRecipients(recipientInput)).ok, false); missingCustomer = false;
 console.log("PASS 1–6,9: Customer/User/lender SSOT, two employees, identity selection, unauthorized/missing/cross-org rejection, tampered email ignored.");
+
+const multipleSelections = {
+  toRecipients: [{ kind: "lender_contact", id: "lender_contact", email: "tampered@example.test" }, { kind: "user", id: "user_employee_one" }, { kind: "contact", id: "contact_extra" }, { kind: "contact", id: "contact_extra" }],
+  ccRecipients: [{ kind: "user", id: "user_employee_two" }, { kind: "contact", id: "contact_extra" }],
+};
+const multiple = await recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, ...multipleSelections });
+assert.equal(multiple.ok, true);
+assert.deepEqual(Array.from(multiple.to), ["customer@example.test", "lender@example.test", "one@example.test", "extra@example.test"]);
+assert.deepEqual(Array.from(multiple.cc), [manager.email, "two@example.test"]);
+const withoutPrimary = await recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, ...multipleSelections, includePrimaryTo: false });
+assert.ok(!withoutPrimary.to.includes("customer@example.test"));
+for (const ref of [{ kind: "contact", id: "contact_foreign" }, { kind: "user", id: "user_viewer" }, { kind: "user", id: "user_inactive" }, { kind: "lender_contact", id: "unknown" }, { kind: "arbitrary", id: "unknown" }]) {
+  await assert.rejects(() => recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, toRecipients: [ref] }));
+}
+await assert.rejects(() => directory.resolveEmailRecipientSelections("foreign", [], []));
+assert.equal((await directory.searchEmailRecipientDirectory(org, "Existing"))[0].id, "contact_extra");
+assert.equal((await directory.searchEmailRecipientDirectory(org, "extra@example.test"))[0].id, "contact_extra");
+assert.equal((await directory.searchEmailRecipientDirectory(org, "Foreign")).length, 0);
+const senderAlsoTo = ccPolicy.enforceMandatoryInitiatingSenderCc({ to: [manager.email, manager.email.toUpperCase()], cc: [], initiatingUser: manager });
+assert.equal(senderAlsoTo.ok, true); assert.deepEqual(senderAlsoTo.cc, [manager.email]); assert.equal(senderAlsoTo.to.length, 1);
+console.log("PASS A–F,I,J: multiple canonical TO/CC, Contact name/email search, Customer/Lender/User coexistence, removable primary, deduplication, mandatory logged-in-user CC even in TO, unauthorized refs rejected.");
 
 const pdfBytes = new Uint8Array(Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF"));
 const document = { id: "document_registered", clientRecordId: "dreg_local", organizationId: org, opportunityId: opp, dealId: deal, originalFilename: "attachment.pdf", status: "active" };
@@ -100,6 +142,8 @@ document.status = "quarantined"; await assert.rejects(() => attachments.loadTran
 const transport = load("server/services/enterprise-communication-center/smtp-transport.service.ts");
 const mime = transport.buildMimeMessage({ fromEmail: manager.email, fromName: "Manager", replyToEmail: manager.email, to: customer.to, cc: customer.cc, subject: "Documents", textBody: "Please review", attachments: existing });
 const parsedMime = await requireNative("mailparser").simpleParser(mime);
+assert.deepEqual(Array.from(transport.uniqueSmtpRecipients([manager.email, "extra@example.test"], [manager.email.toUpperCase(), manager.email])), [manager.email, "extra@example.test"]);
+assert.ok(read("server/services/enterprise-communication-center/smtp-transport.service.ts").includes("for (const addr of uniqueSmtpRecipients(to, cc))"), "SMTP uses deduplicated RCPT envelope");
 assert.equal(parsedMime.subject, "Documents");
 assert.equal(parsedMime.attachments[0].filename, "attachment.pdf");
 assert.equal(Buffer.compare(parsedMime.attachments[0].content, Buffer.from(pdfBytes)), 0);
@@ -124,6 +168,13 @@ const dispatchInput = { ...recipientInput, dealId: deal, actorUserId: manager.id
 assert.equal((await dispatch.dispatchOperationalTransactionEmail(dispatchInput)).deliveryStatus, "sent");
 assert.equal(smtpCalls.length, 1); assert.equal(smtpCalls[0].attachments[0].bytes, pdfBytes); assert.equal(smtpCalls[0].to[0], "customer@example.test");
 assert.ok(smtpCalls[0].cc.includes(manager.email));
+const multipleDispatch = await dispatch.dispatchOperationalTransactionEmail({ ...dispatchInput, ...multipleSelections, toRecipients: [...multipleSelections.toRecipients, { kind: "user", id: manager.id }], cc: [] });
+assert.equal(multipleDispatch.deliveryStatus, "sent");
+assert.ok(smtpCalls[1].cc.includes(manager.email), "Dispatch independently enforces authenticated sender CC, even selected in TO");
+assert.ok(smtpCalls[1].to.includes(manager.email));
+smtpCalls.pop();
+await assert.rejects(() => dispatch.dispatchOperationalTransactionEmail({ ...dispatchInput, toRecipients: [{ kind: "contact", id: "contact_foreign" }] }));
+assert.equal(smtpCalls.length, 1, "Unauthorized additional recipient prevents SMTP entirely");
 await assert.rejects(() => dispatch.dispatchOperationalTransactionEmail({ ...dispatchInput, documentIds: ["document_foreign"] }));
 assert.equal(smtpCalls.length, 1);
 assert.equal((await dispatch.dispatchOperationalTransactionEmail({ ...dispatchInput, primaryToRole: "internal_employee", internalUserId: "user_viewer" })).deliveryStatus, "recipient_unresolved");
@@ -159,6 +210,14 @@ const routeMocks = {
 };
 const previewRoute = load("src/app/api/enterprise-transaction-email/preview/route.ts", routeMocks);
 const sendRoute = load("src/app/api/enterprise-transaction-email/send/route.ts", routeMocks);
+const searchRoute = load("src/app/api/enterprise-transaction-email/recipients/route.ts", {
+  ...routeMocks,
+  "@server/services/enterprise-communication-center/recipient-directory.service": directory,
+});
+assert.equal((await searchRoute.GET({ url: `https://offline.test/api?opportunityId=${opp}&search=Existing` })).data[0].id, "contact_extra");
+denyActor = true;
+assert.equal((await searchRoute.GET({ url: `https://offline.test/api?opportunityId=${opp}&search=Existing` })).status, 403);
+denyActor = false;
 const requestFor = data => ({ json: async () => data });
 assert.equal((await previewRoute.POST(requestFor({ opportunityId: opp, primaryToRole: "customer", to: ["tampered@example.test"] }))).data.recipientResolution.to[0], "customer@example.test");
 assert.equal(routeDispatches.length, 0, "Preview does not dispatch or create communication records");
@@ -269,7 +328,15 @@ const jsx = (type, props) => ({ type, props });
 const mailboxModule = load("src/components/catalyst-one/document-workspace/document-workspace-mailbox.tsx", {
   react, "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" }, sonner: { toast: { error() {} } },
   "@/components/ui/button": { Button: "Button" }, "@/components/ui/input": { Input: "Input" }, "@/components/ui/label": { Label: "Label" }, "@/components/ui/textarea": { Textarea: "Textarea" },
-  "@/lib/enterprise-communication-center/operational-transaction-email-api": { previewTransactionOperationalEmail: async () => ({ operationalDeliveryEnabled: true, recipientResolution: { ok: true, to: customer.to, cc: customer.cc }, sender: { senderEmail: "sender@example.test" } }) },
+  "@/lib/enterprise-communication-center/operational-transaction-email-api": {
+    previewTransactionOperationalEmail: async input => {
+      const result = await recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, ...input });
+      if (result.ok) Object.assign(result, ccPolicy.enforceMandatoryInitiatingSenderCc({ to: result.to, cc: result.cc, initiatingUser: manager }));
+      return { operationalDeliveryEnabled: true, recipientResolution: result, sender: { senderEmail: "sender@example.test" } };
+    },
+    searchTransactionEmailRecipients: async input => directory.searchEmailRecipientDirectory(org, input.search),
+  },
+  "@/lib/enterprise-communication-center/recipient-selection": recipientSelection,
   "@/lib/assigned-users": { searchAssignableUsers: async () => [] }, "@/constants/document-workspace-security": { DOCUMENT_WORKSPACE_ALLOWED_EXTENSIONS: policy.DOCUMENT_REGISTRY_ALLOWED_EXTENSIONS },
   "@/constants/document-workspace-refinement-014": {}, "@/lib/utils": { cn: (...parts) => parts.join(" ") },
 }, { window: { setTimeout, clearTimeout } });
@@ -284,6 +351,25 @@ let sendButton = nodes(tree).find(node => node.type === "Button" && node.props.c
 assert.equal(sendButton.props.disabled, true, "Custom body required");
 nodes(tree).find(node => node.type === "Textarea").props.onChange({ target: { value: "Custom body" } });
 tree = renderMailbox(); sendButton = nodes(tree).find(node => node.type === "Button" && node.props.children === "Send Email"); assert.equal(sendButton.props.disabled, false);
+async function pickRecipient(query, target) {
+  nodes(tree).find(node => node.props?.["aria-label"] === "Add recipient to").props.onChange({ target: { value: target } });
+  nodes(tree).find(node => node.props?.["aria-label"] === "Search email recipients").props.onChange({ target: { value: query } });
+  renderMailbox(); await new Promise(resolve => setTimeout(resolve, 225)); tree = renderMailbox();
+  const list = nodes(tree).find(node => node.props?.["aria-label"] === "Authorized email recipients");
+  const option = nodes(list).find(node => node.type === "Button");
+  assert.ok(option, query); option.props.onClick();
+  renderMailbox(); await new Promise(resolve => setTimeout(resolve, 0)); tree = renderMailbox();
+}
+await pickRecipient("Existing", "to");
+await pickRecipient("Lender", "to");
+await pickRecipient("one@example.test", "cc");
+await pickRecipient("two@example.test", "cc");
+assert.equal(nodes(tree).filter(node => String(node.props?.["aria-label"] || "").startsWith("Remove TO ")).length, 2);
+assert.equal(nodes(tree).filter(node => String(node.props?.["aria-label"] || "").startsWith("Remove CC ")).length, 2);
+const lockedCc = nodes(tree).find(node => Object.hasOwn(node.props || {}, "data-mandatory-sender-cc"));
+assert.equal(lockedCc.props.readOnly, true); assert.ok(lockedCc.props.value.includes(manager.email));
+await pickRecipient("Existing", "to");
+assert.equal(nodes(tree).filter(node => String(node.props?.["aria-label"] || "").startsWith("Remove TO ")).length, 2, "Repeated selection produces no additional chip");
 await nodes(tree).find(node => node.type === "input" && node.props.type === "file").props.onChange({ target: { files: [uploadFile], value: "" } });
 assert.equal(uiUploads, 1); assert.equal(uiSends.length, 0);
 tree = renderMailbox();
@@ -291,8 +377,13 @@ nodes(tree).find(node => node.type === "Button" && node.props.children === "Remo
 mailboxProps.attachments = [...mailboxProps.attachments]; tree = renderMailbox();
 sendButton = nodes(tree).find(node => node.type === "Button" && node.props.children === "Send Email"); await sendButton.props.onClick();
 assert.equal(uiSends.length, 1); assert.deepEqual(Array.from(uiSends[0].documentIds), ["document_new"], "Removed registered document stays excluded after parent rerender");
+assert.equal(uiSends[0].toRecipients.length, 2); assert.equal(uiSends[0].ccRecipients.length, 2);
+assert.ok(uiSends[0].toRecipients.every(ref => !Object.hasOwn(ref, "email")), "Only durable references leave the composer");
 mailboxProps.contextFingerprint = "canonical_b"; mailboxProps.attachments = []; renderMailbox(); tree = renderMailbox();
 assert.equal(nodes(tree).filter(node => node.type === "Button" && node.props.children === "Remove").length, 0, "Context reset discards all A attachments");
+assert.equal(nodes(tree).filter(node => /^Remove (TO|CC) /.test(node.props?.["aria-label"] || "")).length, 0, "A recipient selections do not survive B");
+assert.equal(nodes(tree).find(node => node.props?.["aria-label"] === "Search email recipients").props.value, "");
+console.log("PASS A–K: actual composer adds multiple TO/CC chips, locks sender CC, deduplicates repeated picks, submits identities only, resets recipient/attachment/search state on A → B; server dispatch and directory enforce authority.");
 console.log("PASS: actual mailbox rendering enables valid Custom Email, resolves readonly recipient, picker attaches without sending, remove persists, transaction change clears A attachments.");
 
 for (const relative of [workspacePath, "src/components/catalyst-one/document-workspace/document-workspace-mailbox.tsx", "src/components/catalyst-one/action-center/workspaces/email-context-workspace.tsx", "src/app/api/enterprise-transaction-email/send/route.ts", "src/app/api/enterprise-transaction-email/preview/route.ts", "src/lib/document-registry/store.ts", "src/lib/document-registry/server-sync.ts", "server/services/enterprise-communication-center/operational-email-dispatch.service.ts"]) {

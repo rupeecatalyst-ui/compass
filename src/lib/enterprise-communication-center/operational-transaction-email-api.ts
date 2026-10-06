@@ -1,3 +1,4 @@
+import type { EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 /**
  * CO-C1-COMMUNICATION-001 — Client API for unified transaction operational email.
  */
@@ -54,6 +55,9 @@ export async function previewTransactionOperationalEmail(input: {
   eventType?: CustomerFacingRecipientEvent;
   primaryToRole?: TransactionPrimaryToRole;
   internalUserId?: string | null;
+  includePrimaryTo?: EmailRecipientSelections["includePrimaryTo"];
+  toRecipients?: EmailRecipientSelections["toRecipients"];
+  ccRecipients?: EmailRecipientSelections["ccRecipients"];
 }): Promise<TransactionOperationalEmailPreview> {
   const res = await authenticatedJsonFetch("/api/enterprise-transaction-email/preview", {
     method: "POST",
@@ -63,6 +67,9 @@ export async function previewTransactionOperationalEmail(input: {
       eventType: input.eventType ?? "customer_communication",
       primaryToRole: input.primaryToRole ?? "customer",
       internalUserId: input.internalUserId ?? null,
+      includePrimaryTo: input.includePrimaryTo,
+      toRecipients: input.toRecipients,
+      ccRecipients: input.ccRecipients,
     }),
   });
   const json = await res.json().catch(() => ({}));
@@ -78,6 +85,9 @@ export async function sendTransactionOperationalEmail(input: {
   eventType?: CustomerFacingRecipientEvent;
   primaryToRole?: TransactionPrimaryToRole;
   internalUserId?: string | null;
+  includePrimaryTo?: EmailRecipientSelections["includePrimaryTo"];
+  toRecipients?: EmailRecipientSelections["toRecipients"];
+  ccRecipients?: EmailRecipientSelections["ccRecipients"];
   subject: string;
   textBody: string;
   customerDisplayName?: string | null;
@@ -92,6 +102,9 @@ export async function sendTransactionOperationalEmail(input: {
       eventType: input.eventType ?? "customer_communication",
       primaryToRole: input.primaryToRole ?? "customer",
       internalUserId: input.internalUserId ?? null,
+      includePrimaryTo: input.includePrimaryTo,
+      toRecipients: input.toRecipients,
+      ccRecipients: input.ccRecipients,
       subject: input.subject,
       textBody: input.textBody,
       customerDisplayName: input.customerDisplayName ?? null,
@@ -105,4 +118,13 @@ export async function sendTransactionOperationalEmail(input: {
     throw new Error(json?.error?.message || "Failed to send transaction email");
   }
   return data;
+}
+
+export async function searchTransactionEmailRecipients(input: { opportunityId: string; dealId?: string | null; search: string }): Promise<import("./recipient-selection").EmailRecipientOption[]> {
+  const params = new URLSearchParams({ opportunityId: input.opportunityId, search: input.search });
+  if (input.dealId) params.set("dealId", input.dealId);
+  const response = await authenticatedJsonFetch(`/api/enterprise-transaction-email/recipients?${params}`, { method: "GET" });
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(json?.error?.message || "Recipient search failed");
+  return json.data ?? json;
 }

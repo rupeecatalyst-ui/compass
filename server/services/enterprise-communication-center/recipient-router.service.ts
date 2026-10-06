@@ -1,3 +1,5 @@
+import { resolveEmailRecipientSelections } from "./recipient-directory.service";
+import type { EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 /**
  * CO-ECC-RECIPIENT-001 — Phase 1 RecipientRouter Prisma loader.
  * Loads Opportunity/Deal/Contact/User/WealthPartner SSOT, then calls pure resolver.
@@ -27,6 +29,9 @@ export type LoadRecipientRouterInput = {
   dealId?: string | null;
   primaryToRole?: TransactionPrimaryToRole;
   internalUserId?: string | null;
+  includePrimaryTo?: EmailRecipientSelections["includePrimaryTo"];
+  toRecipients?: EmailRecipientSelections["toRecipients"];
+  ccRecipients?: EmailRecipientSelections["ccRecipients"];
 };
 
 function mapContact(row: {
@@ -253,11 +258,16 @@ export async function loadAndResolveTransactionOperationalRecipients(
       ? usersById[internalUserId] ?? null
       : null;
 
+  if (input.includePrimaryTo !== undefined && typeof input.includePrimaryTo !== "boolean") throw Object.assign(new Error("Invalid primary recipient selection"), { statusCode: 400 });
+  const additional = await resolveEmailRecipientSelections(organizationId, input.toRecipients, input.ccRecipients);
   return resolveTransactionOperationalRecipients({
     ...resolveInput,
     primaryToRole,
     lenderContact,
     internalUser,
+    includePrimaryTo: input.includePrimaryTo,
+    additionalToEmails: additional.to,
+    additionalCcEmails: additional.cc,
   });
 }
 

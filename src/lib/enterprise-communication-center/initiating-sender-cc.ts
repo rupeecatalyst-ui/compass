@@ -41,12 +41,13 @@ export function enforceMandatoryInitiatingSenderCc(
 
   const senderEmail = canonicalizeEmail(email);
   const senderKey = normalizeEmailForCompare(senderEmail);
-  const alreadyTo = input.to.some((item) => normalizeEmailForCompare(item) === senderKey);
   const { to, cc } = dedupeRecipients({
     to: input.to,
-    cc: alreadyTo ? input.cc : [...input.cc, senderEmail],
+    cc: [...input.cc, senderEmail],
   });
 
+  // Sender must remain in CC even when also selected in TO. SMTP deduplicates its envelope.
+  if (!cc.some(item => normalizeEmailForCompare(item) === senderKey)) cc.push(senderEmail);
   return {
     ok: true,
     to,
