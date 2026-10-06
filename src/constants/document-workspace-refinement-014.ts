@@ -16,9 +16,9 @@ export const DOCUMENT_WORKSPACE_DESK_TABLET_MIN_VW = 70;
 export const DOCUMENT_WORKSPACE_DESK_TABLET_TARGET_VW = 80;
 export const DOCUMENT_WORKSPACE_DESK_TABLET_MAX_VW = 85;
 
-/** Canonical Sheet width contract. Literal classes required for Tailwind JIT. */
+/** Sheet fills the measured navigation-shell content boundary. Literal classes required for Tailwind JIT. */
 export const DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME =
-  "flex h-full w-full flex-col gap-0 overflow-x-hidden p-0 sm:max-w-none md:w-[80vw] md:min-w-[70vw] md:max-w-[85vw] min-[1280px]:w-[55vw] min-[1280px]:min-w-[50vw] min-[1280px]:max-w-[min(60vw,72rem)]";
+  "flex h-full w-full flex-col gap-0 overflow-x-hidden p-0 sm:max-w-none";
 
 export const DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME =
   "flex min-h-0 flex-1 flex-col overflow-hidden md:flex-col min-[1280px]:grid min-[1280px]:grid-cols-2";

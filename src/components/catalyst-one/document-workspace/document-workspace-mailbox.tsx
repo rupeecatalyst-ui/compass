@@ -7,7 +7,7 @@ import { recipientIdentityKey, type EmailRecipientOption, type EmailRecipientSel
 import type { TransactionPrimaryToRole } from "@/lib/enterprise-communication-center/recipient-router";
 import { searchAssignableUsers } from "@/lib/assigned-users";
 import type { AssignableUserOption } from "@/types/assigned-users";
-import { DOCUMENT_WORKSPACE_ALLOWED_EXTENSIONS } from "@/constants/document-workspace-security";
+import { DOCUMENT_REGISTRY_ACCEPT } from "@/constants/document-registry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -198,7 +198,7 @@ export function DocumentWorkspaceMailbox({
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }}>
       <DialogContent
-        className="z-[110] flex max-h-[92dvh] w-[calc(100%-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:rounded-lg"
+        className="z-[110] flex h-dvh max-h-dvh w-full max-w-none rounded-none sm:h-[94dvh] sm:max-h-[94dvh] sm:w-[94vw] flex-col gap-0 overflow-hidden p-0 sm:rounded-lg"
         overlayClassName="z-[109] bg-black/40"
         aria-describedby="document-workspace-email-description"
         onOpenAutoFocus={event => { event.preventDefault(); closeButton.current?.focus(); }}
@@ -210,7 +210,7 @@ export function DocumentWorkspaceMailbox({
           <Button ref={closeButton} type="button" size="sm" variant="ghost" className="mt-1 h-7" onClick={onClose}>Close</Button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3" data-email-content="">
-          <div className="grid min-w-0 gap-3">
+          <div className="grid min-w-0 gap-3 md:flex md:h-full md:min-h-0 md:flex-col md:[&>*]:shrink-0">
             <div className="grid min-w-0 grid-cols-[3rem_minmax(0,1fr)] items-start gap-2">
               <Label className="pt-1 text-xs">From</Label>
               <p className="break-all text-sm">{resolution?.sender?.displayName || "Catalyst One"} &lt;{resolution?.sender?.senderEmail || "Verifying sender…"}&gt;</p>
@@ -250,21 +250,21 @@ export function DocumentWorkspaceMailbox({
               </div>
             </div> : null}
             <div><Label htmlFor="document-email-subject" className="text-xs">Subject</Label><Input id="document-email-subject" value={subject} onChange={event => setSubject(event.target.value)} /></div>
-            <div><Label htmlFor="document-email-message" className="text-xs">Message</Label><Textarea id="document-email-message" className="min-h-28 resize-y text-sm" value={body} onChange={event => setBody(event.target.value)} /></div>
-            {mode === "request" ? <div className="rounded border p-2 text-xs"><p className="font-medium">Requested documents</p><ul className="mt-1 list-disc pl-4">{requestedList.map(item => <li key={item}>{item}</li>)}</ul></div> : null}
+            <div className="md:!shrink md:flex md:min-h-32 md:flex-1 md:flex-col"><Label htmlFor="document-email-message" className="text-xs">Message</Label><Textarea id="document-email-message" className="min-h-48 resize-y text-sm md:min-h-0 md:flex-1 md:resize-none" value={body} onChange={event => setBody(event.target.value)} /></div>
+            {mode === "request" ? <div className="rounded border p-2 text-xs md:max-h-24 md:overflow-y-auto"><p className="font-medium">Requested documents</p><ul className="mt-1 list-disc pl-4">{requestedList.map(item => <li key={item}>{item}</li>)}</ul></div> : null}
             <section aria-label="Attachments" className="min-w-0 rounded-md border p-2 text-xs">
               <p className="font-medium">Attachments</p>
-              {kept.length ? <ul className="mt-1 space-y-1">{kept.map(item => <li key={item.id} className="flex min-w-0 items-center justify-between gap-2"><span className="min-w-0 break-all">{item.filename} · {item.versionLabel}</span><Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 px-2 text-xs" onClick={() => setKept((rows) => rows.filter((row) => row.id !== item.id))}>Remove from email</Button></li>)}</ul> : <p className="mt-1 text-muted-foreground">No attachments selected.</p>}
+              {kept.length ? <ul className="mt-1 space-y-1 md:max-h-28 md:overflow-y-auto">{kept.map(item => <li key={item.id} className="flex min-w-0 items-center justify-between gap-2"><span className="min-w-0 break-all">{item.filename} · {item.versionLabel}</span><Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 px-2 text-xs" onClick={() => setKept((rows) => rows.filter((row) => row.id !== item.id))}>Remove from email</Button></li>)}</ul> : <p className="mt-1 text-muted-foreground">No attachments selected.</p>}
               <p className="mt-1 text-muted-foreground">Removing an attachment keeps the document in Document Workspace.</p>
             </section>
-            <input ref={filePicker} type="file" className="hidden" accept={[...DOCUMENT_WORKSPACE_ALLOWED_EXTENSIONS].map(extension => `.${extension}`).join(",")} onChange={async event => {
+            <input ref={filePicker} type="file" className="hidden" accept={DOCUMENT_REGISTRY_ACCEPT} onChange={async event => {
               const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
               const openedScope = recipientScope; setUploading(true);
               try { const attachment = await onAttachDocument(file); if (latestScope.current === openedScope) setKept(current => [...current.filter(item => item.id !== attachment.id), attachment]); }
               catch (error) { toast.error(error instanceof Error ? error.message : "Document upload failed"); }
               finally { setUploading(false); }
             }} />
-            {preview ? <div className="rounded-md border border-dashed p-2 text-sm" data-mailbox-preview=""><p className="font-medium">{subject}</p><div className={cn("prose prose-sm mt-1 max-w-none")} dangerouslySetInnerHTML={{ __html: htmlBody }} /></div> : null}
+            {preview ? <div className="rounded-md border border-dashed p-2 text-sm md:max-h-32 md:overflow-y-auto" data-mailbox-preview=""><p className="font-medium">{subject}</p><div className={cn("prose prose-sm mt-1 max-w-none")} dangerouslySetInnerHTML={{ __html: htmlBody }} /></div> : null}
           </div>
         </div>
         <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t px-4 py-3">

@@ -381,7 +381,7 @@ const mailboxModule = load("src/components/catalyst-one/document-workspace/docum
     searchTransactionEmailRecipients: async input => directory.searchEmailRecipientDirectory(org, input.search),
   },
   "@/lib/enterprise-communication-center/recipient-selection": recipientSelection,
-  "@/lib/assigned-users": { searchAssignableUsers: async () => [] }, "@/constants/document-workspace-security": { DOCUMENT_WORKSPACE_ALLOWED_EXTENSIONS: policy.DOCUMENT_REGISTRY_ALLOWED_EXTENSIONS },
+  "@/lib/assigned-users": { searchAssignableUsers: async () => [] }, "@/constants/document-registry": policy,
   "@/constants/document-workspace-refinement-014": {}, "@/lib/utils": { cn: (...parts) => parts.join(" ") },
 }, { window: { setTimeout, clearTimeout } });
 const mailboxProps = { open: true, opportunityId: opp, dealId: deal, contextFingerprint: "canonical_a", initialKind: "custom", mode: "send", fromEmail: manager.email, senderCc: manager.email, initialTo: "untrusted@example.test", attachments: [{ id: document.id, filename: "attachment.pdf", versionLabel: "v1" }], requestedList: [],
@@ -436,3 +436,19 @@ for (const relative of [workspacePath, "src/components/catalyst-one/document-wor
   assert.deepEqual((result.diagnostics || []).filter(d => d.category === ts.DiagnosticCategory.Error), []);
 }
 console.log("PASS: focused offline email + attachment proofs and changed-file syntax. No real DB or SMTP calls.");
+
+// Representative binary signatures pass the same authoritative upload validator.
+for (const [extension,mime,header] of [
+ ['pdf','application/pdf',[0x25,0x50,0x44,0x46]],
+ ['doc','application/msword',[0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]],
+ ['xls','application/vnd.ms-excel',[0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]],
+ ['docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document',[0x50,0x4b,0x03,0x04]],
+ ['xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',[0x50,0x4b,0x03,0x04]],
+ ['ppt','application/vnd.ms-powerpoint',[0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]],
+ ['pptx','application/vnd.openxmlformats-officedocument.presentationml.presentation',[0x50,0x4b,0x03,0x04]],
+ ['txt','text/plain',[65,66,67,68]],['csv','text/csv',[65,44,66,10]],
+ ['jpg','image/jpeg',[0xff,0xd8,0xff,0xe0]],['jpeg','image/jpeg',[0xff,0xd8,0xff,0xe0]],['png','image/png',[0x89,0x50,0x4e,0x47]]
+]) { const bytes=Uint8Array.from(header);assert.equal(fileSecurity.validateDocumentWorkspaceUpload({filename:'Business.'+extension,declaredMime:mime,byteLength:bytes.length,bytes}).ok,true,extension);assert.ok(policy.DOCUMENT_REGISTRY_ACCEPT.includes('.'+extension)); }
+for(const extension of ['exe','bat','cmd','ps1','sh','js']) assert.equal(fileSecurity.validateDocumentWorkspaceUpload({filename:'Unsafe.'+extension,declaredMime:'application/octet-stream',byteLength:8,bytes:new Uint8Array(8)}).ok,false,extension);
+assert.equal(fileSecurity.validateDocumentWorkspaceUpload({filename:'Forged.pdf',declaredMime:'application/pdf',byteLength:4,bytes:Uint8Array.from([0x89,0x50,0x4e,0x47])}).ok,false);
+console.log('PASS: Registry business formats/signatures accepted; executable/script and forged signature rejected.');

@@ -217,7 +217,7 @@ export function DocumentWorkspaceActionDrawer({
         aria-label="Action Centre"
         aria-hidden={!open}
       >
-        <Button type="button" size="sm" variant="ghost" className="mb-2 self-end" onClick={() => onOpenChange(false)}>Close Action Centre</Button>
+        <Button type="button" size="sm" variant="ghost" className="mb-8 shrink-0 self-end" onClick={() => onOpenChange(false)}>Close Action Centre</Button>
         {body}
       </aside>
       <Sheet open={open && !desktopDesk} onOpenChange={onOpenChange}>

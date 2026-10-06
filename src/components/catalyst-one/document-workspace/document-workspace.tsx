@@ -156,7 +156,10 @@ import { Mail } from "lucide-react";
 import type { OutboxMessage } from "@/types/enterprise-action-center";
 import { restoreDocumentWorkspaceViewDocumentsFocus } from "@/lib/document-workspace/transaction-card-grid";
 
+import { useDocumentWorkspaceBoundary } from "./use-document-workspace-boundary";
+
 export function DocumentWorkspace() {
+  const { anchorRef, boundaryStyle } = useDocumentWorkspaceBoundary();
   const { user } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1034,6 +1037,7 @@ export function DocumentWorkspace() {
 
   const opener = (
       <div
+        ref={anchorRef}
         data-document-workspace-opener="012"
         data-document-workspace-opener-013=""
         className="flex min-h-[calc(100dvh-4rem)] w-full min-w-0 flex-col gap-4 overflow-x-hidden p-4 sm:p-6"
@@ -1070,6 +1074,7 @@ export function DocumentWorkspace() {
           allowOutsideClose={false}
           overlayClassName="bg-black/40"
           className={DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME}
+          style={boundaryStyle}
           data-document-workspace-desk="014"
           data-document-workspace-desk-layout="right-sheet"
           aria-labelledby="document-workspace-desk-title"
