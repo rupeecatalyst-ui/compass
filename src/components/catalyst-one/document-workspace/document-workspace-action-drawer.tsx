@@ -208,7 +208,7 @@ export function DocumentWorkspaceActionDrawer({
     <>
       <aside
         className={cn(
-          "hidden min-h-0 overflow-y-auto border-l border-border/70 bg-background p-3",
+          "absolute inset-y-0 right-0 z-10 hidden w-72 max-w-full min-h-0 min-w-0 overflow-y-auto overflow-x-hidden border-l border-border/70 bg-background p-3 shadow-lg",
           open && "min-[1280px]:flex min-[1280px]:flex-col",
         )}
         data-document-workspace-action-centre="014"
@@ -217,6 +217,7 @@ export function DocumentWorkspaceActionDrawer({
         aria-label="Action Centre"
         aria-hidden={!open}
       >
+        <Button type="button" size="sm" variant="ghost" className="mb-2 self-end" onClick={() => onOpenChange(false)}>Close Action Centre</Button>
         {body}
       </aside>
       <Sheet open={open && !desktopDesk} onOpenChange={onOpenChange}>

@@ -35,6 +35,7 @@ export type RecipientRouterFailureCode =
   | "unsupported_event"
   | "missing_context"
   | "missing_customer_email"
+  | "customer_contact_selection_required"
   | "missing_lender_email"
   | "missing_wealth_partner_email"
   | "missing_internal_email"
@@ -61,6 +62,7 @@ export type RecipientLenderContactSnapshot = {
 };
 
 export type RecipientPartyRef = {
+  name?: string | null;
   role: "customer" | "transaction_manager" | "wealth_partner";
   entityKind: "contact" | "user" | "wealth_partner";
   entityId: string | null;
@@ -91,6 +93,7 @@ export type RecipientRouterResult = RecipientRouterSuccess | RecipientRouterFail
 
 export type RecipientContactSnapshot = {
   id: string;
+  name?: string | null;
   officialEmail: string | null;
   personalEmail: string | null;
   isDeleted?: boolean;
@@ -112,6 +115,8 @@ export type RecipientWealthPartnerSnapshot = {
 
 export type RecipientOpportunitySnapshot = {
   id: string;
+  companyId?: string | null;
+  primaryBorrowerKind?: string;
   primaryContactId: string | null;
   primaryContactEmail: string | null;
   relationshipManagerUserId: string | null;
@@ -121,6 +126,7 @@ export type RecipientOpportunitySnapshot = {
 
 export type RecipientDealSnapshot = {
   id: string;
+  companyId?: string | null;
   opportunityId: string | null;
   primaryContactId: string | null;
   primaryContactEmail: string | null;
@@ -424,7 +430,9 @@ export function resolveTransactionOperationalRecipients(
 
   const customerEmail = resolveCustomerToEmail({
     contact: customerContact,
-    primaryContactEmailFallback,
+    // A durable Contact reference must use its current authoritative email.
+    // Do not resurrect a stale denormalized address when that Contact is missing.
+    primaryContactEmailFallback: primaryContactId ? null : primaryContactEmailFallback,
   });
 
   const partyRefs: RecipientPartyRef[] = [];
@@ -458,6 +466,7 @@ export function resolveTransactionOperationalRecipients(
       entityKind: "contact",
       entityId: primaryContactId,
       email: customerEmail,
+      name: customerContact?.name,
     });
     if (!toEmail) {
       return fail("missing_customer_email", "Customer TO email could not be resolved from SSOT", {

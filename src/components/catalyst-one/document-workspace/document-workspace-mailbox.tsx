@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DOCUMENT_WORKSPACE_SENDER_CC_MISSING } from "@/constants/document-workspace-refinement-014";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export type DocumentWorkspaceMailboxMode = "request" | "send";
 export type DocumentWorkspaceComposerKind = "template" | "custom";
@@ -72,7 +72,7 @@ export function DocumentWorkspaceMailbox({
   }) => Promise<void>;
   onSaveDraft: (input: { subject: string; htmlBody: string; to: string }) => void;
 }) {
-  const [kind, setKind] = useState<DocumentWorkspaceComposerKind>(initialKind);
+  const kind = initialKind;
   const [to, setTo] = useState("");
   const [kept, setKept] = useState(attachments);
   const [subject, setSubject] = useState(
@@ -87,6 +87,8 @@ export function DocumentWorkspaceMailbox({
   const [ccSelections, setCcSelections] = useState<EmailRecipientOption[]>([]);
   const [recipientQuery, setRecipientQuery] = useState("");
   const [recipientTarget, setRecipientTarget] = useState<"to" | "cc">("to");
+  const [addingRecipient, setAddingRecipient] = useState(false);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const [recipientOptions, setRecipientOptions] = useState<EmailRecipientOption[]>([]);
   const recipientRefs = (options: EmailRecipientOption[]) => options.map(({ kind, id }) => ({ kind, id }));
   const [employeeQuery, setEmployeeQuery] = useState("");
@@ -102,8 +104,15 @@ export function DocumentWorkspaceMailbox({
   const [resolvedScope, setResolvedScope] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const recipientValid = resolvedScope === recipientScope && resolution?.recipientResolution.ok === true;
-  const senderValid = recipientValid && Boolean(resolution?.sender?.senderEmail);
-  const ccLocked = resolution?.recipientResolution.ok ? resolution.recipientResolution.cc.join(", ") : senderCc.trim();
+  const senderValid = Boolean(resolution?.initiatingSender?.email && resolution?.sender?.senderEmail);
+  const ccLocked = resolution?.initiatingSender?.email || "";
+  const unavailableRecipient = resolution?.recipientResolution.ok === false
+    ? resolution.recipientResolution.code === "missing_customer_email"
+      ? "No email address is recorded for this customer. Add a contact to continue."
+      : resolution.recipientResolution.code === "customer_contact_selection_required"
+      ? "Select a customer contact for this company."
+      : "We couldn't verify this recipient. Please select another contact."
+    : "";
 
   useEffect(() => {
     if (!open || !opportunityId) return;
@@ -120,7 +129,7 @@ export function DocumentWorkspaceMailbox({
         setResolvedScope(recipientScope);
         setTo(result.recipientResolution.ok ? result.recipientResolution.to.join(", ") : "");
       })
-      .catch(error => { if (!cancelled) toast.error(error instanceof Error ? error.message : "Recipient resolution failed"); })
+      .catch(() => { if (!cancelled) toast.error("We couldn't verify the email recipients. Please try again."); })
       .finally(() => { if (!cancelled) setResolving(false); });
     return () => { cancelled = true; };
   }, [open, opportunityId, dealId, recipientScope, primaryToRole, internalUserId]);
@@ -158,6 +167,7 @@ export function DocumentWorkspaceMailbox({
     setCcSelections([]);
     setRecipientQuery("");
     setRecipientOptions([]);
+    setAddingRecipient(false);
     setEmployeeQuery("");
     setEmployeeOptions([]);
     setKept(attachments);
@@ -178,199 +188,100 @@ export function DocumentWorkspaceMailbox({
   }, [kept, body, kind, mode, requestedList, secureLink]);
 
   if (!open) return null;
+  const resolved = resolution?.recipientResolution;
+  const primaryParty = resolved?.partyRefs.find(party => party.role === (primaryToRole === "internal_employee" ? "transaction_manager" : "customer"));
+  const primaryEmail = includePrimaryTo && resolved?.ok ? primaryParty?.email : null;
+  const additionalCc = resolved?.ok ? resolved.cc.filter(email => email.toLowerCase() !== ccLocked.toLowerCase()) : [];
+  const chipClass = "inline-flex max-w-full items-center gap-1 rounded-md border bg-muted/40 px-2 py-1 text-xs";
+  const addRecipient = (target: "to" | "cc") => { setRecipientTarget(target); setAddingRecipient(true); setRecipientQuery(""); setRecipientOptions([]); };
 
   return (
-    <div
-      className="fixed inset-0 z-[95] flex flex-col bg-background"
-      data-document-workspace-mailbox="014"
-      role="dialog"
-      aria-label={mode === "request" ? "Request Documents" : "Send Documents"}
-    >
-      <header className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-        <div>
-          <h2 className="text-lg font-semibold">
-            {mode === "request" ? "Request Documents" : "Send Documents"}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Recipients are verified before sending. Documents stay in Document Workspace.
-          </p>
-        </div>
-        <Button type="button" size="sm" variant="outline" onClick={onClose}>
-          Close
-        </Button>
-      </header>
-      <div className="flex gap-2 border-b border-border/60 px-4 py-2">
-        {(["template", "custom"] as const).map((id) => (
-          <Button
-            key={id}
-            type="button"
-            size="sm"
-            variant={kind === id ? "default" : "outline"}
-            className="capitalize"
-            onClick={() => setKind(id)}
-          >
-            {id === "template" ? "Template" : "Custom Email"}
-          </Button>
-        ))}
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-8">
-        <div className="mx-auto grid max-w-5xl gap-3">
-          <div>
-            <Label className="text-xs">From</Label>
-            <Input value={resolution?.sender?.senderEmail || fromEmail || "Resolving sender…"} readOnly />
-          </div>
-          <div>
-            <Label className="text-xs">To</Label>
-            <select aria-label="Recipient type" value={primaryToRole} onChange={e => { setPrimaryToRole(e.target.value as TransactionPrimaryToRole); setInternalUserId(null); setIncludePrimaryTo(true); }} className="mb-2 h-9 w-full rounded-md border bg-background px-3 text-sm">
-              <option value="customer">Customer</option>
-              <option value="internal_employee">Internal Employee</option>
-              {dealId ? <option value="lender">Lender</option> : null}
-            </select>
-            {primaryToRole === "internal_employee" ? <>
-              <Input aria-label="Search internal employee" placeholder="Search authorized employee" value={employeeQuery} onChange={e => setEmployeeQuery(e.target.value)} />
-              <select aria-label="Internal employee" value={internalUserId || ""} onChange={e => setInternalUserId(e.target.value || null)} className="my-2 h-9 w-full rounded-md border bg-background px-3 text-sm">
-                <option value="">Select an employee</option>
-                {employeeOptions.map(employee => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}
-              </select>
-            </> : null}
-            <Input value={recipientValid ? to : ""} readOnly placeholder={resolving ? "Resolving recipient…" : "No authorized recipient resolved"} />
-            {includePrimaryTo ? <Button type="button" size="sm" variant="ghost" onClick={() => setIncludePrimaryTo(false)}>Remove primary recipient</Button> : null}
-            {toSelections.map(option => <span key={recipientIdentityKey(option)} className="m-1 inline-flex items-center gap-1 rounded border px-2 py-1 text-xs">
-              {option.name} &lt;{option.email}&gt;
-              <Button type="button" size="sm" variant="ghost" aria-label={`Remove TO ${option.name}`} onClick={() => setToSelections(rows => rows.filter(row => recipientIdentityKey(row) !== recipientIdentityKey(option)))}>×</Button>
-            </span>)}
-            {resolution?.recipientResolution.ok === false ? <p className="mt-1 text-xs text-destructive">{resolution.recipientResolution.message}</p> : null}
-          </div>
-          <div>
-            <Label className="text-xs">CC (mandatory sender copy)</Label>
-            <Input value={ccLocked} readOnly data-mandatory-sender-cc="" />
-            {ccSelections.map(option => <span key={recipientIdentityKey(option)} className="m-1 inline-flex items-center gap-1 rounded border px-2 py-1 text-xs">
-              {option.name} &lt;{option.email}&gt;
-              <Button type="button" size="sm" variant="ghost" aria-label={`Remove CC ${option.name}`} onClick={() => setCcSelections(rows => rows.filter(row => recipientIdentityKey(row) !== recipientIdentityKey(option)))}>×</Button>
-            </span>)}
-            {!senderValid ? (
-              <p className="mt-1 text-xs text-destructive">{DOCUMENT_WORKSPACE_SENDER_CC_MISSING}</p>
-            ) : (
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                Authenticated user copy cannot be removed. Manager / RC-owner CC is preserved server-side.
-              </p>
-            )}
-          </div>
-          <div>
-            <Label className="text-xs">Add recipients from Contacts, Lenders or Employees</Label>
-            <select aria-label="Add recipient to" value={recipientTarget} onChange={event => setRecipientTarget(event.target.value as "to" | "cc")} className="mb-2 h-9 rounded-md border bg-background px-3 text-sm">
-              <option value="to">TO</option><option value="cc">CC</option>
-            </select>
-            <Input aria-label="Search email recipients" placeholder="Search name or email" value={recipientQuery} onChange={event => setRecipientQuery(event.target.value)} />
-            <div role="listbox" aria-label="Authorized email recipients">
-              {recipientOptions.map(option => <Button key={recipientIdentityKey(option)} type="button" variant="ghost" className="block h-auto text-left" onClick={() => {
-                const setSelection = recipientTarget === "to" ? setToSelections : setCcSelections;
-                setSelection(rows => rows.some(row => recipientIdentityKey(row) === recipientIdentityKey(option) || row.email.toLowerCase() === option.email.toLowerCase()) ? rows : [...rows, option]);
-                setRecipientQuery(""); setRecipientOptions([]);
-              }}>{option.name} &lt;{option.email}&gt; · {option.kind === "user" ? "Employee" : option.kind === "lender_contact" ? "Lender" : "Contact"}</Button>)}
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }}>
+      <DialogContent
+        className="z-[110] flex max-h-[92dvh] w-[calc(100%-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:rounded-lg"
+        overlayClassName="z-[109] bg-black/40"
+        aria-describedby="document-workspace-email-description"
+        onOpenAutoFocus={event => { event.preventDefault(); closeButton.current?.focus(); }}
+        data-document-workspace-mailbox="014"
+      >
+        <header className="shrink-0 border-b px-4 py-3 pr-12">
+          <DialogTitle className="text-base">{kind === "custom" ? "Custom Email" : mode === "request" ? "Request Documents" : "Send Documents"}</DialogTitle>
+          <DialogDescription id="document-workspace-email-description" className="mt-1 text-xs">Compose for the current transaction. Nothing is sent until you choose Send Email.</DialogDescription>
+          <Button ref={closeButton} type="button" size="sm" variant="ghost" className="mt-1 h-7" onClick={onClose}>Close</Button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3" data-email-content="">
+          <div className="grid min-w-0 gap-3">
+            <div className="grid min-w-0 grid-cols-[3rem_minmax(0,1fr)] items-start gap-2">
+              <Label className="pt-1 text-xs">From</Label>
+              <p className="break-all text-sm">{resolution?.sender?.displayName || "Catalyst One"} &lt;{resolution?.sender?.senderEmail || "Verifying sender…"}&gt;</p>
+              <Label className="pt-1 text-xs">To</Label>
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                {primaryEmail ? <span className={chipClass}><span className="min-w-0 break-all">{primaryParty?.name || (primaryToRole === "customer" ? "Customer" : primaryToRole === "lender" ? "Lender" : "Employee")} &lt;{primaryEmail}&gt;</span><Button type="button" size="sm" variant="ghost" className="h-6 shrink-0 px-1" aria-label="Remove primary recipient" onClick={() => setIncludePrimaryTo(false)}>×</Button></span> : null}
+                {toSelections.map(option => <span key={recipientIdentityKey(option)} className={chipClass}><span className="min-w-0 break-all">{option.name} &lt;{option.email}&gt;</span><Button type="button" size="sm" variant="ghost" className="h-6 shrink-0 px-1" aria-label={`Remove TO ${option.name}`} onClick={() => setToSelections(rows => rows.filter(row => recipientIdentityKey(row) !== recipientIdentityKey(option)))}>×</Button></span>)}
+                <Button type="button" size="sm" variant="outline" className="h-7" onClick={() => addRecipient("to")}>+ Add recipient</Button>
+                {resolving ? <span className="text-xs text-muted-foreground">Verifying…</span> : unavailableRecipient ? <p className="w-full text-xs text-muted-foreground">{unavailableRecipient}</p> : null}
+              </div>
+              <Label className="pt-1 text-xs">CC</Label>
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                {ccLocked ? <span className={chipClass} data-mandatory-sender-cc="" aria-label="Authenticated user copy cannot be removed"><span className="min-w-0 break-all">{resolution?.initiatingSender?.name || "You"} &lt;{ccLocked}&gt;</span><span aria-label="Locked">🔒</span></span> : <span className="text-xs text-muted-foreground">{resolving ? "Verifying your email…" : "Your sender email could not be verified."}</span>}
+                {additionalCc.map(email => {
+                  const option = ccSelections.find(item => item.email.toLowerCase() === email.toLowerCase());
+                  return <span key={email} className={chipClass}><span className="min-w-0 break-all">{option?.name || "Transaction copy"} &lt;{email}&gt;</span>{option ? <Button type="button" size="sm" variant="ghost" className="h-6 shrink-0 px-1" aria-label={`Remove CC ${option.name}`} onClick={() => setCcSelections(rows => rows.filter(row => recipientIdentityKey(row) !== recipientIdentityKey(option)))}>×</Button> : <span aria-label="Required transaction copy">🔒</span>}</span>;
+                })}
+                <Button type="button" size="sm" variant="outline" className="h-7" onClick={() => addRecipient("cc")}>+ Add CC</Button>
+              </div>
             </div>
-          </div>
-          <div>
-            <Label className="text-xs">Subject</Label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Message</Label>
-            <Textarea
-              className="min-h-[18rem] text-sm"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
-          </div>
-          {mode === "send" ? <div>
+            {addingRecipient ? <div className="rounded-md border p-2" data-recipient-picker="">
+              <div className="mb-2 flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-xs">Add to {recipientTarget.toUpperCase()}</span>
+                {recipientTarget === "to" ? <>{(["customer", "internal_employee", ...(dealId ? ["lender"] : [])] as TransactionPrimaryToRole[]).map(role => <Button key={role} type="button" size="sm" variant="ghost" className="h-7" onClick={() => { setPrimaryToRole(role); setIncludePrimaryTo(true); setInternalUserId(null); }}>{role === "customer" ? "Customer" : role === "lender" ? "Lender" : "Internal Employee"}</Button>)}</> : null}
+                <Button type="button" size="sm" variant="ghost" className="ml-auto h-7" onClick={() => setAddingRecipient(false)}>Done</Button>
+              </div>
+              {primaryToRole === "internal_employee" && recipientTarget === "to" ? <select aria-label="Internal employee" value={internalUserId || ""} onChange={event => setInternalUserId(event.target.value || null)} className="mb-2 h-8 w-full rounded-md border bg-background px-2 text-sm"><option value="">Choose an employee, or search below</option>{employeeOptions.map(employee => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}</select> : null}
+              <Input aria-label="Search email recipients" placeholder="Search authorized contacts by name or email" value={recipientQuery} onChange={event => { setRecipientQuery(event.target.value); setEmployeeQuery(event.target.value); }} />
+              <div role="listbox" aria-label="Authorized email recipients" className="max-h-36 overflow-y-auto">
+                {recipientOptions.map(option => <Button key={recipientIdentityKey(option)} type="button" variant="ghost" className="h-auto w-full justify-start whitespace-normal py-2 text-left" onClick={() => {
+                  const setSelection = recipientTarget === "to" ? setToSelections : setCcSelections;
+                  setSelection(rows => rows.some(row => recipientIdentityKey(row) === recipientIdentityKey(option) || row.email.toLowerCase() === option.email.toLowerCase()) ? rows : [...rows, option]);
+                  // A missing convenience primary must not block explicit authorized TO choices.
+                  if (recipientTarget === "to" && (resolved?.ok === false || (primaryToRole === "internal_employee" && !internalUserId))) setIncludePrimaryTo(false);
+                  setRecipientQuery(""); setRecipientOptions([]);
+                }}><span className="min-w-0 break-all">{option.name}<span className="block text-xs text-muted-foreground">{option.email} · {option.kind === "user" ? "Internal Employee" : option.kind === "lender_contact" ? "Lender Contact" : "Customer / Contact"}</span></span></Button>)}
+              </div>
+            </div> : null}
+            <div><Label htmlFor="document-email-subject" className="text-xs">Subject</Label><Input id="document-email-subject" value={subject} onChange={event => setSubject(event.target.value)} /></div>
+            <div><Label htmlFor="document-email-message" className="text-xs">Message</Label><Textarea id="document-email-message" className="min-h-28 resize-y text-sm" value={body} onChange={event => setBody(event.target.value)} /></div>
+            {mode === "request" ? <div className="rounded border p-2 text-xs"><p className="font-medium">Requested documents</p><ul className="mt-1 list-disc pl-4">{requestedList.map(item => <li key={item}>{item}</li>)}</ul></div> : null}
+            <section aria-label="Attachments" className="min-w-0 rounded-md border p-2 text-xs">
+              <p className="font-medium">Attachments</p>
+              {kept.length ? <ul className="mt-1 space-y-1">{kept.map(item => <li key={item.id} className="flex min-w-0 items-center justify-between gap-2"><span className="min-w-0 break-all">{item.filename} · {item.versionLabel}</span><Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 px-2 text-xs" onClick={() => setKept((rows) => rows.filter((row) => row.id !== item.id))}>Remove from email</Button></li>)}</ul> : <p className="mt-1 text-muted-foreground">No attachments selected.</p>}
+              <p className="mt-1 text-muted-foreground">Removing an attachment keeps the document in Document Workspace.</p>
+            </section>
             <input ref={filePicker} type="file" className="hidden" accept={[...DOCUMENT_WORKSPACE_ALLOWED_EXTENSIONS].map(extension => `.${extension}`).join(",")} onChange={async event => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              if (!file) return;
-              const openedScope = recipientScope;
-              setUploading(true);
-              try {
-                const attachment = await onAttachDocument(file);
-                if (latestScope.current === openedScope) setKept(current => [...current.filter(item => item.id !== attachment.id), attachment]);
-              } catch (error) { toast.error(error instanceof Error ? error.message : "Document upload failed"); }
+              const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
+              const openedScope = recipientScope; setUploading(true);
+              try { const attachment = await onAttachDocument(file); if (latestScope.current === openedScope) setKept(current => [...current.filter(item => item.id !== attachment.id), attachment]); }
+              catch (error) { toast.error(error instanceof Error ? error.message : "Document upload failed"); }
               finally { setUploading(false); }
             }} />
-            <Button type="button" variant="outline" disabled={uploading || sending} onClick={() => filePicker.current?.click()}>{uploading ? "Uploading…" : "Attach Document"}</Button>
-            <p className="mt-1 text-xs text-muted-foreground">Upload from your computer. Removing an attachment from this email keeps the document in Document Workspace.</p>
-          </div> : null}
-          <div className="rounded-md border border-border/70 p-3 text-xs">
-            <p className="font-medium">
-              {mode === "request" ? "Exact requested documents" : "Attachments / versions"}
-            </p>
-            <ul className="mt-2 list-disc pl-5">
-              {mode === "request"
-                ? requestedList.map((item) => <li key={item}>{item}</li>)
-                : kept.map((item) => (
-                    <li key={item.id} className="flex items-center justify-between gap-2">
-                      <span>
-                        {item.filename} · {item.versionLabel}
-                      </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-2"
-                        onClick={() => setKept((rows) => rows.filter((row) => row.id !== item.id))}
-                      >
-                        Remove from email
-                      </Button>
-                    </li>
-                  ))}
-            </ul>
-            {secureLink ? <p className="mt-2">Secure upload link: {secureLink}</p> : null}
+            {preview ? <div className="rounded-md border border-dashed p-2 text-sm" data-mailbox-preview=""><p className="font-medium">{subject}</p><div className={cn("prose prose-sm mt-1 max-w-none")} dangerouslySetInnerHTML={{ __html: htmlBody }} /></div> : null}
           </div>
-          {preview ? (
-            <div className="rounded-md border border-dashed border-border p-3 text-sm" data-mailbox-preview="">
-              <p className="font-medium">{subject}</p>
-              <div className={cn("prose prose-sm mt-2 max-w-none")} dangerouslySetInnerHTML={{ __html: htmlBody }} />
-            </div>
-          ) : null}
         </div>
-      </div>
-      <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 px-4 py-3">
-        <Button type="button" variant="ghost" size="sm" onClick={() => setPreview((v) => !v)}>
-          Preview
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onSaveDraft({ subject, htmlBody, to })}
-        >
-          Save Draft
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={!senderValid || !recipientValid || !resolution?.operationalDeliveryEnabled || !subject.trim() || (kind === "custom" && !body.trim()) || sending || uploading || resolving}
-          onClick={async () => {
-            if (!recipientValid) return;
+        <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t px-4 py-3">
+          <Button type="button" size="sm" variant="outline" disabled={uploading || sending} onClick={() => filePicker.current?.click()}>{uploading ? "Uploading…" : "Attach Document"}</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setPreview(value => !value)}>Preview</Button>
+          <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => onSaveDraft({ subject, htmlBody, to })}>Save Draft</Button>
+          <Button type="button" size="sm" disabled={!senderValid || !recipientValid || !resolution?.operationalDeliveryEnabled || !subject.trim() || (kind === "custom" && !body.trim()) || sending || uploading || resolving} onClick={async () => {
+            if (!recipientValid || !senderValid) return;
             setSending(true);
-            try { await onQueue({
-              kind,
-              to: to.split(",").map((item) => item.trim()).filter(Boolean),
-              cc: senderValid ? [ccLocked] : [],
-              subject,
-              htmlBody,
-              zip,
-              documentIds: kept.map(item => item.id),
-              primaryToRole,
-              internalUserId,
-              includePrimaryTo,
-              toRecipients: recipientRefs(toSelections),
-              ccRecipients: recipientRefs(ccSelections),
+            try { await onQueue({ kind, to: resolved?.ok ? resolved.to : [], cc: resolved?.ok ? resolved.cc : [], subject, htmlBody, zip,
+              documentIds: kept.map(item => item.id), primaryToRole, internalUserId, includePrimaryTo,
+              toRecipients: recipientRefs(toSelections), ccRecipients: recipientRefs(ccSelections),
               textBody: [body || "Please find the requested details below.", mode === "request" ? requestedList.join("\n") : "", mode === "request" && secureLink ? `Secure upload: ${secureLink}` : ""].filter(Boolean).join("\n\n"),
             }); } finally { setSending(false); }
-          }}
-        >
-          {sending ? "Sending…" : "Send Email"}
-        </Button>
-      </footer>
-    </div>
+          }}>{sending ? "Sending…" : "Send Email"}</Button>
+        </footer>
+      </DialogContent>
+    </Dialog>
   );
 }

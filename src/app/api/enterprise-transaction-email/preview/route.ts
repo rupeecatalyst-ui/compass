@@ -62,18 +62,20 @@ export async function POST(request: Request) {
       ccRecipients: body.ccRecipients,
     });
 
+    const senderCc = enforceMandatoryInitiatingSenderCc({
+      to: result.recipientResolution.to,
+      cc: result.recipientResolution.cc,
+      initiatingUser: { id: authorised.actor.userId, email: authorised.actor.email, isActive: authorised.actor.isActive },
+    });
+    if (!senderCc.ok) return errorResponse(422, senderCc.code, "Your sender email could not be verified.");
     if (result.recipientResolution.ok) {
-      const senderCc = enforceMandatoryInitiatingSenderCc({
-        to: result.recipientResolution.to,
-        cc: result.recipientResolution.cc,
-        initiatingUser: { id: authorised.actor.userId, email: authorised.actor.email, isActive: authorised.actor.isActive },
-      });
-      if (!senderCc.ok) return errorResponse(422, senderCc.code, senderCc.message);
       result.recipientResolution.to = senderCc.to;
       result.recipientResolution.cc = senderCc.cc;
     }
 
-    return successResponse(result);
+    return successResponse({ ...result, initiatingSender: {
+      id: authorised.actor.userId, name: authorised.actor.displayName, email: senderCc.senderEmail,
+    } });
   } catch (err) {
     const mapped = mapOpportunityRouteError(err);
     if (mapped.status === 401 || mapped.status === 404 || mapped.status === 503) {

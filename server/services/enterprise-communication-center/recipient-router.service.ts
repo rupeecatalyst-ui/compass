@@ -36,12 +36,14 @@ export type LoadRecipientRouterInput = {
 
 function mapContact(row: {
   id: string;
+  name?: string | null;
   officialEmail: string | null;
   personalEmail: string | null;
   isDeleted: boolean;
 }): RecipientContactSnapshot {
   return {
     id: row.id,
+    name: row.name,
     officialEmail: row.officialEmail,
     personalEmail: row.personalEmail,
     isDeleted: row.isDeleted,
@@ -73,6 +75,7 @@ export async function loadAndResolveTransactionOperationalRecipients(
         id: true,
         opportunityId: true,
         primaryContactId: true,
+        companyId: true,
         primaryContactEmail: true,
         relationshipManagerUserId: true,
         primaryOwnerUserId: true,
@@ -84,6 +87,7 @@ export async function loadAndResolveTransactionOperationalRecipients(
         id: dealRow.id,
         opportunityId: dealRow.opportunityId,
         primaryContactId: dealRow.primaryContactId,
+        companyId: dealRow.companyId,
         primaryContactEmail: dealRow.primaryContactEmail,
         relationshipManagerUserId: dealRow.relationshipManagerUserId,
         primaryOwnerUserId: dealRow.primaryOwnerUserId,
@@ -103,6 +107,8 @@ export async function loadAndResolveTransactionOperationalRecipients(
       select: {
         id: true,
         primaryContactId: true,
+        companyId: true,
+        primaryBorrowerKind: true,
         primaryContactEmail: true,
         relationshipManagerUserId: true,
         primaryOwnerUserId: true,
@@ -113,6 +119,8 @@ export async function loadAndResolveTransactionOperationalRecipients(
       opportunity = {
         id: oppRow.id,
         primaryContactId: oppRow.primaryContactId,
+        companyId: oppRow.companyId,
+        primaryBorrowerKind: oppRow.primaryBorrowerKind,
         primaryContactEmail: oppRow.primaryContactEmail,
         relationshipManagerUserId: oppRow.relationshipManagerUserId,
         primaryOwnerUserId: oppRow.primaryOwnerUserId,
@@ -121,6 +129,32 @@ export async function loadAndResolveTransactionOperationalRecipients(
     }
   }
 
+  // Company borrowers have no primary Contact FK. Reuse their governed active
+  // Company–Contact links; never infer identity from a company name or email.
+  // Only a single unambiguous eligible contact can be the default recipient.
+  // Multiple representatives require explicit contact selection in the composer.
+  const companyId = deal?.companyId || opportunity?.companyId;
+  let companyContact: RecipientContactSnapshot | null = null;
+  let requiresCompanyContactSelection = false;
+  if (companyId && !deal?.primaryContactId && !opportunity?.primaryContactId) {
+    if (opportunity) opportunity = { ...opportunity, primaryContactEmail: null };
+    if (deal) deal = { ...deal, primaryContactEmail: null };
+    const links = await prisma.ecmCompanyContactLink.findMany({
+      where: {
+        organizationId, companyId, status: "active",
+        company: { organizationId, enabled: true, isDeleted: false, status: { not: "archived" } },
+        contact: { organizationId, enabled: true, isDeleted: false, status: { not: "archived" } },
+      },
+      select: { contact: { select: { id: true, name: true, officialEmail: true, personalEmail: true, isDeleted: true } } },
+    });
+    const eligible = new Map(links.map(link => [link.contact.id, mapContact(link.contact)]));
+    requiresCompanyContactSelection = eligible.size > 1;
+    if (eligible.size === 1) {
+      companyContact = [...eligible.values()][0];
+      if (opportunity) opportunity = { ...opportunity, primaryContactId: companyContact.id };
+      if (deal) deal = { ...deal, primaryContactId: companyContact.id };
+    }
+  }
   const contactIds = new Set<string>();
   const userIds = new Set<string>();
   const wpIds = new Set<string>();
@@ -149,9 +183,10 @@ export async function loadAndResolveTransactionOperationalRecipients(
 
   if (contactIds.size > 0) {
     const contacts = await prisma.ecmContact.findMany({
-      where: { organizationId, id: { in: [...contactIds] } },
+      where: { organizationId, id: { in: [...contactIds] }, enabled: true, isDeleted: false, status: { not: "archived" } },
       select: {
         id: true,
+        name: true,
         officialEmail: true,
         personalEmail: true,
         isDeleted: true,
@@ -260,7 +295,7 @@ export async function loadAndResolveTransactionOperationalRecipients(
 
   if (input.includePrimaryTo !== undefined && typeof input.includePrimaryTo !== "boolean") throw Object.assign(new Error("Invalid primary recipient selection"), { statusCode: 400 });
   const additional = await resolveEmailRecipientSelections(organizationId, input.toRecipients, input.ccRecipients);
-  return resolveTransactionOperationalRecipients({
+  const result = resolveTransactionOperationalRecipients({
     ...resolveInput,
     primaryToRole,
     lenderContact,
@@ -269,6 +304,10 @@ export async function loadAndResolveTransactionOperationalRecipients(
     additionalToEmails: additional.to,
     additionalCcEmails: additional.cc,
   });
+  if (!result.ok && result.code === "missing_customer_email" && requiresCompanyContactSelection) {
+    return { ...result, code: "customer_contact_selection_required", message: "Company borrower requires an explicit communication Contact selection" };
+  }
+  return result;
 }
 
 /** Customer-primary TO — convenience wrapper for document_request and similar. */

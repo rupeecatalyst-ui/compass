@@ -24,10 +24,10 @@ export const DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME =
   "flex min-h-0 flex-1 flex-col overflow-hidden md:flex-col min-[1280px]:grid min-[1280px]:grid-cols-2";
 
 export const DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME =
-  "flex min-h-0 flex-1 flex-col overflow-hidden min-[1280px]:grid min-[1280px]:grid-cols-[minmax(10rem,22%)_minmax(0,1fr)_minmax(14rem,22%)]";
+  "relative flex min-h-0 flex-1 flex-col overflow-hidden min-[1280px]:grid min-[1280px]:grid-cols-2";
 
 export const DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME =
-  "flex min-h-0 flex-1 overflow-hidden min-[1280px]:grid min-[1280px]:grid-cols-[minmax(0,1fr)_minmax(14rem,24%)]";
+  "relative flex min-h-0 flex-1 overflow-hidden";
 
 export const DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL = "Close";
 export const DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE = "Document Workspace";

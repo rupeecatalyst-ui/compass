@@ -11,6 +11,7 @@ import * as policy from "../src/constants/document-registry/index.ts";
 import * as intake from "../src/constants/document-intake/index.ts";
 import * as ccPolicy from "../src/lib/enterprise-communication-center/initiating-sender-cc.ts";
 import * as recipientSelection from "../src/lib/enterprise-communication-center/recipient-selection.ts";
+import * as accessDecision from "../src/lib/document-workspace/access-decision.ts";
 import * as lockPolicy from "../src/lib/document-workspace/context-lock.ts";
 import { validateLockedDocumentSelection } from "../src/lib/document-workspace/selection.ts";
 import { mergeDocumentWorkspaceRows } from "../src/lib/document-workspace/merge-rows.ts";
@@ -33,9 +34,10 @@ function evaluate(source, mocks = {}, globals = {}, filename = "fixture.ts") {
 }
 const load = (relative, mocks, globals) => evaluate(read(relative), mocks, globals, relative);
 const org = "organization_current", opp = "opportunity_current", deal = "cdeal_current";
-const manager = { id: "user_manager", email: "manager@example.test", isActive: true, role: "MANAGER" };
+const manager = { id: "user_manager", firstName: "Rahul", lastName: "Kapoor", email: "manager@example.test", isActive: true, role: "MANAGER" };
 const employees = [manager, { id: "user_employee_one", email: "one@example.test", isActive: true, role: "ANALYST" }, { id: "user_employee_two", email: "two@example.test", isActive: true, role: "MANAGER" }, { id: "user_viewer", email: "viewer@example.test", isActive: true, role: "VIEWER" }, { id: "user_inactive", email: "inactive@example.test", isActive: false, role: "ANALYST" }];
 let missingCustomer = false;
+let companyBorrower = false, ambiguousCompany = false;
 const contactFixtures = [
   { id: "contact_current", organizationId: org, name: "Customer", officialEmail: "customer@example.test", personalEmail: null, enabled: true, isDeleted: false, status: "active" },
   { id: "contact_extra", organizationId: org, name: "Existing Contact", officialEmail: "extra@example.test", personalEmail: null, enabled: true, isDeleted: false, status: "active" },
@@ -50,8 +52,14 @@ function eligible(rows, where) {
     && (!where.OR || where.OR.some(clause => Object.entries(clause).some(([key, condition]) => String(row[key] || "").toLowerCase().includes(condition.contains.toLowerCase())))));
 }
 const prisma = {
-  enterpriseDeal: { findFirst: async ({ where }) => where.organizationId === org && where.id === deal ? { id: deal, opportunityId: opp, primaryContactId: "contact_current", relationshipManagerUserId: manager.id, lenderId: "lender_current" } : null },
-  enterpriseOpportunity: { findFirst: async ({ where }) => where.organizationId === org && where.id === opp ? { id: opp, primaryContactId: "contact_current", relationshipManagerUserId: manager.id } : null },
+  enterpriseDeal: { findFirst: async ({ where }) => where.organizationId === org && where.id === deal ? { id: deal, opportunityId: opp, companyId: companyBorrower ? "company_current" : null, primaryContactId: companyBorrower ? null : "contact_current", primaryContactEmail: null, relationshipManagerUserId: manager.id, lenderId: "lender_current" } : null },
+  enterpriseOpportunity: { findFirst: async ({ where }) => where.organizationId === org && where.id === opp ? { id: opp, companyId: companyBorrower ? "company_current" : null, primaryBorrowerKind: companyBorrower ? "company" : "individual", primaryContactId: companyBorrower ? null : "contact_current", primaryContactEmail: null, relationshipManagerUserId: manager.id } : null },
+  ecmCompanyContactLink: { findMany: async ({ where }) => {
+    assert.equal(where.organizationId, org); assert.equal(where.companyId, "company_current");
+    assert.equal(where.company.organizationId, org); assert.equal(where.contact.organizationId, org);
+    assert.equal(where.status, "active"); assert.equal(where.contact.isDeleted, false);
+    return (missingCustomer ? [] : contactFixtures.slice(0, ambiguousCompany ? 2 : 1)).map(contact => ({ contact }));
+  } },
   ecmContact: { findMany: async ({ where }) => missingCustomer ? [] : eligible(contactFixtures, where) },
   user: { findMany: async ({ where }) => eligible(employees, where), findFirst: async ({ where }) => employees.find(u => u.id === where.id) },
   enterpriseLenderContact: { findFirst: async () => ({ lenderId: "lender_current", email: "lender@example.test" }), findMany: async ({ where }) => eligible(lenderFixtures, where) },
@@ -74,6 +82,14 @@ assert.equal(router.internalUserIdForParticipant({ id: "employee:user_employee_t
 assert.equal(router.internalUserIdForParticipant({ id: "rm:Employee Name", email: "untrusted@example.test" }), null);
 const customer = await recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, to: ["tampered@example.test"] });
 assert.equal(customer.ok, true); assert.equal(customer.to[0], "customer@example.test");
+for (const contactsById of [{}, { contact_current: { id: "contact_current", officialEmail: null, personalEmail: null } }]) {
+  const missingCanonicalContact = router.resolveTransactionOperationalRecipients({
+    eventType: "customer_communication", primaryToRole: "customer",
+    opportunity: { id: opp, primaryContactId: "contact_current", primaryContactEmail: "stale-denorm@example.test", relationshipManagerUserId: manager.id, primaryOwnerUserId: null, sourceWealthPartnerId: null },
+    usersById: { [manager.id]: manager }, contactsById,
+  });
+  assert.equal(missingCanonicalContact.ok, false, "Missing/empty canonical Contact must not resurrect a stale denormalized email");
+}
 for (const id of ["user_employee_one", "user_employee_two"]) {
   const result = await recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, primaryToRole: "internal_employee", internalUserId: id, to: ["tampered@example.test"] });
   assert.equal(result.ok, true); assert.equal(result.to[0], employees.find(u => u.id === id).email);
@@ -85,6 +101,25 @@ const lender = await recipients.loadAndResolveTransactionOperationalRecipients({
 assert.equal(lender.ok, true); assert.equal(lender.to[0], "lender@example.test");
 missingCustomer = true; assert.equal((await recipients.loadAndResolveTransactionOperationalRecipients(recipientInput)).ok, false); missingCustomer = false;
 console.log("PASS 1–6,9: Customer/User/lender SSOT, two employees, identity selection, unauthorized/missing/cross-org rejection, tampered email ignored.");
+companyBorrower = true;
+for (const dealId of [null, deal]) {
+  const companyResult = await recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, dealId });
+  assert.equal(companyResult.ok, true); assert.equal(companyResult.to[0], "customer@example.test");
+  assert.equal(companyResult.partyRefs.find(ref => ref.role === "customer").entityId, "contact_current");
+}
+ambiguousCompany = true;
+assert.equal((await recipients.loadAndResolveTransactionOperationalRecipients(recipientInput)).code, "customer_contact_selection_required", "Never silently pick between company representatives or claim their emails are missing");
+ambiguousCompany = false; companyBorrower = false;
+const actorService = load("server/services/document-workspace/document-workspace-access.service.ts", {
+  "server-only": {}, "@server/lib/prisma": { prisma, isDatabaseAvailable: () => true },
+  "@server/repositories/ecm/organization.repository": { resolvePilotOrganizationId: async () => org },
+  "@server/services/user-admin.service": {}, "@/lib/document-workspace/context-lock": lockPolicy,
+  "@/lib/document-workspace/access-decision": accessDecision, "@server/services/document-workspace/document-workspace-audit.service": {},
+  "@/constants/document-workspace-audit": {},
+});
+const canonicalActor = await actorService.resolveAuthenticatedDocumentWorkspaceActor({ userId: manager.id });
+assert.equal(canonicalActor.userId, manager.id); assert.equal(canonicalActor.email, manager.email); assert.equal(canonicalActor.displayName, "Rahul Kapoor");
+console.log("PASS live shapes A–C: individual and company Opportunity/Deal FK shapes, authorized Company–Contact links, ambiguous contacts fail closed; actual actor resolver maps token User ID to canonical User email/name.");
 
 const multipleSelections = {
   toRecipients: [{ kind: "lender_contact", id: "lender_contact", email: "tampered@example.test" }, { kind: "user", id: "user_employee_one" }, { kind: "contact", id: "contact_extra" }, { kind: "contact", id: "contact_extra" }],
@@ -114,7 +149,7 @@ const access = {
   resolveDocumentWorkspaceAccess: async input => {
     assert.equal(input.userId, manager.id);
     if (input.claimedOrganizationId && input.claimedOrganizationId !== org) throw new Error("Cross organization");
-    return { organizationId: org, opportunityId: input.opportunityId, dealId: input.dealId || null, actor: { ...manager, userId: manager.id }, lock: { customerName: "Customer", opportunityNumber: "OPP-TEST" } };
+    return { organizationId: org, opportunityId: input.opportunityId, dealId: input.dealId || null, actor: canonicalActor, lock: { customerName: "Customer", opportunityNumber: "OPP-TEST" } };
   },
   assertDocumentsInAuthorisedContext: async ({ context, documentIds }) => {
     assert.ok(documentIds.every(id => id === document.id));
@@ -163,6 +198,7 @@ const dispatch = load("server/services/enterprise-communication-center/operation
   "@server/services/enterprise-communication-center/smtp-transport.service": { sendOperationalSmtpMessage: async input => { smtpCalls.push(input); return { ok: true, message: "offline simulation", smtpResponse: "250 fixture" }; } },
   "@server/services/enterprise-notification/enterprise-notification.service": { enterpriseNotificationService: { fanOutBestEffort: async () => {} } },
   "./transaction-email-attachments.service": attachments,
+  "@server/services/document-workspace/document-workspace-access.service": actorService,
 });
 const dispatchInput = { ...recipientInput, dealId: deal, actorUserId: manager.id, actorName: "Manager", subject: "Custom subject", textBody: "Custom body", documentIds: [document.id] };
 assert.equal((await dispatch.dispatchOperationalTransactionEmail(dispatchInput)).deliveryStatus, "sent");
@@ -221,6 +257,13 @@ denyActor = false;
 const requestFor = data => ({ json: async () => data });
 assert.equal((await previewRoute.POST(requestFor({ opportunityId: opp, primaryToRole: "customer", to: ["tampered@example.test"] }))).data.recipientResolution.to[0], "customer@example.test");
 assert.equal(routeDispatches.length, 0, "Preview does not dispatch or create communication records");
+missingCustomer = true;
+const unavailablePreview = await previewRoute.POST(requestFor({ opportunityId: opp }));
+assert.equal(unavailablePreview.status, 200);
+assert.equal(unavailablePreview.data.recipientResolution.ok, false);
+assert.equal(unavailablePreview.data.initiatingSender.email, manager.email);
+assert.equal(unavailablePreview.data.initiatingSender.id, manager.id);
+missingCustomer = false;
 const sentRoute = await sendRoute.POST(requestFor({ opportunityId: opp, dealId: deal, subject: "Subject", textBody: "Body", documentIds: [document.id], to: ["tampered@example.test"] }));
 assert.equal(sentRoute.status, 200); assert.equal(routeDispatches.length, 1); assert.ok(!Object.hasOwn(routeDispatches[0], "to"));
 denyActor = true; assert.equal((await sendRoute.POST(requestFor({ opportunityId: opp, subject: "Subject", textBody: "Body" }))).status, 403); assert.equal(routeDispatches.length, 1); denyActor = false;
@@ -328,11 +371,12 @@ const jsx = (type, props) => ({ type, props });
 const mailboxModule = load("src/components/catalyst-one/document-workspace/document-workspace-mailbox.tsx", {
   react, "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" }, sonner: { toast: { error() {} } },
   "@/components/ui/button": { Button: "Button" }, "@/components/ui/input": { Input: "Input" }, "@/components/ui/label": { Label: "Label" }, "@/components/ui/textarea": { Textarea: "Textarea" },
+  "@/components/ui/dialog": { Dialog: "Dialog", DialogContent: "DialogContent", DialogTitle: "DialogTitle", DialogDescription: "DialogDescription" },
   "@/lib/enterprise-communication-center/operational-transaction-email-api": {
     previewTransactionOperationalEmail: async input => {
       const result = await recipients.loadAndResolveTransactionOperationalRecipients({ ...recipientInput, ...input });
       if (result.ok) Object.assign(result, ccPolicy.enforceMandatoryInitiatingSenderCc({ to: result.to, cc: result.cc, initiatingUser: manager }));
-      return { operationalDeliveryEnabled: true, recipientResolution: result, sender: { senderEmail: "sender@example.test" } };
+      return { operationalDeliveryEnabled: true, recipientResolution: result, sender: { senderEmail: "sender@example.test" }, initiatingSender: { id: manager.id, name: "Manager", email: manager.email } };
     },
     searchTransactionEmailRecipients: async input => directory.searchEmailRecipientDirectory(org, input.search),
   },
@@ -346,13 +390,14 @@ function renderMailbox() { hookIndex = 0; const tree = mailboxModule.DocumentWor
 function nodes(tree) { const result = []; function walk(node) { if (Array.isArray(node)) return node.forEach(walk); if (!node || typeof node !== "object") return; result.push(node); walk(node.props?.children); } walk(tree); return result; }
 let tree = renderMailbox(); await new Promise(resolve => setTimeout(resolve, 0)); tree = renderMailbox();
 assert.equal(uiSends.length, 0); assert.equal(uiUploads, 0, "Opening has no upload or send");
-assert.ok(nodes(tree).some(node => node.type === "Input" && node.props.value === "customer@example.test" && node.props.readOnly));
+assert.ok(JSON.stringify(tree).includes("customer@example.test"), "Canonical customer chip is rendered");
 let sendButton = nodes(tree).find(node => node.type === "Button" && node.props.children === "Send Email");
 assert.equal(sendButton.props.disabled, true, "Custom body required");
 nodes(tree).find(node => node.type === "Textarea").props.onChange({ target: { value: "Custom body" } });
 tree = renderMailbox(); sendButton = nodes(tree).find(node => node.type === "Button" && node.props.children === "Send Email"); assert.equal(sendButton.props.disabled, false);
 async function pickRecipient(query, target) {
-  nodes(tree).find(node => node.props?.["aria-label"] === "Add recipient to").props.onChange({ target: { value: target } });
+  nodes(tree).find(node => node.type === "Button" && node.props.children === (target === "to" ? "+ Add recipient" : "+ Add CC")).props.onClick();
+  tree = renderMailbox();
   nodes(tree).find(node => node.props?.["aria-label"] === "Search email recipients").props.onChange({ target: { value: query } });
   renderMailbox(); await new Promise(resolve => setTimeout(resolve, 225)); tree = renderMailbox();
   const list = nodes(tree).find(node => node.props?.["aria-label"] === "Authorized email recipients");
@@ -367,7 +412,7 @@ await pickRecipient("two@example.test", "cc");
 assert.equal(nodes(tree).filter(node => String(node.props?.["aria-label"] || "").startsWith("Remove TO ")).length, 2);
 assert.equal(nodes(tree).filter(node => String(node.props?.["aria-label"] || "").startsWith("Remove CC ")).length, 2);
 const lockedCc = nodes(tree).find(node => Object.hasOwn(node.props || {}, "data-mandatory-sender-cc"));
-assert.equal(lockedCc.props.readOnly, true); assert.ok(lockedCc.props.value.includes(manager.email));
+assert.equal(nodes(lockedCc).filter(node => node.type === "Button").length, 0); assert.ok(JSON.stringify(lockedCc).includes(manager.email));
 await pickRecipient("Existing", "to");
 assert.equal(nodes(tree).filter(node => String(node.props?.["aria-label"] || "").startsWith("Remove TO ")).length, 2, "Repeated selection produces no additional chip");
 await nodes(tree).find(node => node.type === "input" && node.props.type === "file").props.onChange({ target: { files: [uploadFile], value: "" } });
@@ -382,7 +427,7 @@ assert.ok(uiSends[0].toRecipients.every(ref => !Object.hasOwn(ref, "email")), "O
 mailboxProps.contextFingerprint = "canonical_b"; mailboxProps.attachments = []; renderMailbox(); tree = renderMailbox();
 assert.equal(nodes(tree).filter(node => node.type === "Button" && node.props.children === "Remove from email").length, 0, "Context reset discards all A attachments");
 assert.equal(nodes(tree).filter(node => /^Remove (TO|CC) /.test(node.props?.["aria-label"] || "")).length, 0, "A recipient selections do not survive B");
-assert.equal(nodes(tree).find(node => node.props?.["aria-label"] === "Search email recipients").props.value, "");
+assert.ok(!nodes(tree).find(node => node.props?.["aria-label"] === "Search email recipients"), "Transaction change closes recipient picker");
 console.log("PASS A–K: actual composer adds multiple TO/CC chips, locks sender CC, deduplicates repeated picks, submits identities only, resets recipient/attachment/search state on A → B; server dispatch and directory enforce authority.");
 console.log("PASS: actual mailbox rendering enables valid Custom Email, resolves readonly recipient, picker attaches without sending, remove persists, transaction change clears A attachments.");
 

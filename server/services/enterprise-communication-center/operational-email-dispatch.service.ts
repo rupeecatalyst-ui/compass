@@ -20,11 +20,11 @@ import type { EnterpriseCommunicationProfileRecord } from "@/types/enterprise-co
 import { enterpriseActivityService } from "@server/services/enterprise-activity/enterprise-activity.service";
 import { enterpriseCommunicationCenterService } from "@server/services/enterprise-communication-center/ecc.service";
 import { loadAndResolveTransactionOperationalRecipients } from "@server/services/enterprise-communication-center/recipient-router.service";
-import { prisma } from "@server/lib/prisma";
 import { enforceMandatoryInitiatingSenderCc } from "@/lib/enterprise-communication-center/initiating-sender-cc";
 import { sendOperationalSmtpMessage } from "@server/services/enterprise-communication-center/smtp-transport.service";
 import { enterpriseNotificationService } from "@server/services/enterprise-notification/enterprise-notification.service";
 import { loadTransactionEmailAttachments } from "./transaction-email-attachments.service";
+import { resolveAuthenticatedDocumentWorkspaceActor } from "@server/services/document-workspace/document-workspace-access.service";
 
 export type OperationalEmailDeliveryStatus =
   | "sent"
@@ -261,17 +261,15 @@ export async function dispatchOperationalTransactionEmail(
     });
   }
 
-  const initiatingUser = await prisma.user.findFirst({
-    where: { id: input.actorUserId },
-    select: { id: true, email: true, isActive: true },
-  });
+  // Use the same canonical authenticated User resolver as preview/access.
+  const initiatingUser = await resolveAuthenticatedDocumentWorkspaceActor({ userId: input.actorUserId });
   const senderCc = enforceMandatoryInitiatingSenderCc({
     to: recipients.to,
     cc: recipients.cc,
     initiatingUser: {
-      id: input.actorUserId,
-      email: initiatingUser?.email,
-      isActive: initiatingUser?.isActive,
+      id: initiatingUser.userId,
+      email: initiatingUser.email,
+      isActive: initiatingUser.isActive,
     },
   });
   if (!senderCc.ok) {

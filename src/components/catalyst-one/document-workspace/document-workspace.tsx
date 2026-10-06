@@ -1772,13 +1772,19 @@ export function DocumentWorkspace() {
             });
             if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) return;
             if (!result.ok || result.deliveryStatus !== "sent") {
-              toast.error(result.message || "Email was not sent.");
+              toast.error(
+                result.failureCode === "MISSING_OR_INVALID_SENDER_EMAIL"
+                  ? "Your sender email could not be verified."
+                  : result.deliveryStatus === "disabled"
+                    ? "Email sending is currently unavailable."
+                    : "Email was not sent. Please check the recipients and try again.",
+              );
               return;
             }
             toast.success("Email sent");
             setMailbox(null);
-          } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Email was not sent.");
+          } catch {
+            toast.error("Email could not be sent. Please try again.");
           }
         }}
       />

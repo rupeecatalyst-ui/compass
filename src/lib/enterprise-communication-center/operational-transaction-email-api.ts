@@ -17,6 +17,7 @@ export type OperationalEmailDeliveryStatus =
   | "recipient_unresolved";
 
 export type TransactionOperationalEmailPreview = {
+  initiatingSender?: { id: string; name: string; email: string };
   operationalDeliveryEnabled: boolean;
   enceExternalDeliveryEnabled: false;
   eventType: CustomerFacingRecipientEvent;
