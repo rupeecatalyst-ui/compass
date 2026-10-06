@@ -154,6 +154,8 @@ export function lockMatchesCurrentDocumentWorkspaceRequest(
   if (!reqOpp && !reqDeal) return false;
   if (reqOpp && (lock.opportunityId || "") !== reqOpp) return false;
   if (reqDeal && (lock.dealId || "") !== reqDeal) return false;
+  // Opportunity-only navigation must not retain a previously locked Deal.
+  if (!reqDeal && lock.dealId) return false;
   if (reqContact && (lock.contactId || "") !== reqContact) return false;
   if (reqCompany && (lock.companyId || "") !== reqCompany) return false;
   if (reqOrg && (lock.organizationId || "") !== reqOrg) return false;

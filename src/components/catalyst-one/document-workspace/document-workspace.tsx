@@ -195,6 +195,16 @@ export function DocumentWorkspace() {
   const [linkedParties, setLinkedParties] = useState<DocumentWorkspaceLinkedParty[]>([]);
   const [activePartyKey, setActivePartyKey] = useState("primary");
   const [mailbox, setMailbox] = useState<"request" | "send" | null>(null);
+  const [mailboxFingerprint, setMailboxFingerprint] = useState<string | null>(null);
+  const mailboxScope = `${mailboxFingerprint || ""}|${mailbox || ""}|${activePartyKey}|${ownerTab}`;
+  const currentMailboxScope = useRef(mailboxScope);
+  currentMailboxScope.current = mailboxScope;
+  const previousCommunicationOwner = useRef(`${activePartyKey}|${ownerTab}`);
+  const currentCommunicationFingerprint = useRef<string | null>(null);
+  currentCommunicationFingerprint.current =
+    lockMatchesCurrentDocumentWorkspaceRequest(lock, request) && !lockError
+      ? lock?.fingerprint || null
+      : null;
   const [inboundNewIds, setInboundNewIds] = useState<string[]>([]);
   const [inboundReviewItems, setInboundReviewItems] = useState<DocumentWorkspaceInboundReviewItem[]>([]);
   const [inboundNewByOwner, setInboundNewByOwner] = useState<Record<string, number>>({});
@@ -365,6 +375,11 @@ export function DocumentWorkspace() {
       setSecureLink(transition.secureLink);
       setLenderRecipientId(transition.lenderRecipientId);
       setMailbox(transition.mailbox);
+      setMailboxFingerprint(null);
+      setWhatsappShareOpen(false);
+      setRowDialog(null);
+      setDueDate("");
+      setCoverSubject("Document pack for review");
     }
     const restored = contextKey ? readDocumentWorkspaceRestore(contextKey) : null;
     setOwnerTab(parseOwnerTabParam(request.ownerTab || restored?.ownerTab));
@@ -400,8 +415,8 @@ export function DocumentWorkspace() {
     if (
       composerMustRefuseStaleContext({
         openedFingerprint: composerFingerprint,
-        currentFingerprint: lock?.fingerprint || contextKey,
-        authorised: Boolean(lock) && !lockError,
+        currentFingerprint: currentCommunicationFingerprint.current,
+        authorised: Boolean(currentCommunicationFingerprint.current),
       })
     ) {
       setComposer(null);
@@ -409,6 +424,17 @@ export function DocumentWorkspace() {
       toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
     }
   }, [composer, composerFingerprint, contextKey, lock, lockError]);
+
+  useEffect(() => {
+    const owner = `${activePartyKey}|${ownerTab}`;
+    if (previousCommunicationOwner.current === owner) return;
+    previousCommunicationOwner.current = owner;
+    setSelectedIds([]);
+    setMailbox(null);
+    setMailboxFingerprint(null);
+    setWhatsappShareOpen(false);
+    setRowDialog(null);
+  }, [activePartyKey, ownerTab]);
 
   const participants = useMemo(
     () => (file ? resolveLoanParticipants(file) : []),
@@ -690,11 +716,12 @@ export function DocumentWorkspace() {
   };
 
   const onAction = (id: DocumentWorkspaceActionId) => {
+    const actionFingerprint = lock?.fingerprint;
     if (
       composerMustRefuseStaleContext({
         openedFingerprint: lock?.fingerprint,
-        currentFingerprint: contextKey,
-        authorised: Boolean(lock) && !lockError,
+        currentFingerprint: currentCommunicationFingerprint.current,
+        authorised: Boolean(currentCommunicationFingerprint.current),
       })
     ) {
       toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
@@ -744,7 +771,7 @@ export function DocumentWorkspace() {
         .then(async (res) => {
           const json = await res.json().catch(() => ({}));
           const data = json?.data ?? json;
-          if (data?.uploadPath) {
+          if (data?.uploadPath && currentCommunicationFingerprint.current === actionFingerprint) {
             setSecureLink(`${window.location.origin}${data.uploadPath}`);
           }
         })
@@ -763,6 +790,7 @@ export function DocumentWorkspace() {
         uploadToken: session.uploadSession?.token,
       });
       toast.message("Request drafted. Nothing has been sent.");
+      setMailboxFingerprint(lock!.fingerprint);
       setMailbox("request");
       return;
     }
@@ -782,6 +810,7 @@ export function DocumentWorkspace() {
         toast.error("Selection must stay inside this locked transaction.");
         return;
       }
+      setMailboxFingerprint(lock!.fingerprint);
       setMailbox("send");
       return;
     }
@@ -1652,7 +1681,12 @@ export function DocumentWorkspace() {
       ) : null}
 
       <DocumentWorkspaceMailbox
-        open={Boolean(mailbox)}
+        key={`${activePartyKey}|${ownerTab}`}
+        open={Boolean(mailbox) && !composerMustRefuseStaleContext({
+          openedFingerprint: mailboxFingerprint,
+          currentFingerprint: currentCommunicationFingerprint.current,
+          authorised: Boolean(currentCommunicationFingerprint.current),
+        })}
         contextFingerprint={lock?.fingerprint || contextKey}
         mode={mailbox === "request" ? "request" : "send"}
         fromEmail={user?.email || ""}
@@ -1667,6 +1701,10 @@ export function DocumentWorkspace() {
         secureLink={mailbox === "request" ? secureLink : undefined}
         onClose={() => setMailbox(null)}
         onSaveDraft={({ subject, htmlBody }) => {
+          if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
+            toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+            return;
+          }
           const queued = queueOutboxMessage({
             channel: "email",
             entityType: "opportunity",
@@ -1681,6 +1719,10 @@ export function DocumentWorkspace() {
           toast.message("Draft saved to Outbox. Nothing has been sent.");
         }}
         onQueue={({ to, cc, subject, htmlBody, zip }) => {
+          if (currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
+            toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+            return;
+          }
           const requestRefs = selectedRequestRefs(
             selectedRows.filter((row) => row.lodItem && mapReviewStatusToRequestable(row.reviewStatus)).map((row) => row.lodItem!),
           );
@@ -1714,6 +1756,10 @@ export function DocumentWorkspace() {
           void prepare.then(async (res) => {
             const json = await res.json().catch(() => ({}));
             const data = json?.data ?? json;
+            if (!res.ok || data?.ok === false || currentMailboxScope.current !== mailboxScope || composerMustRefuseStaleContext({ openedFingerprint: mailboxFingerprint, currentFingerprint: currentCommunicationFingerprint.current })) {
+              toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+              return;
+            }
             if (!data?.ok && data?.code === "MISSING_OR_INVALID_SENDER_EMAIL") {
               toast.error(data?.message || DOCUMENT_WORKSPACE_SENDER_CC_MISSING);
               return;
