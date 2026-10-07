@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,13 +10,22 @@ import {
 } from "@/constants/document-workspace-refinement-014";
 import {
   DOCUMENT_WORKSPACE_RECEIVED_FROM_EMAIL_LABEL,
-  DOCUMENT_WORKSPACE_REVIEW_REASON_REQUIRED,
 } from "@/constants/document-workspace-inbound";
 import { listEdieDocumentTypeOptions } from "@/lib/document-requests";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 
+function reviewError(code?: string): string {
+  if (code === "CLASSIFICATION_REQUIRED" || code === "SILENT_OTHER") return "Choose a valid document type. Other must be explicitly selected.";
+  if (code === "REASON_REQUIRED") return "Enter a reason of at least 3 characters for this action.";
+  if (code === "STALE_REVIEW") return "This item has changed. Refresh the workspace before reviewing it.";
+  if (code === "FORBIDDEN" || code === "UNAUTHENTICATED") return "You do not have permission to review this item. Sign in with an authorized account.";
+  return "This action could not be saved. Refresh the workspace and try again.";
+}
+
 export type DocumentWorkspaceInboundReviewItem = {
   documentId: string;
+  inboundEmailId: string | null;
+  inboundAttachmentId: string | null;
   versionKey?: string;
   filename: string;
   mimeType: string;
@@ -48,8 +58,12 @@ export function DocumentWorkspaceInboundReview({
 }) {
   const types = listEdieDocumentTypeOptions();
   const [filterNew, setFilterNew] = useState(false);
-  const [reason, setReason] = useState("");
-  const [typeRef, setTypeRef] = useState("");
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [typeRefs, setTypeRefs] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const pending = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [busyId, setBusyId] = useState<string | null>(null);
   const visible = filterNew ? items.filter((item) => inboundNewIds.includes(item.documentId)) : items;
 
@@ -57,43 +71,73 @@ export function DocumentWorkspaceInboundReview({
     item: DocumentWorkspaceInboundReviewItem,
     decision: "confirm" | "change" | "duplicate" | "ignore",
   ) => {
-    if ((decision === "duplicate" || decision === "ignore" || decision === "change") && reason.trim().length < 3) {
+    const reason = reasons[item.documentId] || "";
+    const typeRef = typeRefs[item.documentId] ?? item.suggestedTypeRef ?? "";
+    if (pending.current || !mounted.current) return;
+    if (item.opportunityId !== opportunityId || (dealId && item.dealId !== dealId)) {
+      toast.error("Refresh this workspace before reviewing the item.");
       return;
     }
+    if ((decision === "duplicate" || decision === "ignore" || decision === "change") && reason.trim().length < 3) {
+      setEditingId(item.documentId);
+      toast.error("Enter a reason of at least 3 characters for this action.");
+      return;
+    }
+    if ((decision === "confirm" || decision === "change") && !types.some((row) => row.typeRef === typeRef)) {
+      setEditingId(item.documentId);
+      toast.error("Choose a valid document type before confirming this item.");
+      return;
+    }
+    pending.current = true;
     setBusyId(item.documentId);
-    const selectedType = typeRef || item.suggestedTypeRef || "";
-    await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+    const selectedType = typeRef;
+    try {
+    const response = await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
       method: "POST",
       body: JSON.stringify({
         action: "inbound_review",
         opportunityId,
         dealId: dealId || null,
         documentId: item.documentId,
+        versionKey: item.versionKey,
+        inboundEmailId: item.inboundEmailId,
+        inboundAttachmentId: item.inboundAttachmentId,
         decision,
         typeRef: selectedType,
         categoryLabel: types.find((row) => row.typeRef === selectedType)?.label,
-        employeeConfirmedOther: selectedType.toLowerCase().includes("other"),
+        employeeConfirmedOther: typeRefs[item.documentId] !== undefined && selectedType.toLowerCase().endsWith(":other"),
         reason,
       }),
     });
-    setBusyId(null);
-    setReason("");
-    onChanged();
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(reviewError(json?.error?.code));
+    if (mounted.current) { onChanged(); toast.success("Email document review saved."); }
+    } catch (error) {
+      if (mounted.current) toast.error(error instanceof Error ? error.message : "Review could not be saved. Try again.");
+    } finally { pending.current = false; if (mounted.current) setBusyId(null); }
   };
 
   const markSeen = async (item: DocumentWorkspaceInboundReviewItem) => {
-    if (!item.versionKey) return;
+    if (!item.versionKey || pending.current || !mounted.current) return;
+    pending.current = true;
     setBusyId(item.documentId);
-    await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+    try {
+    const response = await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
       method: "POST",
       body: JSON.stringify({
         action: "mark_seen",
         documentId: item.documentId,
         versionKey: item.versionKey,
+        opportunityId,
+        dealId: dealId || null,
       }),
     });
-    setBusyId(null);
-    onChanged();
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(reviewError(json?.error?.code));
+    if (mounted.current) { onChanged(); toast.success("Marked as seen."); }
+    } catch (error) {
+      if (mounted.current) toast.error(error instanceof Error ? error.message : "Could not mark as seen. Try again.");
+    } finally { pending.current = false; if (mounted.current) setBusyId(null); }
   };
 
   if (!items.length) return null;
@@ -133,12 +177,14 @@ export function DocumentWorkspaceInboundReview({
               <p className="text-destructive">Preview and download are unavailable for this attachment.</p>
             ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <select
-                className="h-7 rounded border bg-background px-1"
-                defaultValue={item.suggestedTypeRef || ""}
-                onChange={(e) => setTypeRef(e.target.value)}
+              {editingId === item.documentId ? <div className="flex w-full min-w-0 flex-wrap items-center gap-2"><select
+                aria-label={`Document type for ${item.filename}`}
+                disabled={busyId !== null}
+                className="h-7 max-w-full rounded border bg-background px-1"
+                value={typeRefs[item.documentId] ?? item.suggestedTypeRef ?? ""}
+                onChange={(e) => setTypeRefs((current) => ({ ...current, [item.documentId]: e.target.value }))}
               >
-                <option value="">Keep unknown</option>
+                <option value="">Select document type</option>
                 {types.map((row) => (
                   <option key={row.typeRef} value={row.typeRef}>
                     {row.label}
@@ -146,21 +192,25 @@ export function DocumentWorkspaceInboundReview({
                 ))}
               </select>
               <Input
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={DOCUMENT_WORKSPACE_REVIEW_REASON_REQUIRED}
+                aria-label={`Review reason for ${item.filename}`}
+                disabled={busyId !== null}
+                value={reasons[item.documentId] || ""}
+                onChange={(e) => setReasons((current) => ({ ...current, [item.documentId]: e.target.value }))}
+                placeholder="Reason for change, duplicate or ignore"
                 className="h-7 max-w-xs text-[11px]"
               />
-              <Button type="button" size="sm" className="h-7" disabled={busyId === item.documentId} onClick={() => void run(item, "confirm")}>
-                Confirm
+              <span className="w-full text-muted-foreground">Reason required for Change type, Duplicate and Ignore; optional for Confirm.</span>
+              </div> : null}
+              <Button type="button" size="sm" className="h-7" disabled={busyId !== null} onClick={() => void run(item, "confirm")}>
+                {busyId === item.documentId ? "Saving…" : "Confirm"}
               </Button>
-              <Button type="button" size="sm" variant="outline" className="h-7" disabled={busyId === item.documentId} onClick={() => void run(item, "change")}>
-                Change type
+              <Button type="button" size="sm" variant="outline" className="h-7" disabled={busyId !== null} onClick={() => editingId === item.documentId ? void run(item, "change") : setEditingId(item.documentId)}>
+                {editingId === item.documentId ? "Save type" : "Change type"}
               </Button>
-              <Button type="button" size="sm" variant="outline" className="h-7" disabled={busyId === item.documentId} onClick={() => void run(item, "duplicate")}>
+              <Button type="button" size="sm" variant="outline" className="h-7" disabled={busyId !== null} onClick={() => void run(item, "duplicate")}>
                 Duplicate
               </Button>
-              <Button type="button" size="sm" variant="ghost" className="h-7" disabled={busyId === item.documentId} onClick={() => void run(item, "ignore")}>
+              <Button type="button" size="sm" variant="ghost" className="h-7" disabled={busyId !== null} onClick={() => void run(item, "ignore")}>
                 Ignore
               </Button>
               <Button
@@ -168,7 +218,7 @@ export function DocumentWorkspaceInboundReview({
                 size="sm"
                 variant="ghost"
                 className="h-7"
-                disabled={busyId === item.documentId || !item.versionKey}
+                disabled={busyId !== null || !item.versionKey || !inboundNewIds.includes(item.documentId)}
                 onClick={() => void markSeen(item)}
               >
                 {DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL}

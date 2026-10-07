@@ -217,7 +217,11 @@ export async function listInboundEmailReviewQueue(input: {
       previewAvailable: !rejected && Boolean(row.storageKey || row.contentBytes),
     };
   });
-  return { items };
+  return { items: items.filter((item) => {
+    const row = rows.find((row) => row.id === item.documentId)!;
+    const snapshot = parseInboundClassificationJson(row.inboundClassificationJson);
+    return !snapshot?.decidedByUserId && !inboundOutcomeCountsTowardReadiness(snapshot?.outcome);
+  }) };
 }
 
 export async function reviewInboundAttachment(input: {
@@ -232,7 +236,16 @@ export async function reviewInboundAttachment(input: {
   targetOpportunityId?: string | null;
   employeeConfirmedOther?: boolean;
   reason?: string | null;
+  versionKey?: string | null;
+  inboundEmailId?: string | null;
+  inboundAttachmentId?: string | null;
 }) {
+  if (!["confirm", "change", "duplicate", "ignore", "attach"].includes(input.decision)) {
+    portalFailure(400, "VALIDATION", "Choose a review action.");
+  }
+  if (!input.versionKey || !input.inboundEmailId || !input.inboundAttachmentId) {
+    portalFailure(409, "STALE_REVIEW", "Refresh this email item before reviewing it.");
+  }
   const authorised = await requireAuthorisedWorkspace({
     userId: input.actorUserId,
     capability: "review",
@@ -262,6 +275,44 @@ export async function reviewInboundAttachment(input: {
   if (!document) portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
 
   const prior = parseInboundClassificationJson(document.inboundClassificationJson);
+  if (document.inboundClassificationJson && !prior) {
+    portalFailure(409, "STALE_REVIEW", "This item's review details are unavailable. Refresh before reviewing it.");
+  }
+  if (document.uploadSource !== "email" || document.status !== "active" || document.deletedAt ||
+      document.opportunityId !== authorised.opportunityId ||
+      (authorised.dealId && document.dealId !== authorised.dealId)) {
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  }
+  if (!document.inboundEmailId || !document.inboundAttachmentId ||
+      (input.inboundEmailId && input.inboundEmailId !== document.inboundEmailId) ||
+      (input.inboundAttachmentId && input.inboundAttachmentId !== document.inboundAttachmentId)) {
+    portalFailure(409, "STALE_REVIEW", "This email item has changed. Refresh before reviewing it.");
+  }
+  const evidence = await prisma.enterpriseInboundEmailAttachment.findFirst({ where: {
+    id: document.inboundAttachmentId, organizationId: authorised.organizationId,
+    inboundEmailId: document.inboundEmailId, documentId: document.id,
+  } });
+  if (!evidence) portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  const email = await prisma.enterpriseInboundEmailMessage.findFirst({ where: {
+    id: document.inboundEmailId, organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    ...(authorised.dealId ? { dealId: authorised.dealId } : {}),
+  }, select: { id: true } });
+  if (!email) portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  if (prior?.decidedByUserId || inboundOutcomeCountsTowardReadiness(prior?.outcome) ||
+      (input.versionKey && input.versionKey !== inboundEmailVersionKey({
+        versionNumber: document.contentVersion, uploadedAt: document.updatedAt.toISOString(),
+      }))) {
+    portalFailure(409, "STALE_REVIEW", "This item has already changed. Refresh before reviewing it.");
+  }
+  const persistReview = async (data: Prisma.EnterpriseTransactionDocumentUpdateManyMutationInput) => {
+    const result = await prisma.enterpriseTransactionDocument.updateMany({
+      where: { id: document.id, organizationId: authorised.organizationId,
+        opportunityId: document.opportunityId, updatedAt: document.updatedAt, status: "active", deletedAt: null },
+      data: { ...data, updatedAt: new Date(Math.max(Date.now(), document.updatedAt.getTime() + 1)) },
+    });
+    if (result.count !== 1) portalFailure(409, "STALE_REVIEW", "This item has changed. Refresh before reviewing it.");
+  };
   const now = new Date().toISOString();
 
   if (input.decision === "duplicate" || input.decision === "ignore") {
@@ -283,10 +334,7 @@ export async function reviewInboundAttachment(input: {
       decidedByUserId: authorised.actor.userId,
       otherExplicitlyConfirmed: false,
     };
-    await prisma.enterpriseTransactionDocument.update({
-      where: { id: document.id },
-      data: { inboundClassificationJson: snapshotToJson(snapshot) },
-    });
+    await persistReview({ inboundClassificationJson: snapshotToJson(snapshot), verifiedAt: null });
     await appendDocumentWorkspaceAuditBestEffort({
       organizationId: authorised.organizationId,
       actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
@@ -300,13 +348,18 @@ export async function reviewInboundAttachment(input: {
       dealId: authorised.dealId,
       sourceChannel: "inbound_email",
       reason,
-      metadata: { outcome, evidenceCount: snapshot.evidenceCodes.length },
+      metadata: { outcome, previousOutcome: prior?.outcome || null,
+        previousTypeRef: document.typeRef, newTypeRef: document.typeRef,
+        evidenceCount: snapshot.evidenceCodes.length },
     });
     return { ok: true, outcome };
   }
 
   const nextTypeRef = String(input.typeRef || document.typeRef || "").trim();
-  if (!nextTypeRef) portalFailure(400, "VALIDATION", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  const selectedType = listEdieDocumentTypeOptions().find((item) => item.typeRef === nextTypeRef);
+  if (!selectedType || isUnclassifiedDocumentTypeRef(nextTypeRef)) {
+    portalFailure(400, "CLASSIFICATION_REQUIRED", "Choose a valid document type before confirming this item.");
+  }
   const otherGate = decideSilentOtherAssignment({
     typeRef: nextTypeRef,
     employeeConfirmedOther: input.employeeConfirmedOther === true,
@@ -339,10 +392,7 @@ export async function reviewInboundAttachment(input: {
     }
   }
 
-  const typeLabel =
-    input.categoryLabel?.trim() ||
-    listEdieDocumentTypeOptions().find((item) => item.typeRef === nextTypeRef)?.label ||
-    document.categoryLabel;
+  const typeLabel = selectedType.label;
   const snapshot: InboundClassificationSnapshot = {
     outcome:
       input.decision === "change"
@@ -360,14 +410,11 @@ export async function reviewInboundAttachment(input: {
     otherExplicitlyConfirmed: input.employeeConfirmedOther === true,
   };
 
-  await prisma.enterpriseTransactionDocument.update({
-    where: { id: document.id },
-    data: {
+  await persistReview({
       typeRef: nextTypeRef,
       categoryLabel: typeLabel,
       participantId: input.participantId || document.participantId,
       inboundClassificationJson: snapshotToJson(snapshot),
-    },
   });
   await appendDocumentWorkspaceAuditBestEffort({
     organizationId: authorised.organizationId,
@@ -381,7 +428,9 @@ export async function reviewInboundAttachment(input: {
     opportunityId: authorised.opportunityId,
     dealId: authorised.dealId,
     sourceChannel: "inbound_email",
-    metadata: { outcome: snapshot.outcome, typeChanged: input.decision === "change" },
+    reason: input.reason?.trim() || null,
+    metadata: { outcome: snapshot.outcome, previousOutcome: prior?.outcome || null,
+      previousTypeRef: document.typeRef, newTypeRef: nextTypeRef, typeChanged: input.decision === "change" },
   });
   await appendDocumentWorkspaceAuditBestEffort({
     organizationId: authorised.organizationId,

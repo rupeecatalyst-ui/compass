@@ -779,15 +779,30 @@ export async function listUnseenInboundEmailDocuments(input: {
 
 export async function markDocumentVersionSeen(input: {
   userId: string;
+  opportunityId: string;
+  dealId?: string | null;
   documentId: string;
   versionKey: string;
 }) {
+  if (!input.opportunityId.trim()) portalFailure(400, "VALIDATION", "Choose a transaction before marking the document as seen.");
   const authorised = await requireAuthorisedWorkspace({
     userId: input.userId,
     capability: "view",
     documentId: input.documentId,
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
   });
   const organizationId = authorised.organizationId;
+  const document = await prisma.enterpriseTransactionDocument.findFirst({
+    where: { id: authorised.documentId || input.documentId, organizationId, deletedAt: null },
+  });
+  if (!document || input.versionKey !== inboundEmailVersionKey({
+    versionNumber: document.contentVersion, uploadedAt: document.updatedAt.toISOString(),
+  })) {
+    throw Object.assign(new Error("This document has changed. Refresh before marking it as seen."), {
+      statusCode: 409, code: "STALE_REVIEW",
+    });
+  }
   await prisma.enterpriseDocumentVersionSeen.upsert({
     where: {
       organizationId_userId_documentId_versionKey: {

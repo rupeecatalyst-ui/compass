@@ -156,6 +156,8 @@ export async function POST(request: Request) {
       return successResponse(
         await markDocumentVersionSeen({
           userId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
           documentId: String(body.documentId || ""),
           versionKey: String(body.versionKey || ""),
         }),
@@ -230,9 +232,15 @@ export async function POST(request: Request) {
     }
 
     if (action === "inbound_review") {
+      if (!body.versionKey || !body.inboundEmailId || !body.inboundAttachmentId) {
+        return errorResponse(409, "STALE_REVIEW", "Refresh this email item before reviewing it.");
+      }
       return successResponse(
         await reviewInboundAttachment({
           actorUserId: actor.userId,
+          versionKey: String(body.versionKey),
+          inboundEmailId: String(body.inboundEmailId),
+          inboundAttachmentId: String(body.inboundAttachmentId),
           opportunityId: String(body.opportunityId || ""),
           dealId: typeof body.dealId === "string" ? body.dealId : null,
           documentId: String(body.documentId || ""),

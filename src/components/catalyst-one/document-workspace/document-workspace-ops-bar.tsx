@@ -40,6 +40,7 @@ export function DocumentWorkspaceOpsBar({
   onFolderFiles,
   onOtherSave,
   onAttachInbound,
+  onEmail,
   inboundRecords,
   canUpload,
 }: {
@@ -49,6 +50,7 @@ export function DocumentWorkspaceOpsBar({
   onAttachInbound: (input: { recordId: string; typeRef: string; categoryLabel: string }) => void;
   inboundRecords: DocumentRegistryRecord[];
   canUpload: boolean;
+  onEmail: () => void;
 }) {
   const folderRef = useRef<HTMLInputElement>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -76,6 +78,10 @@ export function DocumentWorkspaceOpsBar({
       >
         <Plus className="mr-1 h-3.5 w-3.5" />
         {DOCUMENT_WORKSPACE_ADD_DOCUMENT_LABEL}
+      </Button>
+      <Button type="button" size="sm" className="h-8" onClick={onEmail}>
+        <Mail className="mr-1 h-3.5 w-3.5" />
+        Email
       </Button>
       <Button
         type="button"

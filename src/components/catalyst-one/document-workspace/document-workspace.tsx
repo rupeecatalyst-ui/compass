@@ -139,7 +139,6 @@ import {
 } from "@/lib/document-workspace/linked-parties";
 import { validateLockedDocumentSelection } from "@/lib/document-workspace/selection";
 import { mapReviewStatusToRequestable } from "@/lib/document-workspace/checklist-selection";
-import { inboundEmailVersionKey } from "@/lib/document-workspace/inbound-email-new";
 import { downloadTemporaryDocumentWorkspaceZip } from "@/lib/document-workspace/temporary-zip";
 import { DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE, DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL, DOCUMENT_WORKSPACE_SENDER_CC_MISSING, DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL, DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION, DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE, DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME, DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME } from "@/constants/document-workspace-refinement-014";
 import {
@@ -213,6 +212,9 @@ export function DocumentWorkspace() {
       ? lock?.fingerprint || null
       : null;
   const [inboundNewIds, setInboundNewIds] = useState<string[]>([]);
+  const [inboundVersionKeys, setInboundVersionKeys] = useState<Record<string, string>>({});
+  const seenPending = useRef(false);
+  const [seenPendingId, setSeenPendingId] = useState<string | null>(null);
   const [inboundReviewItems, setInboundReviewItems] = useState<DocumentWorkspaceInboundReviewItem[]>([]);
   const [inboundNewByOwner, setInboundNewByOwner] = useState<Record<string, number>>({});
   const [whatsappShareOpen, setWhatsappShareOpen] = useState(false);
@@ -331,9 +333,10 @@ export function DocumentWorkspace() {
           `/api/document-workspace/refinement-014?view=inbound-new&opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
         );
         const json = await inbound.json().catch(() => ({}));
-        const unseen = (json?.data?.unseen ?? []) as Array<{ documentId: string; ownerEntityId?: string | null; contactId?: string | null }>;
+        const unseen = (json?.data?.unseen ?? []) as Array<{ documentId: string; versionKey: string; ownerEntityId?: string | null; contactId?: string | null }>;
         if (!cancelled) {
           setInboundNewIds(unseen.map((row) => row.documentId));
+          setInboundVersionKeys(Object.fromEntries(unseen.map((row) => [row.documentId, row.versionKey])));
           const byOwner: Record<string, number> = {};
           for (const row of unseen) {
             const owner = row.ownerEntityId || row.contactId;
@@ -361,7 +364,7 @@ export function DocumentWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [lock?.opportunityId, lock?.dealId]);
+  }, [lock?.opportunityId, lock?.dealId, registryTick]);
 
   useEffect(() => {
     const transition = documentWorkspaceTransientUiAfterFingerprintChange({
@@ -604,26 +607,38 @@ export function DocumentWorkspace() {
     applyLockedHref(next);
   };
 
+  const markInboundSeen = async (documentId: string) => {
+    const fingerprint = currentCommunicationFingerprint.current;
+    if (!fingerprint || seenPending.current || !inboundVersionKeys[documentId]) return;
+    seenPending.current = true;
+    setSeenPendingId(documentId);
+    try {
+      const response = await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+        method: "POST",
+        body: JSON.stringify({ action: "mark_seen", documentId,
+          opportunityId: lockedOpportunityId, dealId: dealId || null,
+          versionKey: inboundVersionKeys[documentId] }),
+      });
+      if (currentCommunicationFingerprint.current !== fingerprint) return;
+      if (!response.ok) throw new Error("Could not mark as seen. Refresh the workspace and try again.");
+      setRegistryTick((tick) => tick + 1);
+      toast.success("Marked as seen.");
+    } catch (error) {
+      if (currentCommunicationFingerprint.current === fingerprint) {
+        toast.error(error instanceof Error ? error.message : "Could not mark as seen. Try again.");
+      }
+    } finally {
+      seenPending.current = false;
+      setSeenPendingId(null);
+    }
+  };
+
   const openPreview = (id: string) => {
     savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
     setPreviewId(id);
     const row = rows.find((item) => item.id === id);
     if (row?.record && inboundNewIds.includes(row.record.id)) {
-      const version = row.record.versions.find((v) => v.isCurrent) ?? row.record.versions[0];
-      void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
-        method: "POST",
-        body: JSON.stringify({
-          action: "mark_seen",
-          documentId: row.record.id,
-          versionKey: inboundEmailVersionKey({
-            versionId: version?.id,
-            versionNumber: version?.version,
-            uploadedAt: version?.uploadedAt,
-          }),
-        }),
-      }).then(() => {
-        setInboundNewIds((ids) => ids.filter((item) => item !== row.record?.id));
-      });
+      void markInboundSeen(row.record.id);
     }
   };
   const closePreview = () => {
@@ -1314,20 +1329,20 @@ export function DocumentWorkspace() {
           )}
         >
           <DocumentWorkspaceInboundReview
+            key={`inbound-review:${contextKey}`}
             items={inboundReviewItems}
             opportunityId={lockedOpportunityId}
             dealId={dealId || null}
             inboundNewIds={inboundNewIds}
             onChanged={() => {
-              void authenticatedJsonFetch(
-                `/api/document-workspace/refinement-014?view=inbound-review&opportunityId=${encodeURIComponent(lockedOpportunityId)}&dealId=${encodeURIComponent(dealId || "")}`,
-              ).then(async (res) => {
-                const json = await res.json().catch(() => ({}));
-                setInboundReviewItems((json?.data?.items ?? []) as DocumentWorkspaceInboundReviewItem[]);
+              setRegistryTick((tick) => tick + 1);
+              void hydrateDocumentRegistryFromServer({ opportunityId: lockedOpportunityId }).catch(() => {
+                toast.error("Review saved. Refresh the workspace to reload the document list.");
               });
             }}
           />
           <DocumentWorkspaceOpsBar
+            onEmail={() => onAction("custom_email")}
             canUpload={canUploadDocuments(user)}
             inboundRecords={unclassified}
             onAddFiles={(input) => void uploadFilesToCategory(input)}
@@ -1520,25 +1535,10 @@ export function DocumentWorkspace() {
                         size="sm"
                         variant="ghost"
                         className="mt-1 h-7 px-2"
-                        onClick={() => {
-                          const version = row.record?.versions.find((v) => v.isCurrent) ?? row.record?.versions[0];
-                          void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
-                            method: "POST",
-                            body: JSON.stringify({
-                              action: "mark_seen",
-                              documentId: row.record?.id,
-                              versionKey: inboundEmailVersionKey({
-                                versionId: version?.id,
-                                versionNumber: version?.version,
-                                uploadedAt: version?.uploadedAt,
-                              }),
-                            }),
-                          }).then(() => {
-                            setInboundNewIds((ids) => ids.filter((id) => id !== row.record?.id));
-                          });
-                        }}
+                        disabled={seenPendingId !== null}
+                        onClick={() => void markInboundSeen(row.record!.id)}
                       >
-                        {DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL}
+                        {seenPendingId === row.record.id ? "Saving…" : DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL}
                       </Button>
                     ) : null}
                   </td>
