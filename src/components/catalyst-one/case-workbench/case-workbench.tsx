@@ -7,6 +7,7 @@ import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { mapEnterpriseOpportunityToRegistryRow } from "@/lib/enterprise-opportunity/map-opportunity-to-registry-row";
 import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { subscribeOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
+import { resolveCanonicalProductCode } from "@/constants/enterprise-product-master/canonical-catalog";
 import {
   applyDeskRefresh,
   CASE_WORKBENCH_DEAL_PAGE_SIZE,
@@ -84,6 +85,9 @@ async function loadAuthorizedOpportunities(): Promise<DeskOpportunity[]> {
       status: mapped.status,
       updatedAt: mapped.updatedAt,
       amountLabel: formatDeskAmount(mapped.requestedAmount),
+      contactId: mapped.primaryContactId,
+      productCode: resolveCanonicalProductCode(row.productCode || row.productLabel),
+      ownerUserId: row.primaryOwnerUserId?.trim() || row.relationshipManagerUserId?.trim() || null,
     };
   }).filter((row) => isActiveUnconvertedOpportunity(row.status));
 }
@@ -141,11 +145,7 @@ export function CaseWorkbench() {
   }, [reload]);
 
   return (
-    <div className="w-full bg-zinc-950/20 pb-6">
-      <header className="px-0.5 pb-2">
-        <h1 className="text-sm font-semibold tracking-tight text-zinc-50">Case Workbench</h1>
-        <p className="text-[11px] text-zinc-500">Opportunities and active lender Deals</p>
-      </header>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <OperationalDesk
         opportunities={opportunities}
         deals={deals}

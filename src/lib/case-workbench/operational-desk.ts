@@ -15,7 +15,17 @@
  * consistency tests are required before any write control is enabled.
  */
 
-import { OPPORTUNITY_LIFECYCLE } from "@/constants/opportunity-lifecycle";
+import {
+  LENDER_CASE_STAGE_LABELS,
+  LENDER_CASE_STAGES,
+  tryCanonicalLenderCaseStage,
+} from "@/constants/lender-pipeline";
+import { listCanonicalProductOptions, resolveCanonicalProductCode } from "@/constants/enterprise-product-master/canonical-catalog";
+import {
+  OPPORTUNITY_LIFECYCLE,
+  OPPORTUNITY_LIFECYCLE_FILTER_OPTIONS,
+} from "@/constants/opportunity-lifecycle";
+import type { LenderCaseStage } from "@/types/catalyst-one";
 
 const CONVERTED_OR_CLOSED = new Set<string>([
   OPPORTUNITY_LIFECYCLE.CONVERTED_TO_DEAL,
@@ -37,6 +47,9 @@ export interface DeskOpportunity {
   status: string;
   updatedAt: string;
   amountLabel: string;
+  contactId?: string | null;
+  productCode?: string | null;
+  ownerUserId?: string | null;
 }
 
 export interface DeskDealInput {
@@ -54,6 +67,92 @@ export interface DeskDealInput {
   opportunityId?: string | null;
   /** Opportunity number joined on the Deal record. Legacy fallback only. */
   opportunityNumber?: string | null;
+  grossStage?: string | null;
+  rowVersion?: number | null;
+  lenderId?: string | null;
+  contactId?: string | null;
+  contactEmail?: string | null;
+  productCode?: string | null;
+  ownerUserId?: string | null;
+}
+
+/** Rows kept in one pane before the next page. */
+export const DESK_VISIBLE_PAGE = 40;
+
+export type DeskActionPanel = "closed" | "collapsed" | "open";
+
+const OPERATIONAL_STAGE_IDS: LenderCaseStage[] = [
+  "identified",
+  "prelogin",
+  "logged_in_wip",
+  "soft_approved",
+  "final_approved",
+  "closure_wip",
+  "disbursed",
+];
+
+/**
+ * Menu of stages the existing Deal transition rules allow a person to request.
+ * The transition API remains the authority and can still reject the request.
+ */
+export function permittedDeskStageTargets(fromStage: string | null | undefined): LenderCaseStage[] {
+  const from = tryCanonicalLenderCaseStage(fromStage);
+  if (from === "lost" || from === "disbursed" || from === "post_disbursement_confirmation") {
+    return [];
+  }
+  const candidates = (from ? LENDER_CASE_STAGES.map((stage) => stage.id) : OPERATIONAL_STAGE_IDS).filter(
+    (id) => id !== from && id !== "post_disbursement_confirmation",
+  );
+  if (from === "hold") {
+    return candidates.filter((id) => OPERATIONAL_STAGE_IDS.includes(id) || id === "lost");
+  }
+  return candidates.filter(
+    (id) => OPERATIONAL_STAGE_IDS.includes(id) || id === "lost" || id === "hold",
+  );
+}
+
+export function displayDealStage(raw: string | null | undefined): {
+  label: string;
+  grossStage: string | null;
+} {
+  const canonical = tryCanonicalLenderCaseStage(raw);
+  const key = (raw ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (canonical && key === canonical) {
+    return { label: LENDER_CASE_STAGE_LABELS[canonical], grossStage: canonical };
+  }
+  return { label: raw?.trim() || "Not Specified", grossStage: canonical };
+}
+
+export function nextActionPanel(
+  current: DeskActionPanel,
+  command: "open" | "collapse" | "expand" | "close",
+): DeskActionPanel {
+  if (command === "close") return "closed";
+  if (command === "open") return current === "closed" ? "open" : current;
+  if (command === "collapse") return current === "open" ? "collapsed" : current;
+  if (command === "expand") return current === "collapsed" ? "open" : current;
+  return current;
+}
+
+export function deskFlex(
+  area: DeskArea,
+  panel: DeskActionPanel,
+): { opportunities: number; deals: number; action: number } {
+  const action = panel === "open" ? 0.35 : 0;
+  const work = panel === "open" ? 0.65 : 1;
+  if (area === "opportunities") return { opportunities: work, deals: 0, action };
+  if (area === "deals") return { opportunities: 0, deals: work, action };
+  return { opportunities: work * 0.4, deals: work * 0.6, action };
+}
+
+export function dealTableRows(groups: DeskDealGroup[]): Array<{ deal: DeskDeal; customerSpan: number }> {
+  const rows: Array<{ deal: DeskDeal; customerSpan: number }> = [];
+  for (const group of groups) {
+    group.deals.forEach((deal, index) => {
+      rows.push({ deal, customerSpan: index === 0 ? group.deals.length : 0 });
+    });
+  }
+  return rows;
 }
 
 /** Server searchDeals caps pageSize at 100. */
@@ -100,8 +199,15 @@ export function mapRegistryDealToDeskInput(deal: {
   opportunityNumber?: string | null;
   legacyLoanFileId?: string | null;
   primaryContactName?: string | null;
+  primaryContactId?: string | null;
+  primaryContactEmail?: string | null;
   primaryCounterpartyName?: string | null;
+  lenderId?: string | null;
+  rowVersion?: number | null;
+  productCode?: string | null;
   productLabel?: string | null;
+  primaryOwnerUserId?: string | null;
+  relationshipManagerUserId?: string | null;
   productFamily?: string | null;
   grossStage?: string | null;
   requestedAmount?: number | null;
@@ -115,13 +221,21 @@ export function mapRegistryDealToDeskInput(deal: {
   if (deal.isDeleted || deal.archived) return null;
   const lastActivity = deal.updatedAt || deal.stageEnteredAt || deal.createdAt || "";
   const amount = deal.approvedAmount ?? deal.requestedAmount ?? null;
+  const stage = displayDealStage(deal.grossStage);
   return {
     id: deal.id,
     enterpriseDealId: deal.id,
     fileId: deal.legacyLoanFileId?.trim() || deal.id,
     borrower: deal.primaryContactName?.trim() || "Not Specified",
     lender: deal.primaryCounterpartyName?.trim() || "Not Specified",
-    stageLabel: deal.grossStage?.trim() || "Not Specified",
+    stageLabel: stage.label,
+    grossStage: stage.grossStage,
+    rowVersion: deal.rowVersion ?? null,
+    lenderId: deal.lenderId?.trim() || null,
+    contactId: deal.primaryContactId?.trim() || null,
+    contactEmail: deal.primaryContactEmail?.trim() || null,
+    productCode: resolveCanonicalProductCode(deal.productCode || deal.productLabel),
+    ownerUserId: deal.primaryOwnerUserId?.trim() || deal.relationshipManagerUserId?.trim() || null,
     product: deal.productLabel?.trim() || deal.productFamily?.trim() || "Not Specified",
     loanAmountLabel: formatDeskAmount(amount),
     lastActivity,
@@ -150,6 +264,13 @@ export interface DeskDeal {
   amountLabel: string;
   lastActivity: string;
   lastActivityLabel: string;
+  grossStage?: string | null;
+  rowVersion?: number | null;
+  lenderId?: string | null;
+  contactId?: string | null;
+  contactEmail?: string | null;
+  productCode?: string | null;
+  ownerUserId?: string | null;
 }
 
 export interface DeskDealGroup {
@@ -161,17 +282,115 @@ export interface DeskDealGroup {
   deals: DeskDeal[];
 }
 
+/** Records with no internal employee owner. Not a person id. */
+export const DESK_UNASSIGNED_OWNER = "unassigned";
+
+export const DESK_OPPORTUNITY_STAGE_OPTIONS = OPPORTUNITY_LIFECYCLE_FILTER_OPTIONS.filter(
+  (option) => !CONVERTED_OR_CLOSED.has(option.value),
+);
+
+export const DESK_DEAL_STAGE_OPTIONS = LENDER_CASE_STAGES.map((stage) => ({
+  id: stage.id,
+  label: stage.label,
+}));
+
+export const DESK_PRODUCT_OPTIONS = listCanonicalProductOptions().map((product) => ({
+  id: product.code,
+  label: product.label,
+}));
+
 export interface DeskFilters {
   query: string;
-  stage: string;
-  product: string;
+  opportunityStages: string[];
+  dealStages: string[];
+  products: string[];
+  owners: string[];
+}
+
+export interface DeskFilterCatalog {
+  opportunityStages: string[];
+  dealStages: string[];
+  products: string[];
+  owners: string[];
+}
+
+export function deskFilterCatalog(ownerIds: string[]): DeskFilterCatalog {
+  return {
+    opportunityStages: DESK_OPPORTUNITY_STAGE_OPTIONS.map((option) => option.value),
+    dealStages: DESK_DEAL_STAGE_OPTIONS.map((option) => option.id),
+    products: DESK_PRODUCT_OPTIONS.map((option) => option.id),
+    owners: [...new Set([...ownerIds.filter(Boolean), DESK_UNASSIGNED_OWNER])],
+  };
+}
+
+export function systemDefaultDeskFilters(catalog: DeskFilterCatalog): DeskFilters {
+  return {
+    query: "",
+    opportunityStages: [...catalog.opportunityStages],
+    dealStages: [...catalog.dealStages],
+    products: [...catalog.products],
+    owners: [...catalog.owners],
+  };
 }
 
 export const EMPTY_DESK_FILTERS: DeskFilters = {
   query: "",
-  stage: "all",
-  product: "all",
+  opportunityStages: [],
+  dealStages: [],
+  products: [],
+  owners: [],
 };
+
+function knownIds(selected: string[] | undefined, allowed: string[]): string[] {
+  const allow = new Set(allowed);
+  return [...new Set((selected ?? []).filter((id) => allow.has(id)))];
+}
+
+/** Drop saved ids the user can no longer use. An empty list stays empty. */
+export function sanitizeDeskFilters(
+  saved: Partial<DeskFilters> | null | undefined,
+  catalog: DeskFilterCatalog,
+): DeskFilters {
+  if (!saved) return systemDefaultDeskFilters(catalog);
+  return {
+    query: typeof saved.query === "string" ? saved.query : "",
+    opportunityStages: knownIds(saved.opportunityStages, catalog.opportunityStages),
+    dealStages: knownIds(saved.dealStages, catalog.dealStages),
+    products: knownIds(saved.products, catalog.products),
+    owners: knownIds(saved.owners, catalog.owners),
+  };
+}
+
+const PREFERENCE_PREFIX = "catalyst-one:case-workbench:default-view:";
+
+export function readDeskDefaultView(userId: string): Partial<DeskFilters> | null {
+  if (typeof window === "undefined" || !userId.trim()) return null;
+  try {
+    const raw = window.localStorage.getItem(`${PREFERENCE_PREFIX}${userId.trim()}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DeskFilters>;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberDeskDefaultView(userId: string, filters: DeskFilters): void {
+  if (typeof window === "undefined" || !userId.trim()) return;
+  const saved = {
+    opportunityStages: filters.opportunityStages,
+    dealStages: filters.dealStages,
+    products: filters.products,
+    owners: filters.owners,
+  };
+  window.localStorage.setItem(`${PREFERENCE_PREFIX}${userId.trim()}`, JSON.stringify(saved));
+}
+
+export function forgetDeskDefaultView(userId: string): void {
+  if (typeof window === "undefined" || !userId.trim()) return;
+  window.localStorage.removeItem(`${PREFERENCE_PREFIX}${userId.trim()}`);
+}
 
 export type DeskSelection =
   | { kind: "opportunity"; id: string }
@@ -215,6 +434,13 @@ export function projectDeskDeals(rows: DeskDealInput[]): DeskDeal[] {
       amountLabel: row.loanAmountLabel.trim() || "Not Specified",
       lastActivity: row.lastActivity,
       lastActivityLabel: row.lastActivityLabel.trim() || "Not Specified",
+      grossStage: row.grossStage ?? null,
+      rowVersion: row.rowVersion ?? null,
+      lenderId: row.lenderId ?? null,
+      contactId: row.contactId ?? null,
+      contactEmail: row.contactEmail ?? null,
+      productCode: row.productCode ?? resolveCanonicalProductCode(row.product),
+      ownerUserId: row.ownerUserId ?? null,
     };
   });
 }
@@ -258,17 +484,52 @@ function matchesQuery(haystack: string, query: string): boolean {
   return haystack.toLowerCase().includes(q);
 }
 
+function opportunityFilterId(status: string): string {
+  const key = status.trim().toLowerCase();
+  if (key === OPPORTUNITY_LIFECYCLE.DRAFT) return OPPORTUNITY_LIFECYCLE.DIALOGUE;
+  if (key === OPPORTUNITY_LIFECYCLE.ACTIVE) return OPPORTUNITY_LIFECYCLE.IN_PROGRESS;
+  return key;
+}
+
+function selectedOrAllUnknown(
+  selected: string[],
+  universe: string[],
+  id: string | null | undefined,
+): boolean {
+  if (selected.length === 0) return false;
+  if (!id) return selected.length === universe.length;
+  return selected.includes(id);
+}
+
 export function filterDesk(
   opportunities: DeskOpportunity[],
   groups: DeskDealGroup[],
   filters: DeskFilters,
+  catalog: DeskFilterCatalog = deskFilterCatalog([]),
 ): { opportunities: DeskOpportunity[]; groups: DeskDealGroup[] } {
-  const stage = filters.stage;
-  const product = filters.product;
   const nextOpportunities = opportunities
     .filter((row) => isActiveUnconvertedOpportunity(row.status))
-    .filter((row) => (stage === "all" ? true : row.stageLabel === stage))
-    .filter((row) => (product === "all" ? true : row.product === product))
+    .filter((row) =>
+      selectedOrAllUnknown(
+        filters.opportunityStages,
+        catalog.opportunityStages,
+        opportunityFilterId(row.status),
+      ),
+    )
+    .filter((row) =>
+      selectedOrAllUnknown(
+        filters.products,
+        catalog.products,
+        row.productCode ?? resolveCanonicalProductCode(row.product),
+      ),
+    )
+    .filter((row) =>
+      selectedOrAllUnknown(
+        filters.owners,
+        catalog.owners,
+        row.ownerUserId?.trim() || DESK_UNASSIGNED_OWNER,
+      ),
+    )
     .filter((row) =>
       matchesQuery(
         [row.customerName, row.product, row.stageLabel, row.amountLabel].join(" "),
@@ -280,8 +541,29 @@ export function filterDesk(
   const nextGroups = groups
     .map((group) => {
       const deals = group.deals.filter((deal) => {
-        if (stage !== "all" && deal.stageLabel !== stage) return false;
-        if (product !== "all" && deal.product !== product) return false;
+        if (
+          !selectedOrAllUnknown(filters.dealStages, catalog.dealStages, deal.grossStage)
+        ) {
+          return false;
+        }
+        if (
+          !selectedOrAllUnknown(
+            filters.products,
+            catalog.products,
+            deal.productCode ?? resolveCanonicalProductCode(deal.product),
+          )
+        ) {
+          return false;
+        }
+        if (
+          !selectedOrAllUnknown(
+            filters.owners,
+            catalog.owners,
+            deal.ownerUserId?.trim() || DESK_UNASSIGNED_OWNER,
+          )
+        ) {
+          return false;
+        }
         return matchesQuery(
           [deal.customerName, deal.lenderName, deal.product, deal.stageLabel, deal.amountLabel].join(" "),
           filters.query,

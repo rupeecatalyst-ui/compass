@@ -6,9 +6,16 @@ import assert from "node:assert/strict";
 import {
   applyDeskRefresh,
   cycleDeskArea,
+  dealTableRows,
+  deskFlex,
   deskGridLabels,
+  deskFilterCatalog,
   filterDesk,
+  sanitizeDeskFilters,
+  systemDefaultDeskFilters,
   groupDealsByOpportunity,
+  nextActionPanel,
+  permittedDeskStageTargets,
   isActiveUnconvertedOpportunity,
   joinPagedItems,
   mapRegistryDealToDeskInput,
@@ -73,6 +80,7 @@ const deals: DeskDealInput[] = [
     borrower: "Different Display Name",
     lender: "State Bank of India",
     stageLabel: "Sanctioned",
+    grossStage: "soft_approved",
     product: "Home Loan",
     loanAmountLabel: "₹1,00,00,000",
     lastActivity: "2026-10-08T09:00:00.000Z",
@@ -132,11 +140,9 @@ assert.equal(
   "a deal without an opportunity relationship stays alone",
 );
 
-const filtered = filterDesk(opportunities, groups, {
-  query: "asha",
-  stage: "all",
-  product: "all",
-});
+const catalog = deskFilterCatalog([]);
+const defaults = systemDefaultDeskFilters(catalog);
+const filtered = filterDesk(opportunities, groups, { ...defaults, query: "asha" }, catalog);
 assert.equal(filtered.opportunities.length, 2, "converted opportunities stay off the desk");
 assert.equal(
   filtered.opportunities.some((row) => row.status === "converted_to_deal"),
@@ -144,11 +150,12 @@ assert.equal(
 );
 assert.equal(filtered.groups.length, 3, "name search still keeps separate relationships");
 
-const stageFiltered = filterDesk(opportunities, groups, {
-  query: "",
-  stage: "Sanctioned",
-  product: "Home Loan",
-});
+const stageFiltered = filterDesk(
+  opportunities,
+  groups,
+  { ...defaults, query: "", dealStages: ["soft_approved"], products: ["HOME_LOAN"] },
+  catalog,
+);
 assert.equal(stageFiltered.groups.length, 1);
 assert.equal(stageFiltered.groups[0]?.deals.length, 1);
 assert.equal(stageFiltered.groups[0]?.deals[0]?.lenderName, "State Bank of India");
@@ -230,5 +237,59 @@ assert.equal(cycleDeskArea("split", "opportunities"), "opportunities");
 assert.equal(cycleDeskArea("opportunities", "opportunities"), "split");
 assert.equal(cycleDeskArea("split", "deals"), "deals");
 assert.equal(cycleDeskArea("deals", "deals"), "split");
+
+const fiveLenders = ["HDFC Bank", "State Bank of India", "ICICI Bank", "Axis Bank", "Kotak Mahindra Bank"].map(
+  (lender, index) => ({
+    ...deals[0],
+    id: `five-${index}`,
+    enterpriseDealId: `deal-five-${index}`,
+    lender,
+    borrower: "Asha Mehta",
+    opportunityId: "opp-uuid-1",
+  }),
+);
+const fiveGroups = groupDealsByOpportunity(projectDeskDeals(fiveLenders));
+assert.equal(fiveGroups.length, 1);
+const fiveRows = dealTableRows(fiveGroups);
+assert.equal(fiveRows.length, 5);
+assert.equal(fiveRows[0]?.customerSpan, 5);
+assert.equal(fiveRows.slice(1).every((row) => row.customerSpan === 0), true);
+assert.equal(new Set(fiveRows.map((row) => row.deal.id)).size, 5);
+
+assert.deepEqual(permittedDeskStageTargets("lost"), []);
+assert.equal(permittedDeskStageTargets("logged_in_wip").includes("soft_approved"), true);
+assert.equal(permittedDeskStageTargets("logged_in_wip").includes("post_disbursement_confirmation"), false);
+assert.equal(permittedDeskStageTargets("disbursed").length, 0);
+
+const closedFlex = deskFlex("split", "closed");
+assert.equal(closedFlex.opportunities, 0.4);
+assert.equal(closedFlex.deals, 0.6);
+assert.equal(closedFlex.action, 0);
+const openFlex = deskFlex("split", "open");
+assert.equal(openFlex.action, 0.35);
+assert.ok(Math.abs(openFlex.opportunities + openFlex.deals - 0.65) < 0.001);
+
+assert.equal(nextActionPanel("open", "collapse"), "collapsed");
+assert.equal(nextActionPanel("collapsed", "expand"), "open");
+assert.equal(nextActionPanel("collapsed", "close"), "closed");
+
+const none = filterDesk(opportunities, groups, { ...defaults, opportunityStages: [] }, catalog);
+assert.equal(none.opportunities.length, 0, "an empty Opportunity Stage selection is not All");
+const lostHidden = filterDesk(
+  opportunities,
+  groups,
+  { ...defaults, opportunityStages: ["lost"] },
+  catalog,
+);
+assert.equal(lostHidden.opportunities.length, 0, "closed Opportunity stages stay off the desk");
+const cleaned = sanitizeDeskFilters(
+  { opportunityStages: ["dialogue", "not-a-stage"], dealStages: [], products: ["HOME_LOAN"], owners: ["missing-user"] },
+  catalog,
+);
+assert.deepEqual(cleaned.opportunityStages, ["dialogue"]);
+assert.deepEqual(cleaned.dealStages, []);
+assert.deepEqual(cleaned.products, ["HOME_LOAN"]);
+assert.deepEqual(cleaned.owners, []);
+assert.equal(sanitizeDeskFilters(null, catalog).dealStages.includes("logged_in_wip"), true);
 
 console.log("CO-CHANAKYA-RADAR-OPERATIONAL-DESK-STEP1 PASS");

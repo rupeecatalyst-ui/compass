@@ -69,12 +69,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     pathname.startsWith("/admin/enterprise-assets") ||
     pathname.startsWith("/accounting") ||
     pathname === "/dashboard" ||
-    pathname === "/chanakya-radar";
+    pathname === "/chanakya-radar" ||
+    pathname === "/case-workbench";
 
   const isLockedFillDesk =
     (isRegistryFullWidth && !isRegistryDocumentScroll) ||
     pathname.startsWith("/loan-files") ||
     pathname.startsWith("/deals") ||
+    pathname === "/case-workbench" ||
     pathname.startsWith("/admin/credit-risk-engine") ||
     isChanakyaChatDesk;
 
@@ -110,6 +112,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 isFullWidth &&
                   (pathname.startsWith("/loan-files") ||
                     pathname.startsWith("/deals") ||
+                    pathname === "/case-workbench" ||
                     pathname.startsWith("/admin/credit-risk-engine")) &&
                   "h-full max-w-none p-0 md:p-0 lg:p-0",
                 /* CO-UX-DATAGRID-001 — registries: full width; shell owns 16–24px margins */
