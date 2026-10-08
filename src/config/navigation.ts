@@ -34,6 +34,7 @@ import {
   Briefcase,
   Target,
   Radar,
+  LayoutPanelLeft,
   LineChart,
   Gauge,
   Handshake,
@@ -188,7 +189,7 @@ export const administrationChildren: NavSubItem[] = [
 ];
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
- * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey ·
+ * Dashboard · CHANAKYA Radar · Case Workbench · Contacts · My Opportunities · My Deals · Loan Journey ·
  * Document Workspace · Investments · Tasks · Sticky Notes · Activity & Dialogue · Enterprise Lender Directory ·
  * Accounting · Mission Control · Horizon · Administration · Settings
  * Mission Control primary href = Executive Briefing (Radar remains a separate primary item).
@@ -202,6 +203,7 @@ export const primaryDomainNavigation: NavGroup = {
   items: [
     { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
     { title: "CHANAKYA Radar", href: ROUTES.CHANAKYA_RADAR, icon: Radar },
+    { title: "Case Workbench", href: ROUTES.CASE_WORKBENCH, icon: LayoutPanelLeft },
     { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
     { title: "My Opportunities", href: ROUTES.MY_OPPORTUNITIES, icon: Target },
     { title: "My Deals", href: ROUTES.MY_DEALS, icon: Briefcase },

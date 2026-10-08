@@ -21,6 +21,8 @@ export const ROUTES = {
   /** CO-ARCH-003 — Enterprise Opportunity Registry (requirement queue). */
   MY_OPPORTUNITIES: "/my-opportunities",
   CHANAKYA_RADAR: "/chanakya-radar",
+  /** Employee daily workspace for Opportunities and active lender Deals. */
+  CASE_WORKBENCH: "/case-workbench",
   /**
    * @deprecated Prefer DEALS / buildDealWorkspaceHref / Loan Journey.
    * CO-ARCH-002 — `/loan-files` is a redirect shell only (Loan File book retired).
@@ -267,6 +269,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.MY_OPPORTUNITIES,
   ROUTES.MY_DEALS,
   ROUTES.CHANAKYA_RADAR,
+  ROUTES.CASE_WORKBENCH,
   ROUTES.LOAN_FILES,
   ROUTES.DEALS,
   ROUTES.LOAN_JOURNEY,
