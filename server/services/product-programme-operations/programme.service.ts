@@ -18,6 +18,7 @@ import {
   ProgrammePermissionError,
   ProgrammeValidationError,
   type ProgrammeVersionRecord,
+  type StructuredProgrammePayload,
 } from "@/types/product-programme-operations";
 import { evaluateProgrammeCompleteness } from "@/lib/product-programme-operations/completeness";
 import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
@@ -41,7 +42,7 @@ async function assertPublishedPolicyVersion(policyVersionId: string | null, orga
   }
 }
 
-function assertModuleScopedFilters(payload: { productCode?: string | null; additionalEligibilityFilters?: { root: Record<string, unknown> } | null }): void {
+function assertModuleScopedFilters(payload: { productCode?: string | null; additionalEligibilityFilters?: StructuredProgrammePayload["additionalEligibilityFilters"] }): void {
   const unknownField = assertFilterFieldsAreModuleScoped({
     productCode: payload.productCode,
     filters: payload.additionalEligibilityFilters ?? null,

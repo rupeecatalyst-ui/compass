@@ -489,7 +489,7 @@ export async function uploadDocumentToRegistry(
         ...target.versions.map((v) => ({ ...v, isCurrent: false })),
       ],
     };
-    const sync = import("./server-sync").then(({ syncDocumentRecordToServer }) => syncDocumentRecordToServer(updated, { contentBlob: input.file }));
+    const sync = import("./server-sync").then(({ syncDocumentRecordToServer }) => syncDocumentRecordToServer(updated, { contentBlob: input.file, throwOnError: input.requireServerPersistence }));
     if (input.requireServerPersistence && !await sync) throw new Error("Document could not be saved securely. Retry the upload before attaching it.");
     const idx = snap.records.findIndex((r) => r.id === target!.id);
     snap.records[idx] = updated;
@@ -529,7 +529,7 @@ export async function uploadDocumentToRegistry(
     uploadSource: input.uploadSource ?? "manual_upload",
   };
 
-  const sync = import("./server-sync").then(({ syncDocumentRecordToServer }) => syncDocumentRecordToServer(record, { contentBlob: input.file }));
+  const sync = import("./server-sync").then(({ syncDocumentRecordToServer }) => syncDocumentRecordToServer(record, { contentBlob: input.file, throwOnError: input.requireServerPersistence }));
   if (input.requireServerPersistence && !await sync) throw new Error("Document could not be saved securely. Retry the upload before attaching it.");
   snap.records.unshift(record);
   writeSnapshot(snap);

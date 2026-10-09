@@ -1,3 +1,4 @@
+import { getAccessToken } from "@/lib/api-client";
 /**
  * CO-ARCH-003 — Enterprise Session Layer: Deal runtime cache.
  *
@@ -60,6 +61,13 @@ type DealFetcher = (dealId: string) => Promise<SessionDealRecord>;
 const sessionDealById = new Map<string, SessionDealRecord>();
 const inflightById = new Map<string, Promise<SessionDealRecord>>();
 
+let cacheScope: string | null | undefined;
+function syncReadScope() {
+  const scope = getAccessToken();
+  if (scope !== cacheScope) { sessionDealById.clear(); inflightById.clear(); cacheScope = scope; }
+  return scope;
+}
+
 let networkFetcher: DealFetcher | null = null;
 
 export function configureDealNetworkFetcher(fetcher: DealFetcher): void {
@@ -69,12 +77,14 @@ export function configureDealNetworkFetcher(fetcher: DealFetcher): void {
 export function peekSessionDeal(
   dealId: string | null | undefined,
 ): SessionDealRecord | null {
+  syncReadScope();
   const id = dealId?.trim();
   if (!id) return null;
   return sessionDealById.get(id) ?? null;
 }
 
 export function putSessionDeal(deal: SessionDealRecord): void {
+  syncReadScope();
   if (!deal?.id) return;
   sessionDealById.set(deal.id, deal);
   if (deal.legacyLoanFileId?.trim()) {
@@ -102,6 +112,7 @@ export async function ensureSessionDeal(
   dealId: string,
   options: EnsureDealOptions = {},
 ): Promise<SessionDealRecord> {
+  const scope = syncReadScope();
   const id = dealId.trim();
   if (!id) throw new Error("Missing Enterprise Deal ID.");
 
@@ -120,6 +131,7 @@ export async function ensureSessionDeal(
 
   const request = networkFetcher(id)
     .then((row) => {
+      if (scope !== syncReadScope()) throw new Error("Authorization session changed during read");
       putSessionDeal(row);
       return row;
     })

@@ -43,6 +43,7 @@ async function syncLargeBinaryToServer(input: {
   clientRecordId: string;
   contentBlob: Blob;
   filename?: string;
+  throwOnError?: boolean;
 }): Promise<boolean> {
   const token = getAccessToken();
   if (!token) return false;
@@ -59,10 +60,14 @@ async function syncLargeBinaryToServer(input: {
       },
       body: form,
     });
-    if (!res.ok) return false;
-    const body = (await res.json()) as Envelope<{ hasContent?: boolean }>;
-    return Boolean(body.success && body.data?.hasContent);
-  } catch {
+    const body = (await res.json().catch(() => ({}))) as Envelope<{ hasContent?: boolean }>;
+    if (!res.ok || !body.success || !body.data?.hasContent) {
+      if (input.throwOnError) throw new Error(body.error?.message || "Document binary persistence was not confirmed (" + res.status + ").");
+      return false;
+    }
+    return true;
+  } catch (error) {
+    if (input.throwOnError) throw error;
     return false;
   }
 }
@@ -103,7 +108,7 @@ async function backfillMetadataOnlyLargeDocumentsFromLocalBlob(input: {
 /** Best-effort push of a local registry record to Postgres. */
 export async function syncDocumentRecordToServer(
   record: DocumentRegistryRecord,
-  opts?: { opportunityNumber?: string | null; contentBlob?: Blob | null },
+  opts?: { opportunityNumber?: string | null; contentBlob?: Blob | null; throwOnError?: boolean },
 ): Promise<boolean> {
   if (typeof window === "undefined") return false;
   if (!isEnterprisePersistencePrisma()) return false;
@@ -154,7 +159,10 @@ export async function syncDocumentRecordToServer(
       }),
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) return false;
+    if (!response.ok || !result.success) {
+      if (opts?.throwOnError) throw new Error(result.error?.message || "Document could not be persisted (" + response.status + ").");
+      return false;
+    }
 
     if (isLarge && blob) {
       return await syncLargeBinaryToServer({
@@ -163,10 +171,12 @@ export async function syncDocumentRecordToServer(
         clientRecordId: record.id,
         contentBlob: blob,
         filename: record.originalFilename,
+        throwOnError: opts?.throwOnError,
       });
     }
     return !blob || Boolean(result.data?.hasContent);
-  } catch {
+  } catch (error) {
+    if (opts?.throwOnError) throw error;
     /* non-blocking — local registry remains authoring cache */
     return false;
   }

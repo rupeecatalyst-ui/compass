@@ -1,3 +1,4 @@
+import { resolveCaseReadAccess, assertDealReadAccess, assertOpportunityReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 /**
  * CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014B
  * Canonical Document Workspace access resolver.
@@ -7,14 +8,12 @@ import "server-only";
 
 import { prisma, isDatabaseAvailable } from "@server/lib/prisma";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
-import { userAdminService } from "@server/services/user-admin.service";
 import { lockDocumentWorkspaceContext } from "@/lib/document-workspace/context-lock";
 import {
   capabilityAllowed,
   decideAuthenticatedActor,
   decideCrossTransactionSelection,
   decideDocumentBelongsToContext,
-  decideHierarchyVisibility,
   decideOrganizationScope,
   decideParticipantBelongsToTransaction,
   publicDocumentWorkspaceAccessMessage,
@@ -252,30 +251,9 @@ export async function resolveDocumentWorkspaceAccess(input: {
   });
   if (!orgScope.ok) throwDocumentWorkspaceAccessFailure(orgScope);
 
-  const downlineUserIds = await userAdminService.resolveDownlineUserIds(actor.userId);
-  const visible = decideHierarchyVisibility({
-    actor,
-    opportunity: {
-      id: locked.context.opportunityId,
-      organizationId: locked.context.organizationId,
-      primaryOwnerUserId: opportunity?.primaryOwnerUserId,
-      relationshipManagerUserId: opportunity?.relationshipManagerUserId,
-      relationshipManagerName: opportunity?.relationshipManagerName,
-    },
-    deal: deal
-      ? {
-          id: deal.id,
-          organizationId: deal.organizationId,
-          opportunityId: deal.opportunityId,
-          primaryOwnerUserId: deal.primaryOwnerUserId,
-          relationshipManagerUserId: deal.relationshipManagerUserId,
-          relationshipManagerName: deal.relationshipManagerName,
-          isDeleted: deal.isDeleted,
-        }
-      : null,
-    downlineUserIds,
-  });
-  if (!visible.ok) throwDocumentWorkspaceAccessFailure(visible);
+  const readAccess = await resolveCaseReadAccess(actor.userId);
+  if (deal) await assertDealReadAccess(readAccess, deal.id);
+  else await assertOpportunityReadAccess(readAccess, locked.context.opportunityId);
 
   const documentId = requestedDocumentId || null;
   if (documentId) {

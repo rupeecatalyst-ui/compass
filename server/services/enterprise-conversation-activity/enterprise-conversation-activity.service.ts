@@ -3,22 +3,30 @@
  */
 import "server-only";
 
+import { enterpriseActivityRepository } from "@server/repositories/enterprise-activity/enterprise-activity.repository";
+import { resolveCaseReadAccess, assertDealReadAccess, assertOpportunityReadAccess } from "@server/services/enterprise-case-visibility/read-access";
+import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { prisma } from "@server/lib/prisma";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import type { EnterpriseConversationActivity } from "@/types/enterprise-conversation-activity";
 
-async function resolveOrganizationId(): Promise<string> {
-  const org = await prisma.organization.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  if (!org) {
-    throw Object.assign(new Error("No organization found"), {
-      statusCode: 503,
-      code: "ORG_MISSING",
-    });
-  }
-  return org.id;
+function failure(statusCode: number, code: string, message: string): never {
+  throw Object.assign(new Error(message), { statusCode, code });
+}
+async function validateContext(input: { contextType: string; contextId: string; dealId?: string | null; opportunityId?: string | null }, userId: string) {
+  const access = await resolveCaseReadAccess(userId);
+  const dealId = input.dealId || (input.contextType === "deal" ? input.contextId : null);
+  let opportunityId = input.opportunityId || (input.contextType === "opportunity" ? input.contextId : null);
+  if (dealId) {
+    if (input.contextType === "deal" && input.contextId !== dealId) failure(400, "VALIDATION", "Activity Deal context does not match the selected Deal.");
+    await assertDealReadAccess(access, dealId);
+    const deal = await prisma.enterpriseDeal.findFirst({ where: { id: dealId, organizationId: access.organizationId }, select: { opportunityId: true } });
+    if (!deal) failure(404, "DEAL_NOT_FOUND", "Record not found");
+    if (opportunityId && opportunityId !== deal.opportunityId) failure(400, "VALIDATION", "Activity Opportunity does not belong to the selected Deal.");
+    opportunityId = deal.opportunityId;
+    if (input.contextType === "opportunity" && input.contextId !== opportunityId) failure(400, "VALIDATION", "Activity Opportunity context does not match the selected Deal.");
+  } else if (opportunityId) await assertOpportunityReadAccess(access, opportunityId);
+  return { organizationId: access.organizationId, dealId, opportunityId };
 }
 
 function toDomain(
@@ -89,99 +97,60 @@ export const enterpriseConversationActivityService = {
     return isEnterprisePersistencePrisma();
   },
 
-  async upsertFromClient(
-    input: EnterpriseConversationActivity,
-    actorUserId: string,
-  ): Promise<EnterpriseConversationActivity> {
-    if (!this.isDurable()) {
-      return input;
-    }
-    const organizationId = await resolveOrganizationId();
-
-    const row = await prisma.enterpriseConversationActivity.upsert({
-      where: { id: input.id },
-      create: {
-        id: input.id,
-        organizationId,
-        activityCode: input.activityCode,
-        contextType: input.contextType,
-        contextId: input.contextId,
-        opportunityId: input.opportunityId ?? null,
-        dealId: input.dealId ?? null,
-        contactId: input.contactId ?? null,
-        loanFileId: input.loanFileId ?? null,
-        channel: input.channel,
-        status: input.status,
-        title: input.title,
-        bodyText: input.bodyText ?? null,
-        transcriptText: input.transcriptText ?? null,
-        transcriptRaw: input.transcriptRaw ?? null,
-        transcriptLanguage: input.transcriptLanguage,
-        sttProvider: input.sttProvider,
-        audioDocumentId: input.audioDocumentId ?? null,
-        durationMs: input.durationMs ?? null,
-        recordedByUserId: input.recordedByUserId || actorUserId,
-        recordedByLabel: input.recordedByLabel ?? null,
-        recordedAt: new Date(input.recordedAt),
-        savedAt: input.savedAt ? new Date(input.savedAt) : new Date(),
-        edcTimelineEntryId: input.edcTimelineEntryId ?? null,
-        createdBy: actorUserId,
-        updatedBy: actorUserId,
-      },
-      update: {
-        title: input.title,
-        bodyText: input.bodyText ?? null,
-        transcriptText: input.transcriptText ?? null,
-        transcriptRaw: input.transcriptRaw ?? null,
-        transcriptLanguage: input.transcriptLanguage,
-        sttProvider: input.sttProvider,
-        audioDocumentId: input.audioDocumentId ?? null,
-        durationMs: input.durationMs ?? null,
-        status: input.status,
-        edcTimelineEntryId: input.edcTimelineEntryId ?? null,
-        updatedBy: actorUserId,
-        savedAt: input.savedAt ? new Date(input.savedAt) : new Date(),
-      },
-    });
-
-    // CO-ORG-003 — dual-write conversation domain → EAR (idempotent by activity id)
-    try {
-      const { enterpriseActivityService } = await import(
-        "@server/services/enterprise-activity/enterprise-activity.service"
-      );
-      await enterpriseActivityService.emitBestEffort({
-        eventKind: "notes",
-        sourceSystem: "ecie",
-        sourceEventId: row.id,
-        title: row.title,
-        summary: (row.transcriptText ?? row.bodyText ?? "").slice(0, 280) || null,
-        payload: {
-          channel: row.channel,
-          contextType: row.contextType,
-          contextId: row.contextId,
-          edcTimelineEntryId: row.edcTimelineEntryId,
+  async upsertFromClient(input: EnterpriseConversationActivity, actorUserId: string): Promise<EnterpriseConversationActivity> {
+    if (!this.isDurable()) failure(503, "PERSISTENCE_REQUIRED", "Activity saving requires durable enterprise persistence.");
+    if (!input.id || !input.activityCode || !input.title?.trim() || !(input.transcriptText || input.bodyText)?.trim()) failure(400, "VALIDATION", "Activity identity, title and note or transcript are required.");
+    const scope = await validateContext(input, actorUserId);
+    const now = new Date();
+    const row = await prisma.$transaction(async tx => {
+      const existing = await tx.enterpriseConversationActivity.findUnique({ where: { id: input.id } });
+      if (existing && (existing.organizationId !== scope.organizationId || existing.contextType !== input.contextType || existing.contextId !== input.contextId || existing.dealId !== scope.dealId || existing.recordedByUserId !== actorUserId || existing.isDeleted)) failure(409, "ACTIVITY_CONFLICT", "This activity identity belongs to a different or deleted activity.");
+      if (existing && ((existing.bodyText ?? "") !== (input.bodyText ?? "") || (existing.transcriptText ?? "") !== (input.transcriptText ?? "") || (existing.audioDocumentId ?? null) !== (input.audioDocumentId ?? null))) failure(409, "ACTIVITY_ALREADY_SAVED", "This activity was already saved. Keep the edited content as a new activity.");
+      if (input.audioDocumentId) {
+        const audio = await tx.enterpriseTransactionDocument.findFirst({ where: {
+          organizationId: scope.organizationId, opportunityId: scope.opportunityId ?? "", dealId: scope.dealId,
+          status: "active", OR: [{ id: input.audioDocumentId }, { clientRecordId: input.audioDocumentId }],
+        }, select: { mimeType: true, contentBytes: true, storageKey: true } });
+        if (!audio || !audio.mimeType.startsWith("audio/") || (!audio.contentBytes?.length && !audio.storageKey)) failure(422, "AUDIO_NOT_PERSISTED", "The audio recording was not stored for this transaction. Your transcript is retained; retry the upload.");
+      }
+      const saved = await tx.enterpriseConversationActivity.upsert({
+        where: { id: input.id },
+        create: {
+          id: input.id, organizationId: scope.organizationId, activityCode: input.activityCode,
+          contextType: input.contextType, contextId: input.contextId,
+          opportunityId: scope.opportunityId, dealId: scope.dealId,
+          contactId: input.contactId ?? null, loanFileId: input.loanFileId ?? null,
+          channel: input.channel, status: "saved", title: input.title,
+          bodyText: input.bodyText ?? null, transcriptText: input.transcriptText ?? null,
+          transcriptRaw: input.transcriptRaw ?? null, transcriptLanguage: input.transcriptLanguage,
+          sttProvider: input.sttProvider, audioDocumentId: input.audioDocumentId ?? null,
+          durationMs: input.durationMs ?? null, recordedByUserId: actorUserId,
+          recordedByLabel: input.recordedByLabel ?? null, recordedAt: now, savedAt: now,
+          edcTimelineEntryId: input.edcTimelineEntryId ?? null, createdBy: actorUserId, updatedBy: actorUserId,
         },
-        opportunityId: row.opportunityId,
-        dealId: row.dealId,
-        contactId: row.contactId,
-        documentId: row.audioDocumentId,
-        actorUserId: row.recordedByUserId,
-        actorName: row.recordedByLabel,
-        occurredAt: row.recordedAt,
+        update: {}, // An identical retry must neither duplicate nor rewrite audit history.
       });
-    } catch {
-      /* fail-open */
-    }
-
+      if (saved.organizationId !== scope.organizationId || saved.contextType !== input.contextType || saved.contextId !== input.contextId || saved.dealId !== scope.dealId || saved.recordedByUserId !== actorUserId || saved.isDeleted) failure(409, "ACTIVITY_CONFLICT", "This activity identity belongs to a different or deleted activity.");
+      await enterpriseActivityRepository.upsertEvent({
+        organizationId: scope.organizationId, eventKind: "notes", sourceSystem: "ecie", sourceEventId: saved.id,
+        title: saved.title, summary: (saved.transcriptText ?? saved.bodyText ?? "").slice(0, 280),
+        payload: { channel: saved.channel, contextType: saved.contextType, contextId: saved.contextId, edcTimelineEntryId: saved.edcTimelineEntryId },
+        opportunityId: saved.opportunityId, dealId: saved.dealId, contactId: saved.contactId,
+        documentId: saved.audioDocumentId, actorUserId: saved.recordedByUserId, actorName: saved.recordedByLabel,
+        occurredAt: saved.recordedAt,
+      }, tx);
+      return saved;
+    });
     return toDomain(row);
   },
 
   async listByContext(input: {
     contextType: string;
     contextId: string;
-  }): Promise<EnterpriseConversationActivity[]> {
+  }, actorUserId: string): Promise<EnterpriseConversationActivity[]> {
     if (!this.isDurable()) return [];
-    const organizationId = await resolveOrganizationId();
+    await validateContext(input, actorUserId);
+    const organizationId = await resolvePilotOrganizationId();
     const rows = await prisma.enterpriseConversationActivity.findMany({
       where: {
         organizationId,

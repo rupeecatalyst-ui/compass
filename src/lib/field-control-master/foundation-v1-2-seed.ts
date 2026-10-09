@@ -44,14 +44,15 @@ export function fieldControlVersionId(fieldId: string, versionNumber = FCM_V12_V
 function certifiedRow(
   input: Omit<FoundationV12SeedRow, "id" | "lineageId" | "versionNumber" | "classification" | "ownershipReview">,
 ): FoundationV12SeedRow {
+  const { fieldId, ...fields } = input;
   return {
-    id: fieldControlVersionId(input.fieldId),
-    fieldId: input.fieldId,
-    lineageId: fieldControlLineageId(input.fieldId),
+    id: fieldControlVersionId(fieldId),
+    fieldId,
+    lineageId: fieldControlLineageId(fieldId),
     versionNumber: FCM_V12_VERSION_NUMBER,
     classification: "raw_canonical",
     ownershipReview: "certified_binding",
-    ...input,
+    ...fields,
   };
 }
 

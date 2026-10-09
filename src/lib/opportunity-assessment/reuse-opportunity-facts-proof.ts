@@ -98,13 +98,14 @@ export async function runOpportunityAssessmentReuseProof() {
   assert.deepEqual(missing.sort(), [
     "Existing Monthly Obligations",
     "Monthly Income",
+    "Property Category",
     "Property Value",
     "Requested Tenure",
   ].sort());
   assert.equal(missing.includes("Date of birth"), false);
   assert.equal(missing.includes("Residency"), false);
-  assert.equal(missing.includes("Property category"), false);
-  assert.equal(formatAssessmentIncompleteGuidance(missing.length), "Assessment incomplete — 4 required details missing");
+  assert.equal(missing.includes("Property Category"), true);
+  assert.equal(formatAssessmentIncompleteGuidance(missing.length), "Assessment incomplete — 5 required details missing");
   console.log("MISSING_COUNT: PASS");
 
   const knownProduct = setCapturedProduct(emptyCapturedAssessmentFacts(), "HOME_LOAN");
@@ -123,14 +124,14 @@ export async function runOpportunityAssessmentReuseProof() {
   assert.equal(unknownKept.cibil.kind.value, "explicitly_unknown");
   assert.equal(unknownKept.cibil.expectedBand.state, "missing");
 
-  let unconfirmed = emptyCapturedAssessmentFacts();
+  const unconfirmed = emptyCapturedAssessmentFacts();
   unconfirmed.loanRequirement.requestedAmount.state = "unconfirmed";
   unconfirmed.loanRequirement.requestedAmount.value = "100.00";
   const unconfirmedKept = applyMissingOnlyOpportunityReuse(unconfirmed, OPP_125_SOURCES);
   assert.equal(unconfirmedKept.loanRequirement.requestedAmount.state, "unconfirmed");
   assert.equal(unconfirmedKept.loanRequirement.requestedAmount.value, "100.00");
 
-  let conflicting = emptyCapturedAssessmentFacts();
+  const conflicting = emptyCapturedAssessmentFacts();
   conflicting.loanRequirement.productCode.state = "conflicting";
   conflicting.loanRequirement.productCode.value = "HOME_LOAN";
   const conflictingKept = applyMissingOnlyOpportunityReuse(conflicting, OPP_125_SOURCES);
@@ -200,10 +201,10 @@ export async function runOpportunityAssessmentReuseProof() {
     assert.equal(recommendation.body.data?.executionAllowed, false);
     assert.equal(recommendation.body.data?.recommendationExecuted, false);
     assert.equal(recommendation.body.data?.recommendationRunCreated, false);
-    assert.equal(recommendation.body.data?.missingLabels?.length, 4);
+    assert.equal(recommendation.body.data?.missingLabels?.length, 5);
     assert.equal(
       recommendation.body.data?.guidance,
-      "Assessment incomplete — 4 required details missing",
+      "Assessment incomplete — 5 required details missing",
     );
     console.log("GET_OVERLAY_NOT_PERSISTED: PASS");
     console.log("AUTO_FINALIZE: NO");

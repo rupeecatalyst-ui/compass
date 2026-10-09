@@ -13,11 +13,12 @@ import { getEdcPorts } from "./composition";
 export function appendEdcTimelineEntry(
   input: Omit<EdcTimelineEntry, "id" | "occurredOn" | "historicalReference"> & {
     occurredOn?: string;
+    id?: string;
   },
 ): EdcTimelineEntry {
   const entry: EdcTimelineEntry = {
     ...input,
-    id: crypto.randomUUID(),
+    id: input.id ?? crypto.randomUUID(),
     occurredOn: input.occurredOn ?? new Date().toISOString(),
     historicalReference: input.migrationMode === true ? true : undefined,
   };
@@ -37,7 +38,7 @@ export function appendEdcTimelineEntry(
     entry.expandablePayload && typeof entry.expandablePayload === "object"
       ? (entry.expandablePayload as Record<string, unknown>).source
       : null;
-  if (payloadSource !== "document_requests") {
+  if (payloadSource !== "document_requests" && payloadSource !== "ecie-wave1") {
     try {
       emitEnterpriseActivityBestEffort(mapEdcEntryToEarEmit(entry));
     } catch {

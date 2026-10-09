@@ -1,3 +1,6 @@
+import { mergeReadSafeJson, mergeDealReadSafeSnapshot } from "@/lib/enterprise-case-visibility/read-safe-merge";
+import { projectCaseDetail, projectCaseList } from "@/lib/enterprise-case-visibility/read-projection";
+import { assertDealReadAccess, type CaseReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 /**
  * CO-ARCH-002-W2 — Enterprise Deal API service (business operations; no UI).
  */
@@ -324,7 +327,8 @@ export class EnterpriseDealService {
     return await serializeDealWithContactSsot(deal);
   }
 
-  async getDeal(dealId: string, include: DealIncludeOption[] = []) {
+  async getDeal(dealId: string, include: DealIncludeOption[] = [], readAccess?: CaseReadAccess) {
+    if (readAccess) await assertDealReadAccess(readAccess, dealId);
     const organizationId = await this.orgId();
     const deal = await enterpriseDealRepository.requireDeal(organizationId, dealId);
     const base = await serializeDealWithContactSsot(deal);
@@ -363,7 +367,7 @@ export class EnterpriseDealService {
       opportunity,
       deal.opportunityId ? commitmentMap.get(deal.opportunityId) : undefined,
     );
-    if (include.length === 0) return withOpp;
+    if (include.length === 0) return readAccess ? projectCaseDetail(withOpp, "deal") : withOpp;
 
     const extras: Record<string, unknown> = {};
     if (include.includes("counterparties")) {
@@ -402,8 +406,11 @@ export class EnterpriseDealService {
         organizationId,
         deal.opportunityId,
       );
+      const visibleSiblingIds = new Set(readAccess ? (await prisma.enterpriseDeal.findMany({
+        where: { AND: [readAccess.dealWhere, { opportunityId: deal.opportunityId }] }, select: { id: true },
+      })).map((row) => row.id) : []);
       extras.siblings = await Promise.all(
-        siblingRows.map(async (row) =>
+        (readAccess ? siblingRows.filter((row) => visibleSiblingIds.has(row.id)) : siblingRows).map(async (row) =>
           inheritAdvantageCommitted(
             applyDisplayedRcEmployee(
               {
@@ -418,6 +425,14 @@ export class EnterpriseDealService {
         ),
       );
     }
+    if (readAccess) {
+      for (const key of ["activities", "timeline", "tasks", "documents", "counterparties"]) {
+        if (Array.isArray(extras[key])) extras[key] = extras[key].map(row => ({ ...(row as Record<string, unknown>), payload: null, extension: null }));
+      }
+      if (Array.isArray(extras.siblings)) extras.siblings = extras.siblings.map(row => projectCaseDetail(row as typeof withOpp, "deal"));
+      if (Array.isArray(extras.snapshots)) extras.snapshots = extras.snapshots.map(row => ({ ...(row as Record<string, unknown>), snapshot: projectCaseDetail({ ...withOpp, snapshot: (row as Record<string, unknown>).snapshot }, "deal").snapshot }));
+      return { ...projectCaseDetail(withOpp, "deal"), ...extras };
+    }
     return { ...withOpp, ...extras };
   }
 
@@ -428,6 +443,12 @@ export class EnterpriseDealService {
   async searchDeals(query: EnterpriseDealSearchQuery) {
     const organizationId = await this.orgId();
     const result = await enterpriseDealRepository.searchDeals(organizationId, query);
+    const activityGroups = result.items.length ? await prisma.enterpriseActivityEvent.groupBy({
+      by: ["dealId"],
+      where: { organizationId, dealId: { in: result.items.map(row => row.id) }, sourceSystem: "ecie", eventKind: "notes" },
+      _max: { occurredAt: true },
+    }) : [];
+    const lastActivityByDeal = new Map(activityGroups.map(row => [row.dealId, row._max.occurredAt?.toISOString() ?? null]));
     const serialize = query.view === "summary" ? serializeDealSummary : serializeDeal;
     const commitmentMap = await loadOpportunityCommitmentByIds(
       organizationId,
@@ -436,10 +457,11 @@ export class EnterpriseDealService {
     return {
       ...result,
       items: result.items.map((row) =>
-        inheritAdvantageCommitted(
+        projectCaseList(inheritAdvantageCommitted(
           applyDisplayedRcEmployee(
             {
               ...serialize(row),
+              lastActivityAt: lastActivityByDeal.get(row.id) ?? null,
               opportunityNumber: row.opportunity?.opportunityNumber ?? null,
             },
             row.opportunity,
@@ -449,7 +471,7 @@ export class EnterpriseDealService {
             productLabel: row.productLabel,
           },
           row.opportunityId ? commitmentMap.get(row.opportunityId) : undefined,
-        ),
+        )),
       ),
       view: query.view === "summary" ? "summary" : "full",
     };
@@ -597,10 +619,10 @@ export class EnterpriseDealService {
     if (input.fulfilledAmount !== undefined) data.fulfilledAmount = input.fulfilledAmount;
     if (input.currencyCode !== undefined) data.currencyCode = input.currencyCode;
     if (input.snapshot !== undefined) {
-      data.snapshot = input.snapshot as Prisma.InputJsonValue;
+      data.snapshot = mergeDealReadSafeSnapshot(existing.snapshot, input.snapshot, { id: existing.id, lenderId: input.lenderId ?? existing.lenderId }) as Prisma.InputJsonValue;
     }
     if (input.lendingExtension !== undefined) {
-      data.lendingExtension = input.lendingExtension as Prisma.InputJsonValue;
+      data.lendingExtension = mergeReadSafeJson(existing.lendingExtension, input.lendingExtension) as Prisma.InputJsonValue;
     }
     if (input.commercialTerms !== undefined) {
       data.commercialTerms = input.commercialTerms as Prisma.InputJsonValue;
@@ -787,7 +809,7 @@ export class EnterpriseDealService {
       }
     });
 
-    return await serializeDealWithContactSsot(updated);
+    return projectCaseDetail(await serializeDealWithContactSsot(updated), "deal");
   }
 
   async softDeleteDeal(
@@ -817,7 +839,7 @@ export class EnterpriseDealService {
       isDeleted: updated.isDeleted,
       deletedAt: updated.deletedAt?.toISOString?.() ?? updated.deletedAt,
     });
-    return await serializeDealWithContactSsot(updated);
+    return projectCaseDetail(await serializeDealWithContactSsot(updated), "deal");
   }
 
   async archiveDeal(dealId: string, actorUserId: string, reason?: string | null) {
@@ -828,7 +850,7 @@ export class EnterpriseDealService {
       actorUserId,
       reason,
     });
-    return await serializeDealWithContactSsot(updated);
+    return projectCaseDetail(await serializeDealWithContactSsot(updated), "deal");
   }
 
   async restoreDeal(
@@ -845,7 +867,7 @@ export class EnterpriseDealService {
       actorName,
       reason,
     });
-    return await serializeDealWithContactSsot(updated);
+    return projectCaseDetail(await serializeDealWithContactSsot(updated), "deal");
   }
 
   async transitionDeal(dealId: string, input: TransitionDealInput) {
@@ -902,7 +924,7 @@ export class EnterpriseDealService {
       }
     }
 
-    return await serializeDealWithContactSsot(updated);
+    return projectCaseDetail(await serializeDealWithContactSsot(updated), "deal");
   }
 
   async listTimeline(dealId: string, take = 50) {

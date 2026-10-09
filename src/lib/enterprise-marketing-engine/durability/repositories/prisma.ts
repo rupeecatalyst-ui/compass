@@ -5,6 +5,7 @@
 
 import type {
   MarketingDurableAudienceDefinitionRecord,
+  MarketingDurableAudienceSnapshotRecord,
   MarketingDurableAuditEventRecord,
   MarketingDurableDeliveryBatchRecord,
   MarketingDurableEngagementEventRecord,

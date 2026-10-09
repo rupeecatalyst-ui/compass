@@ -6,7 +6,7 @@
  * presentation="inline" — embedded host (Strategic Workspace Notes replacement)
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClock,
   Camera,
@@ -35,6 +35,8 @@ import {
   startLiveBrowserStt,
 } from "@/lib/enterprise-conversation-intelligence";
 import type { LiveSttSession } from "@/lib/enterprise-conversation-intelligence/stt";
+import { newConversationSubmission, prepareConversationAudio, runConversationSubmissionOnce, type ConversationSubmission } from "@/lib/enterprise-conversation-intelligence/submission";
+import type { EnterpriseConversationActivity } from "@/types/enterprise-conversation-activity";
 import type { ConversationActivityComposerContext } from "@/types/enterprise-conversation-activity";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +75,7 @@ export function EnterpriseActivityComposer({
   composer: ConversationActivityComposerContext;
   actorUserId: string;
   actorLabel?: string;
-  onSaved?: () => void;
+  onSaved?: (activity: EnterpriseConversationActivity, hasUnsavedContent?: boolean) => void;
   /** CO-UX-014 — inline embeds in page layout; sheet is Action Center overlay. */
   presentation?: EnterpriseActivityComposerPresentation;
   heading?: string;
@@ -90,6 +92,18 @@ export function EnterpriseActivityComposer({
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [transcriptSaved, setTranscriptSaved] = useState(false);
+  const submissionRef = useRef<ConversationSubmission | null>(null);
+  const savingRef = useRef(false);
+  const preparedAudio = useMemo(() => audioBlob ? composer.opportunityId ? prepareConversationAudio(audioBlob) : { file: null, message: "Audio storage requires a linked Opportunity. You can save the transcript only and download the recording." } : null, [audioBlob, composer.opportunityId]);
+
+  useEffect(() => {
+    if (!saveMessage || transcriptSaved) return;
+    const timer = window.setTimeout(() => setSaveMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [saveMessage, transcriptSaved]);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -104,7 +118,9 @@ export function EnterpriseActivityComposer({
     tickRef.current = null;
     sttRef.current?.stop();
     sttRef.current = null;
-    mediaRecorderRef.current?.stop();
+    const recorder = mediaRecorderRef.current;
+    if (recorder) { recorder.onstop = null; recorder.ondataavailable = null; if (recorder.state !== "inactive") recorder.stop(); }
+    mediaRecorderRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (audioUrl) URL.revokeObjectURL(audioUrl);
@@ -117,7 +133,10 @@ export function EnterpriseActivityComposer({
     setElapsedMs(0);
     setAudioUrl(null);
     setAudioBlob(null);
-    setSaving(false);
+    setSaveError(null);
+    setSaveMessage(null);
+    setTranscriptSaved(false);
+    submissionRef.current = null;
     chunksRef.current = [];
     accumulatedRef.current = 0;
   }, [audioUrl]);
@@ -233,6 +252,8 @@ export function EnterpriseActivityComposer({
   const discardAll = () => {
     sttRef.current?.stop();
     sttRef.current = null;
+    const recorder = mediaRecorderRef.current;
+    if (recorder) { recorder.onstop = null; recorder.ondataavailable = null; }
     if (recording) stopRecording();
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
@@ -244,9 +265,13 @@ export function EnterpriseActivityComposer({
     accumulatedRef.current = 0;
     chunksRef.current = [];
     setMode("type_note");
+    submissionRef.current = null;
+    setTranscriptSaved(false);
+    setSaveError(null);
   };
 
-  const onSave = async () => {
+  const onSave = async (transcriptOnly = false) => runConversationSubmissionOnce(savingRef, async () => {
+    if (transcriptSaved) return;
     if (mode === "type_note") {
       if (!note.trim()) {
         toast.message("Enter a note before saving.");
@@ -270,16 +295,19 @@ export function EnterpriseActivityComposer({
       return;
     }
 
+    if (mode === "record_voice" && !preparedAudio?.file && !transcriptOnly) {
+      setSaveError(preparedAudio?.message || "The recording is not ready. Stop recording and retry.");
+      return;
+    }
     setSaving(true);
+    setSaveError(null);
+    setSaveMessage(null);
+    const submission = submissionRef.current ?? newConversationSubmission();
+    submissionRef.current = submission;
     try {
-      const file =
-        mode === "record_voice" && audioBlob
-          ? new File([audioBlob], `conversation-${Date.now()}.webm`, {
-              type: audioBlob.type || "audio/webm",
-            })
-          : null;
+      const file = mode === "record_voice" && !transcriptOnly ? preparedAudio?.file ?? null : null;
 
-      await saveConversationActivity({
+      const saved = await saveConversationActivity({
         composer,
         channel: mode === "record_voice" ? "in_app_mic" : "typed_note",
         bodyText: mode === "type_note" ? note.trim() : transcript.trim(),
@@ -298,17 +326,33 @@ export function EnterpriseActivityComposer({
         audioFile: file,
         actorUserId,
         actorLabel,
-      });
-      toast.success("Activity saved.");
-      onSaved?.();
-      discardAll();
-      if (!isInline) onOpenChange?.(false);
+      }, submission);
+      if (submissionRef.current !== submission) return;
+      toast.success("Activity saved successfully.");
+      if (transcriptOnly) {
+        setTranscriptSaved(true);
+        setSaveMessage("Activity saved successfully. Transcript saved; audio was not stored. Download the recording before discarding it.");
+      } else {
+        submissionRef.current = null;
+        if (mode === "type_note") setNote("");
+        else {
+          if (audioUrl) URL.revokeObjectURL(audioUrl);
+          setAudioUrl(null); setAudioBlob(null); setTranscript(""); setSttMessage(null);
+          setElapsedMs(0); accumulatedRef.current = 0; chunksRef.current = []; setMode("type_note");
+        }
+        setSaveMessage("Activity saved successfully.");
+      }
+      const hasUnsavedContent = transcriptOnly || (mode === "type_note" ? Boolean(audioBlob || transcript.trim()) : Boolean(note.trim()));
+      onSaved?.(saved, hasUnsavedContent);
+      if (!isInline && !hasUnsavedContent) onOpenChange?.(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save activity.");
+      const message = err instanceof Error ? err.message : "Could not save activity.";
+      if (submissionRef.current === submission) setSaveError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
-  };
+  });
 
   const body = (
     <div className="space-y-3">
@@ -333,7 +377,7 @@ export function EnterpriseActivityComposer({
                 size="sm"
                 variant={mode === id ? "default" : "outline"}
                 className={cn("h-8 gap-1.5 text-xs", !enabled && "opacity-60")}
-                disabled={!enabled}
+                disabled={!enabled || saving || recording || transcriptSaved || Boolean(submissionRef.current)}
                 onClick={() => {
                   if (!enabled) {
                     toast.message("Coming in a later Wave.");
@@ -362,6 +406,7 @@ export function EnterpriseActivityComposer({
           {!isInline ? <Label htmlFor="ecie-note">Note</Label> : null}
           <Textarea
             id="ecie-note"
+            disabled={saving}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Write meeting notes, discussion points, or follow-ups…"
@@ -413,6 +458,7 @@ export function EnterpriseActivityComposer({
             <Label htmlFor="ecie-transcript">Transcript (editable)</Label>
             <Textarea
               id="ecie-transcript"
+              disabled={saving || transcriptSaved}
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
               placeholder="Transcript appears here after recording — edit before save."
@@ -425,6 +471,10 @@ export function EnterpriseActivityComposer({
         </div>
       ) : null}
 
+      {saveError ? <p role="alert" className="text-xs text-destructive">{saveError}</p> : null}
+      {saveMessage ? <p role="status" className="text-xs text-muted-foreground">{saveMessage}</p> : null}
+      {mode === "record_voice" && preparedAudio?.message ? <p className="text-xs text-muted-foreground">{preparedAudio.message}</p> : null}
+      {audioUrl ? <a href={audioUrl} download={preparedAudio?.file?.name || "conversation-recording"} className="text-xs text-primary underline">Download recording</a> : null}
       <div className="flex items-center justify-between gap-2 pt-1">
         <Button
           type="button"
@@ -439,7 +489,8 @@ export function EnterpriseActivityComposer({
         >
           Discard
         </Button>
-        <Button type="button" size="sm" className="h-8" onClick={() => void onSave()} disabled={saving}>
+        {mode === "record_voice" && preparedAudio?.message ? <Button type="button" size="sm" className="h-8" disabled={saving || transcriptSaved} onClick={() => void onSave(true)}>Save Transcript Only</Button> : null}
+        <Button type="button" size="sm" className="h-8" onClick={() => void onSave()} disabled={saving || recording || transcriptSaved || (mode === "record_voice" && !preparedAudio?.file)}>
           {saving ? "Saving…" : "Save Activity"}
         </Button>
       </div>

@@ -13,7 +13,7 @@ export function fieldAppliesToEmployment(
 ): boolean {
   if (row.applicability === "all") return true;
   if (!employmentFamily || employmentFamily === "unknown") {
-    return row.applicability === "all";
+    return false;
   }
   return row.applicability === employmentFamily;
 }

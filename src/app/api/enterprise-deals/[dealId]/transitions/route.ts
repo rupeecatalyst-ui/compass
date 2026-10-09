@@ -1,3 +1,5 @@
+import { projectCaseDetail } from "@/lib/enterprise-case-visibility/read-projection";
+import { resolveCaseReadAccess, assertDealReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 import {
   errorResponse,
   fromAuthError,
@@ -31,6 +33,8 @@ export async function POST(request: Request, context: Ctx) {
       try {
         enterpriseDealApiGuard();
         const actor = requireAccessToken(request);
+        const readAccess = await resolveCaseReadAccess(actor.userId);
+        await assertDealReadAccess(readAccess, dealId);
         const body = await request.json();
         const toGrossStage = String(body.toGrossStage ?? "");
         const updated = await enterpriseDealService.transitionDeal(dealId, {
@@ -58,7 +62,7 @@ export async function POST(request: Request, context: Ctx) {
           result: "Success",
           correlationId,
         });
-        return successResponse(updated, 200, correlationId);
+        return successResponse(projectCaseDetail(updated, "deal"), 200, correlationId);
       } catch (err) {
         const mapped = mapDealRouteError(err);
         if (

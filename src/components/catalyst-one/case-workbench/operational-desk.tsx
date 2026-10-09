@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CaseWorkbenchActionPanel } from "@/components/catalyst-one/case-workbench/case-workbench-action-panel";
 import { DeskMultiSelect } from "@/components/catalyst-one/case-workbench/desk-multi-select";
 import { useAuthContext } from "@/components/providers/auth-provider";
-import { searchAssignableUsers } from "@/lib/assigned-users";
 import {
   LENDER_CASE_STAGE_COLORS,
   LENDER_CASE_STAGE_LABELS,
@@ -14,6 +13,9 @@ import { notifyLoanFilesUpdated } from "@/lib/loan-data-sync";
 import { resolveLenderBranding } from "@/lib/enterprise-lender-registry/branding";
 import {
   cycleDeskArea,
+  DESK_CUSTOMER_CARD_CLASS,
+  DESK_CUSTOMER_GROUP_CLASS,
+  DESK_DEAL_ROW_SEPARATOR_CLASS,
   dealTableRows,
   DESK_DEAL_STAGE_OPTIONS,
   DESK_OPPORTUNITY_STAGE_OPTIONS,
@@ -81,6 +83,7 @@ function LenderMark({ name }: { name: string }) {
 }
 
 export function OperationalDesk({
+  onActivitySaved,
   opportunities,
   deals,
   loading,
@@ -90,10 +93,18 @@ export function OperationalDesk({
   deals: DeskDealInput[];
   loading: boolean;
   error: string | null;
+  onActivitySaved?: (activity: import("@/types/enterprise-conversation-activity").EnterpriseConversationActivity) => void;
 }) {
   const { user } = useAuthContext();
-  const [ownerOptions, setOwnerOptions] = useState<Array<{ id: string; label: string }>>([]);
-  const [ownersLoaded, setOwnersLoaded] = useState(false);
+  const ownerOptions = useMemo(() => {
+    const owners = new Map<string, string>();
+    for (const row of [...opportunities, ...deals]) {
+      if (row.ownerUserId) owners.set(row.ownerUserId, row.ownerName || row.ownerUserId);
+    }
+    if (user?.id) owners.set(user.id, [user.firstName, user.lastName].filter(Boolean).join(" ") || user.id);
+    return [...owners].map(([id, label]) => ({ id, label }));
+  }, [opportunities, deals, user]);
+  const ownersLoaded = !loading;
   const hydrated = useRef(false);
   const catalog = useMemo(
     () => deskFilterCatalog([...ownerOptions.map((owner) => owner.id), user?.id ?? ""]),
@@ -112,23 +123,6 @@ export function OperationalDesk({
   const [stageMenuId, setStageMenuId] = useState<string | null>(null);
   const [stageBusy, setStageBusy] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    void searchAssignableUsers("", { authorised: true })
-      .then((users) => {
-        if (cancelled) return;
-        setOwnerOptions(users.map((person) => ({ id: person.id, label: person.fullName })));
-      })
-      .catch(() => {
-        if (!cancelled) setOwnerOptions([]);
-      })
-      .finally(() => {
-        if (!cancelled) setOwnersLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (!user?.id || !ownersLoaded || hydrated.current) return;
@@ -161,6 +155,11 @@ export function OperationalDesk({
   const pageCount = dealPages.length;
   const safePage = Math.min(page, pageCount - 1);
   const pagedDeals = dealTableRows(dealPages[safePage] ?? []);
+  const dealCards = pagedDeals.reduce<Array<typeof pagedDeals>>((cards, row) => {
+    if (row.customerSpan > 0 || cards.length === 0) cards.push([row]);
+    else cards[cards.length - 1]?.push(row);
+    return cards;
+  }, []);
   const oppPageCount = Math.max(1, Math.ceil(visible.opportunities.length / DESK_VISIBLE_PAGE));
   const pagedOpps = visible.opportunities.slice(
     Math.min(page, oppPageCount - 1) * DESK_VISIBLE_PAGE,
@@ -352,7 +351,7 @@ export function OperationalDesk({
               </button>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <table className="w-full border-collapse text-left text-[12px]">
+              <table className="w-full border-separate border-spacing-y-2 px-2 text-left text-[12px]">
                 <thead className="sticky top-0 z-10 bg-muted text-[10px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-2 py-1.5 font-semibold">Customer</th>
@@ -373,16 +372,15 @@ export function OperationalDesk({
                     <tr
                       key={row.id}
                       className={cn(
-                        "border-t border-border",
                         selection?.kind === "opportunity" && selection.id === row.id && "bg-accent/50",
                       )}
                     >
-                      <td className="px-2 py-1.5 font-semibold text-foreground">{row.customerName}</td>
-                      <td className="px-2 py-1.5 text-foreground">{row.product}</td>
-                      <td className="px-2 py-1.5 text-foreground">{row.amountLabel}</td>
-                      <td className="px-2 py-1.5 text-foreground">{row.stageLabel}</td>
-                      <td className="px-2 py-1.5 text-muted-foreground">{formatWhen(row.updatedAt)}</td>
-                      <td className="px-2 py-1.5">
+                      <td className={cn("rounded-l-md border border-blue-300 border-r-0 px-2 py-1.5 font-semibold dark:border-[#1e3a5f]", DESK_CUSTOMER_GROUP_CLASS)}>{row.customerName}</td>
+                      <td className="border-y border-border px-2 py-1.5 text-foreground">{row.product}</td>
+                      <td className="border-y border-border px-2 py-1.5 text-foreground">{row.amountLabel}</td>
+                      <td className="border-y border-border px-2 py-1.5 text-foreground">{row.stageLabel}</td>
+                      <td className="border-y border-border px-2 py-1.5 text-muted-foreground">{formatWhen(row.lastActivity || row.updatedAt)}</td>
+                      <td className="rounded-r-md border border-l-0 border-border px-2 py-1.5">
                         <button
                           type="button"
                           onClick={() => selectRow({ kind: "opportunity", id: row.id })}
@@ -436,18 +434,19 @@ export function OperationalDesk({
               </div>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <table className="w-full border-collapse text-left text-[12px]">
-                <thead className="sticky top-0 z-10 bg-muted text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-2 py-1.5 font-semibold">Customer</th>
-                    <th className="px-2 py-1.5 font-semibold">Lender</th>
-                    <th className="px-2 py-1.5 font-semibold">Last activity</th>
-                    <th className="px-2 py-1.5 font-semibold">Stage</th>
-                    <th className="px-2 py-1.5 font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedDeals.map((row) => {
+              <div className="sticky top-0 z-10 grid grid-cols-[8.5rem_minmax(0,1.4fr)_7rem_8rem_4.5rem] bg-muted px-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                <span className="px-2 py-1.5 font-semibold">Customer</span>
+                <span className="px-2 py-1.5 font-semibold">Lender</span>
+                <span className="px-2 py-1.5 font-semibold">Last activity</span>
+                <span className="px-2 py-1.5 font-semibold">Stage</span>
+                <span className="px-2 py-1.5 font-semibold">Action</span>
+              </div>
+              <div className="space-y-2 p-2">
+                {dealCards.map((card) => (
+                  <table key={card[0]?.deal.relationshipKey ?? card[0]?.deal.id} className={cn("w-full table-fixed border-collapse text-left text-[12px]", DESK_CUSTOMER_CARD_CLASS)}>
+                    <colgroup><col className="w-[8.5rem]" /><col /><col className="w-[7rem]" /><col className="w-[8rem]" /><col className="w-[4.5rem]" /></colgroup>
+                    <tbody>
+                  {card.map((row, index) => {
                     const stageId = row.deal.grossStage;
                     const color = stageId ? LENDER_CASE_STAGE_COLORS[stageId as keyof typeof LENDER_CASE_STAGE_COLORS] : "#94A3B8";
                     const targets = permittedDeskStageTargets(stageId);
@@ -455,14 +454,14 @@ export function OperationalDesk({
                       <tr
                         key={row.deal.id}
                         className={cn(
-                          "border-t border-border",
+                          index > 0 && DESK_DEAL_ROW_SEPARATOR_CLASS,
                           selection?.kind === "deal" && selection.id === row.deal.id && "bg-accent/40",
                         )}
                       >
-                        {row.customerSpan > 0 ? (
+                        {index === 0 ? (
                           <td
-                            rowSpan={row.customerSpan}
-                            className="align-top bg-blue-50 px-2 py-2 text-blue-950 dark:bg-blue-950 dark:text-blue-50"
+                            rowSpan={card.length}
+                            className={cn("w-[8.5rem] align-top border-r px-2 py-2", DESK_CUSTOMER_GROUP_CLASS)}
                           >
                             <p className="font-semibold">{row.deal.customerName}</p>
                             <p className="text-[11px]">{row.deal.product}</p>
@@ -513,8 +512,10 @@ export function OperationalDesk({
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
+                    </tbody>
+                  </table>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}
@@ -532,6 +533,7 @@ export function OperationalDesk({
               collapsed={panel === "collapsed"}
               dirty={dirty}
               onDirty={setDirty}
+              onActivitySaved={onActivitySaved}
               onCollapse={() => setPanel((current) => nextActionPanel(current, "collapse"))}
               onExpand={() => setPanel((current) => nextActionPanel(current, "expand"))}
               onRequestClose={() =>

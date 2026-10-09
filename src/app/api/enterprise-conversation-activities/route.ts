@@ -12,7 +12,7 @@ import type { EnterpriseConversationActivity } from "@/types/enterprise-conversa
 
 export async function GET(request: Request) {
   try {
-    requireAccessToken(request);
+    const actor = requireAccessToken(request);
     const url = new URL(request.url);
     const contextType = url.searchParams.get("contextType")?.trim();
     const contextId = url.searchParams.get("contextId")?.trim();
@@ -22,11 +22,10 @@ export async function GET(request: Request) {
     const items = await enterpriseConversationActivityService.listByContext({
       contextType,
       contextId,
-    });
+    }, actor.userId);
     return successResponse({ items, durable: enterpriseConversationActivityService.isDurable() });
   } catch (err) {
-    const e = err as { status?: number; statusCode?: number };
-    if (e.status === 401 || e.statusCode === 401) return fromAuthError(err as never);
+    if (typeof err === "object" && err !== null && "status" in err && "body" in err) return fromAuthError(err as never);
     return errorResponse(
       (err as { statusCode?: number }).statusCode || 500,
       (err as { code?: string }).code || "ECIE_ACTIVITY_ERROR",
@@ -55,8 +54,7 @@ export async function POST(request: Request) {
       201,
     );
   } catch (err) {
-    const e = err as { status?: number; statusCode?: number };
-    if (e.status === 401 || e.statusCode === 401) return fromAuthError(err as never);
+    if (typeof err === "object" && err !== null && "status" in err && "body" in err) return fromAuthError(err as never);
     return errorResponse(
       (err as { statusCode?: number }).statusCode || 500,
       (err as { code?: string }).code || "ECIE_ACTIVITY_ERROR",

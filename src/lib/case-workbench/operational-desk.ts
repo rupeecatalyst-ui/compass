@@ -20,6 +20,10 @@ import {
   LENDER_CASE_STAGES,
   tryCanonicalLenderCaseStage,
 } from "@/constants/lender-pipeline";
+import {
+  buildDocumentWorkspaceHref,
+  isCanonicalDocumentWorkspaceId,
+} from "@/lib/document-workspace/context-lock";
 import { listCanonicalProductOptions, resolveCanonicalProductCode } from "@/constants/enterprise-product-master/canonical-catalog";
 import {
   OPPORTUNITY_LIFECYCLE,
@@ -46,10 +50,12 @@ export interface DeskOpportunity {
   stageLabel: string;
   status: string;
   updatedAt: string;
+  lastActivity?: string;
   amountLabel: string;
   contactId?: string | null;
   productCode?: string | null;
   ownerUserId?: string | null;
+  ownerName?: string | null;
 }
 
 export interface DeskDealInput {
@@ -74,6 +80,7 @@ export interface DeskDealInput {
   contactEmail?: string | null;
   productCode?: string | null;
   ownerUserId?: string | null;
+  ownerName?: string | null;
 }
 
 /** Rows kept in one pane before the next page. */
@@ -208,10 +215,12 @@ export function mapRegistryDealToDeskInput(deal: {
   productLabel?: string | null;
   primaryOwnerUserId?: string | null;
   relationshipManagerUserId?: string | null;
+  relationshipManagerName?: string | null;
   productFamily?: string | null;
   grossStage?: string | null;
   requestedAmount?: number | null;
   approvedAmount?: number | null;
+  lastActivityAt?: string | null;
   updatedAt?: string | null;
   stageEnteredAt?: string | null;
   createdAt?: string | null;
@@ -219,7 +228,8 @@ export function mapRegistryDealToDeskInput(deal: {
   isDeleted?: boolean;
 }): DeskDealInput | null {
   if (deal.isDeleted || deal.archived) return null;
-  const lastActivity = deal.updatedAt || deal.stageEnteredAt || deal.createdAt || "";
+  const fallbackActivity = deal.stageEnteredAt || deal.createdAt || "";
+  const lastActivity = deal.lastActivityAt && Date.parse(deal.lastActivityAt) > Date.parse(fallbackActivity || "1970-01-01") ? deal.lastActivityAt : fallbackActivity;
   const amount = deal.approvedAmount ?? deal.requestedAmount ?? null;
   const stage = displayDealStage(deal.grossStage);
   return {
@@ -236,6 +246,7 @@ export function mapRegistryDealToDeskInput(deal: {
     contactEmail: deal.primaryContactEmail?.trim() || null,
     productCode: resolveCanonicalProductCode(deal.productCode || deal.productLabel),
     ownerUserId: deal.primaryOwnerUserId?.trim() || deal.relationshipManagerUserId?.trim() || null,
+    ownerName: !deal.primaryOwnerUserId || deal.primaryOwnerUserId === deal.relationshipManagerUserId ? deal.relationshipManagerName?.trim() || null : null,
     product: deal.productLabel?.trim() || deal.productFamily?.trim() || "Not Specified",
     loanAmountLabel: formatDeskAmount(amount),
     lastActivity,
@@ -271,6 +282,7 @@ export interface DeskDeal {
   contactEmail?: string | null;
   productCode?: string | null;
   ownerUserId?: string | null;
+  ownerName?: string | null;
 }
 
 export interface DeskDealGroup {
@@ -636,4 +648,130 @@ export function deskGridLabels(
 
 export function cycleDeskArea(current: DeskArea, target: "opportunities" | "deals"): DeskArea {
   return current === target ? "split" : target;
+}
+
+/** Light blue in light mode; deep navy with white text in dark mode. */
+export const DESK_CUSTOMER_GROUP_CLASS =
+  "bg-blue-100 text-blue-950 dark:bg-[#071428] dark:text-white";
+
+export const DESK_CUSTOMER_CARD_CLASS =
+  "overflow-hidden rounded-md border border-blue-300 bg-card dark:bg-[#071428] dark:border-[#1e3a5f]";
+
+export const DESK_DEAL_ROW_SEPARATOR_CLASS = "border-t border-blue-200 dark:border-[#1e3a5f]";
+
+/** Document Workspace mailbox. Not a second composer or send API. */
+export const DESK_EMAIL_COMPOSER = "document-workspace-mailbox";
+
+export function deskEmailLaunch(input: {
+  opportunityId: string | null;
+  dealId?: string | null;
+  kind: "custom" | "template";
+}): {
+  composer: typeof DESK_EMAIL_COMPOSER;
+  opportunityId: string | null;
+  dealId: string | null;
+  kind: "custom" | "template";
+} {
+  return {
+    composer: DESK_EMAIL_COMPOSER,
+    opportunityId: input.opportunityId,
+    dealId: input.dealId?.trim() || null,
+    kind: input.kind,
+  };
+}
+
+/** Document Workspace focused by canonical ids. Never the Opportunity stage editor. */
+export function deskDocumentWorkspaceHref(input: {
+  opportunityId?: string | null;
+  dealId?: string | null;
+  contactId?: string | null;
+}): string | null {
+  const opportunityId = input.opportunityId?.trim() || "";
+  if (!isCanonicalDocumentWorkspaceId(opportunityId)) return null;
+  const dealId = input.dealId?.trim() || "";
+  const contactId = input.contactId?.trim() || "";
+  return buildDocumentWorkspaceHref({
+    opportunityId,
+    dealId: isCanonicalDocumentWorkspaceId(dealId) ? dealId : null,
+    contactId: isCanonicalDocumentWorkspaceId(contactId) ? contactId : null,
+  });
+}
+
+export interface DeskLenderContact {
+  id: string;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  designation: string | null;
+}
+
+function readAssociatedLenderContact(
+  raw: Record<string, unknown>,
+  fallbackId: string,
+): DeskLenderContact | null {
+  const name = String(raw.lenderSalesContactName ?? "").trim();
+  const email = String(raw.lenderSalesContactOfficialEmail ?? "").trim();
+  const mobile = String(raw.lenderSalesContactMobile ?? "").trim();
+  const designation = String(raw.lenderSalesContactDesignationLabel ?? "").trim();
+  if (!name && !email && !mobile) return null;
+  return {
+    id: String(raw.lenderSalesContactId ?? "").trim() || fallbackId,
+    name: name || "Not Specified",
+    email: email || null,
+    mobile: mobile || null,
+    designation: designation || null,
+  };
+}
+
+/**
+ * Sales contacts stored on this Deal's snapshot only.
+ * Another lender card in the same snapshot is not this Deal's contact.
+ */
+export function associatedLenderContacts(deal: {
+  id: string;
+  lenderId?: string | null;
+  snapshot?: unknown;
+}): DeskLenderContact[] {
+  const snap =
+    deal.snapshot && typeof deal.snapshot === "object"
+      ? (deal.snapshot as Record<string, unknown>)
+      : null;
+  if (!snap) return [];
+  const lenders = Array.isArray(snap.lenders) ? snap.lenders : [];
+  const matched = lenders.filter((raw) => {
+    if (!raw || typeof raw !== "object") return false;
+    const card = raw as Record<string, unknown>;
+    const cardDeal = String(card.enterpriseDealId ?? "").trim();
+    const cardLender = String(card.lenderRegistryId ?? card.lenderId ?? "").trim();
+    if (cardDeal && cardDeal === deal.id) return true;
+    if (!cardDeal && deal.lenderId && cardLender === deal.lenderId) return true;
+    return false;
+  });
+  const sources = matched.length > 0 ? matched : lenders.length === 0 ? [snap] : [];
+  const seen = new Set<string>();
+  const contacts: DeskLenderContact[] = [];
+  sources.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object") return;
+    const contact = readAssociatedLenderContact(raw as Record<string, unknown>, `${deal.id}:${index}`);
+    if (!contact || seen.has(contact.id)) return;
+    seen.add(contact.id);
+    contacts.push(contact);
+  });
+  return contacts;
+}
+
+/** Read projection from a server-confirmed conversation; never modifies stages or siblings. */
+export function applyPersistedDeskActivity(
+  deals: DeskDealInput[], opportunities: DeskOpportunity[],
+  activity: import("@/types/enterprise-conversation-activity").EnterpriseConversationActivity,
+): { deals: DeskDealInput[]; opportunities: DeskOpportunity[] } {
+  if (activity.status !== "saved" || !activity.savedAt || !Number.isFinite(Date.parse(activity.recordedAt))) return { deals, opportunities };
+  const timestamp = activity.recordedAt;
+  return {
+    deals: deals.map(deal => deal.id === activity.dealId && (!deal.lastActivity || Date.parse(timestamp) > Date.parse(deal.lastActivity)) ? {
+      ...deal, lastActivity: timestamp,
+      lastActivityLabel: new Date(timestamp).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+    } : deal),
+    opportunities: opportunities.map(opportunity => opportunity.id === activity.opportunityId && (!opportunity.lastActivity || timestamp > opportunity.lastActivity) ? { ...opportunity, lastActivity: timestamp } : opportunity),
+  };
 }

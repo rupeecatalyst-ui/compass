@@ -187,7 +187,7 @@ function publicationInstant(value: Date | string | null | undefined): Date | nul
 export function publicationLenderCategoryDecision(
   input: PublicationLenderCategoryInput,
 ): { ok: true; category: LenderCategoryBand } | { ok: false; reason: typeof LENDER_CATEGORY_PUBLICATION_REQUIRED } {
-  const fail = { ok: false as const, reason: LENDER_CATEGORY_PUBLICATION_REQUIRED };
+  const fail = { ok: false, reason: LENDER_CATEGORY_PUBLICATION_REQUIRED } as const;
   if (input.isDeleted === true) return fail;
   if (input.lifecycleStatus !== "active") return fail;
   const category = parseLenderCategoryBand(input.category);

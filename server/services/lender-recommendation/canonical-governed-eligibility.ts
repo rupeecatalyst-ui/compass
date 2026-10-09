@@ -339,7 +339,8 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
 /** Final output proof: a shared calculation must not turn a rejected constraint into a conditional card. */
 export function canonicalCardSatisfies(programme: CanonicalAssessmentProgramme, customer: Customer, card: ProgrammeAssessmentCard): boolean {
   const c = programme.canonicalConstraints;
-  const roiMissing = !finite(card.applicableRoiPercent);
+  const applicableRoiPercent = card.applicableRoiPercent;
+  const roiMissing = !finite(applicableRoiPercent);
   if (!positive(card.tentativeOfferRupees) || card.lenderId !== programme.lenderId ||
       card.propertyValueConsideredRupees !== customer.propertyValueRupees || !positive(card.tenureMonths)) return false;
   if (positive(customer.customerSelectedTenureMonths) && card.tenureMonths > customer.customerSelectedTenureMonths) return false;
@@ -356,7 +357,7 @@ export function canonicalCardSatisfies(programme: CanonicalAssessmentProgramme, 
     && within(card.tentativeOfferRupees, c.minLoanAmountRupees, c.maxLoanAmountRupees)
     && (roiMissing || (finite(card.foirPercent)
       && finite((obligations + card.indicativeEmiRupees!) / income * 100)
-      && within(card.applicableRoiPercent, c.minRoiPercent, c.maxRoiPercent)))
+      && within(applicableRoiPercent, c.minRoiPercent, c.maxRoiPercent)))
     && within(card.tentativeOfferRupees / customer.propertyValueRupees! * 100, c.minLtvPercent, c.maxLtvPercent)
     && (programme.canonicalProduct !== "HOME_LOAN_BT" ||
       (positive(card.transferComponentRupees) && card.transferComponentRupees <= customer.currentOutstandingRupees!));

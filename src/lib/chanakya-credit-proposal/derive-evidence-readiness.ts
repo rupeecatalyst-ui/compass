@@ -133,7 +133,7 @@ export function deriveChanakyaProposalEvidenceReadiness(
     financialVisibility = "limited";
   }
 
-  let bankingVisibility: ChanakyaEvidenceVisibilityLevel = flags.banking
+  const bankingVisibility: ChanakyaEvidenceVisibilityLevel = flags.banking
     ? "moderate"
     : "none";
 

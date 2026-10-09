@@ -1,10 +1,11 @@
+import { clearSessionDealCache } from "@/lib/enterprise-session/deal-runtime-cache";
 /**
  * CO-ARCH-002-W3 / CO-ARCH-003 — Browser client for Enterprise Deal API.
  * GETs go through Enterprise Session single-flight cache.
  *
  * Imports deal-runtime-cache directly (not session barrel) to avoid circular SSR graphs.
  */
-import { authenticatedJsonFetch } from "@/lib/api-client";
+import { authenticatedJsonFetch, getAccessToken } from "@/lib/api-client";
 import type { DealCreateBody, DealUpdateBody } from "@/lib/enterprise-deal/map-loan-file-to-deal";
 import {
   configureDealNetworkFetcher,
@@ -67,6 +68,8 @@ export type EnterpriseDealApiRecord = {
   commissionAccountingPayeeId?: string | null;
   priority?: string;
   isUrgent?: boolean;
+  /** Latest persisted lender-specific conversation EAR event. */
+  lastActivityAt?: string | null;
   stageEnteredAt?: string | null;
   /** Immutable first entry into canonical Disbursed. Null on historical rows. */
   disbursedAt?: string | null;
@@ -91,7 +94,9 @@ type ApiEnvelope<T> = {
 };
 
 async function dealFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const readScope = getAccessToken();
   const res = await authenticatedJsonFetch(url, init);
+  if (readScope !== getAccessToken()) throw new Error("Authorization session changed during request; retry the action");
   const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T>;
   if (!res.ok || !body.success) {
     const err = new Error(body?.error?.message || `Deal API failed (${res.status})`) as Error & {
@@ -257,6 +262,7 @@ export const enterpriseDealApiClient = {
       Array.isArray(raw.siblings) && raw.siblings.length > 0
         ? raw.siblings
         : [raw];
+    clearSessionDealCache();
     for (const row of siblings) putSessionDeal(row);
     putSessionDeal(raw);
     await bindActiveDeal(raw);

@@ -1,3 +1,6 @@
+import { mergeReadSafeJson } from "@/lib/enterprise-case-visibility/read-safe-merge";
+import { projectCaseDetail, projectCaseList } from "@/lib/enterprise-case-visibility/read-projection";
+import { assertOpportunityReadAccess, type CaseReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 /**
  * CO-ARCH-003 / ADR-018 / CO-OPP-002 — Opportunity Registry service.
  * Create Opportunity never creates a Deal (BI-1 / BI-3).
@@ -841,10 +844,10 @@ export class EnterpriseOpportunityService {
       patch.currencyCode = String(body.currencyCode);
     }
     if (body.snapshot !== undefined) {
-      patch.snapshot = body.snapshot as Prisma.InputJsonValue | null;
+      patch.snapshot = mergeReadSafeJson(existing.snapshot, body.snapshot) as Prisma.InputJsonValue;
     }
     if (body.lendingExtension !== undefined) {
-      patch.lendingExtension = body.lendingExtension as Prisma.InputJsonValue | null;
+      patch.lendingExtension = mergeReadSafeJson(existing.lendingExtension, body.lendingExtension) as Prisma.InputJsonValue;
     }
     if (body.sourceCode !== undefined) {
       patch.sourceCode = body.sourceCode ? String(body.sourceCode).trim() : null;
@@ -1006,13 +1009,15 @@ export class EnterpriseOpportunityService {
     }
   }
 
-  async getOpportunity(opportunityId: string) {
+  async getOpportunity(opportunityId: string, readAccess?: CaseReadAccess) {
+    if (readAccess) await assertOpportunityReadAccess(readAccess, opportunityId);
     const organizationId = await this.orgId();
     const row = await enterpriseOpportunityRepository.requireOpportunity(
       organizationId,
       opportunityId,
     );
-    return await serializeOpportunityWithContactSsot(row);
+    const serialized = await serializeOpportunityWithContactSsot(row);
+    return readAccess ? projectCaseDetail(serialized, "opportunity") : serialized;
   }
 
   async searchOpportunities(query: {
@@ -1046,7 +1051,7 @@ export class EnterpriseOpportunityService {
     return {
       ...result,
       items: await Promise.all(
-        result.items.map((row) => serializeOpportunityWithContactSsot(row)),
+        result.items.map(async row => projectCaseList(await serializeOpportunityWithContactSsot(row))),
       ),
     };
   }
@@ -1179,7 +1184,8 @@ export class EnterpriseOpportunityService {
     };
   }
 
-  async listDealsForOpportunity(opportunityId: string) {
+  async listDealsForOpportunity(opportunityId: string, readAccess?: CaseReadAccess) {
+    if (readAccess) await assertOpportunityReadAccess(readAccess, opportunityId);
     const organizationId = await this.orgId();
     await enterpriseOpportunityRepository.requireOpportunity(organizationId, opportunityId);
     const { serializeDeal } = await import("@server/services/enterprise-deal/deal-serialize");
@@ -1190,6 +1196,11 @@ export class EnterpriseOpportunityService {
       organizationId,
       opportunityId,
     );
+    if (readAccess) {
+      const visible = await prisma.enterpriseDeal.findMany({ where: { AND: [readAccess.dealWhere, { opportunityId }] }, select: { id: true } });
+      const ids = new Set(visible.map((row) => row.id));
+      return deals.filter((row) => ids.has(row.id)).map(row => projectCaseDetail(serializeDeal(row), "deal"));
+    }
     return deals.map(serializeDeal);
   }
 

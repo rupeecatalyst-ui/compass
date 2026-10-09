@@ -303,7 +303,7 @@ export async function resolveContact360Graph(contact: EcmContact): Promise<Conta
     return page.items ?? [];
   });
 
-  let deals = mergeRecordsById([
+  const deals = mergeRecordsById([
     ...dealPages,
     (dealsFromContact.items ?? []).filter(
       (d) =>

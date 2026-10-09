@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { filterCommunicationTemplates } from "@/constants/enterprise-action-center";
+import { applyTemplatePlaceholders } from "@/lib/enterprise-action-center";
 import { previewTransactionOperationalEmail, searchTransactionEmailRecipients, type TransactionOperationalEmailPreview } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
 import { recipientIdentityKey, type EmailRecipientOption, type EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 import type { TransactionPrimaryToRole } from "@/lib/enterprise-communication-center/recipient-router";
@@ -30,6 +32,7 @@ export function DocumentWorkspaceMailbox({
   opportunityId,
   dealId,
   initialKind = "template",
+  templateContext,
   onAttachDocument,
   mode,
   fromEmail,
@@ -46,6 +49,7 @@ export function DocumentWorkspaceMailbox({
   opportunityId: string;
   dealId?: string | null;
   initialKind?: DocumentWorkspaceComposerKind;
+  templateContext?: { product: string; stage: string; variables: Record<string, string | undefined> };
   onAttachDocument: (file: File) => Promise<MailboxAttachment>;
   mode: DocumentWorkspaceMailboxMode;
   fromEmail: string;
@@ -70,9 +74,10 @@ export function DocumentWorkspaceMailbox({
     ccRecipients: EmailRecipientSelections["ccRecipients"];
     textBody: string;
   }) => Promise<void>;
-  onSaveDraft: (input: { subject: string; htmlBody: string; to: string }) => void;
+  onSaveDraft: (input: { subject: string; htmlBody: string; to: string; textBody: string; templateId?: string; templateName?: string }) => void;
 }) {
   const kind = initialKind;
+  const [templateId, setTemplateId] = useState("");
   const [to, setTo] = useState("");
   const [kept, setKept] = useState(attachments);
   const [subject, setSubject] = useState(
@@ -81,6 +86,12 @@ export function DocumentWorkspaceMailbox({
   const [body, setBody] = useState("");
   const zip = false;
   const [primaryToRole, setPrimaryToRole] = useState<TransactionPrimaryToRole>("customer");
+  const templates = templateContext ? filterCommunicationTemplates({
+    channel: "email",
+    recipientType: primaryToRole === "lender" ? "lender_representative" : primaryToRole === "internal_employee" ? "relationship_manager" : "customer",
+    product: templateContext.product,
+    stage: templateContext.stage,
+  }) : [];
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const [includePrimaryTo, setIncludePrimaryTo] = useState(true);
   const [toSelections, setToSelections] = useState<EmailRecipientOption[]>([]);
@@ -173,6 +184,7 @@ export function DocumentWorkspaceMailbox({
     setKept(attachments);
     setSubject(mode === "request" ? "Document request" : "Documents for your review");
     setBody("");
+    setTemplateId("");
     // Fingerprint is the authorization identity. Do not reset on local attachment edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- context-bound composer only
   }, [contextFingerprint]);
@@ -249,6 +261,21 @@ export function DocumentWorkspaceMailbox({
                 }}><span className="min-w-0 break-all">{option.name}<span className="block text-xs text-muted-foreground">{option.email} · {option.kind === "user" ? "Internal Employee" : option.kind === "lender_contact" ? "Lender Contact" : "Customer / Contact"}</span></span></Button>)}
               </div>
             </div> : null}
+            {kind === "template" && templateContext ? <div>
+              <Label htmlFor="document-email-template" className="text-xs">Template / purpose</Label>
+              <select id="document-email-template" value={templates.some(template => template.id === templateId) ? templateId : ""} className="h-9 w-full rounded-md border bg-background px-2 text-sm" onChange={event => {
+                const template = templates.find(item => item.id === event.target.value);
+                if (!template) return;
+                const recipients = resolution?.recipientResolution;
+                const vars = { ...templateContext.variables, name: recipients?.ok ? recipients.partyRefs.find(party => party.email === recipients.to[0])?.name ?? undefined : undefined };
+                setTemplateId(template.id);
+                setSubject(applyTemplatePlaceholders(template.subject ?? "", vars));
+                setBody(applyTemplatePlaceholders(template.body, vars));
+              }}>
+                <option value="">{templates.length ? "Choose a named template" : "No templates for this recipient type"}</option>
+                {templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}
+              </select>
+            </div> : null}
             <div><Label htmlFor="document-email-subject" className="text-xs">Subject</Label><Input id="document-email-subject" value={subject} onChange={event => setSubject(event.target.value)} /></div>
             <div className="md:!shrink md:flex md:min-h-32 md:flex-1 md:flex-col"><Label htmlFor="document-email-message" className="text-xs">Message</Label><Textarea id="document-email-message" className="min-h-48 resize-y text-sm md:min-h-0 md:flex-1 md:resize-none" value={body} onChange={event => setBody(event.target.value)} /></div>
             {mode === "request" ? <div className="rounded border p-2 text-xs md:max-h-24 md:overflow-y-auto"><p className="font-medium">Requested documents</p><ul className="mt-1 list-disc pl-4">{requestedList.map(item => <li key={item}>{item}</li>)}</ul></div> : null}
@@ -270,8 +297,8 @@ export function DocumentWorkspaceMailbox({
         <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t px-4 py-3">
           <Button type="button" size="sm" variant="outline" disabled={uploading || sending} onClick={() => filePicker.current?.click()}>{uploading ? "Uploading…" : "Attach Document"}</Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setPreview(value => !value)}>Preview</Button>
-          <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => onSaveDraft({ subject, htmlBody, to })}>Save Draft</Button>
-          <Button type="button" size="sm" disabled={!senderValid || !recipientValid || !resolution?.operationalDeliveryEnabled || !subject.trim() || (kind === "custom" && !body.trim()) || sending || uploading || resolving} onClick={async () => {
+          <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => onSaveDraft({ subject, htmlBody, to, textBody: body, templateId: templateId || undefined, templateName: templates.find(template => template.id === templateId)?.name })}>Save Draft</Button>
+          <Button type="button" size="sm" disabled={(kind === "template" && Boolean(templateContext) && !templates.some(template => template.id === templateId)) || !senderValid || !recipientValid || !resolution?.operationalDeliveryEnabled || !subject.trim() || (kind === "custom" && !body.trim()) || sending || uploading || resolving} onClick={async () => {
             if (!recipientValid || !senderValid) return;
             setSending(true);
             try { await onQueue({ kind, to: resolved?.ok ? resolved.to : [], cc: resolved?.ok ? resolved.cc : [], subject, htmlBody, zip,

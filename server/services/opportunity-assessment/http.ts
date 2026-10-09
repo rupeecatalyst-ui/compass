@@ -209,7 +209,7 @@ export async function saveOpportunityAssessmentCapture(
       sourceFingerprint,
       currentSourceFingerprint: body.currentSourceFingerprint ?? sourceFingerprint,
       kind: body.kind,
-      journeyFields,
+      journeyFields: journeyFields == null ? journeyFields : [...journeyFields],
       normalizedInput:
         body.kind === "FINALIZED"
           ? (body.normalizedInput ?? {

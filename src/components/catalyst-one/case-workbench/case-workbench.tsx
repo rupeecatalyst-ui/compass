@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { OperationalDesk } from "@/components/catalyst-one/case-workbench/operational-desk";
 import { subscribeDealsUpdated } from "@/lib/enterprise-deal/deal-data-access";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
@@ -10,6 +11,7 @@ import { subscribeOpportunitiesUpdated } from "@/lib/enterprise-opportunity/oppo
 import { resolveCanonicalProductCode } from "@/constants/enterprise-product-master/canonical-catalog";
 import {
   applyDeskRefresh,
+  applyPersistedDeskActivity,
   CASE_WORKBENCH_DEAL_PAGE_SIZE,
   CASE_WORKBENCH_OPPORTUNITY_PAGE_SIZE,
   formatDeskAmount,
@@ -88,6 +90,7 @@ async function loadAuthorizedOpportunities(): Promise<DeskOpportunity[]> {
       contactId: mapped.primaryContactId,
       productCode: resolveCanonicalProductCode(row.productCode || row.productLabel),
       ownerUserId: row.primaryOwnerUserId?.trim() || row.relationshipManagerUserId?.trim() || null,
+      ownerName: !row.primaryOwnerUserId || row.primaryOwnerUserId === row.relationshipManagerUserId ? row.relationshipManagerName?.trim() || null : null,
     };
   }).filter((row) => isActiveUnconvertedOpportunity(row.status));
 }
@@ -97,6 +100,11 @@ async function loadAuthorizedOpportunities(): Promise<DeskOpportunity[]> {
  * It does not score, classify, or replace CHANAKYA Radar.
  */
 export function CaseWorkbench() {
+  const { user } = useAuthContext();
+  return <CaseWorkbenchSession key={user?.id ?? "signed-out"} authenticated={Boolean(user?.id)} />;
+}
+
+function CaseWorkbenchSession({ authenticated }: { authenticated: boolean }) {
   const [deals, setDeals] = useState<DeskDealInput[]>([]);
   const [opportunities, setOpportunities] = useState<DeskOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +113,7 @@ export function CaseWorkbench() {
 
   const reload = useCallback(async () => {
     const ticket = ++generation.current;
+    if (!authenticated) { setDeals([]); setOpportunities([]); setLoading(false); return; }
     try {
       const [nextDeals, nextOpportunities] = await Promise.all([
         loadAuthorizedDeals(),
@@ -119,16 +128,17 @@ export function CaseWorkbench() {
     } catch (err) {
       if (ticket !== generation.current) return;
       const message = err instanceof Error ? err.message : "Case Workbench could not refresh.";
-      setDeals((current) => applyDeskRefresh(current, { ok: false, message }).data);
-      setOpportunities((current) => applyDeskRefresh(current, { ok: false, message }).data);
+      setDeals([]);
+      setOpportunities([]);
       setError(message);
     } finally {
       if (ticket === generation.current) setLoading(false);
     }
-  }, []);
+  }, [authenticated]);
 
   useEffect(() => {
     void reload();
+    return () => { generation.current += 1; };
   }, [reload]);
 
   useEffect(() => {
@@ -151,6 +161,10 @@ export function CaseWorkbench() {
         deals={deals}
         loading={loading}
         error={error}
+        onActivitySaved={activity => {
+          setDeals(current => applyPersistedDeskActivity(current, [], activity).deals);
+          setOpportunities(current => applyPersistedDeskActivity([], current, activity).opportunities);
+        }}
       />
     </div>
   );

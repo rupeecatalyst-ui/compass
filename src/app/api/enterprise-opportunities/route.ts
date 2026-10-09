@@ -1,3 +1,4 @@
+import { resolveCaseReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 import {
   errorResponse,
   fromAuthError,
@@ -16,7 +17,8 @@ import {
 export async function GET(request: Request) {
   try {
     enterpriseOpportunityApiGuard();
-    const actor = requireAccessToken(request);
+    const tokenActor = requireAccessToken(request);
+    const { actor } = await resolveCaseReadAccess(tokenActor.userId);
     const url = new URL(request.url);
     const primaryContactId = url.searchParams.get("primaryContactId") ?? undefined;
     const companyId = url.searchParams.get("companyId") ?? undefined;
@@ -80,7 +82,7 @@ export async function GET(request: Request) {
         : undefined,
       visibilityUserId: hasOrgWideCaseVisibility(actor.role)
         ? undefined
-        : actor.userId,
+        : actor.id,
     });
     return successResponse(result);
   } catch (err) {

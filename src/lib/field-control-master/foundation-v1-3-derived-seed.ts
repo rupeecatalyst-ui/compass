@@ -61,15 +61,16 @@ function derivedRow(
     "id" | "lineageId" | "versionNumber" | "classification" | "owningDomain" | "ownershipReview"
   >,
 ): FoundationV13DerivedSeedRow {
+  const { fieldId, ...fields } = input;
   return {
-    id: fieldControlVersionId(input.fieldId),
-    fieldId: input.fieldId,
-    lineageId: fieldControlLineageId(input.fieldId),
+    id: fieldControlVersionId(fieldId),
+    fieldId,
+    lineageId: fieldControlLineageId(fieldId),
     versionNumber: FCM_V13_VERSION_NUMBER,
     classification: "derived",
     owningDomain: "derived_engine",
     ownershipReview: "certified_binding",
-    ...input,
+    ...fields,
   };
 }
 

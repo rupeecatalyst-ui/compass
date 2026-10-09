@@ -2,7 +2,7 @@
  * CO-ARCH-003 — Browser client for Opportunity Registry API.
  * CO-ARCH-002 — GETs go through Enterprise Session single-flight cache.
  */
-import { authenticatedJsonFetch } from "@/lib/api-client";
+import { authenticatedJsonFetch, getAccessToken } from "@/lib/api-client";
 import { notifyOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
 import { DEFAULT_START_LOAN_JOURNEY_PRODUCT } from "@/constants/opportunity-active-uniqueness";
 import {
@@ -106,7 +106,9 @@ export class OpportunityApiError extends Error {
 }
 
 async function opportunityFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const readScope = getAccessToken();
   const res = await authenticatedJsonFetch(url, init);
+  if (readScope !== getAccessToken()) throw new Error("Authorization session changed during request; retry the action");
   const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T> & {
     data?: T & Record<string, unknown>;
   };

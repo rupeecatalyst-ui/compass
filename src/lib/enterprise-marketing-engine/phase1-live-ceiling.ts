@@ -33,10 +33,11 @@ export function assessMarketingPhase1LiveAudienceCeiling(recipientCount: number)
 export function assertMarketingPhase1LiveAudienceCeiling(recipientCount: number): void {
   const assessment = assessMarketingPhase1LiveAudienceCeiling(recipientCount);
   if (assessment.ok) return;
+  const { code, ...details } = assessment;
   throw Object.assign(
     new Error(
       `Phase 1 live Marketing campaigns cannot exceed ${MARKETING_PHASE1_LIVE_RECIPIENT_CEILING} recipients.`,
     ),
-    { statusCode: 403, code: MARKETING_SMTP_BLOCK.audienceLimitExceeded, ...assessment },
+    { statusCode: 403, code, ...details },
   );
 }

@@ -368,8 +368,8 @@ function buildTimelineWhere(filter: EarTimelineQuery): Prisma.EnterpriseActivity
 }
 
 export const enterpriseActivityRepository = {
-  async upsertEvent(input: EarCreateInput) {
-    return prisma.enterpriseActivityEvent.upsert({
+  async upsertEvent(input: EarCreateInput, client: Pick<Prisma.TransactionClient, "enterpriseActivityEvent"> = prisma) {
+    return client.enterpriseActivityEvent.upsert({
       where: {
         organizationId_sourceSystem_sourceEventId: {
           organizationId: input.organizationId,

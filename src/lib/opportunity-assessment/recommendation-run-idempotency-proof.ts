@@ -11,6 +11,7 @@ import type { CanonicalAssessmentSources } from "@server/services/opportunity-as
 import { createOpportunityAssessmentService } from "@server/services/opportunity-assessment/runtime";
 import type { OpportunityAssessmentActorContext } from "@server/services/opportunity-assessment/types";
 import type { CanonicalLenderRecommendationResult } from "@/types/canonical-lender-recommendation";
+import type { CanonicalProgrammeRow } from "@server/services/lender-recommendation/programme-assessment-adapter";
 import type { ActiveRecommendationRuleSet } from "@/lib/product-recommendation/types";
 
 const ACTOR: OpportunityAssessmentActorContext = {
@@ -44,12 +45,26 @@ function sources(): CanonicalAssessmentSources {
   };
 }
 
-function programme(versionNumber: number) {
+function programme(versionNumber: number): CanonicalProgrammeRow {
   return {
     id: "hl-prog",
     versionNumber,
     policyVersionId: "policy-version-1",
-    policyVersion: { versionNumber: 1 },
+    organizationId: "org-1",
+    productCode: "HOME_LOAN",
+    code: "hl-prog",
+    label: "Synthetic Home Loan Programme",
+    transactionTypes: ["fresh"],
+    policyVersion: {
+      id: "policy-version-1", organizationId: "org-1", policyId: "policy-1",
+      versionNumber: 1, status: "published", eligibilityRules: {}, creditRules: {},
+      effectiveFrom: null, effectiveUntil: null,
+      policy: {
+        id: "policy-1", organizationId: "org-1", lenderId: "lender-1", productCode: "HOME_LOAN",
+        status: "published", currentPublishedVersionId: "policy-version-1", isDeleted: false,
+      },
+    },
+    lender: { displayName: "Synthetic Lender", label: "Synthetic Lender", code: "lender-1", organizationId: "org-1" },
     suspendedByOverride: false,
     lenderId: "lender-1",
   };

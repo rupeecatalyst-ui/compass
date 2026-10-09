@@ -1,3 +1,4 @@
+import { resolveCaseReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 import {
   errorResponse,
   fromAuthError,
@@ -17,9 +18,10 @@ type Ctx = { params: Promise<{ opportunityId: string }> };
 export async function GET(request: Request, context: Ctx) {
   try {
     enterpriseOpportunityApiGuard();
-    requireAccessToken(request);
+    const actor = requireAccessToken(request);
+    const readAccess = await resolveCaseReadAccess(actor.userId);
     const { opportunityId } = await context.params;
-    const deals = await enterpriseOpportunityService.listDealsForOpportunity(opportunityId);
+    const deals = await enterpriseOpportunityService.listDealsForOpportunity(opportunityId, readAccess);
     return successResponse({ items: deals, total: deals.length });
   } catch (err) {
     const mapped = mapOpportunityRouteError(err);

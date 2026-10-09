@@ -52,14 +52,14 @@ export function subscribeConversationActivitiesUpdated(listener: () => void): ()
 
 export function createConversationActivity(
   input: CreateConversationActivityInput,
-  opts?: { organizationId?: string; edcTimelineEntryId?: string | null },
+  opts?: { organizationId?: string; edcTimelineEntryId?: string | null; id?: string; publish?: boolean },
 ): EnterpriseConversationActivity {
   const now = new Date().toISOString();
-  const id = `eca_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const id = opts?.id ?? `eca_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   const row: EnterpriseConversationActivity = {
     id,
     organizationId: opts?.organizationId ?? "org_session",
-    activityCode: allocateCode(),
+    activityCode: opts?.publish === false ? `VA-${id}` : allocateCode(),
     contextType: input.contextType,
     contextId: input.contextId,
     opportunityId: input.opportunityId ?? null,
@@ -87,8 +87,7 @@ export function createConversationActivity(
     updatedAt: now,
     isDeleted: false,
   };
-  activities.set(row.id, row);
-  emitUpdated();
+  if (opts?.publish !== false) { activities.set(row.id, row); emitUpdated(); }
   return row;
 }
 

@@ -1,3 +1,4 @@
+import { getAccessToken } from "@/lib/api-client";
 /**
  * CO-ARCH-002 — Enterprise Session Layer: Opportunity runtime cache.
  *
@@ -8,7 +9,6 @@
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import {
   cacheOpportunityRecord,
-  getCachedOpportunityRecord,
 } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 
 export type EnsureOpportunityOptions = {
@@ -21,6 +21,13 @@ type OpportunityFetcher = (opportunityId: string) => Promise<EnterpriseOpportuni
 const sessionOpportunityById = new Map<string, EnterpriseOpportunityApiRecord>();
 const inflightById = new Map<string, Promise<EnterpriseOpportunityApiRecord>>();
 
+let cacheScope: string | null | undefined;
+function syncReadScope() {
+  const scope = getAccessToken();
+  if (scope !== cacheScope) { sessionOpportunityById.clear(); inflightById.clear(); cacheScope = scope; }
+  return scope;
+}
+
 let networkFetcher: OpportunityFetcher | null = null;
 
 /** Wire once from opportunity-api-client to avoid circular imports at call sites. */
@@ -31,16 +38,17 @@ export function configureOpportunityNetworkFetcher(fetcher: OpportunityFetcher):
 export function peekSessionOpportunity(
   opportunityId: string | null | undefined,
 ): EnterpriseOpportunityApiRecord | null {
+  syncReadScope();
   const id = opportunityId?.trim();
   if (!id) return null;
   return (
     sessionOpportunityById.get(id) ??
-    getCachedOpportunityRecord(id) ??
     null
   );
 }
 
 export function putSessionOpportunity(opp: EnterpriseOpportunityApiRecord): void {
+  syncReadScope();
   if (!opp?.id) return;
   sessionOpportunityById.set(opp.id, opp);
   cacheOpportunityRecord(opp);
@@ -66,6 +74,7 @@ export async function ensureSessionOpportunity(
   opportunityId: string,
   options: EnsureOpportunityOptions = {},
 ): Promise<EnterpriseOpportunityApiRecord> {
+  const scope = syncReadScope();
   const id = opportunityId.trim();
   if (!id) {
     throw new Error("Missing Enterprise Opportunity ID.");
@@ -86,6 +95,7 @@ export async function ensureSessionOpportunity(
 
   const request = networkFetcher(id)
     .then((row) => {
+      if (scope !== syncReadScope()) throw new Error("Authorization session changed during read");
       putSessionOpportunity(row);
       return row;
     })

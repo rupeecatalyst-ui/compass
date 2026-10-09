@@ -1,3 +1,4 @@
+import { resolveCaseReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 import {
   errorResponse,
   fromAuthError,
@@ -22,10 +23,11 @@ export async function GET(request: Request) {
     async ({ correlationId }) => {
       try {
         enterpriseDealApiGuard();
-        const actor = requireAccessToken(request);
+        const tokenActor = requireAccessToken(request);
+        const { actor } = await resolveCaseReadAccess(tokenActor.userId);
         const url = new URL(request.url);
         const result = await enterpriseDealService.searchDeals(
-          parseDealSearchQuery(url, actor.userId, actor.role),
+          parseDealSearchQuery(url, actor.id, actor.role),
         );
         return successResponse(result, 200, correlationId);
       } catch (err) {
