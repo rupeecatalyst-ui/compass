@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { deskSelectionSummary } from "@/lib/case-workbench/selection";
 import { cn } from "@/lib/utils";
 
 export function DeskMultiSelect({
@@ -19,12 +20,7 @@ export function DeskMultiSelect({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
-  const summary =
-    selected.length === 0
-      ? "None"
-      : selected.length === options.length
-        ? "All"
-        : `${selected.length} selected`;
+  const summary = deskSelectionSummary(selected, options.map(option => option.id));
 
   useEffect(() => {
     if (!open) return;

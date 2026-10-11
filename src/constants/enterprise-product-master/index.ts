@@ -3,6 +3,7 @@ export {
   listCanonicalProductOptions,
   resolveCanonicalProductCode,
   getCanonicalProductByCode,
+  canonicalProductDisplayLabel,
   canonicalInventoryProductCodes,
   canonicalProductPublicationDecision,
   CANONICAL_PRODUCT_CODE_PUBLICATION_REQUIRED,

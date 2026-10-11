@@ -81,6 +81,9 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     aliases: [
       "lap",
       "loan_against_property",
+      "LOAN_AGAINST_PROPERTY",
+      "LOAN_AGAINST_PROPERTY_(LAP)",
+      "Loan Against Property (LAP)",
       "LAP_STD",
       "loan-against-property",
     ],
@@ -400,12 +403,13 @@ export function normalizeProductCodeKey(raw: string): string {
     .replace(/[^A-Z0-9_]/g, "");
 }
 
-/** Resolve any legacy / alias code to the canonical Product Master code. */
+/** Resolve canonical codes, official Product Master names and approved aliases. */
 export function resolveCanonicalProductCode(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
   const normalized = normalizeProductCodeKey(raw);
   for (const entry of CANONICAL_PRODUCT_MASTER_SEED) {
     if (normalizeProductCodeKey(entry.code) === normalized) return entry.code;
+    if (normalizeProductCodeKey(entry.label) === normalized) return entry.code;
     if (entry.aliases?.some((a) => normalizeProductCodeKey(a) === normalized)) {
       return entry.code;
     }
@@ -439,6 +443,13 @@ export function canonicalProductPublicationDecision(productCode: string | null |
   if (!canonical) return { ok: true, canonicalCode: null };
   if (productCode?.trim() === canonical.code) return { ok: true, canonicalCode: canonical.code };
   return { ok: false, canonicalCode: canonical.code };
+}
+
+/** Read-only official naming from the existing canonical Product Master. */
+export function canonicalProductDisplayLabel(code: unknown, label: unknown): string {
+  const displayLabel = typeof label === "string" ? label : "";
+  const product = getCanonicalProductByCode((typeof code === "string" ? code : "") || displayLabel);
+  return product?.label ?? displayLabel;
 }
 
 export function getCanonicalProductByCode(code: string | null | undefined) {

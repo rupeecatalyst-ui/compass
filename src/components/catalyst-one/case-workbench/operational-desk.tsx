@@ -33,6 +33,7 @@ import {
   readDeskDefaultView,
   rememberDeskDefaultView,
   sanitizeDeskFilters,
+  reconcileDeskOwnerCatalog,
   systemDefaultDeskFilters,
   type DeskActionPanel,
   type DeskArea,
@@ -86,13 +87,17 @@ export function OperationalDesk({
   onActivitySaved,
   opportunities,
   deals,
-  loading,
-  error,
+  opportunityLoading,
+  dealLoading,
+  opportunityError,
+  dealError,
 }: {
   opportunities: DeskOpportunity[];
   deals: DeskDealInput[];
-  loading: boolean;
-  error: string | null;
+  opportunityLoading: boolean;
+  dealLoading: boolean;
+  opportunityError: string | null;
+  dealError: string | null;
   onActivitySaved?: (activity: import("@/types/enterprise-conversation-activity").EnterpriseConversationActivity) => void;
 }) {
   const { user } = useAuthContext();
@@ -104,7 +109,8 @@ export function OperationalDesk({
     if (user?.id) owners.set(user.id, [user.firstName, user.lastName].filter(Boolean).join(" ") || user.id);
     return [...owners].map(([id, label]) => ({ id, label }));
   }, [opportunities, deals, user]);
-  const ownersLoaded = !loading;
+  const ownersLoaded = !opportunityLoading || !dealLoading;
+  const systemDefaults = useRef(true);
   const hydrated = useRef(false);
   const catalog = useMemo(
     () => deskFilterCatalog([...ownerOptions.map((owner) => owner.id), user?.id ?? ""]),
@@ -125,9 +131,15 @@ export function OperationalDesk({
 
 
   useEffect(() => {
-    if (!user?.id || !ownersLoaded || hydrated.current) return;
-    hydrated.current = true;
-    setFilters(sanitizeDeskFilters(readDeskDefaultView(user.id), catalog));
+    if (!user?.id || !ownersLoaded) return;
+    if (!hydrated.current) {
+      hydrated.current = true;
+      const saved = readDeskDefaultView(user.id);
+      systemDefaults.current = !saved;
+      setFilters(sanitizeDeskFilters(saved, catalog));
+    } else if (systemDefaults.current) {
+      setFilters(previous => reconcileDeskOwnerCatalog(previous, catalog, true));
+    }
   }, [user?.id, ownersLoaded, catalog]);
 
   const groups = useMemo(() => groupDealsByOpportunity(projectDeskDeals(deals)), [deals]);
@@ -244,6 +256,7 @@ export function OperationalDesk({
           options={DESK_OPPORTUNITY_STAGE_OPTIONS.map((option) => ({ id: option.value, label: option.label }))}
           selected={filters.opportunityStages}
           onChange={(opportunityStages) => {
+            systemDefaults.current = false;
             setPage(0);
             setFilters((prev) => ({ ...prev, opportunityStages }));
           }}
@@ -253,6 +266,7 @@ export function OperationalDesk({
           options={DESK_DEAL_STAGE_OPTIONS}
           selected={filters.dealStages}
           onChange={(dealStages) => {
+            systemDefaults.current = false;
             setPage(0);
             setFilters((prev) => ({ ...prev, dealStages }));
           }}
@@ -262,6 +276,7 @@ export function OperationalDesk({
           options={DESK_PRODUCT_OPTIONS}
           selected={filters.products}
           onChange={(products) => {
+            systemDefaults.current = false;
             setPage(0);
             setFilters((prev) => ({ ...prev, products }));
           }}
@@ -277,6 +292,7 @@ export function OperationalDesk({
           ]}
           selected={filters.owners}
           onChange={(owners) => {
+            systemDefaults.current = false;
             setPage(0);
             setFilters((prev) => ({ ...prev, owners }));
           }}
@@ -286,6 +302,7 @@ export function OperationalDesk({
                   label: "My Transactions",
                   active: filters.owners.length === 1 && filters.owners[0] === user.id,
                   onToggle: () => {
+                    systemDefaults.current = false;
                     setPage(0);
                     setFilters((prev) => ({
                       ...prev,
@@ -312,6 +329,7 @@ export function OperationalDesk({
           type="button"
           onClick={() => {
             if (user?.id) forgetDeskDefaultView(user.id);
+            systemDefaults.current = true;
             setPage(0);
             setFilters(systemDefaultDeskFilters(catalog));
           }}
@@ -328,9 +346,9 @@ export function OperationalDesk({
           </button>
         </div>
       </div>
-      {error || stageError ? (
-        <p className="px-3 py-1 text-[11px] text-destructive">{stageError || error}</p>
-      ) : null}
+      {stageError ? <p className="px-3 py-1 text-[11px] text-destructive">{stageError}</p> : null}
+      {opportunityError ? <p role="alert" className="px-3 py-1 text-[11px] text-destructive">Opportunities: {opportunityError}</p> : null}
+      {dealError ? <p role="alert" className="px-3 py-1 text-[11px] text-destructive">Deals: {dealError}</p> : null}
       <div className="flex min-h-0 flex-1">
         {showOpportunities ? (
           <div
@@ -363,7 +381,7 @@ export function OperationalDesk({
                   </tr>
                 </thead>
                 <tbody>
-                  {loading && pagedOpps.length === 0 ? (
+                  {opportunityLoading && pagedOpps.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-2 py-3 text-foreground0">Loading opportunities…</td>
                     </tr>
@@ -405,7 +423,7 @@ export function OperationalDesk({
             style={{ flex: flex.deals }}
           >
             <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-3 py-1.5">
-              <h2 className="text-[12px] font-semibold text-foreground">Active Deals · {dealRows.length}</h2>
+              <h2 className="text-[12px] font-semibold text-foreground">Active Deals · {dealRows.length}{dealLoading ? " · Loading…" : ""}</h2>
               <div className="flex items-center gap-2">
                 <button
                   type="button"

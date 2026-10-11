@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { loadDeskPopulations, type DeskPopulation } from "@/lib/case-workbench/load-populations";
 import { OperationalDesk } from "@/components/catalyst-one/case-workbench/operational-desk";
 import { subscribeDealsUpdated } from "@/lib/enterprise-deal/deal-data-access";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
@@ -10,7 +11,6 @@ import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opp
 import { subscribeOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
 import { resolveCanonicalProductCode } from "@/constants/enterprise-product-master/canonical-catalog";
 import {
-  applyDeskRefresh,
   applyPersistedDeskActivity,
   CASE_WORKBENCH_DEAL_PAGE_SIZE,
   CASE_WORKBENCH_OPPORTUNITY_PAGE_SIZE,
@@ -105,35 +105,24 @@ export function CaseWorkbench() {
 }
 
 function CaseWorkbenchSession({ authenticated }: { authenticated: boolean }) {
-  const [deals, setDeals] = useState<DeskDealInput[]>([]);
-  const [opportunities, setOpportunities] = useState<DeskOpportunity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [dealState, setDealState] = useState<DeskPopulation<DeskDealInput>>({ items: [], loading: true, error: null });
+  const [opportunityState, setOpportunityState] = useState<DeskPopulation<DeskOpportunity>>({ items: [], loading: true, error: null });
   const generation = useRef(0);
 
   const reload = useCallback(async () => {
     const ticket = ++generation.current;
-    if (!authenticated) { setDeals([]); setOpportunities([]); setLoading(false); return; }
-    try {
-      const [nextDeals, nextOpportunities] = await Promise.all([
-        loadAuthorizedDeals(),
-        loadAuthorizedOpportunities(),
-      ]);
-      if (ticket !== generation.current) return;
-      setDeals((current) => applyDeskRefresh(current, { ok: true, data: nextDeals }).data);
-      setOpportunities((current) =>
-        applyDeskRefresh(current, { ok: true, data: nextOpportunities }).data,
-      );
-      setError(null);
-    } catch (err) {
-      if (ticket !== generation.current) return;
-      const message = err instanceof Error ? err.message : "Case Workbench could not refresh.";
-      setDeals([]);
-      setOpportunities([]);
-      setError(message);
-    } finally {
-      if (ticket === generation.current) setLoading(false);
+    if (!authenticated) {
+      setDealState({ items: [], loading: false, error: null });
+      setOpportunityState({ items: [], loading: false, error: null });
+      return;
     }
+    await loadDeskPopulations({
+      loadDeals: loadAuthorizedDeals,
+      loadOpportunities: loadAuthorizedOpportunities,
+      isCurrent: () => ticket === generation.current,
+      onDeals: setDealState,
+      onOpportunities: setOpportunityState,
+    });
   }, [authenticated]);
 
   useEffect(() => {
@@ -157,13 +146,15 @@ function CaseWorkbenchSession({ authenticated }: { authenticated: boolean }) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <OperationalDesk
-        opportunities={opportunities}
-        deals={deals}
-        loading={loading}
-        error={error}
+        opportunities={opportunityState.items}
+        deals={dealState.items}
+        opportunityLoading={opportunityState.loading}
+        dealLoading={dealState.loading}
+        opportunityError={opportunityState.error}
+        dealError={dealState.error}
         onActivitySaved={activity => {
-          setDeals(current => applyPersistedDeskActivity(current, [], activity).deals);
-          setOpportunities(current => applyPersistedDeskActivity([], current, activity).opportunities);
+          setDealState(current => ({ ...current, items: applyPersistedDeskActivity(current.items, [], activity).deals }));
+          setOpportunityState(current => ({ ...current, items: applyPersistedDeskActivity([], current.items, activity).opportunities }));
         }}
       />
     </div>

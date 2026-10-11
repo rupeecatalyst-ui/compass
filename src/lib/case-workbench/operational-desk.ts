@@ -1,3 +1,4 @@
+import { canonicalProductDisplayLabel } from "@/constants/enterprise-product-master";
 /**
  * Case Workbench — read model (Phase B Step 1).
  *
@@ -247,7 +248,7 @@ export function mapRegistryDealToDeskInput(deal: {
     productCode: resolveCanonicalProductCode(deal.productCode || deal.productLabel),
     ownerUserId: deal.primaryOwnerUserId?.trim() || deal.relationshipManagerUserId?.trim() || null,
     ownerName: !deal.primaryOwnerUserId || deal.primaryOwnerUserId === deal.relationshipManagerUserId ? deal.relationshipManagerName?.trim() || null : null,
-    product: deal.productLabel?.trim() || deal.productFamily?.trim() || "Not Specified",
+    product: canonicalProductDisplayLabel(deal.productCode, deal.productLabel?.trim()) || deal.productFamily?.trim() || "Not Specified",
     loanAmountLabel: formatDeskAmount(amount),
     lastActivity,
     lastActivityLabel: lastActivity
@@ -358,7 +359,7 @@ function knownIds(selected: string[] | undefined, allowed: string[]): string[] {
   return [...new Set((selected ?? []).filter((id) => allow.has(id)))];
 }
 
-/** Drop saved ids the user can no longer use. An empty list stays empty. */
+/** Validate static filter ids while retaining explicit owner selections across catalog changes. */
 export function sanitizeDeskFilters(
   saved: Partial<DeskFilters> | null | undefined,
   catalog: DeskFilterCatalog,
@@ -369,7 +370,8 @@ export function sanitizeDeskFilters(
     opportunityStages: knownIds(saved.opportunityStages, catalog.opportunityStages),
     dealStages: knownIds(saved.dealStages, catalog.dealStages),
     products: knownIds(saved.products, catalog.products),
-    owners: knownIds(saved.owners, catalog.owners),
+    // Retain explicit owner IDs through temporary catalog changes; they never grant access.
+    owners: [...new Set((saved.owners ?? []).filter(id => typeof id === "string").map(id => id.trim()).filter(Boolean))],
   };
 }
 
@@ -441,7 +443,7 @@ export function projectDeskDeals(rows: DeskDealInput[]): DeskDeal[] {
       opportunityId: opportunityId || null,
       customerName: row.borrower.trim() || "Not Specified",
       lenderName: lender || "Not Specified",
-      product: row.product.trim() || "Not Specified",
+      product: canonicalProductDisplayLabel(row.productCode, row.product.trim()) || "Not Specified",
       stageLabel: row.stageLabel.trim() || "Not Specified",
       amountLabel: row.loanAmountLabel.trim() || "Not Specified",
       lastActivity: row.lastActivity,
@@ -513,6 +515,17 @@ function selectedOrAllUnknown(
   return selected.includes(id);
 }
 
+/** All is unrestricted for already-authorized Deals, including uncatalogued values. */
+function selectedDealFilter(
+  selected: string[],
+  universe: string[],
+  id: string | null | undefined,
+): boolean {
+  const ids = new Set(selected);
+  if (universe.length > 0 && universe.every((value) => ids.has(value))) return true;
+  return Boolean(id && ids.has(id));
+}
+
 export function filterDesk(
   opportunities: DeskOpportunity[],
   groups: DeskDealGroup[],
@@ -554,12 +567,12 @@ export function filterDesk(
     .map((group) => {
       const deals = group.deals.filter((deal) => {
         if (
-          !selectedOrAllUnknown(filters.dealStages, catalog.dealStages, deal.grossStage)
+          !selectedDealFilter(filters.dealStages, catalog.dealStages, deal.grossStage)
         ) {
           return false;
         }
         if (
-          !selectedOrAllUnknown(
+          !selectedDealFilter(
             filters.products,
             catalog.products,
             deal.productCode ?? resolveCanonicalProductCode(deal.product),
@@ -568,7 +581,7 @@ export function filterDesk(
           return false;
         }
         if (
-          !selectedOrAllUnknown(
+          !selectedDealFilter(
             filters.owners,
             catalog.owners,
             deal.ownerUserId?.trim() || DESK_UNASSIGNED_OWNER,
@@ -774,4 +787,9 @@ export function applyPersistedDeskActivity(
     } : deal),
     opportunities: opportunities.map(opportunity => opportunity.id === activity.opportunityId && (!opportunity.lastActivity || timestamp > opportunity.lastActivity) ? { ...opportunity, lastActivity: timestamp } : opportunity),
   };
+}
+
+/** System defaults follow available owners; explicit selections remain restrictive. */
+export function reconcileDeskOwnerCatalog(filters: DeskFilters, catalog: DeskFilterCatalog, systemDefault: boolean): DeskFilters {
+  return systemDefault ? { ...filters, owners: [...catalog.owners] } : filters;
 }
