@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CaseWorkbenchActionPanel } from "@/components/catalyst-one/case-workbench/case-workbench-action-panel";
 import { DeskMultiSelect } from "@/components/catalyst-one/case-workbench/desk-multi-select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import {
   LENDER_CASE_STAGE_COLORS,
@@ -493,30 +494,31 @@ export function OperationalDesk({
                           </span>
                         </td>
                         <td className="px-2 py-1.5 text-muted-foreground">{row.deal.lastActivityLabel}</td>
-                        <td className="relative px-2 py-1.5">
+                        <td className="px-2 py-1.5">
+                          <DropdownMenu open={stageMenuId === row.deal.id} onOpenChange={(open) => setStageMenuId(open ? row.deal.id : null)}>
+                          <DropdownMenuTrigger asChild>
                           <button
                             type="button"
                             disabled={stageBusy || targets.length === 0}
-                            onClick={() => setStageMenuId((current) => (current === row.deal.id ? null : row.deal.id))}
+                            aria-label={`Change Deal status for ${row.deal.customerName}, ${row.deal.lenderName}`}
                             className="rounded-full border px-2 py-0.5 text-[11px] font-semibold text-foreground disabled:opacity-70"
                             style={{ borderColor: color, backgroundColor: `${color}33` }}
                           >
                             {row.deal.stageLabel}
                           </button>
-                          {stageMenuId === row.deal.id ? (
-                            <div className="absolute z-20 mt-1 max-h-48 w-44 overflow-y-auto rounded-md border border-input bg-background p-1 shadow-lg">
+                          </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" collisionPadding={8} className="w-44 max-w-[calc(100vw-1rem)]" style={{ maxHeight: "min(12rem, var(--radix-dropdown-menu-content-available-height))" }}>
                               {targets.map((target) => (
-                                <button
+                                <DropdownMenuItem
                                   key={target}
-                                  type="button"
-                                  onClick={() => void changeStage(row.deal, target)}
-                                  className="block w-full rounded px-2 py-1 text-left text-[11px] text-foreground hover:bg-secondary"
+                                  onSelect={() => void changeStage(row.deal, target)}
+                                  className="text-[11px]"
                                 >
                                   {LENDER_CASE_STAGE_LABELS[target]}
-                                </button>
+                                </DropdownMenuItem>
                               ))}
-                            </div>
-                          ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                         <td className="px-2 py-1.5">
                           <button

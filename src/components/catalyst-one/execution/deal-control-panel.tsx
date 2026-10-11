@@ -76,6 +76,7 @@ import type {
 import type { DealPipelineContext } from "@/types/deal-pipeline-runtime";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { validateDealEditFields } from "@/lib/deal-workspace/deal-edit-validation";
 
 function Section({
   title,
@@ -112,6 +113,9 @@ export function DealControlPanel({
   actorLabel,
   onPatch,
   onContextPatch,
+  presentation = "sheet",
+  onDirtyChange,
+  allowedStages,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -120,11 +124,17 @@ export function DealControlPanel({
   productFallback?: string;
   actorUserId: string;
   actorLabel?: string;
-  onPatch: (caseId: string, patch: Partial<LoanLenderExecution>) => void;
+  onPatch: (caseId: string, patch: Partial<LoanLenderExecution>) => void | Promise<void>;
   onContextPatch?: (patch: Partial<DealPipelineContext>) => void;
+  presentation?: "sheet" | "inline";
+  onDirtyChange?: (dirty: boolean) => void;
+  allowedStages?: readonly LenderCaseStage[];
 }) {
   const router = useRouter();
   const [strategyOpen, setStrategyOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [resetTick, setResetTick] = useState(0);
   const [timelineTick, setTimelineTick] = useState(0);
 
   const [loanAmount, setLoanAmount] = useState(0);
@@ -207,7 +217,8 @@ export function DealControlPanel({
     setExpectedDisbursementDate(toDateInput(caseExecution.disbursementDate));
     setPriority(caseExecution.probability ?? "");
     setStrategyOpen(false);
-  }, [caseExecution, open, context.requiredAmount, context.loanProduct, productFallback]);
+    setSaveError(null);
+  }, [caseExecution, open, context.requiredAmount, context.loanProduct, productFallback, resetTick]);
 
   useEffect(() => {
     return subscribeConversationActivitiesUpdated(() => {
@@ -307,8 +318,16 @@ export function DealControlPanel({
   const dealId = caseExecution.enterpriseDealId || caseExecution.id;
   const salesMobile = caseExecution.lenderSalesContactMobile;
 
-  const saveOperational = () => {
-    onPatch(caseExecution.id, {
+  const saveOperational = async () => {
+    if (saving) return;
+    setSaveError(null);
+    if (presentation === "inline") {
+      const issues = validateDealEditFields({ lenderId: caseExecution.lenderRegistryId, requestedAmount: loanAmount, requireProgram: false });
+      if (issues.length) { setSaveError(issues.map(issue => issue.message).join(" ")); return; }
+    }
+    setSaving(true);
+    try {
+    await onPatch(caseExecution.id, {
       expectedLoanAmount: loanAmount || undefined,
       product: product.trim() || undefined,
       caseStage: stage,
@@ -317,7 +336,11 @@ export function DealControlPanel({
       disbursementDate: expectedDisbursementDate || undefined,
       probability: priority || undefined,
     });
+    onDirtyChange?.(false);
     toast.success("Deal control fields saved.");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Deal fields could not be saved.");
+    } finally { setSaving(false); }
   };
 
   const openContact = (contactId?: string) => {
@@ -360,25 +383,21 @@ export function DealControlPanel({
     { label: "Expected Turnaround", value: caseExecution.expectedTurnaround ?? "Not Specified" },
   ];
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md"
-        data-surface="deal-control-panel"
-        data-sprint="CO-UX-017"
-      >
+  const Title = presentation === "inline" ? "h2" : SheetTitle;
+  const Description = presentation === "inline" ? "p" : SheetDescription;
+  const content = (
+    <>
         <SheetHeader className="space-y-1.5 border-b border-border/60 px-4 py-3 text-left">
           <div className="flex items-center gap-2.5">
             <LenderLogo lender={caseExecution.lender} size="lg" className="rounded-md" />
             <div className="min-w-0">
-              <SheetTitle className="text-base leading-snug">{caseExecution.lender}</SheetTitle>
-              <SheetDescription className="text-xs">
+              <Title className="text-base leading-snug">{caseExecution.lender}</Title>
+              <Description className="text-xs">
                 Deal Control · {LENDER_CASE_STAGE_LABELS[normalizeLenderCaseStage(caseExecution.caseStage)]}
                 {caseExecution.caseSubStage
                   ? ` · ${lenderSubStageLabel(caseExecution.caseStage, caseExecution.caseSubStage) || caseExecution.caseSubStage}`
                   : ""}
-              </SheetDescription>
+              </Description>
             </div>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -393,12 +412,12 @@ export function DealControlPanel({
 
         <div className="space-y-4 px-4 py-3">
           <Section title="Primary Deal Information">
-            <div className="grid gap-2">
+            <fieldset disabled={saving} className="grid min-w-0 gap-2" onChange={() => onDirtyChange?.(true)}>
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Loan Amount</Label>
                 <INRCurrencyInput
                   value={loanAmount}
-                  onChange={(v) => setLoanAmount(v ?? 0)}
+                  onChange={(v) => { setLoanAmount(v ?? 0); onDirtyChange?.(true); }}
                   className="h-8 text-xs"
                 />
               </div>
@@ -419,7 +438,7 @@ export function DealControlPanel({
                 <Input
                   className="h-8 text-xs"
                   value={product}
-                  onChange={(e) => setProduct(e.target.value)}
+                  onChange={(e) => { setProduct(e.target.value); onDirtyChange?.(true); }}
                   placeholder="Product"
                 />
               </div>
@@ -431,6 +450,7 @@ export function DealControlPanel({
                     onValueChange={(v) => {
                       const next = v as LenderCaseStage;
                       setStage(next);
+                      onDirtyChange?.(true);
                       const allowed = listLenderSubStagesForStage(next);
                       if (!allowed.some((s) => s.id === subStage)) {
                         setSubStage(allowed[0]?.id ?? "");
@@ -441,7 +461,7 @@ export function DealControlPanel({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {LENDER_CASE_STAGES.map((s) => (
+                      {LENDER_CASE_STAGES.filter(s => !allowedStages || allowedStages.includes(s.id)).map((s) => (
                         <SelectItem key={s.id} value={s.id} className="text-xs">
                           {LENDER_CASE_STAGE_LABELS[s.id]}
                         </SelectItem>
@@ -453,7 +473,7 @@ export function DealControlPanel({
                   <Label className="text-[10px] text-muted-foreground">Current Sub-Stage</Label>
                   <Select
                     value={subStage || "__none__"}
-                    onValueChange={(v) => setSubStage(v === "__none__" ? "" : v)}
+                    onValueChange={(v) => { setSubStage(v === "__none__" ? "" : v); onDirtyChange?.(true); }}
                   >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Sub-stage" />
@@ -497,9 +517,10 @@ export function DealControlPanel({
                 <Label className="text-[10px] text-muted-foreground">Priority</Label>
                 <Select
                   value={priority || "__none__"}
-                  onValueChange={(v) =>
-                    setPriority(v === "__none__" ? "" : (v as LenderProbability))
-                  }
+                  onValueChange={(v) => {
+                    setPriority(v === "__none__" ? "" : (v as LenderProbability));
+                    onDirtyChange?.(true);
+                  }}
                 >
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Priority" />
@@ -517,9 +538,11 @@ export function DealControlPanel({
                 </Select>
               </div>
               <Button type="button" size="sm" className="h-8 text-xs" onClick={saveOperational}>
-                Save Deal Fields
+                {saving ? "Saving…" : "Save Deal Fields"}
               </Button>
-            </div>
+              {presentation === "inline" ? <Button type="button" size="sm" variant="outline" onClick={() => { setResetTick(tick => tick + 1); onDirtyChange?.(false); }}>Cancel</Button> : null}
+              {saveError ? <p role="alert" className="text-xs text-destructive">{saveError}</p> : null}
+            </fieldset>
           </Section>
 
           <Section title="Rupee Catalyst Employee">
@@ -549,8 +572,8 @@ export function DealControlPanel({
               productCode={context.productCode ?? caseExecution.product ?? productFallback}
               value={salesLink}
               actorId={actorUserId}
-              onChange={(link) => {
-                onPatch(caseExecution.id, {
+              onChange={async (link) => {
+                try { await onPatch(caseExecution.id, {
                   lenderSalesContactId: link?.contactId,
                   lenderSalesContactName: link?.contactName,
                   lenderSalesContactMobile: link?.mobile,
@@ -559,7 +582,7 @@ export function DealControlPanel({
                   lenderSalesContactOfficialEmail: link?.officialEmail,
                   lenderSalesContactInstitutionId: link?.institutionId,
                   lenderSalesContactInstitutionLabel: link?.institutionLabel,
-                });
+                }); } catch (error) { setSaveError(error instanceof Error ? error.message : "Lender contact could not be saved."); }
               }}
             />
             <p className="text-[10px] text-muted-foreground">
@@ -757,9 +780,10 @@ export function DealControlPanel({
             ) : null}
           </section>
         </div>
-      </SheetContent>
-    </Sheet>
+    </>
   );
+  if (presentation === "inline") return <div data-surface="deal-control-panel" className="min-w-0">{content}</div>;
+  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent side="right" className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md" data-surface="deal-control-panel" data-sprint="CO-UX-017">{content}</SheetContent></Sheet>;
 }
 
 /** @deprecated CO-UX-017 — use DealControlPanel */

@@ -1,4 +1,4 @@
-import { resolveCaseReadAccess } from "@server/services/enterprise-case-visibility/read-access";
+import { resolveCaseReadAccess, assertDealReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 import {
   errorResponse,
   fromAuthError,
@@ -91,6 +91,8 @@ export async function PATCH(request: Request, context: Ctx) {
       try {
         enterpriseDealApiGuard();
         const actor = requireAccessToken(request);
+        const access = await resolveCaseReadAccess(actor.userId);
+        await assertDealReadAccess(access, dealId);
         const body = await request.json();
         let before: Record<string, unknown> = {};
         try {

@@ -23,8 +23,9 @@ import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { associatedLenderContacts, type DeskLenderContact } from "@/lib/case-workbench/operational-desk";
 import { cn } from "@/lib/utils";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { WorkbenchDealControl } from "@/components/catalyst-one/case-workbench/workbench-deal-control";
 
-type PanelSection = "activity" | "tasks" | "email" | "contacts" | "documents" | "chanakya";
+type PanelSection = "activity" | "tasks" | "email" | "contacts" | "documents" | "chanakya" | "deal-control";
 
 export function CaseWorkbenchActionPanel({
   opportunity,
@@ -148,12 +149,18 @@ export function CaseWorkbenchActionPanel({
             ["contacts", "Lender contacts"],
             ["documents", "Documents"],
             ["chanakya", "CHANAKYA"],
+            ["deal-control", "Deal Control"],
           ] as const
         ).map(([id, label]) => (
           <button
             key={id}
             type="button"
-            onClick={() => setSection(id)}
+            onClick={() => {
+              if (section === "deal-control" && dirty && !window.confirm("Discard unsaved Deal changes?")) return;
+              if (section === "deal-control") onDirty(false);
+              setSection(id);
+            }}
+            disabled={id === "deal-control" && !deal}
             className={cn(
               "rounded-md px-2 py-1 text-[11px] font-semibold",
               section === id ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-accent hover:text-accent-foreground",
@@ -164,6 +171,7 @@ export function CaseWorkbenchActionPanel({
         ))}
       </div>
       <div key={contextKey} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+        {section === "deal-control" && deal && user?.id ? <WorkbenchDealControl key={`${user.id}:${deal.id}`} dealId={deal.id} actorUserId={user.id} actorLabel={user.email} onDirty={onDirty} /> : null}
         {section === "activity" ? (
           user?.id ? (
             <div onFocus={() => onDirty(true)}>
