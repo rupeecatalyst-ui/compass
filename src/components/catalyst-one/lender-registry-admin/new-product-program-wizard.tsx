@@ -405,7 +405,7 @@ export function NewProductProgramWizard({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">None</SelectItem>
-                    {listSelectableCreditRiskPolicies().map((p) => (
+                    {listSelectableCreditRiskPolicies(lender?.id).map((p) => (
                       <SelectItem key={p.policyId} value={p.policyId}>
                         {p.policyName} ({p.policyCode})
                       </SelectItem>

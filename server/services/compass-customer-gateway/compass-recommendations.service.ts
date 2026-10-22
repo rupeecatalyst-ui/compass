@@ -12,6 +12,7 @@ import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/pub
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { calculateMonthlyEmi } from "@/lib/loan-emi-utils";
 import type { HomeLoanRecommendationEngineResult } from "@/lib/home-loan-recommendation/engine";
 
 function tierForRank(rank: number): CompassRecommendationCardDto["tier"] {
@@ -153,21 +154,34 @@ export function projectRegistryProgrammeRecommendations(input: {
     matchInput: projectPublicProgrammeMatchInput(input.detail),
   });
   const requestedAmountLabel = publicRequestedAmountLabel(input.requestedAmount);
-  const cards: CompassRecommendationCardDto[] = ranked.map((row) => ({
+  const requestedRupees = authoritativeRequestedAmountRupees(input.requestedAmount);
+  const programmeById = new Map(input.programs.map((program) => [program.id, program]));
+  const cards: CompassRecommendationCardDto[] = ranked.map((row) => {
+    const program = row.programmeId ? programmeById.get(row.programmeId) : undefined;
+    const rate = program?.roiPercent ?? null;
+    const tenureMonths = program?.maxTenureMonths ?? null;
+    const emi =
+      rate != null && tenureMonths != null && requestedRupees != null
+        ? calculateMonthlyEmi(requestedRupees, rate, tenureMonths)
+        : null;
+    return {
     lenderRef: row.lenderRef,
     displayName: row.lenderName,
     rank: row.rank,
     tier: tierForRank(row.rank),
-    interestRateLabel: null,
-    estimatedEmiLabel: null,
-    processingTimeLabel: null,
+    interestRateLabel: rate != null ? `${rate}%` : null,
+    estimatedEmiLabel: emi != null ? inr(emi) : null,
+    tenureLabel: tenureMonths != null ? `${tenureMonths} months` : null,
+    matchScore: row.score,
+    processingTimeLabel: program?.averageTatDays != null ? `${program.averageTatDays} days` : null,
     reasons: [PUBLIC_PROGRAMME_MATCH_EXPLANATION],
     benefits: [],
     requestedAmountLabel,
     whyThisRecommendation: PUBLIC_PROGRAMME_MATCH_EXPLANATION,
     programmeVersion: row.programmeVersion,
     dtoSource: "enterprise_compass_recommendations" as const,
-  }));
+  };
+  });
   return {
     status: "ready",
     message: cards.length

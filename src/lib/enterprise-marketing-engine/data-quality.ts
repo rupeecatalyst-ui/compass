@@ -4,6 +4,7 @@
  */
 
 import {
+  MARKETING_SHEETS_CONSENT_HEADER_ALIASES,
   MARKETING_SHEETS_EMAIL_HEADER_ALIASES,
   MARKETING_SHEETS_EXTERNAL_KEY_HEADER_ALIASES,
   MARKETING_SHEETS_PHONE_HEADER_ALIASES,
@@ -34,7 +35,31 @@ export function detectMarketingSheetColumns(headers: string[]) {
       headers,
       MARKETING_SHEETS_EXTERNAL_KEY_HEADER_ALIASES,
     ),
+    consentColumn: findHeaderByAliases(headers, MARKETING_SHEETS_CONSENT_HEADER_ALIASES),
   };
+}
+
+const AFFIRMATIVE_CONSENT = new Set([
+  "yes",
+  "y",
+  "true",
+  "1",
+  "granted",
+  "opt-in",
+  "opt in",
+  "opted-in",
+  "opted in",
+]);
+
+/** Missing or blank consent is not a grant. */
+export function marketingConsentDecision(
+  row: Record<string, unknown>,
+  consentColumn: string | null,
+): "granted" | "missing" | "denied" {
+  if (!consentColumn) return "missing";
+  const raw = String(row[consentColumn] ?? "").trim().toLowerCase();
+  if (!raw) return "missing";
+  return AFFIRMATIVE_CONSENT.has(raw) ? "granted" : "denied";
 }
 
 export function isValidMarketingEmail(value: unknown): boolean {

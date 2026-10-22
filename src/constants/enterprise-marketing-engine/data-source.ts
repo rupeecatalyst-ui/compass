@@ -30,6 +30,15 @@ export const MARKETING_SHEETS_PHONE_HEADER_ALIASES = [
   "whatsapp",
 ] as const;
 
+export const MARKETING_SHEETS_CONSENT_HEADER_ALIASES = [
+  "consent",
+  "marketing consent",
+  "email consent",
+  "opt-in",
+  "opt in",
+  "opted in",
+] as const;
+
 export const MARKETING_SHEETS_EXTERNAL_KEY_HEADER_ALIASES = [
   "external key",
   "external_id",

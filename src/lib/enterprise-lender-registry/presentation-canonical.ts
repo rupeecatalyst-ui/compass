@@ -60,6 +60,8 @@ function rankOption(option: LenderPresentationInput): number {
   if (option.defaultRecord) return 0;
   if (option.enabled === false) return 3;
   const code = (option.code || "").trim().toUpperCase();
+  // Provisional backfill rows stay in the registry. Selectors keep the canonical code.
+  if (/^BF[_-]/.test(code)) return 4;
   if (code && !code.includes("_EXT") && !code.includes("LEGACY")) return 1;
   if (/legacy|ext$/i.test(code)) return 2;
   return 1;

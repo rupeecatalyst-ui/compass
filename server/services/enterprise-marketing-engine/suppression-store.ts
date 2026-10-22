@@ -293,6 +293,21 @@ export const marketingSuppressionStore = {
     });
   },
 
+  async hydrate(organizationId: string): Promise<void> {
+    const org = requireOrg(organizationId);
+    seedFixtureSuppressions(org);
+    const { hydrateMarketingSuppressions } = await import("./marketing-durable");
+    await hydrateMarketingSuppressions(org, (record) => {
+      this.upsert({
+        organizationId: record.organizationId,
+        fingerprint: record.fingerprint,
+        reason: record.reason,
+        channel: record.channel === "EMAIL" || record.channel === "WHATSAPP" ? record.channel : "ALL",
+        note: record.note,
+      });
+    });
+  },
+
   reset(): void {
     records.clear();
     policies.clear();

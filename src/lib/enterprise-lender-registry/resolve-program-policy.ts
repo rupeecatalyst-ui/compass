@@ -46,14 +46,26 @@ export function resolveCreditRiskPolicyByRef(
   return { policy };
 }
 
-/** Validate program.creditRiskPolicyRef at write time. Empty ref is allowed. */
+/**
+ * Validate program.creditRiskPolicyRef at write time.
+ * Empty ref is allowed. A set ref must be a published policy for this lender.
+ */
 export function validateProgramCreditRiskPolicyRef(
   ref: string | null | undefined,
+  lenderId?: string | null,
 ): { ok: true } | { ok: false; error: string } {
   if (!(ref ?? "").trim()) return { ok: true };
   const resolved = resolveCreditRiskPolicyByRef(ref, { requirePublished: true });
   if (resolved.error || !resolved.policy) {
     return { ok: false, error: resolved.error || "Invalid Credit & Risk policy reference." };
+  }
+  const policyLenderId = (resolved.policy.lenderId || "").trim();
+  const programmeLenderId = (lenderId || "").trim();
+  if (!policyLenderId || !programmeLenderId || policyLenderId !== programmeLenderId) {
+    return {
+      ok: false,
+      error: "Credit & Risk policy must belong to this lender. Another lender's policy cannot be published on this programme.",
+    };
   }
   return { ok: true };
 }
@@ -71,19 +83,27 @@ export function resolvePolicyForProgram(input: {
   lenderId?: string;
   productId?: string | null;
 }): ProgramPolicyResolution {
+  const lenderId = input.lenderId || input.program.lenderId;
   const ref = input.program.creditRiskPolicyRef;
   if ((ref ?? "").trim()) {
     const resolved = resolveCreditRiskPolicyByRef(ref, { requirePublished: true });
-    if (resolved.policy) {
-      return { ok: true, source: "program_ref", ref, policy: resolved.policy };
+    if (!resolved.policy) {
+      return { ok: false, source: "program_ref", ref, error: resolved.error };
     }
-    return { ok: false, source: "program_ref", ref, error: resolved.error };
+    if (!resolved.policy.lenderId || resolved.policy.lenderId !== lenderId) {
+      return {
+        ok: false,
+        source: "program_ref",
+        ref,
+        error: "Credit & Risk policy belongs to a different lender.",
+      };
+    }
+    return { ok: true, source: "program_ref", ref, policy: resolved.policy };
   }
 
-  const lenderId = input.lenderId || input.program.lenderId;
   const productId = input.productId ?? input.program.productId ?? null;
   const published = getPublishedPolicies().filter((p) => {
-    if (p.lenderId && p.lenderId !== lenderId) return false;
+    if (!p.lenderId || p.lenderId !== lenderId) return false;
     if (productId && p.productId && p.productId !== productId) return false;
     return true;
   });
@@ -99,6 +119,11 @@ export function resolvePolicyForProgram(input: {
   return { ok: true, source: "lender_product_fallback", policy };
 }
 
-export function listSelectableCreditRiskPolicies(): CreditRiskPolicySummary[] {
-  return getPublishedPolicies();
+export function listSelectableCreditRiskPolicies(
+  lenderId?: string | null,
+): CreditRiskPolicySummary[] {
+  const scoped = (lenderId || "").trim();
+  return getPublishedPolicies().filter((policy) =>
+    scoped ? policy.lenderId === scoped : false,
+  );
 }

@@ -73,6 +73,38 @@ function a1SheetName(title: string): string {
   return `'${title.replace(/'/g, "''")}'`;
 }
 
+/** Header row and one data window. Never a prefix from row 1 through the cursor. */
+export function sheetsBoundedRanges(
+  sheetTitle: string,
+  cursor: string | undefined,
+  limit: number,
+): { headerRange: string; dataRange: string } {
+  const startOffset = cursor ? Math.max(0, Number.parseInt(cursor, 10) || 0) : 0;
+  const capped = Math.min(Math.max(1, limit), MARKETING_SHEETS_PAGE_MAX_ROWS);
+  const dataStart = 2 + startOffset;
+  const dataEnd = dataStart + capped - 1;
+  const sheet = a1SheetName(sheetTitle);
+  return {
+    headerRange: `${sheet}!A1:ZZ1`,
+    dataRange: `${sheet}!A${dataStart}:ZZ${dataEnd}`,
+  };
+}
+
+async function withSheetsQuota<T>(read: () => Promise<T>): Promise<T> {
+  let waitMs = 500;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await read();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!/429|quota|rate limit/i.test(message) || attempt === 4) throw err;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      waitMs *= 2;
+    }
+  }
+  throw new Error("Google Sheets read failed");
+}
+
 function valuesToObjects(
   headers: string[],
   valueRows: string[][],
@@ -106,18 +138,26 @@ async function readHeaderAndPage(args: {
   const sheets = await getSheetsClient();
   const startOffset = args.cursor ? Math.max(0, Number.parseInt(args.cursor, 10) || 0) : 0;
   const limit = Math.min(Math.max(1, args.limit), MARKETING_SHEETS_PAGE_MAX_ROWS);
-  // Row 1 = headers; data starts at row 2
+  const ranges = sheetsBoundedRanges(args.sheetTitle, args.cursor, limit);
   const dataStart = 2 + startOffset;
-  const dataEnd = dataStart + limit - 1;
-  const range = `${a1SheetName(args.sheetTitle)}!A1:ZZ${dataEnd}`;
 
-  let response;
+  let headerRes;
+  let pageRes;
   try {
-    response = await sheets.spreadsheets.values.get({
-      spreadsheetId: args.spreadsheetId,
-      range,
-      majorDimension: "ROWS",
-    });
+    headerRes = await withSheetsQuota(() =>
+      sheets.spreadsheets.values.get({
+        spreadsheetId: args.spreadsheetId,
+        range: ranges.headerRange,
+        majorDimension: "ROWS",
+      }),
+    );
+    pageRes = await withSheetsQuota(() =>
+      sheets.spreadsheets.values.get({
+        spreadsheetId: args.spreadsheetId,
+        range: ranges.dataRange,
+        majorDimension: "ROWS",
+      }),
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Google Sheets read failed";
     throw Object.assign(new Error(message), {
@@ -126,42 +166,12 @@ async function readHeaderAndPage(args: {
     });
   }
 
-  const values = (response.data.values ?? []) as string[][];
-  if (values.length === 0) {
-    return { headers: [], page: { rows: [], sourceRowNumbers: [] } };
-  }
-  const headers = (values[0] ?? []).map((h, i) => String(h || `Column_${i + 1}`));
-  const dataRows = values.slice(1);
-  // values include header at index 0 when start is A1; when cursor>0 we still request A1 for headers
-  // Re-read strategy: always fetch header row separately when cursor > 0 for correctness
-  if (startOffset > 0) {
-    const headerRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: args.spreadsheetId,
-      range: `${a1SheetName(args.sheetTitle)}!A1:ZZ1`,
-      majorDimension: "ROWS",
-    });
-    const hdr = ((headerRes.data.values ?? [])[0] ?? []).map((h, i) =>
-      String(h || `Column_${i + 1}`),
-    );
-    const pageRange = `${a1SheetName(args.sheetTitle)}!A${dataStart}:ZZ${dataEnd}`;
-    const pageRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: args.spreadsheetId,
-      range: pageRange,
-      majorDimension: "ROWS",
-    });
-    const pageValues = (pageRes.data.values ?? []) as string[][];
-    const { rows, sourceRowNumbers } = valuesToObjects(hdr, pageValues, dataStart);
-    const nextCursor =
-      pageValues.length >= limit ? String(startOffset + pageValues.length) : undefined;
-    return {
-      headers: hdr,
-      page: { rows, sourceRowNumbers, nextCursor },
-    };
-  }
-
-  const { rows, sourceRowNumbers } = valuesToObjects(headers, dataRows, 2);
-  const nextCursor =
-    dataRows.length >= limit ? String(startOffset + dataRows.length) : undefined;
+  const headers = (((headerRes.data.values ?? [])[0] ?? []) as string[]).map((h, i) =>
+    String(h || `Column_${i + 1}`),
+  );
+  const pageValues = (pageRes.data.values ?? []) as string[][];
+  const { rows, sourceRowNumbers } = valuesToObjects(headers, pageValues, dataStart);
+  const nextCursor = pageValues.length >= limit ? String(startOffset + pageValues.length) : undefined;
   return {
     headers,
     page: { rows, sourceRowNumbers, nextCursor },

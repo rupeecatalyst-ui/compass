@@ -251,6 +251,14 @@ function key(productCode: string): string {
   return canonical.trim().toLowerCase();
 }
 
+export function journeyRegistryKey(productCode: string): string {
+  return key(productCode);
+}
+
+function bookHasContent(book: JourneyBook | null | undefined): boolean {
+  return Boolean(book && (book.versions.length > 0 || book.draft));
+}
+
 function emptyBook(organizationId: string, productCode: string): JourneyBook {
   return {
     organizationId,
@@ -267,7 +275,15 @@ function emptyBook(organizationId: string, productCode: string): JourneyBook {
 async function loadBook(organizationId: string, productCode: string): Promise<JourneyBook> {
   try {
     const store = await getProductJourneyStore();
-    return (await store.read(organizationId, key(productCode))) ?? emptyBook(organizationId, key(productCode));
+    const canonicalKey = key(productCode);
+    const canonical = await store.read(organizationId, canonicalKey);
+    if (bookHasContent(canonical)) return canonical as JourneyBook;
+    const legacyKey = productCode.trim().toLowerCase();
+    if (legacyKey && legacyKey !== canonicalKey) {
+      const legacy = await store.read(organizationId, legacyKey);
+      if (bookHasContent(legacy)) return legacy as JourneyBook;
+    }
+    return canonical ?? emptyBook(organizationId, canonicalKey);
   } catch (error) {
     if (error instanceof ProductJourneyStoreError) throw error;
     throw new ProductJourneyStoreError("STORE_UNAVAILABLE", "The product journey registry is unavailable.");

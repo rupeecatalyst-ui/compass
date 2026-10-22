@@ -906,8 +906,16 @@ export const compassJourneyService = {
     } else {
       try {
         const lenders = await listCompassGatewayPublishedLenderOptions(organizationId);
-        const listed = await lenderRegistryService.queryPrograms({ pageSize: 500, enabled: true });
-        const programs = listed.items.filter(isPublishedCommercialProgram);
+        const programs: Awaited<ReturnType<typeof lenderRegistryService.queryPrograms>>["items"] = [];
+        for (let page = 1; page <= 100; page += 1) {
+          const listed = await lenderRegistryService.queryPrograms({
+            page,
+            pageSize: 200,
+            enabled: true,
+          });
+          programs.push(...listed.items.filter(isPublishedCommercialProgram));
+          if (listed.items.length < 200) break;
+        }
         recommendations = projectRegistryProgrammeRecommendations({
           detail,
           lenders,

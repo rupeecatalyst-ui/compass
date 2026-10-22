@@ -12,6 +12,7 @@ import {
 import { evaluateFilterDefinition } from "@/lib/enterprise-marketing-engine/audience-filters";
 import {
   assessMarketingRowQuality,
+  marketingConsentDecision,
   buildMarketingRecipientFingerprint,
   detectMarketingSheetColumns,
   isValidMarketingEmail,
@@ -266,6 +267,7 @@ async function tickBatchInternal(
     if (!audience) {
       return failBatch(campaignId, lease, "audience_not_found");
     }
+    await marketingSuppressionStore.hydrate(campaign.organizationId);
 
     const port = marketingDataSourceService.getPort(campaign.organizationId);
     if (!port.streamRows || !port.getSchema) {
@@ -288,6 +290,7 @@ async function tickBatchInternal(
     let streamExhausted = false;
 
     while (claimed < batchSize) {
+      const pageStart = cursor ? Math.max(0, Number.parseInt(cursor, 10) || 0) : 0;
       const page = await port.streamRows({
         bindingId: audience.bindingId,
         datasetId: audience.datasetId,
@@ -299,7 +302,9 @@ async function tickBatchInternal(
         break;
       }
 
+      let consumedOnPage = 0;
       for (let i = 0; i < page.rows.length && claimed < batchSize; i += 1) {
+        consumedOnPage = i + 1;
         const row = page.rows[i]!;
         const sourceRowNumber = page.sourceRowNumbers?.[i];
         selected += 1;
@@ -315,10 +320,12 @@ async function tickBatchInternal(
         }
 
         const quality = assessMarketingRowQuality(row, columns, { sourceRowNumber });
+        const consent = marketingConsentDecision(row, columns.consentColumn);
         const rowIneligible =
           !quality.fingerprint ||
           quality.issues.includes("missing_identity") ||
-          quality.issues.includes("invalid_email");
+          quality.issues.includes("invalid_email") ||
+          consent !== "granted";
         if (rowIneligible) {
           skipped += 1;
           const fp = quality.fingerprint ?? `row:${sourceRowNumber ?? selected}`;
@@ -329,6 +336,7 @@ async function tickBatchInternal(
           });
           marketingExecutionLedgerStore.tryClaim({
             campaignId,
+            organizationId: campaign.organizationId,
             campaignVersionId: versionId,
             channel: campaign.channel,
             recipientFingerprint: fp,
@@ -340,7 +348,12 @@ async function tickBatchInternal(
           marketingExecutionLedgerStore.finalize(idempotencyKey, {
             status: "skipped",
             processedAt: nowIso(),
-            lastError: quality.issues.join(",") || "ineligible",
+            lastError:
+              consent !== "granted"
+                ? consent === "denied"
+                  ? "consent_denied"
+                  : "consent_missing"
+                : quality.issues.join(",") || "ineligible",
           });
           continue;
         }
@@ -374,6 +387,7 @@ async function tickBatchInternal(
           suppressed += 1;
           const claim = marketingExecutionLedgerStore.tryClaim({
             campaignId,
+            organizationId: campaign.organizationId,
             campaignVersionId: versionId,
             channel: campaign.channel,
             recipientFingerprint,
@@ -407,6 +421,7 @@ async function tickBatchInternal(
 
         const claim = marketingExecutionLedgerStore.tryClaim({
           campaignId,
+          organizationId: campaign.organizationId,
           campaignVersionId: versionId,
           channel: campaign.channel,
           recipientFingerprint,
@@ -543,6 +558,10 @@ async function tickBatchInternal(
         }
       }
 
+      if (claimed >= batchSize && consumedOnPage < page.rows.length) {
+        cursor = String(pageStart + consumedOnPage);
+        break;
+      }
       cursor = page.nextCursor;
       if (!page.nextCursor) {
         streamExhausted = true;

@@ -40,6 +40,7 @@ import {
 import { productRegistryRepository } from "@server/repositories/product-registry/product-registry.repository";
 
 import { enterpriseRegistryAuditService } from "@server/services/enterprise-registry/audit.service";
+import { canonicalStoredProductCode } from "@/lib/enterprise-lender-registry/published-program-match";
 import { validateProgramCreditRiskPolicyRef } from "@/lib/enterprise-lender-registry/resolve-program-policy";
 import { normalizeProgramLodRequirements } from "@/lib/document-requests/resolve-program-lod";
 
@@ -700,12 +701,17 @@ export class LenderRegistryService {
 
     if (duplicate) throw new Error(`Lender program "${input.code}" already exists.`);
 
-    const policyCheck = validateProgramCreditRiskPolicyRef(input.creditRiskPolicyRef);
+    const storedProductCode = canonicalStoredProductCode(input.productCode);
+    if ((input.productCode ?? "").trim() && !storedProductCode) {
+      throw new Error("Product code is not a canonical Product Master code.");
+    }
+    const policyCheck = validateProgramCreditRiskPolicyRef(input.creditRiskPolicyRef, input.lenderId);
     if (!policyCheck.ok) throw new Error(policyCheck.error);
 
     const lodNorm = normalizeProgramLodInput(input);
     const created = await lenderRegistryRepository.createProgram(organizationId, {
       ...input,
+      ...(storedProductCode ? { productCode: storedProductCode } : {}),
       ...lodNorm,
       requiredDocumentTypeIds:
         (lodNorm.requiredDocumentTypeIds as never) ?? input.requiredDocumentTypeIds,
@@ -777,14 +783,23 @@ export class LenderRegistryService {
 
 
 
+    const storedProductCode =
+      input.productCode !== undefined ? canonicalStoredProductCode(input.productCode) : undefined;
+    if (input.productCode !== undefined && (input.productCode ?? "").trim() && !storedProductCode) {
+      throw new Error("Product code is not a canonical Product Master code.");
+    }
     if (input.creditRiskPolicyRef !== undefined) {
-      const policyCheck = validateProgramCreditRiskPolicyRef(input.creditRiskPolicyRef);
+      const policyCheck = validateProgramCreditRiskPolicyRef(
+        input.creditRiskPolicyRef,
+        input.lenderId || existing.lenderId,
+      );
       if (!policyCheck.ok) throw new Error(policyCheck.error);
     }
 
     const lodNorm = normalizeProgramLodInput(input);
     const updated = await lenderRegistryRepository.updateProgram(id, {
       ...input,
+      ...(storedProductCode ? { productCode: storedProductCode } : {}),
       ...(lodNorm.requiredDocumentTypeIds !== undefined
         ? { requiredDocumentTypeIds: lodNorm.requiredDocumentTypeIds as never }
         : {}),

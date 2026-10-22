@@ -30,7 +30,7 @@ const FIXTURE_TABS: FixtureTab[] = [
   {
     id: "tab_alpha",
     title: "Segment Alpha",
-    headers: ["External Key", "Full Name", "Email", "Phone", "City", "Profession"],
+    headers: ["External Key", "Full Name", "Email", "Phone", "City", "Profession", "Consent"],
     rows: [
       {
         "External Key": "FX-001",
@@ -39,6 +39,7 @@ const FIXTURE_TABS: FixtureTab[] = [
         Phone: "9876543210",
         City: "Pune",
         Profession: "CA",
+        Consent: "Yes",
       },
       {
         "External Key": "FX-002",
@@ -47,6 +48,7 @@ const FIXTURE_TABS: FixtureTab[] = [
         Phone: "9123456780",
         City: "Mumbai",
         Profession: "Doctor",
+        Consent: "Yes",
       },
       {
         "External Key": "FX-003",
@@ -55,6 +57,7 @@ const FIXTURE_TABS: FixtureTab[] = [
         Phone: "9000000001",
         City: "Pune",
         Profession: "CA",
+        Consent: "Yes",
       },
       {
         "External Key": "",
@@ -63,6 +66,7 @@ const FIXTURE_TABS: FixtureTab[] = [
         Phone: "",
         City: "Delhi",
         Profession: "Other",
+        Consent: "Yes",
       },
       {
         "External Key": "FX-005",
@@ -71,26 +75,28 @@ const FIXTURE_TABS: FixtureTab[] = [
         Phone: "9988776655",
         City: "Ahmedabad",
         Profession: "Professional",
+        Consent: "Yes",
       },
     ],
   },
   {
     id: "tab_beta",
     title: "Segment Beta",
-    headers: ["Name", "Email Address", "Mobile Number"],
+    headers: ["Name", "Email Address", "Mobile Number", "Consent"],
     rows: Array.from({ length: 12 }, (_, i) => ({
       Name: `Fixture Person ${i + 1}`,
       "Email Address": `fixture.person${i + 1}@example.com`,
       "Mobile Number": `98${String(10000000 + i).slice(0, 8)}`,
+      Consent: "Yes",
     })),
   },
   {
     id: "tab_gamma",
     title: "Segment Gamma",
-    headers: ["Prospect Id", "Email", "Notes"],
+    headers: ["Prospect Id", "Email", "Notes", "Consent"],
     rows: [
-      { "Prospect Id": "P-100", Email: "gamma.one@example.com", Notes: "ok" },
-      { "Prospect Id": "P-101", Email: "gamma.two@example.com", Notes: "ok" },
+      { "Prospect Id": "P-100", Email: "gamma.one@example.com", Notes: "ok", Consent: "Yes" },
+      { "Prospect Id": "P-101", Email: "gamma.two@example.com", Notes: "ok", Consent: "Yes" },
     ],
   },
 ];
@@ -194,7 +200,7 @@ const SYNTHETIC_SCALE_TABS: Record<
   tab_scale_100k: { title: "Synthetic 100,000 (external simulation)", count: 100_000 },
 };
 
-const SCALE_HEADERS = ["External Key", "Full Name", "Email", "Phone", "City", "Profession"];
+const SCALE_HEADERS = ["External Key", "Full Name", "Email", "Phone", "City", "Profession", "Consent"];
 
 function syntheticScaleRow(index: number): Record<string, string> {
   return {
@@ -204,6 +210,7 @@ function syntheticScaleRow(index: number): Record<string, string> {
     Phone: String(9000000000 + (index % 1_000_000_000)),
     City: index % 2 === 0 ? "Pune" : "Mumbai",
     Profession: "Professional",
+    Consent: "Yes",
   };
 }
 

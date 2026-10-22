@@ -146,6 +146,7 @@ export type CompassRecommendationCardDto = {
   interestRateLabel: string | null;
   estimatedEmiLabel: string | null;
   processingTimeLabel: string | null;
+  matchScore?: number | null;
   reasons: string[];
   benefits: string[];
   tentativeOfferLabel?: string | null;

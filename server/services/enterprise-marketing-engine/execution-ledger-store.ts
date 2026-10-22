@@ -7,6 +7,7 @@ import type {
   MarketingRecipientLedgerStatus,
 } from "@/types/enterprise-marketing-execution";
 import type { MarketingChannel } from "@/constants/enterprise-marketing-engine";
+import { persistMarketingLedgerEntry } from "./marketing-durable";
 
 function nowIso() {
   return new Date().toISOString();
@@ -18,6 +19,17 @@ function ledgerKey(campaignId: string, channel: MarketingChannel, fingerprint: s
 
 const byKey = new Map<string, MarketingRecipientLedgerEntry>();
 const byCampaign = new Map<string, Set<string>>();
+const organizationByKey = new Map<string, string>();
+
+function rememberOrganization(idempotencyKey: string, organizationId?: string | null) {
+  if (organizationId) organizationByKey.set(idempotencyKey, organizationId);
+}
+
+function mirrorLedger(entry: MarketingRecipientLedgerEntry) {
+  const organizationId = organizationByKey.get(entry.idempotencyKey);
+  if (!organizationId) return;
+  void persistMarketingLedgerEntry(organizationId, entry);
+}
 
 function indexEntry(entry: MarketingRecipientLedgerEntry) {
   byKey.set(entry.idempotencyKey, entry);
@@ -88,11 +100,13 @@ export const marketingExecutionLedgerStore = {
     sourceRowNumber?: number | null;
     sourceCursor?: string | null;
     allowRetryFailed?: boolean;
+    organizationId?: string | null;
   }):
     | { ok: true; entry: MarketingRecipientLedgerEntry; duplicate: false }
     | { ok: false; duplicate: true; entry: MarketingRecipientLedgerEntry; reason: string } {
     const existing = byKey.get(input.idempotencyKey);
     const ts = nowIso();
+    rememberOrganization(input.idempotencyKey, input.organizationId);
     if (existing) {
       const terminal = new Set<MarketingRecipientLedgerStatus>([
         "processed",
@@ -120,6 +134,7 @@ export const marketingExecutionLedgerStore = {
           lastError: null,
         };
         indexEntry(next);
+        mirrorLedger(next);
         return { ok: true, entry: next, duplicate: false };
       }
       return { ok: false, duplicate: true, entry: existing, reason: "already_claimed" };
@@ -143,6 +158,7 @@ export const marketingExecutionLedgerStore = {
       updatedAt: ts,
     };
     indexEntry(entry);
+    mirrorLedger(entry);
     return { ok: true, entry, duplicate: false };
   },
 
@@ -157,6 +173,7 @@ export const marketingExecutionLedgerStore = {
     if (!existing) return null;
     const next = { ...existing, ...patch, updatedAt: nowIso() };
     indexEntry(next);
+    mirrorLedger(next);
     return next;
   },
 

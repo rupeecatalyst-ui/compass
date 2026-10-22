@@ -31,6 +31,8 @@ import {
   sessionOwnsContact,
 } from "../server/services/compass-customer-gateway/compass-session.service";
 import { getCompassProductDefinition } from "../src/constants/compass-customer-gateway/product-registry";
+import { projectPublicEqualsGate } from "../server/services/compass-customer-gateway/compass-journey-config.service";
+import { ENTERPRISE_IDC_DETAIL_SECTIONS } from "../src/constants/enterprise-initial-data-collection/catalog";
 import { compassAdvantageToCommitmentAmount } from "../src/lib/advantage-committed/compass-propagation";
 import { projectAdvantageCommitted } from "../src/lib/advantage-committed/projection";
 import { isAdvantageCommittedApplicableProduct } from "../src/lib/advantage-committed/applicability";
@@ -200,7 +202,8 @@ assert.equal(sanitized.opportunityRef, "OPP-1");
 assert.equal("programmeId" in sanitized.cards[0], false);
 
 const journey = readFileSync("server/services/compass-customer-gateway/compass-journey.service.ts", "utf8");
-assert.equal(journey.includes("projectCompassRecommendations"), false);
+assert.equal(journey.includes("projectRegistryProgrammeRecommendations"), true);
+assert.equal(journey.includes("The governed CHANAKYA customer eligibility service is not available"), false);
 assert.equal(journey.includes("enterpriseDeal"), false);
 assert.equal(journey.includes("loanFile"), false);
 assert.equal(journey.includes("enterpriseTransactionDocumentService"), true);
@@ -238,5 +241,21 @@ assert.equal(customerChecklistStatus("rejected"), "rejected");
 const resumed = omitSensitiveResumeAnswers({ mobile: "9999999999", city: "Pune", employmentTypeCode: "salaried" });
 assert.equal("mobile" in resumed, false);
 assert.equal(resumed.city, "Pune");
+
+const occupationRule = projectPublicEqualsGate({
+  op: "or",
+  conditions: [
+    { op: "equals", fieldId: "employmentTypeCode", value: "self-employed-professional" },
+    { op: "equals", fieldId: "employmentTypeCode", value: "self-employed-business" },
+  ],
+});
+assert.deepEqual(occupationRule.values, ["self-employed-professional", "self-employed-business"]);
+assert.equal(occupationRule.field, "employmentTypeCode");
+
+const employment = ENTERPRISE_IDC_DETAIL_SECTIONS.find((section) => section.sectionId === "employment_information");
+const turnover = employment?.fields.find((field) => field.key === "annualTurnoverLabel");
+assert.equal(turnover?.visibleWhenField, "employmentTypeCode");
+assert.ok(turnover?.visibleWhenValues?.includes("self-employed-business"));
+assert.ok(!employment?.fields.find((field) => field.key === "employerName")?.visibleWhenValues?.includes("self-employed-business"));
 
 console.log("STAGE1_QUESTION_JOURNEY_VERIFY pass");
