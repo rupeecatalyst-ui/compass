@@ -24,6 +24,7 @@ import {
 import { assertCompassCustomerRateLimit } from "./compass-customer-rate-limit";
 import { hasOtpVerificationProof } from "./compass-otp.service";
 import { persistCompassAdvantageCommitment } from "@server/services/compass-advantage/commit-opportunity-advantage";
+import { queueCompassApplicationConfirmation } from "./compass-application-confirmation.service";
 import { prisma } from "@server/lib/prisma";
 import { resolveCompassGatewayOrganizationId } from "./compass-organization.resolver";
 import { ecmContactRepository } from "@server/repositories/ecm/contact.repository";
@@ -373,24 +374,38 @@ async function requirePinnedJourney(
 }
 
 async function resolveCampaignHandoff(token: string, productCode: string) {
+  let claims: CampaignRecipientClaims;
   try {
-    const claims = verifyCampaignRecipientToken(token, campaignLinkSecret());
-    if (!sameCampaignProduct(claims.productCode, productCode)) {
-      return { valid: false as const, emailOnFile: false, emailIndependentlyVerified: false as const };
-    }
-    const recipient = await ecmContactRepository.findById(claims.recipientRef);
-    return {
-      valid: true as const,
-      emailOnFile: Boolean(recipient && !recipient.isDeleted && recipient.personalEmail),
-      emailIndependentlyVerified: false as const,
-      campaignId: claims.campaignId,
-      sourceCode: claims.sourceCode,
-      campaignLabel: claims.campaignLabel,
-    };
+    claims = verifyCampaignRecipientToken(token, campaignLinkSecret());
   } catch (error) {
-    if (error instanceof CompassJourneyError && error.code === "CAMPAIGN_LINK_UNAVAILABLE") throw error;
-    return { valid: false as const, emailOnFile: false, emailIndependentlyVerified: false as const };
+    if (error instanceof CompassJourneyError) throw error;
+    throw new CompassJourneyError("CAMPAIGN_TOKEN_INVALID", "This campaign link is not valid.", 401);
   }
+  let enterpriseProductCode = "";
+  try {
+    enterpriseProductCode = getCompassProductDefinition(productCode as CompassProductCode).enterpriseProductCode;
+  } catch {
+    enterpriseProductCode = "";
+  }
+  if (
+    !sameCampaignProduct(claims.productCode, productCode) &&
+    !(enterpriseProductCode && sameCampaignProduct(claims.productCode, enterpriseProductCode))
+  ) {
+    throw new CompassJourneyError(
+      "CAMPAIGN_TOKEN_INVALID",
+      "This campaign link is not valid for this product.",
+      401,
+    );
+  }
+  const recipient = await ecmContactRepository.findById(claims.recipientRef);
+  return {
+    valid: true as const,
+    emailOnFile: Boolean(recipient && !recipient.isDeleted && recipient.personalEmail),
+    emailIndependentlyVerified: false as const,
+    campaignId: claims.campaignId,
+    sourceCode: claims.sourceCode,
+    campaignLabel: claims.campaignLabel,
+  };
 }
 
 async function resolveCampaignForStart(
@@ -1140,6 +1155,20 @@ export const compassJourneyService = {
 
     if (SUBMITTED_STATUSES.has(row.lifecycleStatus)) {
       const lod = await this.getLod(token);
+      const submittedAt =
+        row.snapshot &&
+        typeof row.snapshot === "object" &&
+        typeof (row.snapshot as { compassSubmittedAt?: unknown }).compassSubmittedAt === "string"
+          ? (row.snapshot as { compassSubmittedAt: string }).compassSubmittedAt
+          : "";
+      if (submittedAt) {
+        await queueCompassApplicationConfirmation({
+          organizationId,
+          opportunity: row,
+          lod,
+          submittedAt,
+        }).catch(() => undefined);
+      }
       return {
         submitted: true,
         reference: row.opportunityNumber,
@@ -1219,6 +1248,12 @@ export const compassJourneyService = {
     }
 
     const lod = await this.getLod(token);
+    await queueCompassApplicationConfirmation({
+      organizationId,
+      opportunity: updated,
+      lod,
+      submittedAt: acceptedAt,
+    }).catch(() => undefined);
     const pendingItems =
       lod.mandatoryPending > 0
         ? [`${lod.mandatoryPending} mandatory document(s) still pending`]

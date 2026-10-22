@@ -474,6 +474,8 @@ async function tickBatchInternal(
             version,
             row,
             trackingEnabled: version.trackingEnabled,
+            product: campaign.product,
+            campaignName: campaign.name,
           });
           if (deliveryResult.countsAsProcessed) processed += 1;
           else if (deliveryResult.countsAsFailed) failed += 1;

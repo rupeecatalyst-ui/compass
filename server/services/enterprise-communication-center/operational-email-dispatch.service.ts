@@ -84,6 +84,10 @@ export type DispatchOperationalTransactionEmailInput = {
   opportunityReference?: string | null;
   sourceSystem?: string;
   documentIds?: string[];
+  /** Customer-initiated mail CCs the signed-in employee. System mail does not invent one. */
+  initiation?: "operator" | "system";
+  /** Stable id so a retry records the same communication instead of a second send. */
+  sourceEventId?: string;
 };
 
 function resolveCustomersProfile(
@@ -158,7 +162,9 @@ export async function previewOperationalTransactionEmail(input: {
 export async function dispatchOperationalTransactionEmail(
   input: DispatchOperationalTransactionEmailInput,
 ): Promise<OperationalEmailDispatchResult> {
-  const sourceEventId = `txn-email:${input.eventType}:${input.opportunityId}:${Date.now()}`;
+  const sourceEventId =
+    input.sourceEventId?.trim() ||
+    `txn-email:${input.eventType}:${input.opportunityId}:${Date.now()}`;
   const dealId = input.dealId?.trim() || null;
   const primaryToRole = input.primaryToRole ?? "customer";
   const sourceSystem = input.sourceSystem?.trim() || "operational_email";
@@ -262,28 +268,32 @@ export async function dispatchOperationalTransactionEmail(
     });
   }
 
-  // Use the same canonical authenticated User resolver as preview/access.
-  const initiatingUser = await resolveAuthenticatedDocumentWorkspaceActor({ userId: input.actorUserId });
-  const senderCc = enforceMandatoryInitiatingSenderCc({
-    to: recipients.to,
-    cc: recipients.cc,
-    initiatingUser: {
-      id: initiatingUser.userId,
-      email: initiatingUser.email,
-      isActive: initiatingUser.isActive,
-    },
-  });
-  if (!senderCc.ok) {
-    return baseFailure({
-      deliveryStatus: "failed",
+  const systemMail = input.initiation === "system";
+  let signatureName = "COMPASS";
+  if (!systemMail) {
+    const initiatingUser = await resolveAuthenticatedDocumentWorkspaceActor({ userId: input.actorUserId });
+    const senderCc = enforceMandatoryInitiatingSenderCc({
       to: recipients.to,
       cc: recipients.cc,
-      message: senderCc.message,
-      failureCode: senderCc.code,
+      initiatingUser: {
+        id: initiatingUser.userId,
+        email: initiatingUser.email,
+        isActive: initiatingUser.isActive,
+      },
     });
+    if (!senderCc.ok) {
+      return baseFailure({
+        deliveryStatus: "failed",
+        to: recipients.to,
+        cc: recipients.cc,
+        message: senderCc.message,
+        failureCode: senderCc.code,
+      });
+    }
+    recipients.to = senderCc.to;
+    recipients.cc = senderCc.cc;
+    signatureName = initiatingUser.displayName ?? "";
   }
-  recipients.to = senderCc.to;
-  recipients.cc = senderCc.cc;
 
   const profile = await loadCustomersProfile();
   if (!profile?.active || profile.smtpProvider !== "smtp") {
@@ -331,7 +341,7 @@ export async function dispatchOperationalTransactionEmail(
     to: recipients.to,
     cc: recipients.cc,
     subject,
-    textBody: appendTransactionEmailSignature(input.textBody, initiatingUser.displayName ?? ""),
+    textBody: appendTransactionEmailSignature(input.textBody, signatureName),
     messageId,
     attachments,
     ehloName: "catalyst-one-transaction-email",

@@ -21,6 +21,12 @@ import {
   renderMarketingEmailHtml,
   renderMarketingEmailPlaintext,
 } from "@/lib/enterprise-marketing-engine/email-render";
+import { issueCampaignRecipientToken } from "@/lib/product-journey/campaign-link";
+import {
+  compassCampaignEntryUrl,
+  resolveCompassCampaignProduct,
+  withCampaignEntryCtas,
+} from "@/lib/product-journey/campaign-entry-url";
 import { lookupDurableMarketingSend, marketingDurableSendAlreadyCompleted } from "@/lib/enterprise-marketing-engine/durable-send-idempotency";
 import { isMarketingPhase1Sender } from "@/lib/enterprise-marketing-engine/phase1-sender";
 import { marketingPhase1DeliverySender } from "@/lib/enterprise-marketing-engine/phase1-sender-identity";
@@ -186,6 +192,47 @@ function personalizationFromRow(row: Record<string, unknown>, columns: {
   };
 }
 
+function campaignLinkSecret(): string {
+  return (
+    process.env.COMPASS_JOURNEY_SESSION_SECRET?.trim() ||
+    process.env.JWT_SECRET?.trim() ||
+    process.env.NEXTAUTH_SECRET?.trim() ||
+    ""
+  );
+}
+
+function campaignRecipientToken(input: {
+  campaignId: string;
+  campaignName?: string | null;
+  productCode: string;
+  row: Record<string, unknown>;
+  recipientFingerprint: string;
+}): string | null {
+  const secret = campaignLinkSecret();
+  if (!secret) return null;
+  const rawRef = ["contactId", "ContactId", "recipientRef", "ecmContactId"]
+    .map((key) => input.row[key])
+    .find((value) => typeof value === "string" && value.trim() && !value.includes("@"));
+  const recipientRef =
+    typeof rawRef === "string" && rawRef.trim()
+      ? rawRef.trim()
+      : `audience:${input.recipientFingerprint}`;
+  try {
+    return issueCampaignRecipientToken(
+      {
+        campaignId: input.campaignId,
+        recipientRef,
+        productCode: input.productCode,
+        sourceCode: "marketing_email",
+        campaignLabel: input.campaignName?.trim() || input.campaignId,
+      },
+      secret,
+    );
+  } catch {
+    return null;
+  }
+}
+
 export const marketingEmailDeliveryService = {
   getMode() {
     return {
@@ -348,6 +395,8 @@ export const marketingEmailDeliveryService = {
     version: MarketingCampaignVersion;
     row: Record<string, unknown>;
     trackingEnabled: boolean;
+    product?: string | null;
+    campaignName?: string | null;
   }): Promise<{
     delivery: MarketingEmailDeliveryResult;
     ledgerStatus: ReturnType<typeof mapDeliveryOutcomeToLedgerStatus>;
@@ -388,16 +437,30 @@ export const marketingEmailDeliveryService = {
     }
 
     const personalization = personalizationFromRow(input.row, { emailColumn: "Email" });
+    const productCode = resolveCompassCampaignProduct(input.product);
+    const entryUrl = productCode
+      ? compassCampaignEntryUrl({
+          productCode,
+          campaignToken: campaignRecipientToken({
+            campaignId: input.campaignId,
+            campaignName: input.campaignName,
+            productCode,
+            row: input.row,
+            recipientFingerprint: input.recipientFingerprint,
+          }),
+        })
+      : null;
+    const content = entryUrl ? withCampaignEntryCtas(input.version.content, entryUrl) : input.version.content;
     const subject = applyPersonalization(input.version.subject, personalization);
     const htmlBody = renderMarketingEmailHtml({
-      content: input.version.content,
+      content,
       subject,
       previewText: input.version.previewText,
       mode: "desktop",
       personalization,
     });
     const textBody = renderMarketingEmailPlaintext({
-      content: input.version.content,
+      content,
       personalization,
     });
 

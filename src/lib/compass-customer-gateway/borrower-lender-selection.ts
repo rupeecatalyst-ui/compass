@@ -9,6 +9,11 @@ export type CompassSelectedLender = {
   lenderName: string;
   programmeRef: string;
   programmeVersion: number | null;
+  interestRateLabel?: string | null;
+  estimatedEmiLabel?: string | null;
+  tenureLabel?: string | null;
+  processingTimeLabel?: string | null;
+  tentativeOfferLabel?: string | null;
 };
 
 export type EligiblePublishedMatch = {
@@ -17,6 +22,11 @@ export type EligiblePublishedMatch = {
   programmeId?: string | null;
   programmeVersion?: number | null;
   rank?: number;
+  interestRateLabel?: string | null;
+  estimatedEmiLabel?: string | null;
+  tenureLabel?: string | null;
+  processingTimeLabel?: string | null;
+  tentativeOfferLabel?: string | null;
 };
 
 function text(value: unknown): string {
@@ -38,6 +48,11 @@ export function readCompassSelectedLender(snapshot: unknown): CompassSelectedLen
     lenderName,
     programmeRef,
     programmeVersion: typeof version === "number" && Number.isFinite(version) ? version : null,
+    interestRateLabel: text(row.interestRateLabel) || null,
+    estimatedEmiLabel: text(row.estimatedEmiLabel) || null,
+    tenureLabel: text(row.tenureLabel) || null,
+    processingTimeLabel: text(row.processingTimeLabel) || null,
+    tentativeOfferLabel: text(row.tentativeOfferLabel) || null,
   };
 }
 
@@ -83,6 +98,11 @@ export function resolveCompassLenderSelection(input: {
       typeof match.programmeVersion === "number" && Number.isFinite(match.programmeVersion)
         ? match.programmeVersion
         : null,
+    interestRateLabel: text(match.interestRateLabel) || null,
+    estimatedEmiLabel: text(match.estimatedEmiLabel) || null,
+    tenureLabel: text(match.tenureLabel) || null,
+    processingTimeLabel: text(match.processingTimeLabel) || null,
+    tentativeOfferLabel: text(match.tentativeOfferLabel) || null,
   };
 }
 
