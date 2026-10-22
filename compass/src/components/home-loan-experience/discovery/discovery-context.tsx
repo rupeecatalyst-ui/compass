@@ -269,6 +269,11 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
           if (resume.journeyVersion) {
             void fetchCompassJourneyConfig(resolved, resume.journeyVersion)
               .then((config) => {
+                if (config.campaignHandoff && config.campaignHandoff.valid === false) {
+                  setJourneyConfig(null);
+                  setConfigUnavailable(true);
+                  return;
+                }
                 setJourneyConfig(config);
                 setConfigUnavailable(false);
               })
@@ -292,6 +297,11 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     }
     void fetchCompassJourneyConfig(resolved)
       .then((config) => {
+        if (config.campaignHandoff && config.campaignHandoff.valid === false) {
+          setJourneyConfig(null);
+          setConfigUnavailable(true);
+          return;
+        }
         setJourneyConfig(config);
         setConfigUnavailable(false);
       })

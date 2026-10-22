@@ -11,6 +11,8 @@ import type {
   JourneyStartResponse,
 } from "@/services/catalyst-one/types";
 import { buildCompassAnswersPayload, compassSubmitDeclarationBody } from "@/lib/declarable-journey-answers";
+import { recallCampaignToken, rememberCampaignToken } from "@/lib/campaign-entry";
+import { readProductCodeFromPathname } from "@/config/compass-lending-products";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
 
 function initials(name: string): string {
@@ -73,8 +75,13 @@ export async function fetchCompassResume(token: string): Promise<{
 
 function readOpaqueCampaignToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
+  const product = readProductCodeFromPathname(window.location.pathname, window.location.search) ?? "";
   const token = new URLSearchParams(window.location.search).get("campaign")?.trim();
-  return token || undefined;
+  if (token) {
+    if (product) rememberCampaignToken(window.sessionStorage, product, token);
+    return token;
+  }
+  return product ? recallCampaignToken(window.sessionStorage, product) ?? undefined : undefined;
 }
 
 export async function startCompassJourney(input: {
