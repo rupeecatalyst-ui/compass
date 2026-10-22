@@ -227,6 +227,17 @@ export function cibilFieldOptions(
   return findJourneyField(config, "approxCibilScore")?.options ?? [];
 }
 
+/** An application stage with no configured questions is not a customer action. */
+export function isVacantApplicationStage(
+  stageId: string,
+  config: CompassJourneyConfig | null | undefined,
+): boolean {
+  if (stageId !== "application") return false;
+  return !(config?.fields ?? []).some(
+    (field) => field.stageId === "application" || field.purpose === "application",
+  );
+}
+
 const SHELL_BEFORE = ["welcome"] as const;
 const IDENTITY = ["mobile"] as const;
 const SHELL_AFTER = ["analysing", "advantage", "lenders", "documents", "review", "confirmation"] as const;

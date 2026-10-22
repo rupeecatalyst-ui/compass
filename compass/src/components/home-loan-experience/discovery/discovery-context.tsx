@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { discoveryCopy } from "@/config/home-loan-discovery";
 import {
   getDiscoveryStepOrder,
@@ -10,7 +10,12 @@ import {
 import { isDeclarableNumericKey } from "@/lib/declarable-journey-answers";
 import { persistDiscoveryAnswers, persistJourneyToken, restoreDiscoveryAnswers, restoreJourneyToken } from "@/lib/discovery-session";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
-import { governedDiscoveryStepOrder, isMonthlyIncomeStepRequired, publicStageOrder } from "@/lib/journey-config";
+import {
+  governedDiscoveryStepOrder,
+  isMonthlyIncomeStepRequired,
+  isVacantApplicationStage,
+  publicStageOrder,
+} from "@/lib/journey-config";
 import { clearDiscoveryLaunchUrl } from "@/discovery-template/launch-discovery";
 import {
   fetchCompassJourneyConfig,
@@ -159,7 +164,7 @@ type DiscoveryContextValue = {
   nudgeCompass: () => void;
   completeJourney: () => void;
   startJourneySession: (otpVerificationToken?: string) => Promise<void>;
-  loadIntelligence: () => Promise<void>;
+  loadIntelligence: () => Promise<boolean>;
   loadLod: () => Promise<void>;
   uploadDocumentFiles: (files: File[], options?: { typeRef?: string }) => Promise<void>;
   submitApplication: (input: {
@@ -408,6 +413,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       for (let i = idx + 1; i < order.length; i += 1) {
         const candidate = order[i];
         if (shouldSkipAnsweredStage(candidate, merged, mobileVerified)) continue;
+        if (isVacantApplicationStage(candidate, journeyConfig)) continue;
         if (
           candidate === "monthlyIncome" &&
           !isMonthlyIncomeStepRequired(journeyConfig, {
@@ -432,6 +438,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       for (let i = idx - 1; i >= 0; i -= 1) {
         const candidate = order[i];
         if (shouldSkipAnsweredStage(candidate, answers, mobileVerified)) continue;
+        if (isVacantApplicationStage(candidate, journeyConfig)) continue;
         if (
           candidate === "monthlyIncome" &&
           !isMonthlyIncomeStepRequired(journeyConfig, {
@@ -476,26 +483,39 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     }
   }, [answers.city, answers.mobile, productCode, setAnswer]);
 
+  const intelligenceRequest = useRef<Promise<boolean> | null>(null);
+
   const loadIntelligence = useCallback(async () => {
-    if (!journeySessionToken) {
-      setIntelligenceError("Your session could not be verified. Please restart the journey.");
-      return;
-    }
-    setIntelligenceLoading(true);
-    setIntelligenceError(null);
+    if (intelligenceRequest.current) return intelligenceRequest.current;
+    const request = (async () => {
+      if (!journeySessionToken) {
+        setIntelligenceError("Your session could not be verified. Please restart the journey.");
+        return false;
+      }
+      setIntelligenceLoading(true);
+      setIntelligenceError(null);
+      try {
+        const result = await fetchDiscoveryIntelligence({
+          product: productCode,
+          answers,
+          journeySessionToken,
+        });
+        setIntelligence(result);
+        return true;
+      } catch {
+        setIntelligenceError(
+          "We could not complete analysis right now. Your details are saved — please try again shortly.",
+        );
+        return false;
+      } finally {
+        setIntelligenceLoading(false);
+      }
+    })();
+    intelligenceRequest.current = request;
     try {
-      const result = await fetchDiscoveryIntelligence({
-        product: productCode,
-        answers,
-        journeySessionToken,
-      });
-      setIntelligence(result);
-    } catch {
-      setIntelligenceError(
-        "We could not complete analysis right now. Your details are saved — please try again shortly.",
-      );
+      return await request;
     } finally {
-      setIntelligenceLoading(false);
+      intelligenceRequest.current = null;
     }
   }, [answers, journeySessionToken, productCode]);
 

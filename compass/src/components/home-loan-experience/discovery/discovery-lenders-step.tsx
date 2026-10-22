@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { discoveryCopy } from "@/config/home-loan-discovery";
 import type { LenderRecommendationResult } from "@/services/catalyst-one/types";
-import { publishedCommercialLabel } from "@/lib/customer-journey-order";
+import { COMMERCIAL_UNAVAILABLE, publishedCommercialLabel } from "@/lib/customer-journey-order";
+import { LENDER_MATCH_LOADING_MESSAGES } from "@/lib/lender-match-request";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
@@ -39,48 +40,56 @@ function LenderRow({
   return (
     <article
       className={cn(
-        "rounded-xl border px-3 py-2.5 sm:px-4",
+        "min-w-0 rounded-xl border px-3 py-2.5 sm:px-4",
         selected ? "border-primary/45 bg-primary/[0.08]" : "border-white/[0.08] bg-white/[0.02]",
       )}
     >
-      <div className="flex min-w-0 items-start justify-between gap-3">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{lender.name}</p>
-          <p className="text-[11px] text-muted-foreground">{scoreLabel(lender)}</p>
+          <p className="text-xs text-muted-foreground">{scoreLabel(lender)}</p>
         </div>
         <button
           type="button"
           onClick={onSelect}
           aria-pressed={selected}
           className={cn(
-            "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold",
+            "inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold sm:w-auto",
             selected
               ? "bg-primary text-primary-foreground"
               : "border border-white/15 text-foreground hover:border-primary/40",
           )}
         >
-          {selected ? <Check className="h-3.5 w-3.5" /> : null}
+          {selected ? <Check className="h-4 w-4" /> : null}
           {selected ? "Selected" : "Select this lender"}
         </button>
       </div>
-      <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-3">
         <Field label="Eligible offer" value={offer} />
-        <Field label="Requested" value={requested} />
-        <Field label="ROI" value={roi} />
+        <Field label="Requested amount" value={requested} />
+        <Field label="ROI" value={roi} emphasize />
         <Field label="EMI" value={emi} />
         <Field label="Tenure" value={tenure} />
-        <Field label="Processing" value={time} />
+        <Field label="Processing time" value={time} />
       </dl>
       {reason ? <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{reason}</p> : null}
     </article>
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, emphasize = false }: { label: string; value: string; emphasize?: boolean }) {
+  const unavailable = value === COMMERCIAL_UNAVAILABLE;
   return (
-    <div className="min-w-0 text-[11px] leading-snug">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-foreground">{value}</dd>
+    <div className="min-w-0">
+      <dt className="text-xs leading-snug text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "mt-0.5 break-words text-sm font-medium leading-snug sm:text-base",
+          emphasize && !unavailable ? "text-accent" : "text-foreground",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
@@ -115,6 +124,7 @@ export function DiscoveryLendersStep() {
     intelligence,
     intelligenceLoading,
     intelligenceError,
+    loadIntelligence,
     goNext,
     productCode,
     answers,
@@ -150,8 +160,13 @@ export function DiscoveryLendersStep() {
         <p className="mt-2 text-sm text-muted-foreground">{showAssisted ? assisted?.body : c.subtitle}</p>
       </div>
 
-      <div className="mx-auto mt-6 w-full space-y-2">
-        {showAssisted ? (
+      <div className="mx-auto mt-6 w-full min-w-0 space-y-2">
+        {intelligenceLoading && lenders.length === 0 ? (
+          <div className="flex flex-col items-center py-10 text-center" aria-live="polite" aria-busy="true">
+            <LoaderCircle className={`h-6 w-6 text-primary ${reduceMotion ? "" : "animate-spin"}`} />
+            <p className="mt-4 max-w-sm text-sm text-muted-foreground">{LENDER_MATCH_LOADING_MESSAGES[0]}</p>
+          </div>
+        ) : showAssisted ? (
           <TalkToExpertPanel />
         ) : unavailable ? (
           <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
@@ -160,6 +175,11 @@ export function DiscoveryLendersStep() {
                 intelligence?.recommendationsMessage ||
                 "We are preparing your lender guidance. A Rupee Catalyst advisor will share suitable options shortly."}
             </p>
+            {intelligenceError ? (
+              <Button size="lg" className="h-12 w-full" onClick={() => void loadIntelligence()}>
+                Try again
+              </Button>
+            ) : null}
           </div>
         ) : (
           lenders.map((lender) => (
@@ -186,7 +206,7 @@ export function DiscoveryLendersStep() {
         <div className="mt-8 flex justify-center">
           <Button
             size="lg"
-            className="h-12 px-10"
+            className="h-12 w-full max-w-md sm:w-auto sm:px-10"
             disabled={lenders.length > 0 && !selectedName}
             onClick={goNext}
           >

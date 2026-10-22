@@ -6,9 +6,13 @@
 
 const HOME_LOAN_PRODUCTS = new Set(["home-loan", "home-loan-balance-transfer"]);
 
-/** After assessment: Advantage, lender match, documents, then review. */
+/**
+ * After the published assessment and identity stages: Advantage, then lender matches.
+ * Email and application stay where the published journey placed them among those stages.
+ * A vacant application stage is skipped by navigation. The scripted analysing stage
+ * is not shown; Best Lender Match runs the live request.
+ */
 const RESULT_ORDER = [
-  "analysing",
   "advantage",
   "lenders",
   "documents",
@@ -16,13 +20,15 @@ const RESULT_ORDER = [
   "confirmation",
 ] as const;
 
+const HELD_FOR_RESULT_PATH = new Set<string>(["analysing", ...RESULT_ORDER]);
+
 export const COMMERCIAL_UNAVAILABLE = "Not available";
 
 export function presentCustomerJourneyStages(productCode: string, stages: readonly string[]): string[] {
   if (!HOME_LOAN_PRODUCTS.has(productCode)) return [...stages];
-  const result = new Set<string>(RESULT_ORDER);
-  const prefix = stages.filter((stage) => !result.has(stage));
-  const tail = RESULT_ORDER.filter((stage) => stages.includes(stage));
+  const present = new Set(stages);
+  const prefix = stages.filter((stage) => !HELD_FOR_RESULT_PATH.has(stage));
+  const tail = RESULT_ORDER.filter((stage) => present.has(stage));
   return [...prefix, ...tail];
 }
 

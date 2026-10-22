@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LoaderCircle } from "lucide-react";
 import { DiscoveryCompass } from "@/components/home-loan-experience/discovery/discovery-compass";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { discoveryCopy } from "@/config/home-loan-discovery";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { compassAdvantageIsDisplayable } from "@/services/catalyst-one/types";
 import { authoritativeRequestedAmountRupees } from "@/lib/declarable-journey-answers";
+import { LENDER_MATCH_LOADING_MESSAGES, lenderMatchAction } from "@/lib/lender-match-request";
 
 function formatInrWhole(value: string | number | null | undefined): string | null {
   if (value == null || value === "") return null;
@@ -26,6 +28,7 @@ export function DiscoveryAdvantageStep() {
     intelligenceError,
     goNext,
     loadIntelligence,
+    completeJourney,
   } = useDiscovery();
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.advantage;
@@ -42,6 +45,51 @@ export function DiscoveryAdvantageStep() {
     Math.round(Number(requestedLoanAmount)) === requestedFromAnswersAmount;
   const displayable =
     compassAdvantageIsDisplayable(advantage) && calculationMatchesCurrentAmount;
+  const ready = Boolean(intelligence) && !intelligenceError;
+  const [messageIndex, setMessageIndex] = useState(0);
+  const opened = useRef(false);
+  const mounted = useRef(true);
+  const advanceTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (advanceTimer.current != null) window.clearTimeout(advanceTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!intelligenceLoading || reduceMotion) return;
+    const timer = window.setInterval(() => {
+      setMessageIndex((index) => (index + 1) % LENDER_MATCH_LOADING_MESSAGES.length);
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [intelligenceLoading, reduceMotion]);
+
+  const openMatches = () => {
+    if (!mounted.current || opened.current) return;
+    opened.current = true;
+    goNext();
+  };
+
+  const onBestLenderMatch = () => {
+    const action = lenderMatchAction({
+      loading: intelligenceLoading,
+      failed: Boolean(intelligenceError),
+      ready,
+    });
+    if (action === "wait") return;
+    if (action === "open") {
+      openMatches();
+      return;
+    }
+    void loadIntelligence().then((ok) => {
+      if (!ok || !mounted.current) return;
+      completeJourney();
+      advanceTimer.current = window.setTimeout(openMatches, 2400);
+    });
+  };
 
   return (
     <motion.div
@@ -57,15 +105,19 @@ export function DiscoveryAdvantageStep() {
 
         <h2 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">{c.heading}</h2>
 
-        {intelligenceLoading || (!advantage && !intelligenceError) || (advantage && !calculationMatchesCurrentAmount && !intelligenceError) ? (
-          <p className="mt-6 text-sm text-muted-foreground">{c.loading}</p>
-        ) : intelligenceError ? (
-          <div className="mt-8 space-y-4">
-            <p className="text-sm text-muted-foreground">{intelligenceError}</p>
-            <Button size="lg" className="h-12" onClick={() => void loadIntelligence()}>
-              Try Again
-            </Button>
+        {intelligenceLoading ? (
+          <div className="mt-8 flex flex-col items-center" aria-live="polite" aria-busy="true">
+            <LoaderCircle className={`h-6 w-6 text-primary ${reduceMotion ? "" : "animate-spin"}`} />
+            <p className="mt-4 max-w-sm text-sm text-muted-foreground">
+              {LENDER_MATCH_LOADING_MESSAGES[messageIndex]}
+            </p>
           </div>
+        ) : intelligenceError ? (
+          <p className="mt-8 max-w-md text-sm text-muted-foreground">{intelligenceError}</p>
+        ) : !ready ? (
+          <p className="mt-6 text-sm text-muted-foreground">
+            Your COMPASS Advantage is ready to calculate from the details you have shared.
+          </p>
         ) : advantage?.status === "not_available" || !advantage?.eligible ? (
           <div className="mx-auto mt-10 max-w-lg space-y-4">
             <p className="text-sm leading-relaxed text-muted-foreground">
@@ -104,12 +156,15 @@ export function DiscoveryAdvantageStep() {
           </p>
         )}
 
-        {!intelligenceLoading && !intelligenceError ? (
-          <Button size="lg" className="mt-10 h-12 px-10" onClick={goNext}>
-            {c.showMatches}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        ) : null}
+        <Button
+          size="lg"
+          className="mt-10 h-12 w-full max-w-md sm:w-auto sm:px-10"
+          disabled={intelligenceLoading}
+          onClick={onBestLenderMatch}
+        >
+          {intelligenceError ? "Try again" : c.showMatches}
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </div>
     </motion.div>
   );
