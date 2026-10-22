@@ -14,6 +14,7 @@ export function WorkspaceOverviewPanel({
 }) {
   const { productLabel, loanAmountLabel, selectedLender, stageCode, contact, registryOpportunity } =
     useOpportunityWorkspace();
+  const borrowerSelection = registryOpportunity?.compassSelectedLender;
 
   return (
     <div className="space-y-4">
@@ -30,6 +31,11 @@ export function WorkspaceOverviewPanel({
           <Stat label="Requirement" value={loanAmountLabel} />
           <Stat label="Execution Queue" value={selectedLender?.lenderName ?? "Not selected"} />
         </div>
+        {borrowerSelection?.lenderName ? (
+          <p className="mt-3 text-sm text-zinc-100">
+            Borrower selection · {borrowerSelection.lenderName}
+          </p>
+        ) : null}
         <p className="mt-3 text-[11px] text-zinc-400">
           Strategic status ·{" "}
           <span className="capitalize text-zinc-200">

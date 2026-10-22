@@ -158,6 +158,7 @@ export type CompassRecommendationCardDto = {
   compassAdvantageLabel?: string | null;
   whyThisRecommendation?: string | null;
   matchState?: string | null;
+  programmeId?: string | null;
   programmeVersion?: number | null;
   dtoSource: "enterprise_compass_recommendations";
 };

@@ -12,7 +12,10 @@ import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/pub
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
-import { calculateMonthlyEmi } from "@/lib/loan-emi-utils";
+import {
+  projectPublishedProgrammeCommercials,
+  validatedRequestedAmountRupees,
+} from "@/lib/compass-customer-gateway/public-programme-commercials";
 import type { HomeLoanRecommendationEngineResult } from "@/lib/home-loan-recommendation/engine";
 
 function tierForRank(rank: number): CompassRecommendationCardDto["tier"] {
@@ -33,33 +36,9 @@ function inr(value: number | null | undefined): string | null {
 export const PUBLIC_PROGRAMME_MATCH_EXPLANATION =
   "This published programme matches the details you provided.";
 
-/**
- * EnterpriseOpportunity.requestedAmount only.
- * Formatted labels (commas, rupee signs, lakh, crore) are not parsed.
- */
+/** Validated requested amount: number, numeric string, decimal, or formatted rupee label. */
 export function authoritativeRequestedAmountRupees(amount: unknown): number | null {
-  if (typeof amount === "number") {
-    if (!Number.isFinite(amount) || amount <= 0) return null;
-    return Math.round(amount);
-  }
-  if (typeof amount === "string") {
-    const trimmed = amount.trim();
-    if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
-    const parsed = Number(trimmed);
-    if (!Number.isFinite(parsed) || parsed <= 0) return null;
-    return Math.round(parsed);
-  }
-  if (
-    amount &&
-    typeof amount === "object" &&
-    "toNumber" in amount &&
-    typeof (amount as { toNumber?: unknown }).toNumber === "function"
-  ) {
-    const parsed = (amount as { toNumber: () => number }).toNumber();
-    if (typeof parsed !== "number" || !Number.isFinite(parsed) || parsed <= 0) return null;
-    return Math.round(parsed);
-  }
-  return null;
+  return validatedRequestedAmountRupees(amount);
 }
 
 export function publicRequestedAmountLabel(amount: unknown): string | null {
@@ -153,31 +132,30 @@ export function projectRegistryProgrammeRecommendations(input: {
     limit: 12,
     matchInput: projectPublicProgrammeMatchInput(input.detail),
   });
-  const requestedAmountLabel = publicRequestedAmountLabel(input.requestedAmount);
-  const requestedRupees = authoritativeRequestedAmountRupees(input.requestedAmount);
   const programmeById = new Map(input.programs.map((program) => [program.id, program]));
   const cards: CompassRecommendationCardDto[] = ranked.map((row) => {
     const program = row.programmeId ? programmeById.get(row.programmeId) : undefined;
-    const rate = program?.roiPercent ?? null;
-    const tenureMonths = program?.maxTenureMonths ?? null;
-    const emi =
-      rate != null && tenureMonths != null && requestedRupees != null
-        ? calculateMonthlyEmi(requestedRupees, rate, tenureMonths)
-        : null;
+    const commercials = projectPublishedProgrammeCommercials({
+      program,
+      requestedAmount: input.requestedAmount,
+    });
     return {
     lenderRef: row.lenderRef,
     displayName: row.lenderName,
     rank: row.rank,
     tier: tierForRank(row.rank),
-    interestRateLabel: rate != null ? `${rate}%` : null,
-    estimatedEmiLabel: emi != null ? inr(emi) : null,
-    tenureLabel: tenureMonths != null ? `${tenureMonths} months` : null,
+    interestRateLabel: commercials.interestRateLabel,
+    estimatedEmiLabel: commercials.estimatedEmiLabel,
+    tenureLabel: commercials.tenureLabel,
     matchScore: row.score,
-    processingTimeLabel: program?.averageTatDays != null ? `${program.averageTatDays} days` : null,
+    processingTimeLabel: commercials.processingTimeLabel,
     reasons: [PUBLIC_PROGRAMME_MATCH_EXPLANATION],
     benefits: [],
-    requestedAmountLabel,
+    tentativeOfferLabel: commercials.tentativeOfferLabel,
+    tentativeOfferRupees: commercials.tentativeOfferRupees,
+    requestedAmountLabel: commercials.requestedAmountLabel,
     whyThisRecommendation: PUBLIC_PROGRAMME_MATCH_EXPLANATION,
+    programmeId: row.programmeId ?? null,
     programmeVersion: row.programmeVersion,
     dtoSource: "enterprise_compass_recommendations" as const,
   };

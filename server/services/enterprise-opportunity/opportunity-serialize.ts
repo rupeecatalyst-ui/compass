@@ -6,6 +6,7 @@ import { hasRequirementCaptureFields } from "@/constants/opportunity-lifecycle";
 import type { TransactionContactIdentityFields } from "@server/services/ecm/contact-ssot-propagate";
 import { hydrateTransactionContactIdentity } from "@server/services/ecm/contact-ssot-propagate";
 import { serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
+import { readCompassSelectedLender } from "@/lib/compass-customer-gateway/borrower-lender-selection";
 
 function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
@@ -107,6 +108,7 @@ function buildSerializedOpportunity(
     commercialRevenueSharePercent: row.commercialRevenueSharePercent,
     sourceCampaignLabel: row.sourceCampaignLabel,
     ...serializeAdvantageCommittedApi(row),
+    compassSelectedLender: readCompassSelectedLender(row.snapshot),
     snapshot: row.snapshot,
     lendingExtension: row.lendingExtension,
     versionNumber: row.versionNumber,

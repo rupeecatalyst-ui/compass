@@ -100,6 +100,13 @@ import { selectReusableDraft } from "@/lib/compass-customer-gateway/draft-reuse"
 import { projectCompassLod } from "./compass-lod.service";
 import { listCompassGatewayPublishedLenderOptions } from "./compass-lender-options";
 import { projectRegistryProgrammeRecommendations } from "./compass-recommendations.service";
+import { validatedRequestedAmountRupees } from "@/lib/compass-customer-gateway/public-programme-commercials";
+import {
+  attachPublicSelectionIdentities,
+  readCompassSelectedLender,
+  resolveCompassLenderSelection,
+  selectionAnswers,
+} from "@/lib/compass-customer-gateway/borrower-lender-selection";
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
 import {
@@ -285,6 +292,31 @@ async function resolveRelatedCompany(input: {
     });
   }
   return company;
+}
+
+async function loadRegistryRecommendationCards(input: {
+  organizationId: string;
+  opportunityId: string;
+  requestedAmount: unknown;
+}) {
+  const detail = await buildDetail(input.organizationId, input.opportunityId);
+  const lenders = await listCompassGatewayPublishedLenderOptions(input.organizationId);
+  const programs: Awaited<ReturnType<typeof lenderRegistryService.queryPrograms>>["items"] = [];
+  for (let page = 1; page <= 100; page += 1) {
+    const listed = await lenderRegistryService.queryPrograms({
+      page,
+      pageSize: 200,
+      enabled: true,
+    });
+    programs.push(...listed.items.filter(isPublishedCommercialProgram));
+    if (listed.items.length < 200) break;
+  }
+  return projectRegistryProgrammeRecommendations({
+    detail,
+    lenders,
+    programs,
+    requestedAmount: input.requestedAmount,
+  });
 }
 
 async function buildDetail(organizationId: string, opportunityId: string) {
@@ -747,11 +779,33 @@ export const compassJourneyService = {
       }
     }
 
+    const requestedForSelection =
+      validatedRequestedAmountRupees(sanitizedAnswers.loanAmount) ??
+      validatedRequestedAmountRupees(sanitizedAnswers.requestedAmountLabel) ??
+      validatedRequestedAmountRupees(row.requestedAmount);
+    let selectedLender = readCompassSelectedLender(row.snapshot);
+    try {
+      const eligible = await loadRegistryRecommendationCards({
+        organizationId,
+        opportunityId: row.id,
+        requestedAmount: requestedForSelection,
+      });
+      selectedLender = resolveCompassLenderSelection({
+        previous: selectedLender,
+        submitted: patch.answers,
+        eligible: eligible.cards,
+      });
+    } catch {
+      selectedLender = readCompassSelectedLender(row.snapshot);
+    }
+    Object.assign(sanitizedAnswers, selectionAnswers(selectedLender));
+
     const snapshot = {
       ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
       compassBorrowerFields: mapped.borrowerFields,
       compassProductFields: mapped.productFields,
       compassAnswers: sanitizedAnswers,
+      ...(selectedLender ? { compassSelectedLender: selectedLender } : {}),
       compassUpdatedAt: new Date().toISOString(),
       ...(companyId ? { compassPendingCompanyResolution: false } : {}),
     };
@@ -905,22 +959,12 @@ export const compassJourneyService = {
       };
     } else {
       try {
-        const lenders = await listCompassGatewayPublishedLenderOptions(organizationId);
-        const programs: Awaited<ReturnType<typeof lenderRegistryService.queryPrograms>>["items"] = [];
-        for (let page = 1; page <= 100; page += 1) {
-          const listed = await lenderRegistryService.queryPrograms({
-            page,
-            pageSize: 200,
-            enabled: true,
-          });
-          programs.push(...listed.items.filter(isPublishedCommercialProgram));
-          if (listed.items.length < 200) break;
-        }
-        recommendations = projectRegistryProgrammeRecommendations({
-          detail,
-          lenders,
-          programs,
-          requestedAmount: row.requestedAmount,
+        recommendations = await loadRegistryRecommendationCards({
+          organizationId,
+          opportunityId: row.id,
+          requestedAmount:
+            validatedRequestedAmountRupees(requestedAmount) ??
+            validatedRequestedAmountRupees(row.requestedAmount),
         });
       } catch {
         recommendations = {
@@ -932,7 +976,7 @@ export const compassJourneyService = {
       }
     }
 
-    return sanitizePublicPayload({
+    const sanitized = sanitizePublicPayload({
       recommendations,
       advantage,
       sarathiMessages: [],
@@ -941,6 +985,13 @@ export const compassJourneyService = {
       missingPublicFieldKeys: [],
       dtoSource: "enterprise_compass_analysis" as const,
     });
+    if (recommendations.status === "ready") {
+      sanitized.recommendations = {
+        ...sanitized.recommendations,
+        cards: attachPublicSelectionIdentities(sanitized.recommendations.cards, recommendations.cards),
+      };
+    }
+    return sanitized;
   },
 
   async getLod(token: string): Promise<CompassLodDto> {

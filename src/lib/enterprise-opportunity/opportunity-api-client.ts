@@ -77,6 +77,12 @@ export type EnterpriseOpportunityApiRecord = {
   marketingSource?: string | null;
   marketingSourceDetail?: string | null;
   marketingProspectRef?: string | null;
+  compassSelectedLender?: {
+    lenderRef: string;
+    lenderName: string;
+    programmeRef: string;
+    programmeVersion: number | null;
+  } | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   rowVersion?: number;
