@@ -5,6 +5,7 @@
  */
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import type { MarketingSuppressionRecord } from "@/types/enterprise-marketing-audience";
+import type { MarketingRecipientLedgerEntry } from "@/types/enterprise-marketing-execution";
 import { prisma } from "@server/lib/prisma";
 
 function unavailable(error: unknown): boolean {
@@ -78,12 +79,32 @@ export async function persistMarketingSuppression(
 }
 
 /**
- * Origin's recipient ledger requires a frozen snapshot recipient.
- * The in-memory execution ledger remains the dry-run authority.
+ * The frozen-snapshot worker creates recipient-ledger rows.
+ * This only updates a row that already exists, so a dry-run without a
+ * snapshot cannot insert an email or invent a recipient.
  */
 export async function persistMarketingLedgerEntry(
-  _organizationId: string,
-  _entry: unknown,
+  organizationId: string,
+  entry: MarketingRecipientLedgerEntry,
 ): Promise<void> {
-  return;
+  if (!isEnterprisePersistencePrisma() || !organizationId || !entry.idempotencyKey) return;
+  try {
+    const existing = await prisma.enterpriseMarketingRecipientLedger.findFirst({
+      where: { organizationId, idempotencyKey: entry.idempotencyKey },
+      select: { id: true },
+    });
+    if (!existing) return;
+    await prisma.enterpriseMarketingRecipientLedger.update({
+      where: { id: existing.id },
+      data: {
+        status: entry.status,
+        lastError: entry.lastError ?? null,
+        attemptCount: entry.attemptCount,
+        claimedAt: entry.claimedAt ? new Date(entry.claimedAt) : null,
+        processedAt: entry.processedAt ? new Date(entry.processedAt) : null,
+      },
+    });
+  } catch (error) {
+    if (!unavailable(error)) throw error;
+  }
 }

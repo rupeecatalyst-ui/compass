@@ -19,6 +19,8 @@ function pass(msg) {
   console.log(`OK: ${msg}`);
 }
 
+delete process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED;
+delete process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED;
 process.env.ENTERPRISE_MARKETING_SHEETS_MODE = "fixture";
 process.env.ENTERPRISE_MARKETING_HANDOFF_MODE = "fixture";
 process.env.ENTERPRISE_MARKETING_EMAIL_MODE = "dry_run";
@@ -38,10 +40,14 @@ for (const rel of required) {
 }
 
 const safety = readFileSync(resolve(root, "src/constants/enterprise-marketing-engine/safety.ts"), "utf8");
-if (!safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false")) fail("live execution must stay false");
-else pass("live execution disabled");
-if (!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false")) fail("provider connect must stay false");
-else pass("provider connect disabled");
+if (!safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)")) {
+  fail("live execution must stay environment-gated");
+} else pass("live execution stays off unless ENTERPRISE_MARKETING_EXECUTION_ENABLED=true");
+if (!safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED)")) {
+  fail("provider connect must stay environment-gated");
+} else pass("provider connect stays off unless ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED=true");
+if (safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true")) fail("live execution must not be hardcoded on");
+if (safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true")) fail("provider connect must not be hardcoded on");
 if (!safety.includes("ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false")) fail("audience import must stay false");
 else pass("audience import disabled");
 if (!safety.includes("ENTERPRISE_MARKETING_MASS_HANDOFF_ENABLED = false")) fail("mass handoff must stay false");

@@ -9,6 +9,8 @@ import { createRequire } from "node:module";
 const root = process.cwd();
 const require = createRequire(import.meta.url);
 process.env.ENTERPRISE_MARKETING_SHEETS_MODE = "fixture";
+delete process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED;
+delete process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED;
 
 let ok = true;
 function fail(msg) {
@@ -40,13 +42,13 @@ const safety = readFileSync(
   resolve(root, "src/constants/enterprise-marketing-engine/safety.ts"),
   "utf8",
 );
-for (const flag of [
-  "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false",
-  "ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false",
-]) {
-  if (!safety.includes(flag)) fail(flag);
-  else pass(flag);
-}
+if (!safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)")) {
+  fail("live execution must stay environment-gated");
+} else pass("live execution stays off unless ENTERPRISE_MARKETING_EXECUTION_ENABLED=true");
+if (safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true")) fail("live execution must not be hardcoded on");
+if (!safety.includes("ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false")) {
+  fail("ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false");
+} else pass("ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false");
 
 const schema = readFileSync(resolve(root, "prisma/schema.prisma"), "utf8");
 for (const needle of ["model MarketingProspect", "model MarketingAudienceRow", "model Lead "]) {
@@ -84,7 +86,7 @@ const audienceService = audMod.marketingAudienceService;
 const dataSourceService = dsMod.marketingDataSourceService;
 
 const actor = { userId: "verify", organizationId: "default" };
-const bindings = dataSourceService.listBindings(actor);
+const bindings = await dataSourceService.listBindings(actor);
 if (!bindings.length) fail("no fixture binding");
 else pass(`binding=${bindings[0].id}`);
 
@@ -134,7 +136,7 @@ const filtered = await audienceService.previewDraft(actor, {
 if (filtered.counts.excludedByFilter < 1) fail("city filter should exclude rows");
 else pass(`filter excluded=${filtered.counts.excludedByFilter}`);
 
-const saved = audienceService.upsert(actor, {
+const saved = await audienceService.upsert(actor, {
   name: "Verify – Professionals style",
   bindingId: bindings[0].id,
   datasetId: alpha.externalDatasetId,
@@ -147,7 +149,7 @@ const saved = audienceService.upsert(actor, {
 });
 pass(`saved audience=${saved.id}`);
 
-const listed = audienceService.list(actor);
+const listed = await audienceService.list(actor);
 if (!listed.find((a) => a.id === saved.id)) fail("saved audience missing from list");
 else pass("audience list contains definition");
 

@@ -6,6 +6,8 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
+delete process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED;
+delete process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED;
 const root = process.cwd();
 const require = createRequire(import.meta.url);
 
@@ -38,13 +40,13 @@ const safety = readFileSync(
   resolve(root, "src/constants/enterprise-marketing-engine/safety.ts"),
   "utf8",
 );
-for (const flag of [
-  "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false",
-  "ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED = true",
-]) {
-  if (!safety.includes(flag)) fail(flag);
-  else pass(flag);
-}
+if (!safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)")) {
+  fail("live execution must stay environment-gated");
+} else pass("live execution stays off unless ENTERPRISE_MARKETING_EXECUTION_ENABLED=true");
+if (safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true")) fail("live execution must not be hardcoded on");
+if (!safety.includes("ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED = true")) {
+  fail("ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED = true");
+} else pass("ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED = true");
 if (!safety.includes("CO-MARKETING-MKT-")) fail("sprint marker missing");
 else pass("sprint marker present (MKT-07+)");
 
