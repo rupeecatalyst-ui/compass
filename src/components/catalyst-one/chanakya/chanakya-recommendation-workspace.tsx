@@ -26,6 +26,7 @@ import {
   chanakyaSubmitValue,
 } from "@/lib/opportunity-assessment/chanakya-fact-inputs";
 import { selectStandardRecommendationPresentation } from "@/lib/opportunity-assessment/standard-presentation";
+import type { CompassRecommendationHistoryVersion } from "@/lib/compass-customer-gateway/recommendation-history";
 import type { ChanakyaRecommendationWorkspaceDto } from "@/types/chanakya-recommendation-workspace";
 
 type Envelope = {
@@ -48,6 +49,7 @@ export function ChanakyaRecommendationWorkspace({
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recalculateOpen, setRecalculateOpen] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -96,7 +98,12 @@ export function ChanakyaRecommendationWorkspace({
 
   if (!open) return null;
 
-  const missingKeys = model?.missingFactKeys ?? [];
+  const compass = model?.compassHistory ?? null;
+  const compassOrigin = compass?.compassOrigin === true;
+  const formKeys = compassOrigin && recalculateOpen && compass
+    ? [...compass.prefill.map((item) => item.key), ...compass.missingFactKeys]
+    : model?.missingFactKeys ?? [];
+  const missingKeys = [...new Set(formKeys)];
   const inputs = missingKeys.reduce<Array<{ key: string; input: (typeof CHANAKYA_FACT_INPUTS)[string] }>>(
     (rows, key) => {
       const input = CHANAKYA_FACT_INPUTS[key];
@@ -116,7 +123,7 @@ export function ChanakyaRecommendationWorkspace({
   const hasCards = presentation.recommended.length + presentation.additional.length > 0;
 
   const submit = async () => {
-    const payload: Record<string, string | number> = {};
+    const payload: Record<string, string | number | boolean> = {};
     for (const row of inputs) {
       if (row.input.control === "city") {
         const city = values[`${row.key}:city`] ?? "";
@@ -136,6 +143,7 @@ export function ChanakyaRecommendationWorkspace({
       }
       payload[row.input.patchKey] = parsed;
     }
+    if (compassOrigin) payload.recalculate = true;
     setBusy(true);
     setError(null);
     try {
@@ -150,12 +158,28 @@ export function ChanakyaRecommendationWorkspace({
       }
       setModel(body.data);
       setValues({});
+      setRecalculateOpen(false);
     } catch {
       setError("The details could not be saved.");
     } finally {
       setBusy(false);
     }
   };
+
+  const openRecalculate = () => {
+    const next: Record<string, string> = {};
+    for (const item of compass?.prefill ?? []) {
+      next[item.key] = item.value;
+      if (item.key === "property.propertyCity") {
+        next[`${item.key}:city`] = item.value;
+        if (item.state) next[`${item.key}:state`] = item.state;
+      }
+    }
+    setValues(next);
+    setError(null);
+    setRecalculateOpen(true);
+  };
+  const showFactForm = (compassOrigin && recalculateOpen) || (!compassOrigin && model?.panel === "information_required");
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background" role="dialog" aria-label="CHANAKYA Recommendation">
@@ -178,10 +202,42 @@ export function ChanakyaRecommendationWorkspace({
         <section className="min-h-0 overflow-y-auto border-b p-4 md:border-b-0 md:border-r">
           <h3 className="text-sm font-semibold">Information</h3>
           {busy && !model ? <p className="mt-3 text-sm text-muted-foreground">Reading saved Opportunity facts…</p> : null}
-          {informationComplete ? (
+          {informationComplete && !compassOrigin ? (
             <p className="mt-3 text-sm text-foreground">Information complete</p>
           ) : null}
-          {model?.panel === "information_required" ? (
+          {compassOrigin && compass ? (
+            <div className="mt-3 space-y-4">
+              {compass.versions.map((version) => (
+                <div key={`${version.kind}-${version.versionNumber}`} className="space-y-1">
+                  <p className="text-sm font-semibold">{version.title}</p>
+                  {version.recordedAt ? (
+                    <p className="text-xs text-muted-foreground">{version.recordedAt}</p>
+                  ) : null}
+                  {version.actorUserId ? (
+                    <p className="text-xs text-muted-foreground">Employee {version.actorUserId}</p>
+                  ) : null}
+                  {version.journeyVersion != null ? (
+                    <p className="text-xs text-muted-foreground">Journey version {version.journeyVersion}</p>
+                  ) : null}
+                  {version.recommendationBinding ? (
+                    <p className="text-xs text-muted-foreground">Programme binding {version.recommendationBinding}</p>
+                  ) : null}
+                  {version.assessment.map((line) => (
+                    <p key={`${version.versionNumber}-${line.label}`} className="text-sm text-foreground">
+                      {line.label}: {line.value}
+                    </p>
+                  ))}
+                  {version.note ? <p className="text-sm text-foreground">{version.note}</p> : null}
+                </div>
+              ))}
+              {!recalculateOpen ? (
+                <Button type="button" disabled={busy} onClick={openRecalculate}>
+                  Recalculate
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {showFactForm ? (
             <div className="mt-3 space-y-3">
               <p className="text-sm font-medium">
                 {inputs.length} detail{inputs.length === 1 ? "" : "s"} required
@@ -236,7 +292,7 @@ export function ChanakyaRecommendationWorkspace({
                 </div>
               ))}
               <Button type="button" disabled={busy || inputs.length === 0} onClick={() => void submit()}>
-                Submit & Get Recommendation
+                {compassOrigin ? "Recalculate" : "Submit & Get Recommendation"}
               </Button>
             </div>
           ) : null}
@@ -269,21 +325,28 @@ export function ChanakyaRecommendationWorkspace({
               useEbiSignals={false}
             />
           ) : null}
-          {!busy && model?.panel === "information_required" ? (
+          {!busy && compassOrigin && compass ? (
+            <div className="mt-3 space-y-4">
+              {compass.versions.map((version) => (
+                <HistoryVersion key={`${version.kind}-${version.versionNumber}`} version={version} />
+              ))}
+            </div>
+          ) : null}
+          {!busy && !compassOrigin && model?.panel === "information_required" ? (
             <p className="mt-3 text-sm text-muted-foreground">
               Recommendation will appear after the required information is submitted.
             </p>
           ) : null}
-          {!busy && model?.workspaceState === "NO_ELIGIBLE_PROGRAMMES" ? (
+          {!busy && !compassOrigin && model?.workspaceState === "NO_ELIGIBLE_PROGRAMMES" ? (
             <p className="mt-3 text-sm text-foreground">{model.guidance}</p>
           ) : null}
-          {!busy && hasCards ? (
+          {!busy && !compassOrigin && hasCards ? (
             <div className="mt-3 space-y-3">
               <RecommendationGroup label="Recommended" rows={presentation.recommended} />
               <RecommendationGroup label="Additional options" rows={presentation.additional} />
             </div>
           ) : null}
-          {!busy && model?.workspaceState === "UNSUPPORTED_CANONICAL_FACT" ? (
+          {!busy && !compassOrigin && model?.workspaceState === "UNSUPPORTED_CANONICAL_FACT" ? (
             <div className="mt-3 space-y-2">
               <p className="text-sm text-foreground">{model.guidance}</p>
               {model.blockers.length > 0 ? (
@@ -294,11 +357,117 @@ export function ChanakyaRecommendationWorkspace({
                 </ul>
               ) : null}
             </div>
-          ) : !busy && model?.panel === "blocked" ? (
+          ) : !busy && !compassOrigin && model?.panel === "blocked" ? (
             <p className="mt-3 text-sm text-muted-foreground">{model.guidance}</p>
           ) : null}
         </section>
       </div>
+    </div>
+  );
+}
+
+function HistoryVersion({ version }: { version: CompassRecommendationHistoryVersion }) {
+  const selectedInCards = version.cards.some((card) => card.customerSelected);
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold">{version.title}</p>
+      {version.note ? <p className="text-sm text-foreground">{version.note}</p> : null}
+      {version.selectedLender && !selectedInCards ? (
+        <StoredLender
+          name={version.selectedLender.lenderName}
+          programmeVersion={version.selectedLender.programmeVersion}
+          lines={[
+            ["ROI", version.selectedLender.interestRateLabel],
+            ["EMI", version.selectedLender.estimatedEmiLabel],
+            ["Tenure", version.selectedLender.tenureLabel],
+            ["Eligible offer", version.selectedLender.tentativeOfferLabel],
+            ["Processing", version.selectedLender.processingTimeLabel],
+          ]}
+          selected
+        />
+      ) : null}
+      {version.cards.map((card) => (
+        <StoredLender
+          key={`${version.versionNumber}-${card.rank}-${card.lenderRef || card.displayName}`}
+          name={card.displayName}
+          rank={card.rank}
+          programmeVersion={card.programmeVersion}
+          score={card.matchScore}
+          explanation={card.explanation}
+          lines={[
+            ["ROI", card.interestRateLabel],
+            ["EMI", card.estimatedEmiLabel],
+            ["Tenure", card.tenureLabel],
+            ["Eligible offer", card.tentativeOfferLabel],
+            ["Requested", card.requestedAmountLabel],
+            ["Processing", card.processingTimeLabel],
+          ]}
+          selected={card.customerSelected}
+          showAbsentCommercials={version.kind === "compass_original"}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StoredLender({
+  name,
+  rank,
+  programmeVersion,
+  score,
+  explanation,
+  lines,
+  selected,
+  showAbsentCommercials = false,
+}: {
+  name: string;
+  rank?: number;
+  programmeVersion: number | null;
+  score?: number | null;
+  explanation?: string | null;
+  lines: Array<[string, string | null]>;
+  selected: boolean;
+  showAbsentCommercials?: boolean;
+}) {
+  const visible = lines.flatMap(([label, value]) => {
+    if (value) return [[label, value] as const];
+    if (showAbsentCommercials) return [[label, "Not available"] as const];
+    return [];
+  });
+  return (
+    <div className={selected ? "rounded-md border border-emerald-700 bg-emerald-50 p-3" : "rounded-md border p-3"}>
+      <div className="flex items-start justify-between gap-2">
+        <p className={selected ? "text-sm font-semibold text-emerald-950" : "text-sm font-semibold"}>
+          {rank != null ? `${rank}. ` : ""}
+          {name}
+        </p>
+        {selected ? (
+          <span className="shrink-0 rounded-md bg-emerald-700 px-2 py-0.5 text-xs font-semibold text-white">
+            Customer Selected Lender
+          </span>
+        ) : null}
+      </div>
+      {programmeVersion != null ? (
+        <p className={selected ? "mt-1 text-xs text-emerald-950" : "mt-1 text-xs text-muted-foreground"}>
+          Programme version {programmeVersion}
+        </p>
+      ) : null}
+      {score != null ? (
+        <p className={selected ? "text-xs text-emerald-950" : "text-xs text-muted-foreground"}>Score {score}</p>
+      ) : null}
+      {explanation ? (
+        <p className={selected ? "mt-1 text-sm text-emerald-950" : "mt-1 text-sm text-foreground"}>{explanation}</p>
+      ) : null}
+      {visible.length > 0 ? (
+        <dl className="mt-2 grid grid-cols-2 gap-1 text-sm">
+          {visible.map(([label, value]) => (
+            <div key={label}>
+              <dt className={selected ? "text-emerald-950" : "text-muted-foreground"}>{label}</dt>
+              <dd className={selected ? "font-medium text-emerald-950" : "font-medium"}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import type { CompassRecommendationHistoryDto } from "@/lib/compass-customer-gateway/recommendation-history";
 import type { CanonicalLenderRecommendationResult } from "@/types/canonical-lender-recommendation";
 
 export type ChanakyaWorkspacePanel =
@@ -39,4 +40,5 @@ export type ChanakyaRecommendationWorkspaceDto = {
   resultStatus: string | null;
   guidance: string;
   result: CanonicalLenderRecommendationResult | null;
+  compassHistory?: CompassRecommendationHistoryDto;
 };

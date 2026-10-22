@@ -521,10 +521,13 @@ export function WorkspaceLifeStrategyBoard() {
     refresh();
   };
 
+  const compassHistory = chanakya?.compassHistory?.compassOrigin ? chanakya.compassHistory : null;
   const needsChanakyaWorkspace =
-    chanakya?.panel === "information_required" ||
-    chanakya?.panel === "unsupported" ||
-    chanakya?.panel === "blocked";
+    !compassHistory && (
+      chanakya?.panel === "information_required" ||
+      chanakya?.panel === "unsupported" ||
+      chanakya?.panel === "blocked"
+    );
   const chanakyaEmptyText = chanakyaLoading && !chanakya
     ? "Assessing published programmes..."
     : chanakya?.workspaceState === "INFORMATION_REQUIRED"
@@ -568,7 +571,55 @@ export function WorkspaceLifeStrategyBoard() {
           subtitle="Match % order · ranks 1–5 recommended · ranks 6–7 additional · lender score unavailable"
           accent="amber"
         >
-          {recommendations.length === 0 ? (
+          {compassHistory ? (
+            <div className="space-y-2">
+              {compassHistory.versions.map((version) => (
+                <div key={`${version.kind}-${version.versionNumber}`} className="space-y-2">
+                  <p className="text-[11px] font-semibold text-zinc-100">{version.title}</p>
+                  {version.recordedAt ? (
+                    <p className="text-[10px] text-zinc-400">{version.recordedAt}</p>
+                  ) : null}
+                  {version.actorUserId ? (
+                    <p className="text-[10px] text-zinc-400">Employee {version.actorUserId}</p>
+                  ) : null}
+                  {version.note ? <EmptyHint text={version.note} /> : null}
+                  {version.selectedLender && !version.cards.some((card) => card.customerSelected) ? (
+                    <LenderCard
+                      name={version.selectedLender.lenderName}
+                      reason="Original COMPASS selection"
+                      eligibility={storedCommercialText(version.selectedLender)}
+                      badge="Customer Selected Lender"
+                      actionLabel={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? "Shortlist full" : "Select"}
+                      disabled={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS}
+                      onAction={() => selectLender(compassBoardLender(version.selectedLender!), "chanakya")}
+                    />
+                  ) : null}
+                  {version.cards.map((card) => (
+                    <LenderCard
+                      key={`${version.versionNumber}-${card.rank}-${card.lenderRef || card.displayName}`}
+                      name={card.displayName}
+                      reason={card.explanation || version.title}
+                      eligibility={storedCommercialText(card, card.rank)}
+                      badge={card.customerSelected ? "Customer Selected Lender" : undefined}
+                      actionLabel={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? "Shortlist full" : "Select"}
+                      disabled={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS}
+                      onAction={() => selectLender(compassBoardLender(card), "chanakya")}
+                    />
+                  ))}
+                </div>
+              ))}
+              {opportunityId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 w-full text-[11px]"
+                  onClick={() => setChanakyaOpen(true)}
+                >
+                  CHANAKYA Recommendation
+                </Button>
+              ) : null}
+            </div>
+          ) : recommendations.length === 0 ? (
             <div className="space-y-2">
               <EmptyHint text={chanakyaEmptyText} />
               {needsChanakyaWorkspace && opportunityId ? (
@@ -800,6 +851,7 @@ function LenderCard({
   onAction,
   compact,
   disabled,
+  badge,
 }: {
   name: string;
   score?: number;
@@ -809,9 +861,13 @@ function LenderCard({
   onAction: () => void;
   compact?: boolean;
   disabled?: boolean;
+  badge?: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/55 p-2.5">
+    <div className={badge ? "rounded-xl border border-emerald-300/50 bg-emerald-500/10 p-2.5" : "rounded-xl border border-white/10 bg-zinc-900/55 p-2.5"}>
+      {badge ? (
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-50">{badge}</p>
+      ) : null}
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 truncate text-sm font-semibold text-zinc-50">{name}</p>
         <span className="shrink-0 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-zinc-100">
@@ -834,6 +890,47 @@ function LenderCard({
       </Button>
     </div>
   );
+}
+
+function storedCommercialText(
+  card: {
+    interestRateLabel?: string | null;
+    estimatedEmiLabel?: string | null;
+    tenureLabel?: string | null;
+    tentativeOfferLabel?: string | null;
+    programmeVersion?: number | null;
+  },
+  rank?: number,
+): string {
+  return [
+    rank != null ? `Rank ${rank}` : null,
+    card.interestRateLabel ? `ROI ${card.interestRateLabel}` : null,
+    card.estimatedEmiLabel ? `EMI ${card.estimatedEmiLabel}` : null,
+    card.tenureLabel ? `Tenure ${card.tenureLabel}` : null,
+    card.tentativeOfferLabel ? `Eligible offer ${card.tentativeOfferLabel}` : null,
+    card.programmeVersion != null ? `Programme version ${card.programmeVersion}` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function compassBoardLender(card: {
+  lenderRef: string;
+  displayName?: string;
+  lenderName?: string;
+  matchScore?: number | null;
+}): BoardInstitution {
+  const lenderRef = card.lenderRef || card.displayName || card.lenderName || "";
+  return {
+    lenderRef,
+    lenderName: card.displayName || card.lenderName || "Lender",
+    enterpriseLenderId: lenderRef.startsWith("lender:") ? lenderRef.slice("lender:".length) : undefined,
+    productRefs: [],
+    businessMappingRefs: [],
+    successProbability: card.matchScore ?? undefined,
+    eligibility: "compass",
+    eligibilityNote: "",
+    recommended: true,
+    reason: "Original COMPASS recommendation",
+  };
 }
 
 function EmptyHint({ text }: { text: string }) {

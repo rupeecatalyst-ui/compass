@@ -6,6 +6,7 @@ import { enterpriseOpportunityService } from "@server/services/enterprise-opport
 export async function loadCanonicalAssessmentSources(opportunityId: string): Promise<{
   sources: CanonicalAssessmentSources;
   lendingExtension: Record<string, unknown>;
+  snapshot: unknown;
 } | null> {
   const id = opportunityId.trim();
   if (!id) return null;
@@ -24,6 +25,7 @@ export async function loadCanonicalAssessmentSources(opportunityId: string): Pro
   }
   return {
     lendingExtension: rawLending,
+    snapshot: opportunity.snapshot ?? null,
     sources: {
       opportunityId: opportunity.id,
       productCode: opportunity.productCode ?? null,

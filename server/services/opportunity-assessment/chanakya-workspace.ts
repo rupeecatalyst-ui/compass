@@ -63,6 +63,7 @@ export async function projectChanakyaRecommendationWorkspace(
   actor: OpportunityAssessmentActorContext,
   sources: CanonicalAssessmentSources,
   dependencies: ExecuteFinalizedAssessmentRecommendationDependencies = {},
+  options: { execute?: boolean } = {},
 ): Promise<ChanakyaRecommendationWorkspaceDto> {
   const persisted = await persistCanonicalAssessmentSnapshot(service, actor, sources);
   const evaluation = persisted.evaluation;
@@ -129,6 +130,12 @@ export async function projectChanakyaRecommendationWorkspace(
         executionAllowed = false;
         recommendationExecuted = false;
         workspaceState = "INFORMATION_REQUIRED";
+      } else if (options.execute === false) {
+        recommendationExecuted = false;
+        result = null;
+        executionAllowed = true;
+        panel = "complete";
+        workspaceState = "INFORMATION_COMPLETE";
       } else {
         try {
           const executed = await executeFinalizedAssessmentRecommendation(

@@ -24,6 +24,10 @@ import {
 import { assertCompassCustomerRateLimit } from "./compass-customer-rate-limit";
 import { hasOtpVerificationProof } from "./compass-otp.service";
 import { persistCompassAdvantageCommitment } from "@server/services/compass-advantage/commit-opportunity-advantage";
+import {
+  rememberOriginalCompassRecommendation,
+  stampCompassCustomerSelection,
+} from "@/lib/compass-customer-gateway/recommendation-history";
 import { queueCompassApplicationConfirmation } from "./compass-application-confirmation.service";
 import { prisma } from "@server/lib/prisma";
 import { resolveCompassGatewayOrganizationId } from "./compass-organization.resolver";
@@ -815,7 +819,7 @@ export const compassJourneyService = {
     }
     Object.assign(sanitizedAnswers, selectionAnswers(selectedLender));
 
-    const snapshot = {
+    const snapshot = stampCompassCustomerSelection({
       ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
       compassBorrowerFields: mapped.borrowerFields,
       compassProductFields: mapped.productFields,
@@ -823,7 +827,7 @@ export const compassJourneyService = {
       ...(selectedLender ? { compassSelectedLender: selectedLender } : {}),
       compassUpdatedAt: new Date().toISOString(),
       ...(companyId ? { compassPendingCompanyResolution: false } : {}),
-    };
+    }, selectedLender, new Date().toISOString());
 
     const displayName = parseCompassDisplayName(
       typeof sanitizedAnswers.displayName === "string" ? sanitizedAnswers.displayName : undefined,
@@ -843,7 +847,7 @@ export const compassJourneyService = {
     }
 
     await enterpriseOpportunityRepository.updateOpportunity(organizationId, row.id, {
-      snapshot,
+      snapshot: JSON.parse(JSON.stringify(snapshot)),
       requestedAmount: mapped.requestedAmount,
       cityLabel: mapped.city,
       primaryBorrowerKind: definition.borrowerKind,
@@ -1005,6 +1009,25 @@ export const compassJourneyService = {
         ...sanitized.recommendations,
         cards: attachPublicSelectionIdentities(sanitized.recommendations.cards, recommendations.cards),
       };
+    }
+    try {
+      const current = await enterpriseOpportunityRepository.requireOpportunity(organizationId, row.id);
+      const remembered = rememberOriginalCompassRecommendation(current.snapshot, {
+        recordedAt: new Date().toISOString(),
+        journeyVersion: pinnedJourneyVersion(current.snapshot),
+        recommendationBinding: published?.recommendationBinding ?? null,
+        cards: sanitized.recommendations.cards,
+        answers: readinessAnswers,
+        status: recommendations.status,
+      });
+      if (remembered.changed) {
+        await enterpriseOpportunityRepository.updateOpportunity(organizationId, row.id, {
+          snapshot: JSON.parse(JSON.stringify(remembered.snapshot)),
+          updatedBy: "compass-customer-gateway",
+        });
+      }
+    } catch {
+      // The customer response is already computed. History storage must not fail the journey.
     }
     return sanitized;
   },
