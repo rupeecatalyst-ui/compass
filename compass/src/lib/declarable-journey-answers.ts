@@ -70,6 +70,9 @@ export type DeclarableAnswerState = {
   fieldAnswers?: Record<string, string>;
   fieldLabels?: Record<string, string>;
   collectedFacts?: Partial<Record<DeclarableNumericKey, true>>;
+  selectedLenderRef?: string;
+  selectedLenderName?: string;
+  selectedProgrammeRef?: string;
 };
 
 export type ReviewFieldDef = {
@@ -227,6 +230,9 @@ export function buildCompassAnswersPayload(
     approxCibilScore: answers.approxCibilScore,
     displayName: answers.displayName,
     personalEmail: answers.personalEmail,
+    selectedLenderRef: answers.selectedLenderRef,
+    selectedLenderName: answers.selectedLenderName,
+    selectedProgrammeRef: answers.selectedProgrammeRef,
     ...answers.fieldAnswers,
   };
   const payload: Record<string, string | number | boolean> = {};

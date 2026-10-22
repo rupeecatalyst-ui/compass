@@ -191,6 +191,9 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("incomeType");
       keys.add("monthlyIncome");
       keys.add("existingEmi");
+      keys.add("selectedLenderRef");
+      keys.add("selectedLenderName");
+      keys.add("selectedProgrammeRef");
       break;
     case "home-loan-balance-transfer":
       keys.add("propertyType");
@@ -200,6 +203,9 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("incomeType");
       keys.add("monthlyIncome");
       keys.add("existingEmi");
+      keys.add("selectedLenderRef");
+      keys.add("selectedLenderName");
+      keys.add("selectedProgrammeRef");
       break;
     case "personal-loan":
       keys.add("incomeType");

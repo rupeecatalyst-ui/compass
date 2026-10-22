@@ -225,12 +225,12 @@ export const discoveryCopy = {
     resultTitle: "Your COMPASS Advantage",
     eligibilityNote:
       "You will be eligible for this COMPASS Advantage amount after successful disbursal of this transaction.",
-    showMatches: "View Matches",
+    showMatches: "Best Lender Match",
     loading: "Preparing your Advantage...",
   },
   lenders: {
-    heading: "Your Matches",
-    subtitle: "Shortlisted for your profile — revealed one at a time.",
+    heading: "Best Lender Match",
+    subtitle: "Eligible published programmes, in recommendation order.",
     continueCta: "Continue to Documents",
   },
   documents: {

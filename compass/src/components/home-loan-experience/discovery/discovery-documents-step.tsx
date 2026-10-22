@@ -19,6 +19,7 @@ const STATUS_LABELS = {
 
 export function DiscoveryDocumentsStep() {
   const {
+    answers,
     lod,
     lodLoading,
     lodError,
@@ -61,6 +62,9 @@ export function DiscoveryDocumentsStep() {
       <div className="text-center">
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{c.heading}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{c.subtitle}</p>
+        {answers.selectedLenderName ? (
+          <p className="mt-2 text-sm text-foreground">Selected lender: {answers.selectedLenderName}</p>
+        ) : null}
       </div>
 
       {lodLoading ? (

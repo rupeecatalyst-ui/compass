@@ -110,12 +110,20 @@ export function DiscoveryReviewStep() {
           <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {c.recommendationsLabel}
           </h3>
+          {answers.selectedLenderName ? (
+            <p className="mt-2 flex items-center gap-2 text-sm font-medium text-foreground">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary">✓</span>
+              {answers.selectedLenderName}
+            </p>
+          ) : null}
           {intelligence?.lenders.length ? (
             <ul className="mt-3 space-y-2 text-sm">
-              {intelligence.lenders.slice(0, 3).map((lender) => (
+              {intelligence.lenders.map((lender) => (
                 <li key={lender.id} className="flex justify-between gap-3">
                   <span>{lender.name}</span>
-                  <span className="text-muted-foreground">#{lender.rank}</span>
+                  <span className="text-muted-foreground">
+                    {lender.interestRate} · {lender.estimatedEmi}
+                  </span>
                 </li>
               ))}
             </ul>

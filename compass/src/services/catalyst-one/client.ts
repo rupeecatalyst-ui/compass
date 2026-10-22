@@ -172,6 +172,8 @@ export async function fetchDiscoveryIntelligence(input: {
         foirLabel?: string | null;
         whyThisRecommendation?: string | null;
         matchState?: string | null;
+        matchScore?: number | null;
+        programmeId?: string | null;
       }>;
     };
     sarathiMessages: string[];
@@ -180,15 +182,17 @@ export async function fetchDiscoveryIntelligence(input: {
 
   const lenders: DiscoveryIntelligenceResult["lenders"] = analysis.recommendations.cards.map(
     (card) => ({
-      id: card.lenderRef,
+      id: card.lenderRef || `rank:${card.rank}:${card.displayName}`,
       name: card.displayName,
       logoUrl: null,
       initials: initials(card.displayName),
       tier: card.tier,
       rank: card.rank,
-      interestRate: card.interestRateLabel || "Not available",
-      estimatedEmi: card.estimatedEmiLabel || "Not available",
-      processingTime: card.processingTimeLabel || "Advisor-assisted",
+      matchScore: card.matchScore ?? null,
+      programmeRef: card.programmeId?.trim() || null,
+      interestRate: card.interestRateLabel?.trim() || "Not available",
+      estimatedEmi: card.estimatedEmiLabel?.trim() || "Not available",
+      processingTime: card.processingTimeLabel?.trim() || "Not available",
       reasons: card.reasons,
       benefits: card.benefits,
       tentativeOffer: card.tentativeOfferLabel ?? null,

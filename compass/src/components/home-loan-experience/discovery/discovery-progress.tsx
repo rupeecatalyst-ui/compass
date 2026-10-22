@@ -8,44 +8,34 @@ export function DiscoveryProgress({ step }: { step: string }) {
   const current = stepToStageIndex(step);
 
   return (
-    <nav aria-label="Journey progress" className="w-full overflow-x-auto pb-1">
-      <ol className="flex min-w-max items-center gap-1 sm:gap-2">
+    <nav aria-label="Journey progress" className="min-w-0 flex-1 overflow-hidden">
+      <ol className="flex items-center justify-center gap-1">
         {DISCOVERY_STAGES.map((label, index) => {
           const done = index < current;
           const active = index === current;
           return (
-            <li key={label} className="flex items-center gap-1 sm:gap-2">
-              {index > 0 ? (
-                <span
-                  className={cn(
-                    "hidden h-px w-4 sm:block sm:w-8",
-                    done ? "bg-primary/50" : "bg-white/10",
-                  )}
-                  aria-hidden
-                />
-              ) : null}
+            <li key={label} className="flex min-w-0 items-center gap-1">
               <div
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 transition-all duration-500 sm:px-3",
-                  active && "border-primary/40 bg-primary/[0.1] shadow-[0_0_24px_-8px_var(--glow)]",
+                  "flex max-w-full items-center gap-1 rounded-full border px-1.5 py-1 sm:px-2",
+                  active && "border-primary/40 bg-primary/[0.1]",
                   done && !active && "border-primary/25 bg-primary/[0.05]",
                   !done && !active && "border-white/[0.06] bg-white/[0.02]",
                 )}
               >
                 <span
                   className={cn(
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px]",
-                    done && "bg-primary/25 text-primary",
-                    active && "bg-primary/30 text-primary ring-2 ring-primary/30",
-                    !done && !active && "border border-white/10 text-muted-foreground",
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px]",
+                    (done || active) && "text-primary",
+                    !done && !active && "text-muted-foreground",
                   )}
                 >
-                  {done ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />}
+                  {done ? <Check className="h-3 w-3" /> : index + 1}
                 </span>
                 <span
                   className={cn(
-                    "whitespace-nowrap text-[10px] font-medium tracking-wide sm:text-[11px]",
-                    active ? "text-foreground" : "text-muted-foreground",
+                    "truncate text-[10px] font-medium",
+                    active ? "max-w-[7.5rem] text-foreground sm:max-w-[9rem]" : "hidden text-muted-foreground md:inline md:max-w-[6rem]",
                   )}
                 >
                   {label}

@@ -52,6 +52,11 @@ export type DiscoveryAnswers = {
   approxCibilScore?: string;
   displayName?: string;
   personalEmail?: string;
+  /** Canonical lender ref from the recommendation card, when the API returns one. */
+  selectedLenderRef?: string;
+  selectedLenderName?: string;
+  /** Canonical programme ref from the recommendation card, when the API returns one. */
+  selectedProgrammeRef?: string;
   fieldAnswers?: Record<string, string>;
   /** Presentation labels for governed master values such as a city id. */
   fieldLabels?: Record<string, string>;
@@ -144,6 +149,11 @@ type DiscoveryContextValue = {
   closeDiscovery: () => void;
   setAnswer: <K extends keyof DiscoveryAnswers>(key: K, value: DiscoveryAnswers[K]) => void;
   setFieldAnswer: (fieldId: string, value: string, displayLabel?: string) => void;
+  selectMatchedLender: (selection: {
+    lenderRef: string;
+    lenderName: string;
+    programmeRef: string;
+  }) => void;
   goNext: (arg?: Partial<DiscoveryAnswers> | { nativeEvent?: unknown }) => void;
   goBack: () => void;
   nudgeCompass: () => void;
@@ -307,7 +317,10 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       const merged = mergeStoredAnswers({ ...prev, ...stored });
       return merged.loanAmount === prev.loanAmount &&
         merged.mobile === prev.mobile &&
-        merged.city === prev.city
+        merged.city === prev.city &&
+        merged.selectedLenderRef === prev.selectedLenderRef &&
+        merged.selectedLenderName === prev.selectedLenderName &&
+        merged.selectedProgrammeRef === prev.selectedProgrammeRef
         ? prev
         : merged;
     });
@@ -359,6 +372,27 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const nudgeCompass = useCallback(() => {
     setCompassNudge((n) => n + 1);
   }, []);
+
+  const selectMatchedLender = useCallback(
+    (selection: { lenderRef: string; lenderName: string; programmeRef: string }) => {
+      setAnswers((prev) => {
+        const next = {
+          ...prev,
+          selectedLenderRef: selection.lenderRef,
+          selectedLenderName: selection.lenderName,
+          selectedProgrammeRef: selection.programmeRef,
+        };
+        if (typeof window !== "undefined") {
+          persistDiscoveryAnswers(window.sessionStorage, productCode, next);
+        }
+        if (journeySessionToken) {
+          void persistCompassAnswers(journeySessionToken, productCode, next);
+        }
+        return next;
+      });
+    },
+    [productCode, journeySessionToken],
+  );
 
   const goNext = useCallback((arg?: Partial<DiscoveryAnswers> | { nativeEvent?: unknown }) => {
     const merged =
@@ -588,6 +622,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       closeDiscovery,
       setAnswer,
       setFieldAnswer,
+      selectMatchedLender,
       goNext,
       goBack,
       nudgeCompass,
@@ -629,6 +664,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       closeDiscovery,
       setAnswer,
       setFieldAnswer,
+      selectMatchedLender,
       goNext,
       goBack,
       nudgeCompass,

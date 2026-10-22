@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Search, X } from "lucide-react";
 import { DiscoveryAdvantageStep } from "@/components/home-loan-experience/discovery/discovery-advantage-step";
-import { DiscoveryAmbientIntelligence } from "@/components/ambient-intelligence/home-loan-ambient";
 import { DiscoveryAnalysisStep } from "@/components/home-loan-experience/discovery/discovery-analysis-step";
 import { DiscoveryCompass } from "@/components/home-loan-experience/discovery/discovery-compass";
 import { DiscoveryConfirmationStep } from "@/components/home-loan-experience/discovery/discovery-confirmation-step";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { DiscoveryDocumentsStep } from "@/components/home-loan-experience/discovery/discovery-documents-step";
 import { DiscoveryLendersStep } from "@/components/home-loan-experience/discovery/discovery-lenders-step";
+import { DiscoveryExpertActions } from "@/components/home-loan-experience/discovery/discovery-expert-actions";
 import { DiscoveryProgress } from "@/components/home-loan-experience/discovery/discovery-progress";
 import { DiscoveryReviewStep } from "@/components/home-loan-experience/discovery/discovery-review-step";
 import { PremiumSlider } from "@/components/home-loan-experience/discovery/premium-slider";
@@ -1004,7 +1004,7 @@ export function DiscoveryJourney() {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex flex-col bg-[#05070c]/95 backdrop-blur-2xl"
+      className="fixed inset-0 z-50 flex flex-col overflow-x-hidden bg-[#05070c]/95 backdrop-blur-2xl"
       initial={reduceMotion ? false : { opacity: 0, scale: 0.985 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={reduceMotion ? undefined : { opacity: 0, scale: 0.99 }}
@@ -1014,12 +1014,8 @@ export function DiscoveryJourney() {
       aria-label="COMPASS Discovery Journey"
     >
       <div className="border-b border-white/[0.06] bg-[#05070c]/80 px-4 py-4 backdrop-blur-xl sm:px-6">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-          {step !== "welcome" &&
-          step !== "analysing" &&
-          step !== "advantage" &&
-          step !== "lenders" &&
-          step !== "confirmation" ? (
+        <div className="mx-auto flex min-w-0 max-w-4xl items-center justify-between gap-2">
+          {step !== "welcome" && step !== "analysing" && step !== "confirmation" ? (
             <button
               type="button"
               onClick={goBack}
@@ -1043,12 +1039,12 @@ export function DiscoveryJourney() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-y-auto px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col">
           <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
         </div>
       </div>
-      <DiscoveryAmbientIntelligence />
+      <DiscoveryExpertActions />
     </motion.div>
   );
 }

@@ -3,6 +3,8 @@
  * Do not invent field rules here — only apply the projected DTO.
  */
 
+import { presentCustomerJourneyStages } from "@/lib/customer-journey-order";
+
 export type CompassJourneyConfigField = {
   fieldId: string;
   label: string;
@@ -80,7 +82,7 @@ export function mobileOtpProgression(
  * When no published version is present, the caller keeps the legacy sequence.
  */
 export function publicStageOrder(
-  _productCode: string,
+  productCode: string,
   config: CompassJourneyConfig | null | undefined,
 ): string[] | null {
   if (!config?.journeyVersion) return null;
@@ -89,7 +91,8 @@ export function publicStageOrder(
     if (stageId === "mobile" && config.mobileCapture === "off") return false;
     return true;
   });
-  return stages.length ? stages : null;
+  if (!stages.length) return null;
+  return presentCustomerJourneyStages(productCode, stages);
 }
 
 export function formatJourneyInrLabel(amount: number): string {

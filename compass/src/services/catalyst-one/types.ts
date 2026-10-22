@@ -77,6 +77,8 @@ export type LenderRecommendationResult = {
   reasons: string[];
   benefits: string[];
   rank: number;
+  matchScore: number | null;
+  programmeRef: string | null;
   tentativeOffer?: string | null;
   requestedAmount?: string | null;
   shortfall?: string | null;
