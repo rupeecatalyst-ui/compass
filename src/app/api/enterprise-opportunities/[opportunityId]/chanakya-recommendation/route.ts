@@ -15,6 +15,7 @@ import { createOpportunityAssessmentService } from "@server/services/opportunity
 import { enterpriseOpportunityService } from "@server/services/enterprise-opportunity";
 import { OpportunityValidationError } from "@server/services/enterprise-opportunity/opportunity-validation";
 import { enterpriseOpportunityRepository } from "@server/repositories/enterprise-opportunity/enterprise-opportunity.repository";
+import { resolveCaseReadAccess, assertOpportunityReadAccess } from "@server/services/enterprise-case-visibility/read-access";
 import {
   appendChanakyaRecalculation,
   cardsFromGovernedResult,
@@ -22,7 +23,9 @@ import {
   isCompassOriginSnapshot,
   linesFromCanonicalSources,
   projectCompassRecommendationHistory,
+  type CompassRecommendationHistoryDto,
 } from "@/lib/compass-customer-gateway/recommendation-history";
+import { recalculationNote } from "@/lib/compass-customer-gateway/recommendation-version-outcome";
 
 type Ctx = { params: Promise<{ opportunityId: string }> };
 
@@ -30,6 +33,23 @@ const LENDING_KEYS = ["approxCibilScore", "btAmount", "btInstitutionId", "btInst
 
 function trustedActor(userId: string, organizationId: string) {
   return { organizationId, actorUserId: userId, channel: "C1" as const };
+}
+
+async function withActorNames(history: CompassRecommendationHistoryDto): Promise<CompassRecommendationHistoryDto> {
+  const ids = [...new Set(history.versions.flatMap((version) => version.actorUserId ? [version.actorUserId] : []))];
+  if (ids.length === 0) return history;
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, firstName: true, lastName: true },
+  });
+  const names = new Map(users.map((user) => [user.id, `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()]));
+  return {
+    ...history,
+    versions: history.versions.map((version) => ({
+      ...version,
+      actorName: version.actorUserId ? names.get(version.actorUserId) || null : null,
+    })),
+  };
 }
 
 async function project(opportunityId: string, userId: string, execute: boolean) {
@@ -49,7 +69,7 @@ async function project(opportunityId: string, userId: string, execute: boolean) 
     {},
     { execute },
   );
-  const compassHistory = projectCompassRecommendationHistory(loaded.snapshot, loaded.sources);
+  const compassHistory = await withActorNames(projectCompassRecommendationHistory(loaded.snapshot, loaded.sources));
   return NextResponse.json(
     { success: true, data: { ...data, compassHistory } },
     { headers: { "Cache-Control": "no-store" } },
@@ -60,6 +80,8 @@ export async function GET(request: Request, context: Ctx) {
   try {
     const actor = requireAccessToken(request);
     const { opportunityId } = await context.params;
+    const access = await resolveCaseReadAccess(actor.userId);
+    await assertOpportunityReadAccess(access, opportunityId);
     const loaded = await loadCanonicalAssessmentSources(opportunityId);
     if (!loaded) {
       return NextResponse.json(
@@ -80,6 +102,8 @@ export async function POST(request: Request, context: Ctx) {
   try {
     const actor = requireAccessToken(request);
     const { opportunityId } = await context.params;
+    const access = await resolveCaseReadAccess(actor.userId);
+    await assertOpportunityReadAccess(access, opportunityId);
     const incoming = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const loaded = await loadCanonicalAssessmentSources(opportunityId);
     if (!loaded) {
@@ -152,7 +176,13 @@ export async function POST(request: Request, context: Ctx) {
         actorUserId: actor.userId,
         assessment: linesFromCanonicalSources(refreshed.sources),
         cards: cardsFromGovernedResult(data.result),
-        note: data.result?.status === "ready" ? null : data.guidance,
+        note: recalculationNote({
+          workspaceState: data.workspaceState,
+          missingLabels: data.missingLabels,
+          guidance: data.guidance,
+          assessment: linesFromCanonicalSources(refreshed.sources),
+          resultReady: data.result?.status === "ready",
+        }),
       });
       if (appended.changed) {
         await enterpriseOpportunityRepository.updateOpportunity(organizationId, opportunityId, {
@@ -162,7 +192,7 @@ export async function POST(request: Request, context: Ctx) {
         snapshot = appended.snapshot;
       }
     }
-    const compassHistory = projectCompassRecommendationHistory(snapshot, refreshed.sources);
+    const compassHistory = await withActorNames(projectCompassRecommendationHistory(snapshot, refreshed.sources));
     return NextResponse.json(
       { success: true, data: { ...data, compassHistory } },
       { headers: { "Cache-Control": "no-store" } },

@@ -70,6 +70,8 @@ export type CompassRecommendationHistoryVersion = {
   kind: "compass_original" | "chanakya_recalculation";
   recordedAt: string | null;
   actorUserId: string | null;
+  /** Directory name when the user registry can resolve the employee. */
+  actorName: string | null;
   journeyVersion: number | null;
   recommendationBinding: string | null;
   assessment: Array<{ label: string; value: string }>;
@@ -125,6 +127,7 @@ const ANSWER_LINES: ReadonlyArray<{ keys: readonly string[]; label: string }> = 
   { keys: ["residency", "assessment:borrower.residency"], label: "Residency" },
   { keys: ["ageYears", "assessment:borrower.ageYears"], label: "Age" },
   { keys: ["approxCibilScore"], label: "CIBIL" },
+  { keys: ["tenureMonths", "requestedTenure", "tenure"], label: "Requested tenure" },
   { keys: ["currentLender", "currentLendingInstitution"], label: "Current lender" },
 ];
 
@@ -517,6 +520,7 @@ function toDisplay(version: StoredVersion, selected: readonly CompassRecommendat
     kind: version.kind,
     recordedAt: version.recordedAt || null,
     actorUserId: version.actorUserId,
+    actorName: null,
     journeyVersion: version.journeyVersion,
     recommendationBinding: version.recommendationBinding,
     assessment: version.assessment,
@@ -557,6 +561,7 @@ export function projectCompassRecommendationHistory(
       kind: "compass_original",
       recordedAt: nullableText(row.compassUpdatedAt),
       actorUserId: null,
+      actorName: null,
       journeyVersion: integer(row.compassJourneyVersion),
       recommendationBinding: null,
       assessment: assessmentLinesFromAnswers(answerRecord(row)),
