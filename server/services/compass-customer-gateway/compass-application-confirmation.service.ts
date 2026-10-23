@@ -4,7 +4,7 @@
  * and does not undo the submission. Marketing consent is not involved.
  */
 
-import { readCompassSelectedLender } from "@/lib/compass-customer-gateway/borrower-lender-selection";
+import { readCompassSelectedLenders } from "@/lib/compass-customer-gateway/borrower-lender-selection";
 import {
   applicationConfirmationBody,
   applicationConfirmationSubject,
@@ -88,7 +88,8 @@ export async function queueCompassApplicationConfirmation(input: {
     claimed.compassAnswers && typeof claimed.compassAnswers === "object"
       ? (claimed.compassAnswers as Record<string, unknown>)
       : {};
-  const lender = readCompassSelectedLender(claimed);
+  const lenders = readCompassSelectedLenders(claimed);
+  const lender = lenders[0] ?? null;
   const productLabel = input.opportunity.productLabel?.trim() || "application";
   const reference = input.opportunity.opportunityNumber;
   let status: ApplicationConfirmationStatus = "failed";
@@ -110,6 +111,7 @@ export async function queueCompassApplicationConfirmation(input: {
         submittedAt: submissionAt,
         assessment: customerAssessmentLines(answers),
         lenderName: lender?.lenderName ?? null,
+        preferenceNames: lenders.length > 1 ? lenders.map((item) => item.lenderName) : null,
         commercials: {
           eligibleOffer: lender?.tentativeOfferLabel ?? null,
           interestRate: lender?.interestRateLabel ?? null,

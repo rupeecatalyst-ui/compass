@@ -63,7 +63,14 @@ function monthsSince(value: unknown, asOf: Date): number | null {
     - (asOf.getUTCDate() < date.getUTCDate() ? 1 : 0);
 }
 
-/** A band is an interval, never an invented exact score. Open-ended bands stay open. */
+/**
+ * Highest score on the published CIBIL scale used by Home Loan programmes.
+ * The customer option 800+ is the closed top band, not an exact score of 800
+ * and not an interval above every published maximum.
+ */
+const SUPPORTED_CIBIL_SCORE_CEILING = 900;
+
+/** A band is an interval, never an invented exact score. */
 function cibilInterval(value: Customer["cibilBand"]): [number, number] | "unknown" | null {
   if (finite(value) && Number.isInteger(value) && /^\d{3}$/.test(String(value))) return [value, value];
   if (typeof value !== "string") return null;
@@ -71,7 +78,7 @@ function cibilInterval(value: Customer["cibilBand"]): [number, number] | "unknow
   if (["not_known", "not known", "unknown"].includes(raw)) return "unknown";
   if (/^\d{3}$/.test(raw)) return [Number(raw), Number(raw)];
   if (raw === "below_600") return [Number.NEGATIVE_INFINITY, 599];
-  if (raw === "800_plus") return [800, Number.POSITIVE_INFINITY];
+  if (raw === "800_plus") return [800, SUPPORTED_CIBIL_SCORE_CEILING];
   if (["600_649", "650_699", "700_749", "750_799"].includes(raw)) return raw.split("_").map(Number) as [number, number];
   return null;
 }

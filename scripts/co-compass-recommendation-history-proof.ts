@@ -99,6 +99,45 @@ assert.equal(viewed.versions[0]?.cards[1]?.displayName, "ICICI Bank");
 assert.equal(viewed.versions[0]?.cards[1]?.estimatedEmiLabel, null);
 assert.equal(viewed.versions[0]?.cards[1]?.customerSelected, false);
 assert.equal(viewed.versions[0]?.selectedLender?.lenderName, "HDFC Bank");
+assert.equal(viewed.versions[0]?.cards[0]?.customerPreference, 1);
+assert.equal(viewed.versions[0]?.cards[0]?.rank, 1);
+const preferenceOrder = stampCompassCustomerSelection(selected, [
+  {
+    lenderRef: "lender:icici",
+    lenderName: "ICICI Bank",
+    programmeRef: "prog-icici",
+    programmeVersion: 2,
+  },
+  lender,
+], "2026-10-22T10:06:00.000Z");
+const preferenceView = projectCompassRecommendationHistory(preferenceOrder);
+assert.deepEqual(preferenceView.versions[0]?.cards.map((card) => card.displayName), ["HDFC Bank", "ICICI Bank"]);
+assert.deepEqual(preferenceView.versions[0]?.cards.map((card) => card.rank), [1, 2]);
+assert.deepEqual(
+  preferenceView.versions[0]?.cards.map((card) => card.customerPreference),
+  [2, 1],
+);
+assert.deepEqual(
+  preferenceView.versions[0]?.selectedLenders.map((item) => item.lenderName),
+  ["ICICI Bank", "HDFC Bank"],
+);
+const legacy = projectCompassRecommendationHistory({
+  compassAnswers: { loanAmount: 1 },
+  compassRecommendationVersions: [{
+    versionNumber: 1,
+    kind: "compass_original",
+    recordedAt: "2026-10-22T09:00:00.000Z",
+    cards: [{ displayName: "HDFC Bank", rank: 2, lenderRef: "lender:hdfc", programmeId: "prog-hdfc" }],
+    customerSelectedLender: {
+      lenderRef: "lender:hdfc",
+      lenderName: "HDFC Bank",
+      programmeRef: "prog-hdfc",
+    },
+  }],
+});
+assert.equal(legacy.versions[0]?.cards[0]?.rank, 2);
+assert.equal(legacy.versions[0]?.cards[0]?.customerPreference, 1);
+assert.equal(legacy.versions[0]?.selectedLenders.length, 1);
 assert.equal(viewed.versions[0]?.assessment.some((line) => line.value === "₹2,00,000"), true);
 assert.equal(viewed.versions[0]?.assessment.some((line) => line.value.includes("@")), false);
 assert.equal(viewed.versions[0]?.journeyVersion, 2);

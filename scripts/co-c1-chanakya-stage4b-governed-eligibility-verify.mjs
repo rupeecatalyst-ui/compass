@@ -91,7 +91,12 @@ await check("UNKNOWN_WITH_NUMERIC_RULE", 0, { ...customer, cibilBand: "not_known
 await check("MISSING_REQUIRED_CIBIL", 0, { ...customer, cibilBand: null }, [hl], "HOME_LOAN", "A", "cibil");
 await check("BAND_FULLY_WITHIN_RULE", 1, { ...customer, cibilBand: "750_799" });
 await check("BAND_STRADDLES_THRESHOLD", 0, { ...customer, cibilBand: "750_799" }, [{ ...hl, minCibil: 780 }], "HOME_LOAN", "A", "cibil");
-await check("OPEN_BAND_NOT_FABRICATED_SCORE", 0, { ...customer, cibilBand: "800_plus" }, [hl], "HOME_LOAN", "A", "cibil");
+await check("EXACT_799", 1, { ...customer, cibilBand: 799 });
+await check("EXACT_801", 1, { ...customer, cibilBand: 801 });
+await check("EXACT_900_SUPPORTED_CEILING", 1, { ...customer, cibilBand: 900 });
+await check("EXACT_901_ABOVE_PUBLISHED_MAX", 0, { ...customer, cibilBand: 901 });
+await check("OPEN_BAND_WITHIN_SUPPORTED_CEILING", 1, { ...customer, cibilBand: "800_plus" });
+await check("OPEN_BAND_ABOVE_PUBLISHED_MAX", 0, { ...customer, cibilBand: "800_plus" }, [{ ...hl, maxCibil: 850 }], "HOME_LOAN", "A", "cibil");
 const policyRange = programme("policy");
 policyRange.policyVersion.creditRules = { rules: [{ type: "cibil_range", minimum: 800, maximum: 850 }] };
 await check("PARSED_POLICY_RANGE_ENFORCED", 0, customer, [policyRange]);
@@ -383,6 +388,9 @@ const repositorySource = readFileSync(new URL("../server/services/lender-recomme
 vm.runInNewContext(ts.transpileModule(repositorySource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
   exports: repositoryExports, require(name) {
     if (name === "server-only") return {};
+    if (name === "@/constants/enterprise-product-master") {
+      return { canonicalInventoryProductCodes: (product) => [product] };
+    }
     if (name === "@server/lib/prisma") return { prisma: {
       $transaction: operations => Promise.all(operations),
       enterpriseLenderProgram: { findMany: async query => { queries.push(["programmes", query]); return [hl]; } },

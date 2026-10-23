@@ -115,6 +115,158 @@ export function selectionAnswers(selection: CompassSelectedLender | null): Recor
   };
 }
 
+export const MAX_COMPASS_LENDER_PREFERENCES = 3;
+export const COMPASS_LENDER_PREFERENCES_ANSWER_KEY = "selectedLenderPreferences";
+
+export type CompassPreferenceSubmission = "list" | "single" | "absent";
+
+function sameIdentity(
+  lenderRef: string,
+  programmeRef: string,
+  lenderName: string,
+  card: EligiblePublishedMatch,
+): boolean {
+  return card.lenderRef === lenderRef && text(card.programmeId) === programmeRef && card.displayName.trim() === lenderName;
+}
+
+function fromEligible(match: EligiblePublishedMatch): CompassSelectedLender | null {
+  const programmeRef = text(match.programmeId);
+  if (!match.lenderRef || !programmeRef || !match.displayName.trim()) return null;
+  return {
+    lenderRef: match.lenderRef,
+    lenderName: match.displayName.trim(),
+    programmeRef,
+    programmeVersion:
+      typeof match.programmeVersion === "number" && Number.isFinite(match.programmeVersion)
+        ? match.programmeVersion
+        : null,
+    interestRateLabel: text(match.interestRateLabel) || null,
+    estimatedEmiLabel: text(match.estimatedEmiLabel) || null,
+    tenureLabel: text(match.tenureLabel) || null,
+    processingTimeLabel: text(match.processingTimeLabel) || null,
+    tentativeOfferLabel: text(match.tentativeOfferLabel) || null,
+  };
+}
+
+function preferenceIdentity(row: CompassSelectedLender): string {
+  return `${row.lenderRef}\n${row.programmeRef}\n${row.lenderName}`;
+}
+
+export function readCompassSelectedLenders(snapshot: unknown): CompassSelectedLender[] {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    const single = readCompassSelectedLender(snapshot);
+    return single ? [single] : [];
+  }
+  const raw = (snapshot as Record<string, unknown>).compassSelectedLenders;
+  if (Array.isArray(raw)) {
+    const lenders: CompassSelectedLender[] = [];
+    for (const item of raw) {
+      const lender = readCompassSelectedLender({ compassSelectedLender: item });
+      if (!lender) continue;
+      if (lenders.some((existing) => preferenceIdentity(existing) === preferenceIdentity(lender))) continue;
+      lenders.push(lender);
+      if (lenders.length === MAX_COMPASS_LENDER_PREFERENCES) break;
+    }
+    return lenders;
+  }
+  const single = readCompassSelectedLender(snapshot);
+  return single ? [single] : [];
+}
+
+export function compassPreferenceSubmission(
+  answers: Record<string, unknown> | null | undefined,
+): CompassPreferenceSubmission {
+  if (!answers || !(COMPASS_LENDER_PREFERENCES_ANSWER_KEY in answers)) {
+    return submittedSelection(answers) ? "single" : "absent";
+  }
+  const raw = answers[COMPASS_LENDER_PREFERENCES_ANSWER_KEY];
+  if (raw == null) return submittedSelection(answers) ? "single" : "absent";
+  return "list";
+}
+
+function parseSubmittedPreferences(value: unknown): Array<{
+  lenderRef: string;
+  lenderName: string;
+  programmeRef: string;
+}> | null {
+  let raw = value;
+  if (typeof raw === "string") {
+    const textValue = raw.trim();
+    if (!textValue || textValue.length > 4000) return null;
+    try {
+      raw = JSON.parse(textValue) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(raw)) return null;
+  const rows: Array<{ lenderRef: string; lenderName: string; programmeRef: string }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    rows.push({
+      lenderRef: text(row.lenderRef),
+      lenderName: text(row.lenderName),
+      programmeRef: text(row.programmeRef),
+    });
+  }
+  return rows;
+}
+
+/**
+ * Ordered customer preferences. Selection sequence is the preference order.
+ * A submitted list is authoritative, including an empty list. Absent selection
+ * keeps the previous list. A legacy single selection remains Preference 1.
+ * More than three submitted lenders keep the first three valid matches.
+ */
+export function resolveCompassLenderPreferences(input: {
+  previous: readonly CompassSelectedLender[];
+  submitted: Record<string, unknown> | null | undefined;
+  eligible: readonly EligiblePublishedMatch[];
+}): CompassSelectedLender[] {
+  const mode = compassPreferenceSubmission(input.submitted);
+  if (mode === "absent") return [...input.previous];
+  if (mode === "single") {
+    const one = resolveCompassLenderSelection({
+      previous: input.previous[0] ?? null,
+      submitted: input.submitted,
+      eligible: input.eligible,
+    });
+    return one ? [one] : [...input.previous];
+  }
+  const submitted = parseSubmittedPreferences(input.submitted?.[COMPASS_LENDER_PREFERENCES_ANSWER_KEY]);
+  if (!submitted) return [...input.previous];
+  if (submitted.length === 0) return [];
+  const lenders: CompassSelectedLender[] = [];
+  for (const attempt of submitted) {
+    const match = input.eligible.find((card) =>
+      sameIdentity(attempt.lenderRef, attempt.programmeRef, attempt.lenderName, card),
+    );
+    const lender = match ? fromEligible(match) : null;
+    if (!lender) continue;
+    if (lenders.some((existing) => preferenceIdentity(existing) === preferenceIdentity(lender))) continue;
+    lenders.push(lender);
+    if (lenders.length === MAX_COMPASS_LENDER_PREFERENCES) break;
+  }
+  return lenders.length > 0 ? lenders : [...input.previous];
+}
+
+export function preferenceAnswers(selections: readonly CompassSelectedLender[]): Record<string, string> {
+  const first = selections[0];
+  return {
+    selectedLenderRef: first?.lenderRef ?? "",
+    selectedLenderName: first?.lenderName ?? "",
+    selectedProgrammeRef: first?.programmeRef ?? "",
+    [COMPASS_LENDER_PREFERENCES_ANSWER_KEY]: JSON.stringify(
+      selections.map((selection) => ({
+        lenderRef: selection.lenderRef,
+        lenderName: selection.lenderName,
+        programmeRef: selection.programmeRef,
+      })),
+    ),
+  };
+}
+
 export function attachPublicSelectionIdentities<T extends { displayName: string; rank: number }>(
   sanitizedCards: T[],
   sourceCards: readonly EligiblePublishedMatch[],

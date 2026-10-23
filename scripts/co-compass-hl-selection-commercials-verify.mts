@@ -7,6 +7,8 @@ import {
 } from "../src/lib/compass-customer-gateway/public-programme-commercials.ts";
 import {
   attachPublicSelectionIdentities,
+  readCompassSelectedLenders,
+  resolveCompassLenderPreferences,
   resolveCompassLenderSelection,
   type CompassSelectedLender,
 } from "../src/lib/compass-customer-gateway/borrower-lender-selection.ts";
@@ -95,6 +97,11 @@ assert.deepEqual(selected, {
   lenderName: "Central Bank of India",
   programmeRef: "prog-hl-1",
   programmeVersion: 3,
+  interestRateLabel: null,
+  estimatedEmiLabel: null,
+  tenureLabel: null,
+  processingTimeLabel: null,
+  tentativeOfferLabel: null,
 });
 
 assert.equal(
@@ -142,10 +149,87 @@ assert.equal(restored[0].lenderRef, "lender:cbi");
 assert.equal(restored[0].programmeId, "prog-hl-1");
 
 const journey = readFileSync("server/services/compass-customer-gateway/compass-journey.service.ts", "utf8");
-assert.match(journey, /resolveCompassLenderSelection/);
+assert.match(journey, /resolveCompassLenderPreferences/);
 assert.match(journey, /attachPublicSelectionIdentities/);
 assert.match(journey, /compassSelectedLender/);
+assert.match(journey, /compassSelectedLenders/);
 assert.doesNotMatch(journey, /enterpriseDeal\.create|prisma\.enterpriseDeal\.create/);
+
+const ranked = [
+  { ...eligible[0], rank: 2, displayName: "Central Bank of India" },
+  {
+    lenderRef: "lender:sbi",
+    displayName: "State Bank of India",
+    programmeId: "prog-sbi",
+    programmeVersion: 1,
+    rank: 1,
+  },
+  {
+    lenderRef: "lender:hdfc",
+    displayName: "HDFC Bank",
+    programmeId: "prog-hdfc",
+    programmeVersion: 4,
+    rank: 3,
+  },
+  {
+    lenderRef: "lender:axis",
+    displayName: "Axis Bank",
+    programmeId: "prog-axis",
+    programmeVersion: 2,
+    rank: 4,
+  },
+];
+const ordered = resolveCompassLenderPreferences({
+  previous: [],
+  submitted: {
+    selectedLenderPreferences: JSON.stringify([
+      { lenderRef: "lender:hdfc", lenderName: "HDFC Bank", programmeRef: "prog-hdfc" },
+      { lenderRef: "lender:cbi", lenderName: "Central Bank of India", programmeRef: "prog-hl-1" },
+      { lenderRef: "lender:sbi", lenderName: "State Bank of India", programmeRef: "prog-sbi" },
+      { lenderRef: "lender:axis", lenderName: "Axis Bank", programmeRef: "prog-axis" },
+    ]),
+  },
+  eligible: ranked,
+});
+assert.deepEqual(ordered.map((item) => item.lenderName), ["HDFC Bank", "Central Bank of India", "State Bank of India"]);
+assert.notEqual(ordered[0]?.lenderName, "State Bank of India");
+const removed = resolveCompassLenderPreferences({
+  previous: ordered,
+  submitted: {
+    selectedLenderPreferences: JSON.stringify([
+      { lenderRef: "lender:cbi", lenderName: "Central Bank of India", programmeRef: "prog-hl-1" },
+      { lenderRef: "lender:sbi", lenderName: "State Bank of India", programmeRef: "prog-sbi" },
+    ]),
+  },
+  eligible: ranked,
+});
+assert.deepEqual(removed.map((item) => item.lenderName), ["Central Bank of India", "State Bank of India"]);
+assert.deepEqual(
+  resolveCompassLenderPreferences({
+    previous: ordered,
+    submitted: { loanAmount: 5000000 },
+    eligible: ranked,
+  }).map((item) => item.lenderRef),
+  ordered.map((item) => item.lenderRef),
+);
+assert.deepEqual(
+  resolveCompassLenderPreferences({
+    previous: ordered,
+    submitted: { selectedLenderPreferences: "[]" },
+    eligible: ranked,
+  }),
+  [],
+);
+const legacySnapshot = {
+  compassSelectedLender: {
+    lenderRef: "lender:cbi",
+    lenderName: "Central Bank of India",
+    programmeRef: "prog-hl-1",
+    programmeVersion: 3,
+  },
+};
+assert.equal(readCompassSelectedLenders(legacySnapshot).length, 1);
+assert.equal(readCompassSelectedLenders(legacySnapshot)[0]?.lenderName, "Central Bank of India");
 const serialize = readFileSync("server/services/enterprise-opportunity/opportunity-serialize.ts", "utf8");
 assert.match(serialize, /compassSelectedLender: readCompassSelectedLender/);
 const overview = readFileSync(

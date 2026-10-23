@@ -367,25 +367,30 @@ export function ChanakyaRecommendationWorkspace({
 }
 
 function HistoryVersion({ version }: { version: CompassRecommendationHistoryVersion }) {
-  const selectedInCards = version.cards.some((card) => card.customerSelected);
   return (
     <div className="space-y-2">
       <p className="text-sm font-semibold">{version.title}</p>
       {version.note ? <p className="text-sm text-foreground">{version.note}</p> : null}
-      {version.selectedLender && !selectedInCards ? (
-        <StoredLender
-          name={version.selectedLender.lenderName}
-          programmeVersion={version.selectedLender.programmeVersion}
-          lines={[
-            ["ROI", version.selectedLender.interestRateLabel],
-            ["EMI", version.selectedLender.estimatedEmiLabel],
-            ["Tenure", version.selectedLender.tenureLabel],
-            ["Eligible offer", version.selectedLender.tentativeOfferLabel],
-            ["Processing", version.selectedLender.processingTimeLabel],
-          ]}
-          selected
-        />
-      ) : null}
+      {version.selectedLenders.flatMap((lender, index) => (
+        version.cards.some((card) => card.customerPreference === index + 1)
+          ? []
+          : [(
+            <StoredLender
+              key={`${version.versionNumber}-preference-${lender.lenderRef || lender.lenderName}`}
+              name={lender.lenderName}
+              programmeVersion={lender.programmeVersion}
+              preferenceLabel={`Preference ${index + 1}`}
+              lines={[
+                ["ROI", lender.interestRateLabel],
+                ["EMI", lender.estimatedEmiLabel],
+                ["Tenure", lender.tenureLabel],
+                ["Eligible offer", lender.tentativeOfferLabel],
+                ["Processing", lender.processingTimeLabel],
+              ]}
+              selected
+            />
+          )]
+      ))}
       {version.cards.map((card) => (
         <StoredLender
           key={`${version.versionNumber}-${card.rank}-${card.lenderRef || card.displayName}`}
@@ -394,6 +399,7 @@ function HistoryVersion({ version }: { version: CompassRecommendationHistoryVers
           programmeVersion={card.programmeVersion}
           score={card.matchScore}
           explanation={card.explanation}
+          preferenceLabel={card.customerPreference ? `Preference ${card.customerPreference}` : null}
           lines={[
             ["ROI", card.interestRateLabel],
             ["EMI", card.estimatedEmiLabel],
@@ -418,6 +424,7 @@ function StoredLender({
   explanation,
   lines,
   selected,
+  preferenceLabel = null,
   showAbsentCommercials = false,
 }: {
   name: string;
@@ -427,6 +434,7 @@ function StoredLender({
   explanation?: string | null;
   lines: Array<[string, string | null]>;
   selected: boolean;
+  preferenceLabel?: string | null;
   showAbsentCommercials?: boolean;
 }) {
   const visible = lines.flatMap(([label, value]) => {
@@ -443,7 +451,7 @@ function StoredLender({
         </p>
         {selected ? (
           <span className="shrink-0 rounded-md bg-emerald-700 px-2 py-0.5 text-xs font-semibold text-white">
-            Customer Selected Lender
+            {preferenceLabel ?? "Customer Selected Lender"}
           </span>
         ) : null}
       </div>

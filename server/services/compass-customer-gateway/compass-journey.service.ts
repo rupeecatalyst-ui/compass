@@ -108,9 +108,10 @@ import { projectRegistryProgrammeRecommendations } from "./compass-recommendatio
 import { validatedRequestedAmountRupees } from "@/lib/compass-customer-gateway/public-programme-commercials";
 import {
   attachPublicSelectionIdentities,
-  readCompassSelectedLender,
-  resolveCompassLenderSelection,
-  selectionAnswers,
+  compassPreferenceSubmission,
+  preferenceAnswers,
+  readCompassSelectedLenders,
+  resolveCompassLenderPreferences,
 } from "@/lib/compass-customer-gateway/borrower-lender-selection";
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
@@ -802,32 +803,38 @@ export const compassJourneyService = {
       validatedRequestedAmountRupees(sanitizedAnswers.loanAmount) ??
       validatedRequestedAmountRupees(sanitizedAnswers.requestedAmountLabel) ??
       validatedRequestedAmountRupees(row.requestedAmount);
-    let selectedLender = readCompassSelectedLender(row.snapshot);
+    let selectedLenders = readCompassSelectedLenders(row.snapshot);
     try {
       const eligible = await loadRegistryRecommendationCards({
         organizationId,
         opportunityId: row.id,
         requestedAmount: requestedForSelection,
       });
-      selectedLender = resolveCompassLenderSelection({
-        previous: selectedLender,
-        submitted: patch.answers,
-        eligible: eligible.cards,
-      });
+      if (compassPreferenceSubmission(patch.answers) !== "absent") {
+        selectedLenders = resolveCompassLenderPreferences({
+          previous: selectedLenders,
+          submitted: patch.answers,
+          eligible: eligible.cards,
+        });
+      }
     } catch {
-      selectedLender = readCompassSelectedLender(row.snapshot);
+      selectedLenders = readCompassSelectedLenders(row.snapshot);
     }
-    Object.assign(sanitizedAnswers, selectionAnswers(selectedLender));
+    if (compassPreferenceSubmission(patch.answers) !== "absent" || selectedLenders.length > 0) {
+      Object.assign(sanitizedAnswers, preferenceAnswers(selectedLenders));
+    }
+    const selectedLender = selectedLenders[0] ?? null;
 
     const snapshot = stampCompassCustomerSelection({
       ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
       compassBorrowerFields: mapped.borrowerFields,
       compassProductFields: mapped.productFields,
       compassAnswers: sanitizedAnswers,
-      ...(selectedLender ? { compassSelectedLender: selectedLender } : {}),
+      compassSelectedLender: selectedLender,
+      compassSelectedLenders: selectedLenders,
       compassUpdatedAt: new Date().toISOString(),
       ...(companyId ? { compassPendingCompanyResolution: false } : {}),
-    }, selectedLender, new Date().toISOString());
+    }, selectedLenders, new Date().toISOString());
 
     const displayName = parseCompassDisplayName(
       typeof sanitizedAnswers.displayName === "string" ? sanitizedAnswers.displayName : undefined,

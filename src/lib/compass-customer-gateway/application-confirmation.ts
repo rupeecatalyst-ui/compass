@@ -22,6 +22,8 @@ export type ApplicationConfirmationInput = {
   submittedAt: string;
   assessment: Record<string, string>;
   lenderName: string | null;
+  /** Present when the customer saved more than one ordered preference. */
+  preferenceNames?: string[] | null;
   commercials: {
     eligibleOffer: string | null;
     interestRate: string | null;
@@ -128,7 +130,14 @@ export function applicationConfirmationBody(input: ApplicationConfirmationInput)
     lines.push("", "Details you submitted:");
     for (const [label, value] of assessment) lines.push(`- ${label}: ${value}`);
   }
-  lines.push("", `Selected lender: ${input.lenderName || "Not selected"}`);
+  if (input.preferenceNames && input.preferenceNames.length > 1) {
+    lines.push("", "Selected lenders:");
+    input.preferenceNames.forEach((name, index) => {
+      lines.push(`Preference ${index + 1}: ${name}`);
+    });
+  } else {
+    lines.push("", `Selected lender: ${input.lenderName || "Not selected"}`);
+  }
   if (input.lenderName) {
     lines.push(`Eligible offer: ${input.commercials.eligibleOffer || "Not available"}`);
     lines.push(`ROI: ${input.commercials.interestRate || "Not available"}`);

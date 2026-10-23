@@ -55,11 +55,14 @@ export function matchPublishedProgramme(
   if ((program.employmentTypes ?? []).length > 0) {
     if (!input.employmentType?.trim()) return unverified("Employment type");
     const wanted = input.employmentType;
+    const selfEmployedWanted =
+      wanted === "self_employed" || wanted.includes("self-employed") || wanted.includes("self_employed");
+    const selfEmployedProgramme = (id: string) =>
+      id === "self_employed" || id.startsWith("self-employed") || id.startsWith("self_employed");
     const ok =
       program.employmentTypes?.includes(wanted) ||
       (wanted === "salaried" && program.employmentTypes?.includes("salaried")) ||
-      (wanted.includes("self-employed") &&
-        program.employmentTypes?.some((id) => id.startsWith("self-employed")));
+      (selfEmployedWanted && program.employmentTypes?.some(selfEmployedProgramme));
     if (!ok) return { matched: false, reason: "Employment profile is outside programme eligibility." };
   }
   if ((program.legalConstitutions ?? []).length > 0) {

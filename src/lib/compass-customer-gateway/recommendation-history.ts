@@ -6,7 +6,11 @@
 import { isApproxCibilScoreBand, getApproxCibilScoreLabel } from "@/constants/cibil-score-master";
 import { normalizeEcmEmploymentTypeId } from "@/constants/enterprise-contact-master";
 import { validatedRequestedAmountRupees } from "@/lib/compass-customer-gateway/public-programme-commercials";
-import { readCompassSelectedLender, type CompassSelectedLender } from "@/lib/compass-customer-gateway/borrower-lender-selection";
+import {
+  readCompassSelectedLender,
+  readCompassSelectedLenders,
+  type CompassSelectedLender,
+} from "@/lib/compass-customer-gateway/borrower-lender-selection";
 import {
   parseHomeLoanEntryAge,
   parseHomeLoanResidency,
@@ -44,6 +48,8 @@ export type CompassRecommendationHistoryCard = {
   programmeVersion: number | null;
   explanation: string | null;
   customerSelected: boolean;
+  /** Customer preference order. Recommendation rank stays on `rank`. */
+  customerPreference: number | null;
 };
 
 export type CompassRecommendationSelectedLender = {
@@ -68,6 +74,8 @@ export type CompassRecommendationHistoryVersion = {
   recommendationBinding: string | null;
   assessment: Array<{ label: string; value: string }>;
   selectedLender: CompassRecommendationSelectedLender | null;
+  /** Customer selection sequence. Preference 1 is also `selectedLender`. */
+  selectedLenders: CompassRecommendationSelectedLender[];
   cards: CompassRecommendationHistoryCard[];
   note: string | null;
 };
@@ -97,7 +105,8 @@ type StoredVersion = {
   recommendationBinding: string | null;
   assessment: Array<{ label: string; value: string }>;
   customerSelectedLender: StoredSelection | null;
-  cards: Omit<CompassRecommendationHistoryCard, "customerSelected">[];
+  customerSelectedLenders: StoredSelection[] | null;
+  cards: Omit<CompassRecommendationHistoryCard, "customerSelected" | "customerPreference">[];
   note: string | null;
 };
 
@@ -226,6 +235,7 @@ function readStored(snapshot: Record<string, unknown>): StoredVersion[] {
       recommendationBinding: nullableText(row.recommendationBinding),
       assessment: assessmentArray(row.assessment),
       customerSelectedLender: selectionRecord(row.customerSelectedLender),
+      customerSelectedLenders: selectionList(row.customerSelectedLenders),
       cards: cardArray(row.cards),
       note: nullableText(row.note),
     }];
@@ -261,6 +271,18 @@ function selectionRecord(value: unknown): StoredSelection | null {
     tentativeOfferLabel: nullableText(row.tentativeOfferLabel),
     selectedAt: nullableText(row.selectedAt),
   };
+}
+
+function selectionList(value: unknown): StoredSelection[] | null {
+  if (!Array.isArray(value)) return null;
+  const lenders: StoredSelection[] = [];
+  for (const item of value) {
+    const lender = selectionRecord(item);
+    if (!lender) continue;
+    lenders.push(lender);
+    if (lenders.length === 3) break;
+  }
+  return lenders;
 }
 
 function cardArray(value: unknown): StoredVersion["cards"] {
@@ -431,9 +453,7 @@ function missingKeys(snapshot: unknown, sources: CanonicalAssessmentSources): st
   return evaluation.missingFactKeys;
 }
 
-function presentSelection(snapshot: Record<string, unknown>, stored: StoredSelection | null): CompassRecommendationSelectedLender | null {
-  const source = stored ?? selectionRecord(readCompassSelectedLender(snapshot));
-  if (!source) return null;
+function displaySelection(source: StoredSelection): CompassRecommendationSelectedLender {
   return {
     lenderRef: source.lenderRef,
     lenderName: source.lenderName,
@@ -447,23 +467,50 @@ function presentSelection(snapshot: Record<string, unknown>, stored: StoredSelec
   };
 }
 
-function cardsWithSelection(
-  cards: StoredVersion["cards"],
-  selected: CompassRecommendationSelectedLender | null,
-): CompassRecommendationHistoryCard[] {
-  return cards.map((card) => ({
-    ...card,
-    customerSelected: selected != null && (
-      (card.lenderRef !== "" && card.lenderRef === selected.lenderRef && (card.programmeId == null || card.programmeId === selected.programmeRef))
-      || (card.lenderRef === "" && card.displayName === selected.lenderName)
-    ),
+function presentSelections(
+  snapshot: Record<string, unknown>,
+  stored: StoredSelection | null,
+  storedList: StoredSelection[] | null,
+): CompassRecommendationSelectedLender[] {
+  if (storedList) return storedList.map(displaySelection);
+  if (stored) return [displaySelection(stored)];
+  return readCompassSelectedLenders(snapshot).map((lender) => displaySelection({
+    ...lender,
+    interestRateLabel: lender.interestRateLabel ?? null,
+    estimatedEmiLabel: lender.estimatedEmiLabel ?? null,
+    tenureLabel: lender.tenureLabel ?? null,
+    processingTimeLabel: lender.processingTimeLabel ?? null,
+    tentativeOfferLabel: lender.tentativeOfferLabel ?? null,
   }));
 }
 
-function toDisplay(version: StoredVersion, selected: CompassRecommendationSelectedLender | null): CompassRecommendationHistoryVersion {
+function cardMatchesSelection(
+  card: StoredVersion["cards"][number],
+  selected: CompassRecommendationSelectedLender,
+): boolean {
+  return (card.lenderRef !== "" && card.lenderRef === selected.lenderRef && (card.programmeId == null || card.programmeId === selected.programmeRef))
+    || (card.lenderRef === "" && card.displayName === selected.lenderName);
+}
+
+function cardsWithSelection(
+  cards: StoredVersion["cards"],
+  selected: readonly CompassRecommendationSelectedLender[],
+): CompassRecommendationHistoryCard[] {
+  return cards.map((card) => {
+    const preference = selected.findIndex((item) => cardMatchesSelection(card, item));
+    return {
+      ...card,
+      customerSelected: preference >= 0,
+      customerPreference: preference >= 0 ? preference + 1 : null,
+    };
+  });
+}
+
+function toDisplay(version: StoredVersion, selected: readonly CompassRecommendationSelectedLender[]): CompassRecommendationHistoryVersion {
   const title = version.kind === "compass_original"
     ? "Recommendation 1 — Original COMPASS"
     : `Recommendation ${version.versionNumber} — CHANAKYA Recalculation`;
+  const preferences = version.kind === "compass_original" ? selected : [];
   return {
     versionNumber: version.versionNumber,
     title,
@@ -473,8 +520,9 @@ function toDisplay(version: StoredVersion, selected: CompassRecommendationSelect
     journeyVersion: version.journeyVersion,
     recommendationBinding: version.recommendationBinding,
     assessment: version.assessment,
-    selectedLender: version.kind === "compass_original" ? selected : null,
-    cards: cardsWithSelection(version.cards, version.kind === "compass_original" ? selected : null),
+    selectedLender: preferences[0] ?? null,
+    selectedLenders: [...preferences],
+    cards: cardsWithSelection(version.cards, preferences),
     note: version.note,
   };
 }
@@ -494,7 +542,11 @@ export function projectCompassRecommendationHistory(
   if (!row || !isCompassOriginSnapshot(row)) return empty;
   const stored = readStored(row);
   const original = stored.find((version) => version.kind === "compass_original") ?? null;
-  const selected = presentSelection(row, original?.customerSelectedLender ?? null);
+  const selected = presentSelections(
+    row,
+    original?.customerSelectedLender ?? null,
+    original?.customerSelectedLenders ?? null,
+  );
   const versions: CompassRecommendationHistoryVersion[] = [];
   if (original) {
     versions.push(toDisplay(original, selected));
@@ -508,13 +560,14 @@ export function projectCompassRecommendationHistory(
       journeyVersion: integer(row.compassJourneyVersion),
       recommendationBinding: null,
       assessment: assessmentLinesFromAnswers(answerRecord(row)),
-      selectedLender: selected,
+      selectedLender: selected[0] ?? null,
+      selectedLenders: selected,
       cards: [],
       note: ORIGINAL_NOTE,
     });
   }
   for (const version of stored.filter((item) => item.kind === "chanakya_recalculation")) {
-    versions.push(toDisplay(version, null));
+    versions.push(toDisplay(version, []));
   }
   versions.sort((a, b) => a.versionNumber - b.versionNumber);
   return {
@@ -556,6 +609,7 @@ export function rememberOriginalCompassRecommendation(
     recommendationBinding: nullableText(input.recommendationBinding),
     assessment: assessmentLinesFromAnswers(input.answers),
     customerSelectedLender: selectionRecord(readCompassSelectedLender(row)),
+    customerSelectedLenders: selectionList(readCompassSelectedLenders(row)),
     cards,
     note: null,
   };
@@ -567,26 +621,34 @@ export function rememberOriginalCompassRecommendation(
 
 export function stampCompassCustomerSelection(
   snapshot: Record<string, unknown>,
-  lender: CompassSelectedLender | null,
+  lender: CompassSelectedLender | readonly CompassSelectedLender[] | null,
   selectedAt: string,
 ): Record<string, unknown> {
-  if (!lender) return snapshot;
+  const lenders = lender == null ? [] : Array.isArray(lender) ? [...lender] : [lender];
   const versions = readStored(snapshot);
   const index = versions.findIndex((version) => version.kind === "compass_original");
   if (index < 0) return snapshot;
-  const current = versions[index]?.customerSelectedLender;
-  if (
-    current
-    && current.lenderRef === lender.lenderRef
-    && current.programmeRef === lender.programmeRef
-    && current.lenderName === lender.lenderName
-  ) {
-    return snapshot;
-  }
-  const next = versions.slice();
   const existing = versions[index];
   if (!existing) return snapshot;
-  next[index] = { ...existing, customerSelectedLender: selectionFrom(lender, selectedAt) };
+  const currentList = existing.customerSelectedLenders
+    ?? (existing.customerSelectedLender ? [existing.customerSelectedLender] : []);
+  const unchanged = currentList.length === lenders.length && currentList.every((item, itemIndex) => {
+    const next = lenders[itemIndex];
+    return Boolean(
+      next
+      && item.lenderRef === next.lenderRef
+      && item.programmeRef === next.programmeRef
+      && item.lenderName === next.lenderName,
+    );
+  });
+  if (unchanged) return snapshot;
+  const stored = lenders.map((item) => selectionFrom(item, selectedAt));
+  const next = versions.slice();
+  next[index] = {
+    ...existing,
+    customerSelectedLender: stored[0] ?? null,
+    customerSelectedLenders: stored,
+  };
   return { ...snapshot, [COMPASS_RECOMMENDATION_VERSIONS_KEY]: next };
 }
 
@@ -612,6 +674,7 @@ export function appendChanakyaRecalculation(
     recommendationBinding: "governed_chanakya",
     assessment: input.assessment.filter((line) => line.label.trim() && line.value.trim()),
     customerSelectedLender: null,
+    customerSelectedLenders: null,
     cards: input.cards.flatMap((card) => {
       const stored = publicCard(card);
       return stored ? [stored] : [];

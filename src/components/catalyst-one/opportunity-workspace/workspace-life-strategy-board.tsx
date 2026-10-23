@@ -583,24 +583,35 @@ export function WorkspaceLifeStrategyBoard() {
                     <p className="text-[10px] text-zinc-400">Employee {version.actorUserId}</p>
                   ) : null}
                   {version.note ? <EmptyHint text={version.note} /> : null}
-                  {version.selectedLender && !version.cards.some((card) => card.customerSelected) ? (
-                    <LenderCard
-                      name={version.selectedLender.lenderName}
-                      reason="Original COMPASS selection"
-                      eligibility={storedCommercialText(version.selectedLender)}
-                      badge="Customer Selected Lender"
-                      actionLabel={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? "Shortlist full" : "Select"}
-                      disabled={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS}
-                      onAction={() => selectLender(compassBoardLender(version.selectedLender!), "chanakya")}
-                    />
-                  ) : null}
+                  {version.selectedLenders.flatMap((lender, index) => (
+                    version.cards.some((card) => card.customerPreference === index + 1)
+                      ? []
+                      : [(
+                        <LenderCard
+                          key={`${version.versionNumber}-preference-${lender.lenderRef || lender.lenderName}`}
+                          name={lender.lenderName}
+                          reason="Original COMPASS selection"
+                          eligibility={storedCommercialText(lender)}
+                          badge={`Preference ${index + 1}`}
+                          actionLabel={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? "Shortlist full" : "Select"}
+                          disabled={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS}
+                          onAction={() => selectLender(compassBoardLender(lender), "chanakya")}
+                        />
+                      )]
+                  ))}
                   {version.cards.map((card) => (
                     <LenderCard
                       key={`${version.versionNumber}-${card.rank}-${card.lenderRef || card.displayName}`}
                       name={card.displayName}
                       reason={card.explanation || version.title}
                       eligibility={storedCommercialText(card, card.rank)}
-                      badge={card.customerSelected ? "Customer Selected Lender" : undefined}
+                      badge={
+                        card.customerPreference
+                          ? `Preference ${card.customerPreference}`
+                          : card.customerSelected
+                            ? "Customer Selected Lender"
+                            : undefined
+                      }
                       actionLabel={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? "Shortlist full" : "Select"}
                       disabled={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS}
                       onAction={() => selectLender(compassBoardLender(card), "chanakya")}
