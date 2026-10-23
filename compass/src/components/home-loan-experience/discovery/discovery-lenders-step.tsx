@@ -8,6 +8,11 @@ import { discoveryCopy } from "@/config/home-loan-discovery";
 import type { LenderRecommendationResult } from "@/services/catalyst-one/types";
 import { COMMERCIAL_UNAVAILABLE, publishedCommercialLabel } from "@/lib/customer-journey-order";
 import { LENDER_MATCH_LOADING_MESSAGES } from "@/lib/lender-match-request";
+import {
+  lenderPreferencesFromAnswers,
+  sameLenderPreference,
+  type LenderPreference,
+} from "@/lib/lender-preferences";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
@@ -22,13 +27,14 @@ function scoreLabel(lender: LenderRecommendationResult): string {
 
 function LenderRow({
   lender,
-  selected,
+  preference,
   onSelect,
 }: {
   lender: LenderRecommendationResult;
-  selected: boolean;
+  preference: number | null;
   onSelect: () => void;
 }) {
+  const selected = preference != null;
   const offer = publishedCommercialLabel(lender.tentativeOffer);
   const requested = publishedCommercialLabel(lender.requestedAmount);
   const roi = publishedCommercialLabel(lender.interestRate);
@@ -48,6 +54,11 @@ function LenderRow({
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{lender.name}</p>
           <p className="text-xs text-muted-foreground">{scoreLabel(lender)}</p>
+          {preference ? (
+            <span className="mt-1 inline-flex w-fit rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
+              Preference {preference}
+            </span>
+          ) : null}
         </div>
         <button
           type="button"
@@ -134,6 +145,8 @@ export function DiscoveryLendersStep() {
   const c = discoveryCopy.lenders;
   const isHlBt = productCode === "home-loan" || productCode === "home-loan-balance-transfer";
   const lenders = useMemo(() => intelligence?.lenders ?? [], [intelligence?.lenders]);
+  const [preferenceNotice, setPreferenceNotice] = useState<string | null>(null);
+  const preferences = lenderPreferencesFromAnswers(answers);
   const assisted = intelligence?.assistedOffer ?? null;
   const showAssisted = isHlBt && Boolean(assisted) && lenders.length === 0;
   const unavailable =
@@ -142,7 +155,6 @@ export function DiscoveryLendersStep() {
     (intelligence?.recommendationsStatus === "unavailable" ||
       intelligence?.recommendationsStatus === "pending" ||
       lenders.length === 0);
-  const selectedName = answers.selectedLenderName ?? "";
 
   return (
     <motion.div
@@ -182,21 +194,33 @@ export function DiscoveryLendersStep() {
             ) : null}
           </div>
         ) : (
-          lenders.map((lender) => (
+          lenders.map((lender) => {
+            const choice: LenderPreference = {
+              lenderRef: lender.id.startsWith("rank:") ? "" : lender.id,
+              lenderName: lender.name,
+              programmeRef: lender.programmeRef ?? "",
+            };
+            const preferenceIndex = preferences.findIndex((item) => sameLenderPreference(item, choice));
+            return (
             <LenderRow
               key={lender.id}
               lender={lender}
-              selected={selectedName === lender.name && (answers.selectedLenderRef || "") === (lender.id.startsWith("rank:") ? "" : lender.id)}
-              onSelect={() =>
-                selectMatchedLender({
-                  lenderRef: lender.id.startsWith("rank:") ? "" : lender.id,
-                  lenderName: lender.name,
-                  programmeRef: lender.programmeRef ?? "",
-                })
-              }
+              preference={preferenceIndex >= 0 ? preferenceIndex + 1 : null}
+              onSelect={() => {
+                const status = selectMatchedLender(choice);
+                setPreferenceNotice(
+                  status === "limit"
+                    ? "You can choose up to three lenders. Remove one to choose a different lender."
+                    : null,
+                );
+              }}
             />
-          ))
+            );
+          })
         )}
+        {preferenceNotice ? (
+          <p role="status" className="pt-2 text-sm text-foreground">{preferenceNotice}</p>
+        ) : null}
         {intelligence?.cibilNotKnownDisclaimer && lenders.length > 0 ? (
           <p className="pt-2 text-xs leading-relaxed text-muted-foreground">{CIBIL_NOT_KNOWN_DISCLAIMER}</p>
         ) : null}
@@ -207,7 +231,7 @@ export function DiscoveryLendersStep() {
           <Button
             size="lg"
             className="h-12 w-full max-w-md sm:w-auto sm:px-10"
-            disabled={lenders.length > 0 && !selectedName}
+            disabled={lenders.length > 0 && preferences.length === 0}
             onClick={goNext}
           >
             {c.continueCta}

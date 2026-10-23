@@ -73,6 +73,11 @@ export type DeclarableAnswerState = {
   selectedLenderRef?: string;
   selectedLenderName?: string;
   selectedProgrammeRef?: string;
+  selectedLenderPreferences?: Array<{
+    lenderRef: string;
+    lenderName: string;
+    programmeRef: string;
+  }>;
 };
 
 export type ReviewFieldDef = {
@@ -233,6 +238,13 @@ export function buildCompassAnswersPayload(
     selectedLenderRef: answers.selectedLenderRef,
     selectedLenderName: answers.selectedLenderName,
     selectedProgrammeRef: answers.selectedProgrammeRef,
+    selectedLenderPreferences: Array.isArray(answers.selectedLenderPreferences)
+      ? JSON.stringify(answers.selectedLenderPreferences.map((item) => ({
+          lenderRef: item.lenderRef,
+          lenderName: item.lenderName,
+          programmeRef: item.programmeRef,
+        })))
+      : undefined,
     ...answers.fieldAnswers,
   };
   const payload: Record<string, string | number | boolean> = {};

@@ -194,6 +194,7 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("selectedLenderRef");
       keys.add("selectedLenderName");
       keys.add("selectedProgrammeRef");
+      keys.add("selectedLenderPreferences");
       break;
     case "home-loan-balance-transfer":
       keys.add("propertyType");
@@ -206,6 +207,7 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("selectedLenderRef");
       keys.add("selectedLenderName");
       keys.add("selectedProgrammeRef");
+      keys.add("selectedLenderPreferences");
       break;
     case "personal-loan":
       keys.add("incomeType");

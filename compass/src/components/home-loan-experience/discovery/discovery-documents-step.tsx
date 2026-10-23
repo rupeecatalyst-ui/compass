@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, FolderUp, Loader2, Upload } from "lucide-react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { discoveryCopy } from "@/config/home-loan-discovery";
+import { lenderPreferencesFromAnswers } from "@/lib/lender-preferences";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ export function DiscoveryDocumentsStep() {
   const reduceMotion = useReducedMotion();
   const folderInputRef = useRef<HTMLInputElement>(null);
   const c = discoveryCopy.documents;
+  const preferences = lenderPreferencesFromAnswers(answers);
 
   useEffect(() => {
     void loadLod();
@@ -62,8 +64,10 @@ export function DiscoveryDocumentsStep() {
       <div className="text-center">
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{c.heading}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{c.subtitle}</p>
-        {answers.selectedLenderName ? (
-          <p className="mt-2 text-sm text-foreground">Selected lender: {answers.selectedLenderName}</p>
+        {preferences.length > 0 ? (
+          <p className="mt-2 text-sm text-foreground">
+            {preferences.map((preference, index) => `Preference ${index + 1}: ${preference.lenderName}`).join(" · ")}
+          </p>
         ) : null}
       </div>
 

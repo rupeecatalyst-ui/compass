@@ -8,6 +8,7 @@ import { useDiscovery } from "@/components/home-loan-experience/discovery/discov
 import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
 import { isCompassCatalogProduct } from "@/config/compass-lending-products";
 import { buildReviewDeclarationRows } from "@/lib/declarable-journey-answers";
+import { lenderPreferencesFromAnswers } from "@/lib/lender-preferences";
 import { journeyConsent } from "@/config/legal";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
@@ -110,12 +111,12 @@ export function DiscoveryReviewStep() {
           <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {c.recommendationsLabel}
           </h3>
-          {answers.selectedLenderName ? (
-            <p className="mt-2 flex items-center gap-2 text-sm font-medium text-foreground">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary">✓</span>
-              {answers.selectedLenderName}
+          {lenderPreferencesFromAnswers(answers).map((preference, index) => (
+            <p key={`${preference.lenderRef}-${preference.programmeRef}-${preference.lenderName}`} className="mt-2 flex items-center gap-2 text-sm font-medium text-foreground">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs text-primary-foreground">{index + 1}</span>
+              Preference {index + 1}: {preference.lenderName}
             </p>
-          ) : null}
+          ))}
           {intelligence?.lenders.length ? (
             <ul className="mt-3 space-y-2 text-sm">
               {intelligence.lenders.map((lender) => (

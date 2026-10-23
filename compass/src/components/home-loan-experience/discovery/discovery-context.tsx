@@ -8,6 +8,13 @@ import {
   readProductCodeFromPathname,
 } from "@/config/compass-lending-products";
 import { isDeclarableNumericKey } from "@/lib/declarable-journey-answers";
+import {
+  lenderPreferencesFromAnswers,
+  parseLenderPreferences,
+  preferenceAnswerFields,
+  toggleLenderPreference,
+  type LenderPreference,
+} from "@/lib/lender-preferences";
 import { persistDiscoveryAnswers, persistJourneyToken, restoreDiscoveryAnswers, restoreJourneyToken } from "@/lib/discovery-session";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
 import {
@@ -62,6 +69,8 @@ export type DiscoveryAnswers = {
   selectedLenderName?: string;
   /** Canonical programme ref from the recommendation card, when the API returns one. */
   selectedProgrammeRef?: string;
+  /** Customer selection sequence. At most three. Preference 1 is also the single-lender fields. */
+  selectedLenderPreferences?: LenderPreference[];
   fieldAnswers?: Record<string, string>;
   /** Presentation labels for governed master values such as a city id. */
   fieldLabels?: Record<string, string>;
@@ -154,11 +163,7 @@ type DiscoveryContextValue = {
   closeDiscovery: () => void;
   setAnswer: <K extends keyof DiscoveryAnswers>(key: K, value: DiscoveryAnswers[K]) => void;
   setFieldAnswer: (fieldId: string, value: string, displayLabel?: string) => void;
-  selectMatchedLender: (selection: {
-    lenderRef: string;
-    lenderName: string;
-    programmeRef: string;
-  }) => void;
+  selectMatchedLender: (selection: LenderPreference) => "selected" | "removed" | "limit";
   goNext: (arg?: Partial<DiscoveryAnswers> | { nativeEvent?: unknown }) => void;
   goBack: () => void;
   nudgeCompass: () => void;
@@ -177,6 +182,14 @@ type DiscoveryContextValue = {
 };
 
 const DiscoveryContext = createContext<DiscoveryContextValue | null>(null);
+
+function stringAnswer(
+  answers: Record<string, string | number | boolean | null> | undefined,
+  key: string,
+): string {
+  const value = answers?.[key];
+  return typeof value === "string" ? value : "";
+}
 
 function mergeStoredAnswers(stored: Record<string, unknown> | null): DiscoveryAnswers {
   if (!stored) return { ...defaultAnswers };
@@ -203,6 +216,8 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [configUnavailable, setConfigUnavailable] = useState(false);
   const [step, setStep] = useState("welcome");
   const [answers, setAnswers] = useState<DiscoveryAnswers>(defaultAnswers);
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
   const [journeyConfig, setJourneyConfig] = useState<CompassJourneyConfig | null>(null);
   const [compassNudge, setCompassNudge] = useState(0);
   const [journeyComplete, setJourneyComplete] = useState(false);
@@ -279,8 +294,20 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
               })
               .catch(() => setConfigUnavailable(true));
           }
-          setAnswers((prev) => ({
+          setAnswers((prev) => {
+            const resumedPreferences = Object.prototype.hasOwnProperty.call(resume.answers ?? {}, "selectedLenderPreferences")
+              ? parseLenderPreferences(resume.answers.selectedLenderPreferences)
+              : lenderPreferencesFromAnswers({
+                  selectedLenderRef: stringAnswer(resume.answers, "selectedLenderRef"),
+                  selectedLenderName: stringAnswer(resume.answers, "selectedLenderName"),
+                  selectedProgrammeRef: stringAnswer(resume.answers, "selectedProgrammeRef"),
+                });
+            const selection = resumedPreferences.length > 0 || Object.prototype.hasOwnProperty.call(resume.answers ?? {}, "selectedLenderPreferences")
+              ? preferenceAnswerFields(resumedPreferences)
+              : {};
+            return {
             ...prev,
+            ...selection,
             displayName: resume.displayName ?? prev.displayName,
             personalEmail: resume.personalEmail ?? prev.personalEmail,
             fieldAnswers: {
@@ -291,7 +318,8 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
                   .map(([key, value]) => [key, String(value)]),
               ),
             },
-          }));
+          };
+          });
         })
         .catch(() => undefined);
     }
@@ -389,22 +417,19 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const selectMatchedLender = useCallback(
-    (selection: { lenderRef: string; lenderName: string; programmeRef: string }) => {
-      setAnswers((prev) => {
-        const next = {
-          ...prev,
-          selectedLenderRef: selection.lenderRef,
-          selectedLenderName: selection.lenderName,
-          selectedProgrammeRef: selection.programmeRef,
-        };
-        if (typeof window !== "undefined") {
-          persistDiscoveryAnswers(window.sessionStorage, productCode, next);
-        }
-        if (journeySessionToken) {
-          void persistCompassAnswers(journeySessionToken, productCode, next);
-        }
-        return next;
-      });
+    (selection: LenderPreference) => {
+      const result = toggleLenderPreference(lenderPreferencesFromAnswers(answersRef.current), selection);
+      if (result.status === "limit") return result.status;
+      const next = { ...answersRef.current, ...preferenceAnswerFields(result.preferences) };
+      answersRef.current = next;
+      setAnswers(next);
+      if (typeof window !== "undefined") {
+        persistDiscoveryAnswers(window.sessionStorage, productCode, next);
+      }
+      if (journeySessionToken) {
+        void persistCompassAnswers(journeySessionToken, productCode, next);
+      }
+      return result.status;
     },
     [productCode, journeySessionToken],
   );
