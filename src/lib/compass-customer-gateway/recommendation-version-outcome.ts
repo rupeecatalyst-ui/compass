@@ -31,12 +31,20 @@ const LABEL_ALIASES: Record<string, string> = {
   residency: "Residency",
 };
 
+/** Stored when a recalculation finishes without an authoritative eligibility result. */
+export const INSUFFICIENT_RECOMMENDATION_EVIDENCE_NOTE =
+  "This recalculation did not record a completed lender evaluation.";
+
+export const AMBIGUOUS_RECOMMENDATION_EXPLANATION =
+  "This saved version does not contain enough evidence to classify the recommendation outcome.";
+
 export type StoredRecommendationOutcomeKind =
   | "recommended"
   | "missing_assessment"
   | "no_eligible_lenders"
   | "unsupported_methodology"
   | "calculation_failure"
+  | "insufficient_evidence"
   | "original_unavailable";
 
 export type StoredRecommendationOutcome = {
@@ -78,10 +86,7 @@ export function classifyStoredRecommendationOutcome(version: VersionFacts): Stor
   if (note.startsWith("Missing required assessment:")) {
     return { kind: "missing_assessment", explanation: note };
   }
-  if (
-    note === OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.NO_ELIGIBLE_PROGRAMMES
-    || note.startsWith("This version did not produce eligible lenders")
-  ) {
+  if (note === OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.NO_ELIGIBLE_PROGRAMMES) {
     return { kind: "no_eligible_lenders", explanation: note };
   }
   if (
@@ -92,20 +97,19 @@ export function classifyStoredRecommendationOutcome(version: VersionFacts): Stor
   ) {
     return { kind: "calculation_failure", explanation: note };
   }
+  if (note === INSUFFICIENT_RECOMMENDATION_EVIDENCE_NOTE) {
+    return { kind: "insufficient_evidence", explanation: AMBIGUOUS_RECOMMENDATION_EXPLANATION };
+  }
   if (note === GENERIC_MISSING_ASSESSMENT_NOTE || note.startsWith("Enter the missing details")) {
     if (assessmentLooksPopulated(version.assessment)) {
-      return {
-        kind: "no_eligible_lenders",
-        explanation:
-          "This version did not produce eligible lenders. The saved assessment is present, so this is not a missing-details assessment.",
-      };
+      return { kind: "insufficient_evidence", explanation: AMBIGUOUS_RECOMMENDATION_EXPLANATION };
     }
     return { kind: "missing_assessment", explanation: GENERIC_MISSING_ASSESSMENT_NOTE };
   }
   if (!note) {
-    return { kind: "no_eligible_lenders", explanation: "This version has no lender recommendations." };
+    return { kind: "insufficient_evidence", explanation: AMBIGUOUS_RECOMMENDATION_EXPLANATION };
   }
-  return { kind: "calculation_failure", explanation: note };
+  return { kind: "insufficient_evidence", explanation: AMBIGUOUS_RECOMMENDATION_EXPLANATION };
 }
 
 /**
@@ -138,7 +142,7 @@ export function recalculationNote(input: {
       .filter((label, index, all) => label && all.indexOf(label) === index)
       .filter((label) => !assessmentHas(input.assessment, label));
     if (absent.length > 0) return `Missing required assessment: ${absent.join(", ")}`;
-    return OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.NO_ELIGIBLE_PROGRAMMES;
+    return INSUFFICIENT_RECOMMENDATION_EVIDENCE_NOTE;
   }
   return input.guidance.trim() || OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.RUN_FAILED;
 }

@@ -1,10 +1,13 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { enterpriseOpportunityRepository } from "@server/repositories/enterprise-opportunity/enterprise-opportunity.repository";
 import { dispatchOperationalTransactionEmail } from "@server/services/enterprise-communication-center/operational-email-dispatch.service";
 import { renderAccountingInvoicePdf } from "@server/services/enterprise-accounting-invoice/invoice-pdf.service";
+import { resolveAuthenticatedDocumentWorkspaceActor } from "@server/services/document-workspace/document-workspace-access.service";
+import {
+  appendTransactionEmailHtmlSignature,
+  appendTransactionEmailSignature,
+} from "@/lib/enterprise-communication-center/transaction-email-signature";
 import {
   assertOpportunityReadAccess,
   resolveCaseReadAccess,
@@ -53,6 +56,20 @@ async function loadVersion(userId: string, opportunityId: string, versionNumber:
   return { access, opportunity, version, recipient, message };
 }
 
+/** Same signature the operational sender appends, so preview and delivery match. */
+async function messageAsDelivered(
+  userId: string,
+  message: RecommendationClientMessage,
+): Promise<RecommendationClientMessage> {
+  const actor = await resolveAuthenticatedDocumentWorkspaceActor({ userId });
+  const name = actor.displayName?.trim() ?? "";
+  return {
+    ...message,
+    textBody: appendTransactionEmailSignature(message.textBody, name),
+    htmlBody: appendTransactionEmailHtmlSignature(message.htmlBody, name),
+  };
+}
+
 export async function previewRecommendationClientMessage(input: {
   userId: string;
   opportunityId: string;
@@ -75,7 +92,7 @@ export async function previewRecommendationClientMessage(input: {
         resend: false,
       }) === "duplicate"
       : false,
-    message: loaded.message,
+    message: await messageAsDelivered(input.userId, loaded.message),
     opportunityReference: loaded.opportunity.opportunityNumber,
   };
 }
@@ -116,6 +133,7 @@ export async function sendRecommendationClientMessage(input: {
       updatedBy: input.userId,
     });
   };
+  const delivered = await messageAsDelivered(input.userId, loaded.message);
   const pending: RecommendationDispatchRecord = {
     versionNumber: input.versionNumber,
     recipient: loaded.recipient,
@@ -145,6 +163,7 @@ export async function sendRecommendationClientMessage(input: {
       }),
       subject: loaded.message.subject,
       textBody: loaded.message.textBody,
+      htmlBody: loaded.message.htmlBody,
       primaryToRole: "customer",
       customerDisplayName: loaded.opportunity.primaryContactName,
       opportunityReference: loaded.opportunity.opportunityNumber,
@@ -167,17 +186,8 @@ export async function sendRecommendationClientMessage(input: {
     deliveryStatus,
     providerAccepted: deliveryStatus === "sent",
     recipient: loaded.recipient,
-    message: loaded.message,
+    message: delivered,
   };
-}
-
-async function logoDataUri(): Promise<string | null> {
-  try {
-    const bytes = await readFile(path.join(process.cwd(), "public", "brand", "rupee-catalyst-logo.png"));
-    return `data:image/png;base64,${bytes.toString("base64")}`;
-  } catch {
-    return null;
-  }
 }
 
 export async function renderRecommendationPdf(input: {
@@ -190,7 +200,7 @@ export async function renderRecommendationPdf(input: {
     message: loaded.message,
     customerName: loaded.opportunity.primaryContactName,
     opportunityReference: loaded.opportunity.opportunityNumber,
-    logoSrc: await logoDataUri(),
+    logoSrc: null,
   });
   const bytes = await renderAccountingInvoicePdf(html);
   return {

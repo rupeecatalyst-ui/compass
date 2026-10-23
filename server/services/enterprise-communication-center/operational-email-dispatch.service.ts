@@ -1,4 +1,4 @@
-import { appendTransactionEmailSignature } from "@/lib/enterprise-communication-center/transaction-email-signature";
+import { appendTransactionEmailHtmlSignature, appendTransactionEmailSignature } from "@/lib/enterprise-communication-center/transaction-email-signature";
 import type { EmailRecipientSelections } from "@/lib/enterprise-communication-center/recipient-selection";
 /**
  * CO-C1-COMMUNICATION-001 — Unified server-side operational transaction email dispatch.
@@ -75,6 +75,7 @@ export type DispatchOperationalTransactionEmailInput = {
   actorName: string;
   subject: string;
   textBody: string;
+  htmlBody?: string;
   primaryToRole?: TransactionPrimaryToRole;
   internalUserId?: string | null;
   includePrimaryTo?: EmailRecipientSelections["includePrimaryTo"];
@@ -342,6 +343,9 @@ export async function dispatchOperationalTransactionEmail(
     cc: recipients.cc,
     subject,
     textBody: appendTransactionEmailSignature(input.textBody, signatureName),
+    htmlBody: input.htmlBody?.trim()
+      ? appendTransactionEmailHtmlSignature(input.htmlBody, signatureName)
+      : undefined,
     messageId,
     attachments,
     ehloName: "catalyst-one-transaction-email",

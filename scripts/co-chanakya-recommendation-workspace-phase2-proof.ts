@@ -11,15 +11,20 @@ import {
   rememberOriginalCompassRecommendation,
   stampCompassCustomerSelection,
 } from "../src/lib/compass-customer-gateway/recommendation-history";
+import { appendTransactionEmailHtmlSignature, appendTransactionEmailSignature } from "../src/lib/enterprise-communication-center/transaction-email-signature";
+import { buildMimeMessage } from "../server/services/enterprise-communication-center/smtp-transport.service";
 import {
   buildRecommendationClientMessage,
   buildRecommendationPdfHtml,
   nextRecommendationDispatchAttempt,
+  RECOMMENDATION_CLIENT_LOGO_URL,
   recommendationDispatchDecision,
 } from "../src/lib/compass-customer-gateway/recommendation-client-message";
 import {
+  AMBIGUOUS_RECOMMENDATION_EXPLANATION,
   classifyStoredRecommendationOutcome,
   GENERIC_MISSING_ASSESSMENT_NOTE,
+  INSUFFICIENT_RECOMMENDATION_EVIDENCE_NOTE,
   recalculationNote,
 } from "../src/lib/compass-customer-gateway/recommendation-version-outcome";
 
@@ -35,8 +40,9 @@ const mislabeled = classifyStoredRecommendationOutcome({
   note: GENERIC_MISSING_ASSESSMENT_NOTE,
   assessment: populated,
 });
-assert.equal(mislabeled.kind, "no_eligible_lenders");
-assert.match(mislabeled.explanation ?? "", /saved assessment is present/);
+assert.equal(mislabeled.kind, "insufficient_evidence");
+assert.equal(mislabeled.explanation, AMBIGUOUS_RECOMMENDATION_EXPLANATION);
+assert.equal((mislabeled.explanation ?? "").includes("eligible"), false);
 
 const genuinelyMissing = classifyStoredRecommendationOutcome({
   cards: [],
@@ -66,7 +72,36 @@ assert.equal(recalculationNote({
   guidance: GENERIC_MISSING_ASSESSMENT_NOTE,
   assessment: populated,
   resultReady: false,
-}), OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.NO_ELIGIBLE_PROGRAMMES);
+}), INSUFFICIENT_RECOMMENDATION_EVIDENCE_NOTE);
+
+const explicitNoEligible = classifyStoredRecommendationOutcome({
+  cards: [],
+  note: OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.NO_ELIGIBLE_PROGRAMMES,
+  assessment: populated,
+});
+assert.equal(explicitNoEligible.kind, "no_eligible_lenders");
+
+const calculationFailure = classifyStoredRecommendationOutcome({
+  cards: [],
+  note: OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY.RUN_FAILED,
+  assessment: populated,
+});
+assert.equal(calculationFailure.kind, "calculation_failure");
+
+const emptyHistory = classifyStoredRecommendationOutcome({
+  cards: [],
+  note: "",
+  assessment: populated,
+});
+assert.equal(emptyHistory.kind, "insufficient_evidence");
+assert.equal(emptyHistory.explanation, AMBIGUOUS_RECOMMENDATION_EXPLANATION);
+
+const storedGap = classifyStoredRecommendationOutcome({
+  cards: [],
+  note: INSUFFICIENT_RECOMMENDATION_EVIDENCE_NOTE,
+  assessment: populated,
+});
+assert.equal(storedGap.kind, "insufficient_evidence");
 
 assert.match(recalculationNote({
   workspaceState: "INFORMATION_REQUIRED",
@@ -149,6 +184,42 @@ assert.match(pdf, /Axis Bank/);
 assert.equal(pdf.includes("HDFC Bank"), false);
 assert.match(pdf, /Rupee Catalyst/);
 assert.match(pdf, /OPP-2026-000182/);
+assert.match(pdf, /Not available/);
+assert.match(pdf, new RegExp(RECOMMENDATION_CLIENT_LOGO_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+assert.match(secondMessage.htmlBody, /Axis Bank/);
+assert.equal(secondMessage.htmlBody.includes("HDFC Bank"), false);
+assert.match(secondMessage.htmlBody, /Your Personalised Home Loan Recommendations/);
+assert.match(secondMessage.htmlBody, /Not available/);
+assert.match(secondMessage.htmlBody, /indicative/);
+const signedHtml = appendTransactionEmailHtmlSignature(secondMessage.htmlBody, "Asha Rao");
+const signedText = appendTransactionEmailSignature(secondMessage.textBody, "Asha Rao");
+const withHtml = buildMimeMessage({
+  fromEmail: "customers@rupeecatalyst.com",
+  fromName: "Rupee Catalyst Connect",
+  replyToEmail: "customers@rupeecatalyst.com",
+  to: ["customer@example.com"],
+  cc: [],
+  subject: secondMessage.subject,
+  textBody: signedText,
+  htmlBody: signedHtml,
+});
+assert.match(withHtml, /multipart\/alternative/);
+assert.match(withHtml, /text\/plain/);
+assert.match(withHtml, /text\/html/);
+assert.equal(withHtml.includes(signedHtml), true);
+assert.equal(withHtml.includes("Axis Bank"), true);
+assert.equal(withHtml.includes("HDFC Bank"), false);
+const plainOnly = buildMimeMessage({
+  fromEmail: "customers@rupeecatalyst.com",
+  fromName: "Rupee Catalyst Connect",
+  replyToEmail: "customers@rupeecatalyst.com",
+  to: ["customer@example.com"],
+  cc: [],
+  subject: "Text",
+  textBody: "Unchanged text",
+});
+assert.match(plainOnly, /Content-Type: text\/plain; charset=utf-8/);
+assert.equal(plainOnly.includes("multipart/alternative"), false);
 
 assert.equal(recommendationDispatchDecision({
   records: [],
@@ -205,6 +276,10 @@ assert.equal(workspace.includes("Send Lender Recommendations to Client"), true);
 assert.equal(workspace.includes("confirm: true"), true);
 assert.equal(delivery.includes("enterpriseDeal.create"), false);
 assert.equal(delivery.includes("dispatchOperationalTransactionEmail"), true);
+assert.equal(delivery.includes("htmlBody: loaded.message.htmlBody"), true);
+assert.equal(delivery.includes("appendTransactionEmailHtmlSignature"), true);
+assert.equal(workspace.includes("srcDoc={deliveredHtml}"), true);
+assert.equal(workspace.includes("preview.message.htmlBody"), true);
 assert.equal(route.includes("recalculationNote"), true);
 assert.equal(route.includes("assertOpportunityReadAccess"), true);
 

@@ -10,6 +10,10 @@ export const RECOMMENDATION_CLIENT_EMAIL_HEADING = "Your Personalised Home Loan 
 export const RECOMMENDATION_INDICATIVE_DISCLAIMER =
   "These recommendations are indicative and remain subject to the lender's own assessment, documentation and approval.";
 
+/** Live public rendering of the approved Rupee Catalyst mark. */
+export const RECOMMENDATION_CLIENT_LOGO_URL =
+  "https://www.rupeecatalyst.com/pwa/icons/icon-512x512.png";
+
 export const COMPASS_RECOMMENDATION_DISPATCHES_KEY = "compassRecommendationDispatches";
 
 export type RecommendationDispatchStatus = "sent" | "failed" | "pending" | "disabled";
@@ -49,6 +53,7 @@ export type RecommendationClientMessage = {
   disclaimer: string;
   footer: string;
   textBody: string;
+  htmlBody: string;
 };
 
 function escapeHtml(value: string): string {
@@ -98,8 +103,51 @@ export function recommendationFooter(): string {
     brand.tagline,
     brand.websiteUrl,
     brand.supportPhone ? `Support: ${brand.supportPhone}` : "",
-    `Logo: ${brand.logoPath}`,
   ].filter(Boolean).join("\n");
+}
+
+function lenderRows(lenders: RecommendationClientLenderRow[]): string {
+  if (lenders.length === 0) {
+    return "<tr><td colspan=\"8\" style=\"border:1px solid #d5dbe3;padding:6px 8px\">No lender options were saved for this recommendation.</td></tr>";
+  }
+  return lenders.map((lender) => `<tr>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(lender.lender)}</td>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(lender.rank != null ? String(lender.rank) : "Not available")}</td>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(lender.preference != null ? `Preference ${lender.preference}` : "Not available")}</td>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(cell(lender.eligibleOffer))}</td>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(cell(lender.interestRate))}</td>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(cell(lender.emi))}</td>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(cell(lender.tenure))}</td>
+      <td style="border:1px solid #d5dbe3;padding:6px 8px">${escapeHtml(cell(lender.processingTime))}</td>
+    </tr>`).join("");
+}
+
+export function buildRecommendationEmailHtml(message: Pick<
+  RecommendationClientMessage,
+  "heading" | "greeting" | "requestedAmount" | "title" | "recordedAt" | "lenders" | "disclaimer" | "footer"
+>): string {
+  const when = message.recordedAt ? ` on ${escapeHtml(message.recordedAt)}` : "";
+  const footer = message.footer.split("\n").map((line) => `<p style="margin:0">${escapeHtml(line)}</p>`).join("");
+  return `<img src="${escapeHtml(RECOMMENDATION_CLIENT_LOGO_URL)}" alt="Rupee Catalyst" width="72" height="72" />
+<h1 style="font-size:22px;color:#142033">${escapeHtml(message.heading)}</h1>
+<p>${escapeHtml(message.greeting)}</p>
+<p>Requested loan amount: ${escapeHtml(cell(message.requestedAmount))}</p>
+<p>${escapeHtml(message.title)}${when}</p>
+<table style="width:100%;border-collapse:collapse">
+  <thead><tr>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">Lender</th>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">Rank</th>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">Preference</th>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">Eligible offer</th>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">Interest</th>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">EMI</th>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">Tenure</th>
+    <th style="border:1px solid #d5dbe3;padding:6px 8px;background:#10233f;color:#ffffff;text-align:left">Processing</th>
+  </tr></thead>
+  <tbody>${lenderRows(message.lenders)}</tbody>
+</table>
+<p>${escapeHtml(message.disclaimer)}</p>
+${footer}`;
 }
 
 export function buildRecommendationClientMessage(input: {
@@ -138,8 +186,9 @@ export function buildRecommendationClientMessage(input: {
       ].join(" | "));
     }
   }
-  lines.push("", RECOMMENDATION_INDICATIVE_DISCLAIMER, "", recommendationFooter());
-  return {
+  const footer = recommendationFooter();
+  lines.push("", RECOMMENDATION_INDICATIVE_DISCLAIMER, "", footer);
+  const message = {
     versionNumber: input.version.versionNumber,
     title: input.version.title,
     recordedAt: input.version.recordedAt,
@@ -149,9 +198,12 @@ export function buildRecommendationClientMessage(input: {
     requestedAmount,
     lenders,
     disclaimer: RECOMMENDATION_INDICATIVE_DISCLAIMER,
-    footer: recommendationFooter(),
+    footer,
     textBody: lines.join("\n"),
+    htmlBody: "",
   };
+  message.htmlBody = buildRecommendationEmailHtml(message);
+  return message;
 }
 
 export function buildRecommendationPdfHtml(input: {
@@ -160,43 +212,16 @@ export function buildRecommendationPdfHtml(input: {
   opportunityReference: string | null;
   logoSrc: string | null;
 }): string {
-  const rows = input.message.lenders.length === 0
-    ? "<tr><td colspan=\"8\">No lender options were saved for this recommendation.</td></tr>"
-    : input.message.lenders.map((lender) => `<tr>
-      <td>${escapeHtml(lender.lender)}</td>
-      <td>${escapeHtml(lender.rank != null ? String(lender.rank) : "Not available")}</td>
-      <td>${escapeHtml(lender.preference != null ? `Preference ${lender.preference}` : "Not available")}</td>
-      <td>${escapeHtml(cell(lender.eligibleOffer))}</td>
-      <td>${escapeHtml(cell(lender.interestRate))}</td>
-      <td>${escapeHtml(cell(lender.emi))}</td>
-      <td>${escapeHtml(cell(lender.tenure))}</td>
-      <td>${escapeHtml(cell(lender.processingTime))}</td>
-    </tr>`).join("");
-  const logo = input.logoSrc
-    ? `<img src="${escapeHtml(input.logoSrc)}" alt="Rupee Catalyst" width="180" />`
-    : `<p><strong>${escapeHtml(RUPEE_CATALYST_CORPORATE_BRAND.legalName)}</strong></p>`;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(input.message.subject)}</title>
-<style>
-  body { font-family: Arial, sans-serif; color: #142033; }
-  h1 { font-size: 22px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  th, td { border: 1px solid #d5dbe3; padding: 6px 8px; text-align: left; font-size: 12px; }
-  th { background: #10233f; color: #ffffff; }
-  .note { margin-top: 16px; font-size: 12px; }
-</style></head><body>
-${logo}
-<h1>${escapeHtml(input.message.heading)}</h1>
-<p>${escapeHtml(input.message.greeting)}</p>
+  const logoSrc = input.logoSrc?.trim() || RECOMMENDATION_CLIENT_LOGO_URL;
+  const body = buildRecommendationEmailHtml(input.message).replace(
+    `src="${escapeHtml(RECOMMENDATION_CLIENT_LOGO_URL)}"`,
+    `src="${escapeHtml(logoSrc)}"`,
+  );
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(input.message.subject)}</title></head>
+<body style="font-family:Arial,sans-serif;color:#142033">
 <p>Opportunity: ${escapeHtml(input.opportunityReference?.trim() || "Not available")}</p>
 <p>Customer: ${escapeHtml(input.customerName?.trim() || "Not available")}</p>
-<p>Requested loan amount: ${escapeHtml(cell(input.message.requestedAmount))}</p>
-<p>${escapeHtml(input.message.title)}${input.message.recordedAt ? ` on ${escapeHtml(input.message.recordedAt)}` : ""}</p>
-<table>
-  <thead><tr><th>Lender</th><th>Rank</th><th>Preference</th><th>Eligible offer</th><th>Interest</th><th>EMI</th><th>Tenure</th><th>Processing</th></tr></thead>
-  <tbody>${rows}</tbody>
-</table>
-<p class="note">${escapeHtml(input.message.disclaimer)}</p>
-<pre>${escapeHtml(input.message.footer)}</pre>
+${body}
 </body></html>`;
 }
 

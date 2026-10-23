@@ -604,24 +604,17 @@ function EmailPreview({
   onCancel: () => void;
   onConfirm: (resend: boolean) => void;
 }) {
+  const deliveredHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${preview.message.htmlBody}</body></html>`;
   return (
     <div className="space-y-2 rounded-md border p-3">
-      <p className="text-sm font-semibold text-foreground">{preview.message.heading}</p>
-      <p className="text-sm text-foreground">Version: {preview.message.title}</p>
       <p className="text-sm text-foreground">Recipient: {preview.recipient || "No customer email is saved on this Opportunity."}</p>
       <p className="text-sm text-foreground">Subject: {preview.message.subject}</p>
-      <p className="text-sm text-foreground">{preview.message.greeting}</p>
-      <p className="text-sm text-foreground">Requested loan amount: {preview.message.requestedAmount || "Not available"}</p>
-      <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
-        {preview.message.lenders.length === 0 ? <li>No lender options were saved for this version.</li> : preview.message.lenders.map((lender) => (
-          <li key={`${lender.rank}-${lender.lender}`}>
-            {lender.lender}, rank {lender.rank ?? "Not available"}
-            {lender.preference != null ? `, Preference ${lender.preference}` : ""}
-            , interest {lender.interestRate || "Not available"}
-          </li>
-        ))}
-      </ul>
-      <p className="text-sm text-foreground">{preview.message.disclaimer}</p>
+      <iframe
+        title="Customer email preview"
+        sandbox=""
+        srcDoc={deliveredHtml}
+        className="h-96 w-full rounded-md border bg-white"
+      />
       {preview.duplicate ? (
         <p className="text-sm text-foreground">This version was already sent to this recipient. A resend is recorded separately.</p>
       ) : null}
