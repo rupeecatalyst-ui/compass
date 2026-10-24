@@ -125,4 +125,11 @@ export const MARKETING_COMMAND_CENTER_SECTIONS: MarketingNavSection[] = [
     href: ROUTES.ADMIN_MARKETING_SETTINGS,
     foundationOnly: false,
   },
+  {
+    id: "sender-inspect",
+    title: "Inspect Sender",
+    description: "Read-only lookup of a known from-address. Does not list or seed senders.",
+    href: ROUTES.ADMIN_MARKETING_SENDER_INSPECT,
+    foundationOnly: false,
+  },
 ];

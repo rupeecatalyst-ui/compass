@@ -74,3 +74,12 @@ export const MARKETING_SENDER_LIVE_NOT_VERIFIED = "SENDER_LIVE_NOT_VERIFIED" as 
 export const MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION =
   "AWAITING_PROVIDER_VERIFICATION" as const;
 export const MARKETING_DNS_MUTATION_FORBIDDEN = "DNS_MUTATION_FORBIDDEN" as const;
+
+/** Read-only Hostinger Phase-1 from-address inspect (no list / seed). */
+export const MARKETING_SENDER_INSPECT_FROM_ADDRESS = "opportunities@rupeecatalyst.com";
+
+export function marketingSenderInspectPath(
+  fromAddress: string = MARKETING_SENDER_INSPECT_FROM_ADDRESS,
+): string {
+  return `/api/admin/marketing/sender-identities?fromAddress=${encodeURIComponent(fromAddress)}`;
+}

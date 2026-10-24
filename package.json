@@ -211,6 +211,7 @@
     "verify:co-marketing-campaign-durability": "node --import tsx scripts/co-marketing-campaign-durability-verify.mjs",
     "verify:co-marketing-sender-identity-durability": "node --import tsx scripts/co-marketing-sender-identity-durability-verify.mjs",
     "verify:co-marketing-sender-identity-inspect": "node --import tsx scripts/co-marketing-sender-identity-inspect-verify.mjs",
+    "verify:co-marketing-sender-inspect-ui": "node --import tsx scripts/co-marketing-sender-inspect-ui-verify.mjs",
     "verify:co-marketing-redesign-001": "node --import tsx scripts/co-marketing-redesign-001-schema-verify.mjs",
     "verify:co-marketing-redesign-002": "node --import tsx scripts/co-marketing-redesign-002-durability-verify.mjs",
     "verify:co-marketing-redesign-003": "node --import tsx scripts/co-marketing-redesign-003-sheets-snapshot-verify.mjs",

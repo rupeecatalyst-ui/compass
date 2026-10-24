@@ -186,6 +186,8 @@ export {
   MARKETING_SENDER_LIVE_NOT_VERIFIED,
   MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION,
   MARKETING_SENDER_VERIFY_EMAIL_FORBIDDEN,
+  MARKETING_SENDER_INSPECT_FROM_ADDRESS,
+  marketingSenderInspectPath,
   type MarketingDeliverabilityCheckId,
   type MarketingDeliverabilityState,
   type MarketingSenderApprovalStatus,

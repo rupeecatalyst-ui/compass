@@ -147,6 +147,7 @@ export const ROUTES = {
   ADMIN_MARKETING_ATTRIBUTION: "/admin/marketing/attribution",
   ADMIN_MARKETING_ANALYTICS: "/admin/marketing/analytics",
   ADMIN_MARKETING_SETTINGS: "/admin/marketing/settings",
+  ADMIN_MARKETING_SENDER_INSPECT: "/admin/marketing/sender-inspect",
   /** CO-WP-ACCESS-001 — Wealth Partner Access & Entitlements */
   ADMIN_PARTNER_ENTITLEMENTS: "/admin/partner-entitlements",
   /** CO-AI-G2-W8 — Shadow Mode Dashboard (Product Owner review only) */
@@ -342,6 +343,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_MARKETING_ATTRIBUTION,
   ROUTES.ADMIN_MARKETING_ANALYTICS,
   ROUTES.ADMIN_MARKETING_SETTINGS,
+  ROUTES.ADMIN_MARKETING_SENDER_INSPECT,
   ROUTES.ADMIN_PARTNER_ENTITLEMENTS,
   ROUTES.ADMIN_SHADOW_MODE_DASHBOARD,
   ROUTES.ADMIN_ENTERPRISE_COMMUNICATION,
