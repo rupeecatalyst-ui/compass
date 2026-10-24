@@ -44,6 +44,14 @@ export const marketingSenderService = {
     return rows.map((row) => marketingSenderIdentityStore.toPublicDto(row));
   },
 
+  async findByFromAddress(actor: Actor, fromAddress: string) {
+    assertNoSend();
+    assertMarketingPermission(actor, MARKETING_PERMISSIONS.SENDER_MANAGE);
+    const organizationId = orgId(actor.organizationId);
+    const identity = await marketingSenderIdentityStore.findByFromAddress(organizationId, fromAddress);
+    return identity ? marketingSenderIdentityStore.toPublicDto(identity) : null;
+  },
+
   async upsert(
     actor: Actor,
     input: Parameters<typeof marketingSenderIdentityStore.upsert>[0],

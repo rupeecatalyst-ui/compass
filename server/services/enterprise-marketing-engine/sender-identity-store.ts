@@ -130,6 +130,15 @@ function usePrismaPersistence(): boolean {
   return testForcePrisma || isEnterprisePersistencePrisma();
 }
 
+/** Prisma-only inspect. Never uses the memory Map, seed, or org advisory lock. */
+function inspectPrismaTable(): SenderIdentityPrismaDelegate {
+  if (testDelegate) return testDelegate;
+  if (isEnterprisePersistencePrisma()) {
+    return prisma.enterpriseMarketingSenderIdentity as unknown as SenderIdentityPrismaDelegate;
+  }
+  persistenceFailed(new Error("Sender identity inspect requires Prisma persistence"));
+}
+
 function credentialConfigured(providerType: MarketingSenderIdentity["providerMapping"]["providerType"]): boolean {
   if (providerType === "dry_run") return ENTERPRISE_MARKETING_EMAIL_MODE === "dry_run";
   const key = MARKETING_EMAIL_PROVIDER_ENV_KEYS[providerType as keyof typeof MARKETING_EMAIL_PROVIDER_ENV_KEYS];
@@ -420,6 +429,30 @@ export const marketingSenderIdentityStore = {
     const item = identities.get(id);
     if (!item || item.organizationId !== organizationId) return null;
     return item;
+  },
+
+  async findByFromAddress(
+    organizationId: string,
+    fromAddress: string,
+  ): Promise<MarketingSenderIdentity | null> {
+    const normalized = fromAddress.trim().toLowerCase();
+    if (!normalized) {
+      throw Object.assign(new Error("fromAddress is required"), {
+        statusCode: 400,
+        code: "INVALID_INPUT",
+      });
+    }
+    const table = inspectPrismaTable();
+    try {
+      const row = await table.findFirst({
+        where: { organizationId, fromAddress: normalized },
+      });
+      return row ? mapRow(row) : null;
+    } catch (err) {
+      if (isBusinessError(err)) throw err;
+      if ((err as { code?: string } | null)?.code === "SENDER_IDENTITY_PERSISTENCE_FAILED") throw err;
+      persistenceFailed(err);
+    }
   },
 
   async getDefaultActive(organizationId: string): Promise<MarketingSenderIdentity | null> {

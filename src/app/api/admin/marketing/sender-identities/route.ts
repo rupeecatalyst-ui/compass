@@ -50,6 +50,14 @@ export async function GET(request: Request) {
     if (url.searchParams.get("view") === "delivery-mode") {
       return successResponse({ mode: marketingEmailDeliveryService.getMode() });
     }
+    const fromAddress = url.searchParams.get("fromAddress");
+    if (fromAddress !== null) {
+      if (!fromAddress.trim()) {
+        return errorResponse(400, "INVALID_INPUT", "fromAddress is required");
+      }
+      const identity = await marketingSenderService.findByFromAddress(ctx, fromAddress);
+      return successResponse({ identity, mode: marketingEmailDeliveryService.getMode() });
+    }
     const identities = await marketingSenderService.list(ctx);
     return successResponse({ identities, mode: marketingEmailDeliveryService.getMode() });
   } catch (err) {
