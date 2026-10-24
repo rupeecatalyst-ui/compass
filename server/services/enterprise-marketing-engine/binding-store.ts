@@ -65,6 +65,11 @@ export function hydrateRuntimeBinding(binding: MarketingDataSourceBinding): void
   bindings.set(binding.id, { ...binding });
 }
 
+/** Test-only: simulate process restart of the in-memory adapter cache. */
+export function clearRuntimeMarketingBindingsForTests(): void {
+  bindings.clear();
+}
+
 export const marketingDataSourceBindingStore = {
   list(organizationId: string): MarketingDataSourceBinding[] {
     seedFromEnv();

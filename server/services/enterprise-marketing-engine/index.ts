@@ -8,6 +8,7 @@ export {
   registerAuthorisedWorkbook,
   listDurableAuthorisedWorkbooks,
   ensureAudienceDurabilityPorts,
+  resolveRuntimeWorkbookForOrg,
 } from "./workbook-registry";
 export { marketingAudienceService, seedMarketingPreviouslyContacted, resetMarketingPreviouslyContacted } from "./audience.service";
 export { marketingCampaignService } from "./campaign.service";

@@ -129,6 +129,27 @@ export async function listDurableAuthorisedWorkbooks(
   return runtime;
 }
 
+function notFoundBindingError() {
+  return Object.assign(new Error("Data source binding not found"), {
+    statusCode: 404,
+    code: "NOT_FOUND",
+  });
+}
+
+function accessRevokedBindingError() {
+  return Object.assign(new Error("Access to this authorised workbook has been revoked"), {
+    statusCode: 403,
+    code: "ACCESS_REVOKED",
+  });
+}
+
+function assertRuntimeWorkbookReadable(binding: MarketingDataSourceBinding): MarketingDataSourceBinding {
+  if (binding.status === "DISABLED") {
+    throw accessRevokedBindingError();
+  }
+  return binding;
+}
+
 export async function getDurableWorkbookForOrg(
   bindingId: string,
   organizationId: string,
@@ -136,13 +157,75 @@ export async function getDurableWorkbookForOrg(
   const ports = resolvePorts();
   if (ports) {
     const row = await ports.bindings.getForOrg(bindingId, organizationId);
-    if (row?.authorised) {
+    if (row) {
       const runtime = toRuntimeBinding(row);
       hydrateRuntimeBinding(runtime);
       return runtime;
     }
   }
   return marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
+}
+
+function invalidateCachedBinding(bindingId: string, organizationId: string, lastError: string) {
+  marketingDataSourceBindingStore.patch(bindingId, organizationId, {
+    status: "DISABLED",
+    lastError,
+  });
+}
+
+function lookupFailedError(cause: unknown) {
+  const err = cause instanceof Error ? cause : new Error("Authoritative workbook lookup failed");
+  const statusCode = (cause as { statusCode?: number } | null)?.statusCode;
+  const code = (cause as { code?: string } | null)?.code;
+  return Object.assign(err, {
+    statusCode: statusCode && statusCode >= 400 ? statusCode : 503,
+    code: code || "BINDING_LOOKUP_FAILED",
+  });
+}
+
+/**
+ * Resolve an organisation-scoped registered workbook for Sheets reads.
+ * Authoritative persisted binding (bindingId + organizationId) is rechecked
+ * even when the runtime cache holds ACTIVE. Never uses an arbitrary spreadsheet
+ * ID, another organisation, or a silent Home Loan fallback.
+ */
+export async function resolveRuntimeWorkbookForOrg(
+  bindingId: string,
+  organizationId: string,
+): Promise<MarketingDataSourceBinding> {
+  const id = bindingId.trim();
+  const org = organizationId.trim();
+  if (!id || !org) {
+    throw notFoundBindingError();
+  }
+
+  const cached = marketingDataSourceBindingStore.getForOrg(id, org);
+  const ports = resolvePorts();
+  if (ports) {
+    let row;
+    try {
+      row = await ports.bindings.getForOrg(id, org);
+    } catch (cause) {
+      throw lookupFailedError(cause);
+    }
+    if (!row) {
+      if (cached) {
+        invalidateCachedBinding(id, org, "Authorised workbook not found for organization");
+      }
+      throw notFoundBindingError();
+    }
+    const runtime = toRuntimeBinding(row);
+    hydrateRuntimeBinding(runtime);
+    if (!row.authorised) {
+      throw accessRevokedBindingError();
+    }
+    return assertRuntimeWorkbookReadable(runtime);
+  }
+
+  if (cached) {
+    return assertRuntimeWorkbookReadable(cached);
+  }
+  throw notFoundBindingError();
 }
 
 export async function ensureConfiguredOrgWorkbook(

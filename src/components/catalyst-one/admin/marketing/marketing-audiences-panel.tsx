@@ -5,7 +5,7 @@
  * Definitions over external Sheets. Preview returns counts — not personal data dumps.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -28,6 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import {
+  marketingTabBelongsToDiscoveredWorkbook,
+  resolveMarketingWorkbookTabSelection,
+} from "@/lib/enterprise-marketing-engine/workbook-tab-selection";
 import { MARKETING_FILTER_OPS } from "@/constants/enterprise-marketing-engine";
 import { emptyFilterDefinition } from "@/lib/enterprise-marketing-engine/audience-filters";
 import type { MarketingDataSourceBinding } from "@/types/enterprise-marketing-data-source";
@@ -72,6 +76,15 @@ export function MarketingAudiencesPanel() {
   const [mappingConfirmed, setMappingConfirmed] = useState(false);
   const [preview, setPreview] = useState<MarketingAudiencePreviewResult | null>(null);
   const [suppressionCount, setSuppressionCount] = useState(0);
+  const bindingIdRef = useRef(bindingId);
+  bindingIdRef.current = bindingId;
+  const datasetIdRef = useRef(datasetId);
+  datasetIdRef.current = datasetId;
+  const lastBindingIdRef = useRef("");
+  const discoverySeqRef = useRef(0);
+  const preferredDatasetIdRef = useRef<string | null>(null);
+  const restoreConfirmedMappingRef = useRef(false);
+  const tabValid = marketingTabBelongsToDiscoveredWorkbook(datasetId, datasets);
 
   const loadAudiences = useCallback(async () => {
     const res = await authenticatedJsonFetch("/api/admin/marketing/audiences");
@@ -118,40 +131,99 @@ export function MarketingAudiencesPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const discoverTabs = async (id: string) => {
+  const applyDiscoveredTabs = (
+    discoveryBindingId: string,
+    list: MarketingDatasetDescriptor[],
+    bindingChanged: boolean,
+  ) => {
+    if (bindingIdRef.current !== discoveryBindingId) return false;
+    const preferred = preferredDatasetIdRef.current;
+    const resolved = resolveMarketingWorkbookTabSelection({
+      selectedBindingId: bindingIdRef.current,
+      discoveryBindingId,
+      tabs: list,
+      currentDatasetId: datasetIdRef.current,
+      bindingChanged,
+      preferredDatasetId: preferred,
+    });
+    if (!resolved.apply) return false;
+    if (preferred) preferredDatasetIdRef.current = null;
+    setDatasets(list);
+    setDatasetId(resolved.datasetId);
+    if (bindingChanged || !resolved.datasetId) {
+      setPreview(null);
+      if (!preferred) {
+        setFields([]);
+      }
+    }
+    return true;
+  };
+
+  const discoverTabs = async (id: string, bindingChanged: boolean) => {
     if (!id) return;
+    const seq = ++discoverySeqRef.current;
+    const discoveryBindingId = id;
     setBusy(true);
     try {
       const res = await authenticatedJsonFetch(
-        `/api/admin/marketing/data-sources/${encodeURIComponent(id)}?view=datasets`,
+        `/api/admin/marketing/data-sources/${encodeURIComponent(discoveryBindingId)}?view=datasets`,
       );
       const body = (await res.json()) as ApiEnvelope<{ datasets: MarketingDatasetDescriptor[] }>;
+      if (seq !== discoverySeqRef.current || bindingIdRef.current !== discoveryBindingId) {
+        return;
+      }
       if (!res.ok || !body.success || !body.data) {
         throw new Error(body.error?.message || "Discover failed");
       }
-      setDatasets(body.data.datasets);
-      if (body.data.datasets[0] && !datasetId) {
-        setDatasetId(body.data.datasets[0].externalDatasetId);
-      }
+      applyDiscoveredTabs(discoveryBindingId, body.data.datasets ?? [], bindingChanged);
     } catch (err) {
+      if (seq !== discoverySeqRef.current || bindingIdRef.current !== discoveryBindingId) {
+        return;
+      }
+      if (bindingChanged) {
+        applyDiscoveredTabs(discoveryBindingId, [], true);
+      }
       toast.error(err instanceof Error ? err.message : "Discover failed");
     } finally {
-      setBusy(false);
+      if (seq === discoverySeqRef.current) setBusy(false);
     }
   };
 
   useEffect(() => {
-    if (bindingId) void discoverTabs(bindingId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!bindingId) {
+      lastBindingIdRef.current = "";
+      setDatasets([]);
+      setDatasetId("");
+      return;
+    }
+    const previous = lastBindingIdRef.current;
+    const bindingChanged = Boolean(previous) && previous !== bindingId;
+    lastBindingIdRef.current = bindingId;
+    discoverySeqRef.current += 1;
+    if (bindingChanged && !preferredDatasetIdRef.current) {
+      setDatasets([]);
+      setDatasetId("");
+      setFields([]);
+      setPreview(null);
+      setSuggestedMap({ email: "" });
+      setColumnMap({ email: "" });
+      setMappingConfirmed(false);
+    }
+    void discoverTabs(bindingId, bindingChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- workbook switch/load only
   }, [bindingId]);
 
-  const loadSchemaFields = async () => {
-    if (!bindingId || !datasetId) return;
+  const loadSchemaFields = async (forBindingId: string, forDatasetId: string) => {
+    if (!forBindingId || !forDatasetId) return;
+    if (!marketingTabBelongsToDiscoveredWorkbook(forDatasetId, datasets)) return;
     setBusy(true);
     try {
       const res = await authenticatedJsonFetch(
-        `/api/admin/marketing/data-sources/${encodeURIComponent(bindingId)}?view=schema&datasetId=${encodeURIComponent(datasetId)}`,
+        `/api/admin/marketing/data-sources/${encodeURIComponent(forBindingId)}?view=schema&datasetId=${encodeURIComponent(forDatasetId)}`,
       );
+      if (bindingIdRef.current !== forBindingId || datasetIdRef.current !== forDatasetId) {
+        return;
+      }
       const body = (await res.json()) as ApiEnvelope<{
         schema: { headers: string[] };
       }>;
@@ -161,9 +233,16 @@ export function MarketingAudiencesPanel() {
       setFields(body.data.schema.headers);
       const suggested = suggestMarketingColumnMap(body.data.schema.headers).suggested;
       setSuggestedMap(suggested);
-      setColumnMap((prev) => (prev.email ? prev : suggested));
-      setMappingConfirmed(false);
+      const restoreSaved = restoreConfirmedMappingRef.current;
+      restoreConfirmedMappingRef.current = false;
+      setColumnMap((prev) => (restoreSaved && prev.email ? prev : prev.email ? prev : suggested));
+      if (!restoreSaved) {
+        setMappingConfirmed(false);
+      }
     } catch (err) {
+      if (bindingIdRef.current !== forBindingId || datasetIdRef.current !== forDatasetId) {
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Schema failed");
     } finally {
       setBusy(false);
@@ -171,14 +250,16 @@ export function MarketingAudiencesPanel() {
   };
 
   useEffect(() => {
-    if (bindingId && datasetId) void loadSchemaFields();
+    if (bindingId && datasetId && tabValid) void loadSchemaFields(bindingId, datasetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bindingId, datasetId]);
+  }, [bindingId, datasetId, tabValid]);
 
   const datasetLabel =
     datasets.find((d) => d.externalDatasetId === datasetId)?.displayName ?? datasetId;
 
   const applyAudience = (a: MarketingAudienceDefinition) => {
+    preferredDatasetIdRef.current = a.datasetId;
+    restoreConfirmedMappingRef.current = Boolean(a.mappingConfirmed || a.mapping?.confirmed);
     setSelectedAudienceId(a.id);
     setName(a.name);
     setBindingId(a.bindingId);
@@ -190,7 +271,17 @@ export function MarketingAudiencesPanel() {
     setPreview(null);
   };
 
+  const onWorkbookChange = (nextBindingId: string) => {
+    preferredDatasetIdRef.current = null;
+    restoreConfirmedMappingRef.current = false;
+    setBindingId(nextBindingId);
+  };
+
   const saveAudience = async () => {
+    if (!marketingTabBelongsToDiscoveredWorkbook(datasetId, datasets)) {
+      toast.error("Select a sheet/tab from the current workbook first");
+      return;
+    }
     setBusy(true);
     try {
       const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
@@ -232,6 +323,10 @@ export function MarketingAudiencesPanel() {
   };
 
   const runPreview = async () => {
+    if (!marketingTabBelongsToDiscoveredWorkbook(datasetId, datasets)) {
+      toast.error("Select a sheet/tab from the current workbook first");
+      return;
+    }
     setBusy(true);
     try {
       const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
@@ -325,6 +420,8 @@ export function MarketingAudiencesPanel() {
                 size="sm"
                 className="w-full"
                 onClick={() => {
+                  preferredDatasetIdRef.current = null;
+                  restoreConfirmedMappingRef.current = false;
                   setSelectedAudienceId("");
                   setName("");
                   setFilters(emptyFilterDefinition());
@@ -391,7 +488,7 @@ export function MarketingAudiencesPanel() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Data source</Label>
-                  <Select value={bindingId || undefined} onValueChange={setBindingId}>
+                  <Select value={bindingId || undefined} onValueChange={onWorkbookChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select source" />
                     </SelectTrigger>
@@ -406,7 +503,11 @@ export function MarketingAudiencesPanel() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Sheet / tab</Label>
-                  <Select value={datasetId || undefined} onValueChange={setDatasetId}>
+                  <Select
+                    value={tabValid ? datasetId : undefined}
+                    onValueChange={setDatasetId}
+                    disabled={datasets.length === 0}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select tab" />
                     </SelectTrigger>
@@ -599,13 +700,13 @@ export function MarketingAudiencesPanel() {
                 ))}
 
                 <div className="flex flex-wrap gap-2">
-                  <Button disabled={busy || !bindingId || !datasetId} onClick={() => void runPreview()}>
+                  <Button disabled={busy || !bindingId || !tabValid} onClick={() => void runPreview()}>
                     <Eye className="mr-1.5 h-3.5 w-3.5" />
                     Preview audience
                   </Button>
                   <Button
                     variant="secondary"
-                    disabled={busy || !name.trim() || !bindingId || !datasetId}
+                    disabled={busy || !name.trim() || !bindingId || !tabValid}
                     onClick={() => void saveAudience()}
                   >
                     <Save className="mr-1.5 h-3.5 w-3.5" />

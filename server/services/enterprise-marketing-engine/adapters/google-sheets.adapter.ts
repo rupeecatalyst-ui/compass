@@ -21,7 +21,9 @@ import type {
   MarketingRowPage,
 } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import { resolveMarketingSheetsSourceStatus } from "@/lib/enterprise-marketing-engine/authorised-workbook";
+import { describeMarketingWorkbookHealthContext } from "@/lib/enterprise-marketing-engine/workbook-health-diagnostics";
 import { marketingDataSourceBindingStore } from "../binding-store";
+import { resolveRuntimeWorkbookForOrg } from "../workbook-registry";
 import { classifyGoogleSheetsAccessError } from "./google-sheets-errors";
 
 function loadServiceAccount() {
@@ -51,21 +53,8 @@ async function getSheetsClient() {
   return google.sheets({ version: "v4", auth });
 }
 
-function requireBinding(bindingId: string, organizationId: string) {
-  const b = marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
-  if (!b) {
-    throw Object.assign(new Error("Data source binding not found"), {
-      statusCode: 404,
-      code: "NOT_FOUND",
-    });
-  }
-  if (b.status === "DISABLED") {
-    throw Object.assign(new Error("Access to this authorised workbook has been revoked"), {
-      statusCode: 403,
-      code: "ACCESS_REVOKED",
-    });
-  }
-  return b;
+async function requireBinding(bindingId: string, organizationId: string) {
+  return resolveRuntimeWorkbookForOrg(bindingId, organizationId);
 }
 
 function a1SheetName(title: string): string {
@@ -242,7 +231,7 @@ export function createGoogleSheetsMarketingDataSourcePort(
     },
 
     async discoverDatasets(bindingId) {
-      const binding = requireBinding(bindingId, organizationId);
+      const binding = await requireBinding(bindingId, organizationId);
       try {
         const sheets = await getSheetsClient();
         const meta = await sheets.spreadsheets.get({
@@ -281,7 +270,7 @@ export function createGoogleSheetsMarketingDataSourcePort(
     },
 
     async getSchema(bindingId, datasetId): Promise<MarketingDatasetSchema> {
-      const binding = requireBinding(bindingId, organizationId);
+      const binding = await requireBinding(bindingId, organizationId);
       const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
       const { headers } = await readHeaderAndPage({
         spreadsheetId: binding.spreadsheetId,
@@ -299,7 +288,7 @@ export function createGoogleSheetsMarketingDataSourcePort(
     },
 
     async previewRows({ bindingId, datasetId, limit }): Promise<MarketingRowPage> {
-      const binding = requireBinding(bindingId, organizationId);
+      const binding = await requireBinding(bindingId, organizationId);
       const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
       const capped = Math.min(Math.max(1, limit), MARKETING_SHEETS_PREVIEW_MAX_ROWS);
       const { page } = await readHeaderAndPage({
@@ -311,7 +300,7 @@ export function createGoogleSheetsMarketingDataSourcePort(
     },
 
     async estimateAudience(bindingId, datasetId): Promise<MarketingAudienceEstimate> {
-      const binding = requireBinding(bindingId, organizationId);
+      const binding = await requireBinding(bindingId, organizationId);
       const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
       const grid = sheet.rowCount ?? null;
       return {
@@ -324,7 +313,7 @@ export function createGoogleSheetsMarketingDataSourcePort(
     },
 
     async streamRows({ bindingId, datasetId, cursor, limit }): Promise<MarketingRowPage> {
-      const binding = requireBinding(bindingId, organizationId);
+      const binding = await requireBinding(bindingId, organizationId);
       const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
       const capped = Math.min(Math.max(1, limit), MARKETING_SHEETS_PAGE_MAX_ROWS);
       const { page } = await readHeaderAndPage({
@@ -337,19 +326,20 @@ export function createGoogleSheetsMarketingDataSourcePort(
     },
 
     async healthCheck(bindingId) {
-      const binding = requireBinding(bindingId, organizationId);
+      const binding = await requireBinding(bindingId, organizationId);
       let stage: "AUTHORIZE" | "SPREADSHEETS_GET" = "AUTHORIZE";
       let authorizeCompleted = false;
-      let runtimeSpreadsheetMatchesConfigured: boolean | null = null;
+      const environmentWorkbookId = resolveMarketingSheetsSourceStatus().authorisedWorkbookId;
+      const registryContext = describeMarketingWorkbookHealthContext({
+        bindingSpreadsheetId: binding.spreadsheetId,
+        environmentWorkbookId,
+        registryAuthorised: true,
+      });
       try {
         loadServiceAccount();
         const sheets = await getSheetsClient();
         authorizeCompleted = true;
         stage = "SPREADSHEETS_GET";
-        const configuredSpreadsheetId = resolveMarketingSheetsSourceStatus().authorisedWorkbookId;
-        runtimeSpreadsheetMatchesConfigured = configuredSpreadsheetId === null
-          ? null
-          : binding.spreadsheetId === configuredSpreadsheetId;
         await sheets.spreadsheets.get({
           spreadsheetId: binding.spreadsheetId,
           fields: "spreadsheetId,properties.title",
@@ -362,7 +352,17 @@ export function createGoogleSheetsMarketingDataSourcePort(
           lastError: null,
           status: "ACTIVE",
         });
-        return { ok: true, message, mode: "live" };
+        return {
+          ok: true,
+          message,
+          mode: "live",
+          diagnostic: {
+            stage,
+            authorizeCompleted,
+            defaultEnvironmentWorkbookId: environmentWorkbookId,
+            ...registryContext,
+          },
+        };
       } catch (err) {
         const classified = classifyGoogleSheetsAccessError(err);
         marketingDataSourceBindingStore.patch(bindingId, organizationId, {
@@ -374,7 +374,13 @@ export function createGoogleSheetsMarketingDataSourcePort(
         });
         return {
           ok: false,
-          diagnostic: { stage, authorizeCompleted, runtimeSpreadsheetMatchesConfigured, ...safeHealthErrorMetadata(err) },
+          diagnostic: {
+            stage,
+            authorizeCompleted,
+            defaultEnvironmentWorkbookId: environmentWorkbookId,
+            ...registryContext,
+            ...safeHealthErrorMetadata(err),
+          },
           message: "Google Sheets health check failed.",
           mode: "live",
           connectionState:

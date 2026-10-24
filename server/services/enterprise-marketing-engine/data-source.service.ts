@@ -20,6 +20,7 @@ import {
   resolveMarketingSheetsSourceStatus,
   resolveMarketingWorkbookConnectionState,
 } from "@/lib/enterprise-marketing-engine/authorised-workbook";
+import { describeMarketingWorkbookHealthContext } from "@/lib/enterprise-marketing-engine/workbook-health-diagnostics";
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import type { MarketingDataSourcePort } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import type { MarketingDataSourceBinding } from "@/types/enterprise-marketing-data-source";
@@ -72,6 +73,8 @@ export const marketingDataSourceService = {
       sourceNotice: source.notice,
       authorisedWorkbookId: source.authorisedWorkbookId,
       authorisedWorkbookDisplayName: source.authorisedWorkbookDisplayName,
+      defaultEnvironmentWorkbookId: source.authorisedWorkbookId,
+      defaultEnvironmentWorkbookDisplayName: source.authorisedWorkbookDisplayName,
       googleCredentialsConfigured: source.googleCredentialsConfigured,
       fixtureVisible: source.status === "FIXTURE",
       connectionState: resolveMarketingWorkbookConnectionState({ sourceStatus: source.status }),
@@ -184,15 +187,64 @@ export const marketingDataSourceService = {
     if (!port.healthCheck) {
       throw new EnterpriseMarketingSafetyError("dataSource.healthCheck");
     }
-    const health = await port.healthCheck(bindingId);
-    const binding = marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
-    return {
-      ...health,
-      sourceStatus: source.status,
-      sourceLabel: source.label,
-      fixtureVisible: source.status === "FIXTURE",
-      connectionState: connectionStateForBinding(binding),
+    const annotate = (
+      health: Record<string, unknown>,
+      binding: MarketingDataSourceBinding | null,
+      registryAuthorised: boolean,
+    ) => {
+      const context = describeMarketingWorkbookHealthContext({
+        bindingSpreadsheetId: binding?.spreadsheetId,
+        environmentWorkbookId: source.authorisedWorkbookId,
+        registryAuthorised,
+      });
+      const diagnostic = {
+        ...((health.diagnostic as Record<string, unknown> | undefined) ?? {}),
+        defaultEnvironmentWorkbookId: source.authorisedWorkbookId,
+        ...context,
+      };
+      return {
+        ...health,
+        diagnostic,
+        sourceStatus: source.status,
+        sourceLabel: source.label,
+        fixtureVisible: source.status === "FIXTURE",
+        connectionState: health.connectionState ?? connectionStateForBinding(binding),
+      };
     };
+    try {
+      const health = await port.healthCheck(bindingId);
+      const binding = marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
+      const registryAuthorised = Boolean(binding && binding.status !== "DISABLED");
+      return annotate(health as Record<string, unknown>, binding, registryAuthorised);
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      const binding = marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
+      if (code === "ACCESS_REVOKED") {
+        return annotate(
+          {
+            ok: false,
+            message: err instanceof Error ? err.message : "Access revoked",
+            mode: source.status === "FIXTURE" ? "fixture" : "live",
+            connectionState: "ACCESS_REVOKED",
+          },
+          binding,
+          false,
+        );
+      }
+      if (code === "NOT_FOUND") {
+        return annotate(
+          {
+            ok: false,
+            message: err instanceof Error ? err.message : "Data source binding not found",
+            mode: source.status === "FIXTURE" ? "fixture" : "live",
+            connectionState: "VALIDATION_FAILED",
+          },
+          null,
+          false,
+        );
+      }
+      throw err;
+    }
   },
 
   async discover(actor: { userId?: string; organizationId?: string | null }, bindingId: string) {

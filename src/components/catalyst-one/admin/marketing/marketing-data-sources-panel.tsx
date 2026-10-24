@@ -5,7 +5,7 @@
  * Never imports the full audience. Never creates Contacts.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -27,6 +27,10 @@ import {
 } from "@/components/ui/select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL, MARKETING_SHEETS_PREVIEW_MAX_ROWS } from "@/constants/enterprise-marketing-engine";
+import {
+  marketingTabBelongsToDiscoveredWorkbook,
+  resolveMarketingWorkbookTabSelection,
+} from "@/lib/enterprise-marketing-engine/workbook-tab-selection";
 import type { MarketingDataSourceBinding } from "@/types/enterprise-marketing-data-source";
 import type { MarketingDatasetDescriptor } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import { MarketingModuleNav } from "./marketing-module-nav";
@@ -45,6 +49,8 @@ type ModeInfo = {
   sourceNotice?: string;
   authorisedWorkbookId?: string | null;
   authorisedWorkbookDisplayName?: string | null;
+  defaultEnvironmentWorkbookId?: string | null;
+  defaultEnvironmentWorkbookDisplayName?: string | null;
   fixtureVisible?: boolean;
   connectionState?: "CONNECTED" | "CONFIGURATION_REQUIRED" | "ACCESS_REVOKED" | "VALIDATION_FAILED";
   googleCredentialsConfigured?: boolean;
@@ -74,12 +80,15 @@ type HealthCheckResult = {
   message?: string;
   mode?: string;
   diagnostic?: {
-    stage: "AUTHORIZE" | "SPREADSHEETS_GET";
-    authorizeCompleted: boolean;
-    httpStatus: number | null;
-    googleReason: string;
-    runtimeSpreadsheetMatchesConfigured: boolean | null;
+    stage?: "AUTHORIZE" | "SPREADSHEETS_GET";
+    authorizeCompleted?: boolean;
+    httpStatus?: number | null;
+    googleReason?: string;
+    authorisedInOrganisationRegistry?: boolean;
+    isEnvironmentDefaultWorkbook?: boolean;
+    defaultEnvironmentWorkbookId?: string | null;
   };
+  connectionState?: "CONNECTED" | "CONFIGURATION_REQUIRED" | "ACCESS_REVOKED" | "VALIDATION_FAILED";
 };
 export function MarketingDataSourcesPanel() {
   const [loading, setLoading] = useState(true);
@@ -101,6 +110,13 @@ export function MarketingDataSourcesPanel() {
   );
   const [newName, setNewName] = useState("Marketing Master Database");
   const [newSpreadsheetId, setNewSpreadsheetId] = useState("");
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const datasetIdRef = useRef(datasetId);
+  datasetIdRef.current = datasetId;
+  const lastBindingIdRef = useRef("");
+  const discoverySeqRef = useRef(0);
+  const tabValid = marketingTabBelongsToDiscoveredWorkbook(datasetId, datasets);
 
   const refreshList = useCallback(async () => {
     setLoading(true);
@@ -132,13 +148,95 @@ export function MarketingDataSourcesPanel() {
 
   const selected = bindings.find((b) => b.id === selectedId) ?? null;
 
+  const applyDiscoveredTabs = (
+    discoveryBindingId: string,
+    list: MarketingDatasetDescriptor[],
+    bindingChanged: boolean,
+  ) => {
+    if (selectedIdRef.current !== discoveryBindingId) return false;
+    const resolved = resolveMarketingWorkbookTabSelection({
+      selectedBindingId: selectedIdRef.current,
+      discoveryBindingId,
+      tabs: list,
+      currentDatasetId: datasetIdRef.current,
+      bindingChanged,
+    });
+    if (!resolved.apply) return false;
+    setDatasets(list);
+    setDatasetId(resolved.datasetId);
+    if (bindingChanged || !resolved.datasetId) {
+      setPreview(null);
+      setEstimate(null);
+    }
+    return true;
+  };
+
+  const discoverTabsForBinding = async (bindingId: string, bindingChanged: boolean) => {
+    if (!bindingId) return;
+    const seq = ++discoverySeqRef.current;
+    const discoveryBindingId = bindingId;
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch(
+        `/api/admin/marketing/data-sources/${encodeURIComponent(discoveryBindingId)}?view=datasets`,
+      );
+      const body = (await res.json()) as ApiEnvelope<{ datasets: MarketingDatasetDescriptor[] }>;
+      if (seq !== discoverySeqRef.current || selectedIdRef.current !== discoveryBindingId) {
+        return;
+      }
+      if (!res.ok || !body.success || !body.data) {
+        throw new Error(body.error?.message || "Discover failed");
+      }
+      const list = body.data.datasets ?? [];
+      applyDiscoveredTabs(discoveryBindingId, list, bindingChanged);
+      toast.success(`Discovered ${list.length} tab(s)`);
+    } catch (err) {
+      if (seq !== discoverySeqRef.current || selectedIdRef.current !== discoveryBindingId) {
+        return;
+      }
+      if (bindingChanged) {
+        applyDiscoveredTabs(discoveryBindingId, [], true);
+      }
+      toast.error(err instanceof Error ? err.message : "Discover failed");
+    } finally {
+      if (seq === discoverySeqRef.current) setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedId) {
+      lastBindingIdRef.current = "";
+      setDatasets([]);
+      setDatasetId("");
+      setPreview(null);
+      setEstimate(null);
+      return;
+    }
+    const previous = lastBindingIdRef.current;
+    const bindingChanged = Boolean(previous) && previous !== selectedId;
+    lastBindingIdRef.current = selectedId;
+    discoverySeqRef.current += 1;
+    if (bindingChanged) {
+      setDatasets([]);
+      setDatasetId("");
+      setPreview(null);
+      setEstimate(null);
+    }
+    void discoverTabsForBinding(selectedId, bindingChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- switch/load of selected workbook only
+  }, [selectedId]);
+
   const runBindingView = async (view: string, withDataset = false) => {
     if (!selectedId) {
       toast.error("Select a data source first");
       return;
     }
-    if (withDataset && !datasetId) {
-      toast.error("Select a sheet/tab first");
+    if (withDataset && !marketingTabBelongsToDiscoveredWorkbook(datasetId, datasets)) {
+      toast.error("Select a sheet/tab from the current workbook first");
+      return;
+    }
+    if (view === "datasets") {
+      await discoverTabsForBinding(selectedId, false);
       return;
     }
     setBusy(true);
@@ -155,12 +253,6 @@ export function MarketingDataSourcesPanel() {
       }
       if (view === "health") {
         setHealth(body.data.health as HealthCheckResult);
-      }
-      if (view === "datasets") {
-        const list = (body.data.datasets as MarketingDatasetDescriptor[]) ?? [];
-        setDatasets(list);
-        if (list[0] && !datasetId) setDatasetId(list[0].externalDatasetId);
-        toast.success(`Discovered ${list.length} tab(s)`);
       }
       if (view === "preview") {
         setPreview(body.data.preview as PreviewPayload);
@@ -271,7 +363,7 @@ export function MarketingDataSourcesPanel() {
           ) : null}
           {mode?.connectionState === "ACCESS_REVOKED" ? (
             <p className="mt-2 rounded-md border border-destructive px-3 py-2 font-semibold text-destructive">
-              Access Revoked — this organisation can no longer read the authorised workbook.
+              Access Revoked — this organisation can no longer read the selected authorised workbook.
             </p>
           ) : null}
           {mode?.connectionState === "VALIDATION_FAILED" ? (
@@ -353,6 +445,16 @@ export function MarketingDataSourcesPanel() {
                       <dt className="text-xs uppercase text-muted-foreground">Spreadsheet ID</dt>
                       <dd className="font-mono text-xs">{selected.spreadsheetId}</dd>
                     </div>
+                    {mode?.defaultEnvironmentWorkbookId ? (
+                      <div>
+                        <dt className="text-xs uppercase text-muted-foreground">Environment default</dt>
+                        <dd className="text-xs">
+                          {selected.spreadsheetId === mode.defaultEnvironmentWorkbookId
+                            ? "This is the environment-default workbook"
+                            : "Authorised registry workbook (not the environment default)"}
+                        </dd>
+                      </div>
+                    ) : null}
                     <div>
                       <dt className="text-xs uppercase text-muted-foreground">Auth</dt>
                       <dd className="font-mono text-xs">{selected.authRef}</dd>
@@ -413,16 +515,40 @@ export function MarketingDataSourcesPanel() {
                     <p className={health.ok ? "text-emerald-700" : "text-destructive"}>
                       {health.ok ? "Healthy" : "Unhealthy"} — {health.message}
                     </p>
-                    {!health.ok && health.diagnostic ? (
+                    {health.connectionState === "ACCESS_REVOKED" ? (
+                      <p className="text-destructive">Access Revoked — selected authorised workbook.</p>
+                    ) : null}
+                    {health.diagnostic ? (
                       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-muted-foreground">
-                        <dt>Stage:</dt><dd>{health.diagnostic.stage}</dd>
-                        <dt>Authorization completed:</dt><dd>{health.diagnostic.authorizeCompleted ? "Yes" : "No"}</dd>
-                        <dt>HTTP status:</dt><dd>{health.diagnostic.httpStatus ?? "Not available"}</dd>
-                        <dt>Google reason:</dt><dd>{health.diagnostic.googleReason}</dd>
-                        <dt>Runtime spreadsheet matches configured:</dt>
-                        <dd>{health.diagnostic.runtimeSpreadsheetMatchesConfigured === null
-                          ? "Unknown"
-                          : health.diagnostic.runtimeSpreadsheetMatchesConfigured ? "Yes" : "No"}</dd>
+                        {health.diagnostic.stage ? (
+                          <>
+                            <dt>Stage:</dt><dd>{health.diagnostic.stage}</dd>
+                          </>
+                        ) : null}
+                        {health.diagnostic.authorizeCompleted != null ? (
+                          <>
+                            <dt>Service account authorization:</dt>
+                            <dd>{health.diagnostic.authorizeCompleted ? "Yes" : "No"}</dd>
+                          </>
+                        ) : null}
+                        {health.diagnostic.httpStatus != null ? (
+                          <>
+                            <dt>HTTP status:</dt><dd>{health.diagnostic.httpStatus}</dd>
+                          </>
+                        ) : null}
+                        {health.diagnostic.googleReason ? (
+                          <>
+                            <dt>Google reason:</dt><dd>{health.diagnostic.googleReason}</dd>
+                          </>
+                        ) : null}
+                        <dt>Authorised in organisation registry:</dt>
+                        <dd>
+                          {health.diagnostic.authorisedInOrganisationRegistry ? "Yes" : "No"}
+                        </dd>
+                        <dt>Environment default workbook:</dt>
+                        <dd>
+                          {health.diagnostic.isEnvironmentDefaultWorkbook ? "Yes" : "No"}
+                        </dd>
                       </dl>
                     ) : null}
                   </div>
@@ -432,10 +558,11 @@ export function MarketingDataSourcesPanel() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Authorised workbook</CardTitle>
+                <CardTitle className="text-base">Authorised workbooks</CardTitle>
                 <CardDescription>
-                  Organisation-scoped allowlist only. Administrators cannot paste an arbitrary
-                  spreadsheet ID. Google credentials stay on the server.
+                  Organisation registry of authorised spreadsheet IDs. The environment default is
+                  one registered workbook, not the only valid source. Google credentials stay on the
+                  server.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -492,7 +619,11 @@ export function MarketingDataSourcesPanel() {
               <div className="flex flex-wrap items-end gap-2">
                 <div className="min-w-[220px] space-y-1.5">
                   <Label>Available tabs</Label>
-                  <Select value={datasetId || undefined} onValueChange={setDatasetId}>
+                  <Select
+                    value={tabValid ? datasetId : undefined}
+                    onValueChange={setDatasetId}
+                    disabled={datasets.length === 0}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Discover tabs first" />
                     </SelectTrigger>
@@ -507,14 +638,14 @@ export function MarketingDataSourcesPanel() {
                 </div>
                 <Button
                   size="sm"
-                  disabled={busy || !datasetId}
+                  disabled={busy || !tabValid}
                   onClick={() => void runBindingView("estimate", true)}
                 >
                   Estimate
                 </Button>
                 <Button
                   size="sm"
-                  disabled={busy || !datasetId}
+                  disabled={busy || !tabValid}
                   onClick={() => void runBindingView("preview", true)}
                 >
                   Preview sample
