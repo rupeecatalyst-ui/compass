@@ -40,8 +40,8 @@ const eligibility = read("src/constants/enterprise-marketing-engine/whatsapp-del
 
 mustInclude(pkg, "verify:co-marketing-redesign-020");
 mustInclude(gates, "verify:co-marketing-redesign-020");
-mustInclude(safety, "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false");
-mustInclude(safety, "ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false");
+mustInclude(safety, "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)");
+mustInclude(safety, "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED)");
 mustInclude(safety, 'ENTERPRISE_MARKETING_HANDOFF_MODE ?? "fixture"');
 mustInclude(safety, "ENTERPRISE_MARKETING_MASS_HANDOFF_ENABLED = false");
 mustInclude(cronSrc, "MARKETING_PACING_CRON_REGISTERED = false");
@@ -352,15 +352,16 @@ const crashTick = await tick(crashPorts, "camp-crash", "restart-worker", {
 assert.equal(crashTick.recovered, true);
 assert.equal(crashTick.liveProviderInvoked, false);
 const crashLedger = await crashPorts.ledger.listByCampaign("org-020", "camp-crash");
-assert.equal(crashLedger.filter((row) => row.status === "sent").length, 3);
+assert.equal(crashLedger.filter((row) => row.status === "sent").length, 2);
+assert.equal(crashLedger.find((row) => row.normalizedEmail === "ok.two@example.com").status, "skipped");
+assert.equal(
+  crashLedger.find((row) => row.normalizedEmail === "ok.two@example.com").suppressionReason,
+  "marketing.delivery.uncertain_in_flight",
+);
 assert.equal(crashLedger.filter((row) => row.normalizedEmail === "ok.one@example.com").length, 1);
 assert.equal(
   crashLedger.find((row) => row.normalizedEmail === "ok.one@example.com").idempotencyKey,
   "org-020:camp-crash:EMAIL:ok.one@example.com",
-);
-assert.equal(
-  crashLedger.find((row) => row.normalizedEmail === "ok.two@example.com").attemptCount >= 2,
-  true,
 );
 const crashLease = await crashPorts.leases.getByCampaign("org-020", "camp-crash");
 assert.notEqual(crashLease.leaseHolder, "dead-worker");
@@ -373,8 +374,8 @@ const restartTick = await tick(restartPorts, "camp-crash", "hostinger-worker", {
 assert.equal(restartTick.processed, 0);
 assert.equal(
   (await restartPorts.ledger.listByCampaign("org-020", "camp-crash")).filter((row) => row.status === "sent").length,
-  3,
-  "Hostinger restart must not resend processed recipients",
+  2,
+  "Hostinger restart must not resend processed or uncertain in-flight recipients",
 );
 
 const retryPorts = durability.createMemoryMarketingDurabilityPorts();
@@ -541,7 +542,7 @@ console.log(
     {
       ok: true,
       exactOnce: true,
-      crashRestartNoResend: 3,
+      crashRestartNoResend: 2,
       boundedRetryAttempts: retryLedger[0].attemptCount,
       quarantined: 1,
       isolateSent: 2,

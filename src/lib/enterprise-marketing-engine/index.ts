@@ -35,6 +35,7 @@ export * from "./audience-live-certification";
 export * from "./unsubscribe-scope";
 export * from "./smtp-config";
 export * from "./phase1-live-ceiling";
+export * from "./campaign-entry-gate";
 export * from "./phase1-sender";
 export * from "./phase1-sender-identity";
 export * from "./test-recipient-allowlist";

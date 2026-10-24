@@ -43,7 +43,8 @@ const enabledTransport = createHostingerSmtpTransport({
   clientFactory: () => { throw new Error("No SMTP client expected without complete config"); },
 });
 assert.equal((await enabledTransport.send(message)).accepted, false, "SMTP config remains a downstream gate");
-assert.throws(() => assertMarketingPhase1LiveAudienceCeiling(51), { code: "marketing.phase1.audience_limit_exceeded" });
+assert.doesNotThrow(() => assertMarketingPhase1LiveAudienceCeiling(2000));
+assert.throws(() => assertMarketingPhase1LiveAudienceCeiling(2001), { code: "marketing.phase1.audience_limit_exceeded" });
 
 const reviewInput = {
   campaign: {

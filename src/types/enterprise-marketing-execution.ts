@@ -82,13 +82,13 @@ export type MarketingBatchExecutionRecord = {
   skippedCount: number;
   durationMs: number;
   errorState: string | null;
-  dryRun: true;
+  dryRun: boolean;
 };
 
 export type MarketingExecutionTickResult = {
   campaignId: string;
   batchId: string;
-  dryRun: true;
+  dryRun: boolean;
   skippedReason?: string | null;
   claimed: number;
   selected: number;

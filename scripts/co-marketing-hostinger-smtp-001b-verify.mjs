@@ -18,6 +18,8 @@ if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 3
   process.env.JWT_REFRESH_SECRET = "marketing-hostinger-smtp-1b-local-jwt-bbbbbbb";
 }
 process.env.ENTERPRISE_MARKETING_EMAIL_MODE = "dry_run";
+process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED = "true";
+process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = "true";
 delete process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST;
 assert.equal(process.env.ENTERPRISE_MARKETING_EMAIL_MODE, "dry_run");
 
@@ -28,10 +30,10 @@ const delivSrc = read("server/services/enterprise-marketing-engine/deliverabilit
 const panelSrc = read("src/components/catalyst-one/admin/marketing/marketing-deliverability-panel.tsx");
 assert.ok(pkg.includes('"nodemailer"'));
 assert.ok(pkg.includes("verify:co-marketing-hostinger-smtp-001b"));
-assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true"));
-assert.ok(!safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
-assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
-assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
+assert.ok(safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true"));
+assert.ok(safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED)"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
 assert.ok(transportSrc.includes("requireTLS"));
 assert.ok(transportSrc.includes('minVersion: "TLSv1.2"'));
 assert.ok(transportSrc.includes("logger: false"));
@@ -267,7 +269,8 @@ assert.equal(
   false,
 );
 
-assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(51).ok, false);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2001).ok, false);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2000).ok, true);
 assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(50).ok, true);
 
 const html =

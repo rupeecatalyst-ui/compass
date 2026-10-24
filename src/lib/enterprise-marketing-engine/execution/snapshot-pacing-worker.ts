@@ -1,12 +1,17 @@
 /**
  * CO-MARKETING-REDESIGN-004 — Restart-safe snapshot pacing worker.
  * Executes one planned batch from the frozen audience snapshot.
- * Never rereads the live Google Sheet. Provider adapters stay dry-run.
+ * Never rereads the live Google Sheet. Live SMTP is opt-in via liveDeliveryAuthorized.
  */
 
-import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine";
 import { MARKETING_EXECUTION_LEASE_TTL_MS } from "@/constants/enterprise-marketing-engine/execution";
-import { assertMarketingPhase1LiveAudienceCeiling } from "@/lib/enterprise-marketing-engine/phase1-live-ceiling";
+import {
+  assertMarketingPhase1BatchCeiling,
+  assertMarketingPhase1CampaignAudienceCeiling,
+  assertMarketingPhase1DailyCeiling,
+  clampMarketingBatchPolicy,
+} from "@/lib/enterprise-marketing-engine/phase1-live-ceiling";
+import { MARKETING_SMTP_BLOCK } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 import { zonedDateKey } from "@/lib/enterprise-marketing-engine/execution/batch-schedule";
 import {
   computeMarketingSnapshotPacingPlan,
@@ -17,6 +22,7 @@ import { decideMarketingRecipientClaim, classifyMarketingRecipientClaim } from "
 import {
   canRetryFailedMarketingDelivery,
   isTerminalNoRetryStatus,
+  MARKETING_CLAIM_IN_FLIGHT_TTL_MS,
   nextMarketingRetryAtIso,
 } from "@/lib/enterprise-marketing-engine/durability/retry-policy";
 import { expireAbandonedMarketingLease } from "@/lib/enterprise-marketing-engine/durability/lease-recovery";
@@ -42,13 +48,20 @@ export function createMarketingPacingProviderProbe(): MarketingPacingProviderPro
 export type MarketingPacingDeliveryOutcome = {
   status: "sent" | "failed" | "skipped";
   retryable: boolean;
-  dryRun: true;
+  dryRun: boolean;
   providerMessageId: string | null;
-  liveProviderInvoked: false;
+  liveProviderInvoked: boolean;
+  failureKind?: MarketingRecoveryFailureKind | null;
+};
+
+export type MarketingPacingDeliveryContext = {
+  batchId: string;
+  idempotencyKey: string;
 };
 
 export type MarketingPacingDeliverer = (
   recipient: MarketingDurableSnapshotRecipientRecord,
+  context?: MarketingPacingDeliveryContext,
 ) => Promise<MarketingPacingDeliveryOutcome>;
 
 export function createMarketingPacingDryRunDeliverer(
@@ -90,9 +103,9 @@ export type MarketingSnapshotPacingTickResult = {
   snapshotId: string | null;
   batchId: string;
   batchNumber: number | null;
-  dryRun: true;
+  dryRun: boolean;
   liveSheetReread: false;
-  liveProviderInvoked: false;
+  liveProviderInvoked: boolean;
   skippedReason: string | null;
   claimed: number;
   selected: number;
@@ -248,6 +261,7 @@ export async function runMarketingSnapshotPacingTick(input: {
   probe?: MarketingPacingProviderProbe;
   shouldSuppressDelivery?: (recipient: MarketingDurableSnapshotRecipientRecord) => boolean;
   recovery?: MarketingRecoveryStore;
+  liveDeliveryAuthorized?: boolean;
 }): Promise<MarketingSnapshotPacingTickResult> {
   const now = input.now ?? new Date();
   const nowMs = now.getTime();
@@ -265,17 +279,24 @@ export async function runMarketingSnapshotPacingTick(input: {
       { statusCode: 400, code: "SNAPSHOT_REQUIRED" },
     );
   }
+  if (snapshot.campaignId !== campaignId || snapshot.organizationId !== organizationId) {
+    throw Object.assign(new Error("Frozen snapshot does not belong to this campaign"), {
+      statusCode: 403,
+      code: "SNAPSHOT_CAMPAIGN_MISMATCH",
+    });
+  }
 
   const recipients = sortSnapshotRecipients(
-    await ports.snapshotRecipients.listBySnapshot(organizationId, snapshot.id),
+    (await ports.snapshotRecipients.listBySnapshot(organizationId, snapshot.id)).filter(
+      (row) => row.campaignId === campaignId && row.snapshotId === snapshot.id && row.organizationId === organizationId,
+    ),
   );
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    assertMarketingPhase1LiveAudienceCeiling(recipients.length);
-  }
+  assertMarketingPhase1CampaignAudienceCeiling(recipients.length);
+  const policy = clampMarketingBatchPolicy(input.policy);
   const plan = computeMarketingSnapshotPacingPlan({
     eligibleCount: recipients.length,
-    policy: input.policy,
-    now: input.policy.startAt ? new Date(input.policy.startAt) : now,
+    policy,
+    now: policy.startAt ? new Date(policy.startAt) : now,
   });
 
   let lease = await ensureLease(ports, {
@@ -283,7 +304,7 @@ export async function runMarketingSnapshotPacingTick(input: {
     campaignId,
     snapshotId: snapshot.id,
     now,
-    timezone: input.policy.timezone,
+    timezone: policy.timezone,
   });
 
   if (input.campaignStatus === "PAUSED" || lease.pauseState === "PAUSED") {
@@ -354,11 +375,34 @@ export async function runMarketingSnapshotPacingTick(input: {
 
     const ledgerRows = await ports.ledger.listByCampaign(organizationId, campaignId);
     const byRecipient = new Map(ledgerRows.map((row) => [row.snapshotRecipientId, row]));
-    const recovered = ledgerRows.some(
-      (row) =>
-        row.status === "processing" &&
-        decideMarketingRecipientClaim(row, nowMs).action === "claim_existing",
-    );
+    let recovered = false;
+    for (const row of ledgerRows) {
+      if (row.status !== "processing") continue;
+      const claimedAt = row.claimedAt ? Date.parse(row.claimedAt) : NaN;
+      if (!Number.isFinite(claimedAt) || nowMs - claimedAt < MARKETING_CLAIM_IN_FLIGHT_TTL_MS) continue;
+      recovered = true;
+      if (row.providerMessageId?.trim()) {
+        await ports.ledger.finalize(organizationId, row.idempotencyKey, {
+          status: "sent",
+          processedAt: nowIso(now),
+          providerMessageId: row.providerMessageId,
+        });
+        byRecipient.set(row.snapshotRecipientId, { ...row, status: "sent", processedAt: nowIso(now) });
+      } else {
+        await ports.ledger.finalize(organizationId, row.idempotencyKey, {
+          status: "skipped",
+          processedAt: nowIso(now),
+          providerMessageId: null,
+          suppressionReason: MARKETING_SMTP_BLOCK.uncertainInFlight,
+        });
+        byRecipient.set(row.snapshotRecipientId, {
+          ...row,
+          status: "skipped",
+          processedAt: nowIso(now),
+          suppressionReason: MARKETING_SMTP_BLOCK.uncertainInFlight,
+        });
+      }
+    }
     if (recovered) {
       await appendAudit(
         ports,
@@ -446,10 +490,10 @@ export async function runMarketingSnapshotPacingTick(input: {
       });
     }
 
-    const dayKey = zonedDateKey(now, input.policy.timezone);
+    const dayKey = zonedDateKey(now, policy.timezone);
     const resetNeeded = (lease.dailyCountResetDate ?? dayKey) !== dayKey;
     const usedToday = resetNeeded ? 0 : (lease.dailyProcessedCount ?? 0);
-    const remainingCap = Math.max(0, (input.policy.dailyMax ?? 500) - usedToday);
+    const remainingCap = Math.max(0, policy.dailyMax - usedToday);
     if (remainingCap <= 0) {
       return emptyTick(campaignId, "daily_cap_exhausted", {
         snapshotId: snapshot.id,
@@ -464,6 +508,11 @@ export async function runMarketingSnapshotPacingTick(input: {
     if (pending.length > remainingCap) {
       pending = pending.slice(0, remainingCap);
     }
+    if (pending.length > policy.batchSize) {
+      pending = pending.slice(0, policy.batchSize);
+    }
+    assertMarketingPhase1BatchCeiling(pending.length);
+    assertMarketingPhase1DailyCeiling(usedToday + pending.length);
 
     if (!input.forceRun && Date.parse(dueBatch.scheduledAt) > nowMs) {
       await ports.leases.upsert({
@@ -504,7 +553,7 @@ export async function runMarketingSnapshotPacingTick(input: {
         scheduledAt: dueBatch.scheduledAt,
         plannedSize: dueBatch.size,
         workerId: input.holderId,
-        dryRun: true,
+        dryRun: !input.liveDeliveryAuthorized,
       });
       if (!claimedBatch.ok || !claimedBatch.record) {
         return emptyTick(campaignId, "batch_claim_rejected", {
@@ -595,7 +644,10 @@ export async function runMarketingSnapshotPacingTick(input: {
       let outcome: MarketingPacingDeliveryOutcome;
       let failureKind: MarketingRecoveryFailureKind | null = null;
       try {
-        outcome = await deliver(recipient);
+        outcome = await deliver(recipient, {
+          batchId: batchRecord.id,
+          idempotencyKey: claim.record.idempotencyKey,
+        });
       } catch (error) {
         failureKind =
           error && typeof error === "object" && "failureKind" in error
@@ -609,7 +661,7 @@ export async function runMarketingSnapshotPacingTick(input: {
           liveProviderInvoked: false,
         };
       }
-      if (outcome.liveProviderInvoked || probe.liveProviderCalls > 0) {
+      if (!input.liveDeliveryAuthorized && (outcome.liveProviderInvoked || probe.liveProviderCalls > 0)) {
         throw Object.assign(new Error("Live provider invocation is forbidden in dry-run pacing"), {
           statusCode: 500,
           code: "LIVE_PROVIDER_FORBIDDEN",
@@ -739,9 +791,9 @@ export async function runMarketingSnapshotPacingTick(input: {
       snapshotId: snapshot.id,
       batchId: batchRecord.id,
       batchNumber: dueBatch.batchNumber,
-      dryRun: true,
+      dryRun: !input.liveDeliveryAuthorized,
       liveSheetReread: false,
-      liveProviderInvoked: false,
+      liveProviderInvoked: Boolean(input.liveDeliveryAuthorized && probe.liveProviderCalls > 0),
       skippedReason: null,
       claimed,
       selected: selected.length,
@@ -779,7 +831,7 @@ export function marketingPacingTickToExecutionResult(
 ): {
   campaignId: string;
   batchId: string;
-  dryRun: true;
+  dryRun: boolean;
   skippedReason: string | null;
   claimed: number;
   selected: number;
@@ -795,7 +847,7 @@ export function marketingPacingTickToExecutionResult(
   return {
     campaignId: tick.campaignId,
     batchId: tick.batchId,
-    dryRun: true,
+    dryRun: tick.dryRun,
     skippedReason: tick.skippedReason,
     claimed: tick.claimed,
     selected: tick.selected,

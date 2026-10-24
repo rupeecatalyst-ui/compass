@@ -18,16 +18,18 @@ if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 3
   process.env.JWT_REFRESH_SECRET = "marketing-hostinger-smtp-local-jwt-bbbbbbb";
 }
 process.env.ENTERPRISE_MARKETING_EMAIL_MODE = "dry_run";
+process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED = "true";
+process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = "true";
 
 const safety = read("src/constants/enterprise-marketing-engine/safety.ts");
 const adapterSrc = read("server/services/enterprise-marketing-engine/adapters/hostinger-smtp.adapter.ts");
 const transportSrc = read("server/services/enterprise-marketing-engine/adapters/hostinger-smtp-transport.ts");
 const deliverySrc = read("server/services/enterprise-marketing-engine/email-delivery.service.ts");
 const personalization = read("src/lib/enterprise-marketing-engine/personalization.ts");
-assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true"));
-assert.ok(!safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
-assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
-assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
+assert.ok(safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true"));
+assert.ok(safety.includes("marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED)"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
 assert.doesNotMatch(adapterSrc, /fetch\(/);
 assert.doesNotMatch(transportSrc, /connect\(/);
 assert.ok(deliverySrc.includes("createDryRunEmailDeliveryPort"));
@@ -100,10 +102,11 @@ assert.equal(readinessJson.includes("fixture-not-a-real-password"), false);
 assert.equal(readinessJson.includes("fixture-unsubscribe-secret"), false);
 
 const liveReadiness = readinessMod.assessMarketingLiveEmailProviderReadiness(secretEnv);
+assert.equal(liveReadiness.emailMode, "dry_run");
 assert.equal(liveReadiness.canLiveSend, false);
-assert.equal(liveReadiness.canConnect, false);
+assert.equal(liveReadiness.canConnect, true);
 assert.equal(liveReadiness.selectedProvider, "smtp");
-assert.equal(liveReadiness.phase1LiveRecipientCeiling, 50);
+assert.equal(liveReadiness.phase1LiveRecipientCeiling, 2000);
 
 assert.equal(
   senderMod.isMarketingPhase1Sender({
@@ -122,9 +125,10 @@ assert.throws(() =>
 );
 
 assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(50).ok, true);
-assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(51).ok, false);
-assert.throws(() => ceilingMod.assertMarketingPhase1LiveAudienceCeiling(51));
-ceilingMod.assertMarketingPhase1LiveAudienceCeiling(50);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2000).ok, true);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2001).ok, false);
+assert.throws(() => ceilingMod.assertMarketingPhase1LiveAudienceCeiling(2001));
+ceilingMod.assertMarketingPhase1LiveAudienceCeiling(2000);
 
 const audienceMod = await import(ts("src/lib/enterprise-marketing-engine/audience-live-certification.ts"));
 const oversizeAudience = audienceMod.assessMarketingAudienceLiveCertification({
@@ -135,11 +139,11 @@ const oversizeAudience = audienceMod.assessMarketingAudienceLiveCertification({
   mappingConfirmed: true,
   snapshotHash: "abc",
   frozenAt: new Date().toISOString(),
-  eligibleCount: 51,
+  eligibleCount: 2001,
   invalidCount: 0,
   duplicateCount: 0,
   suppressedCount: 0,
-  frozenRecipientCount: 51,
+  frozenRecipientCount: 2001,
   certificationStatus: "CERTIFIED",
 });
 assert.equal(oversizeAudience.certified, false);

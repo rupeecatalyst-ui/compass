@@ -36,7 +36,10 @@ export function decideMarketingRecipientClaim(
     if (Number.isFinite(claimedAt) && nowMs - claimedAt < policy.inFlightTtlMs) {
       return { action: "reject", reason: "concurrency" };
     }
-    return { action: "claim_existing" };
+    if (existing.providerMessageId?.trim()) {
+      return { action: "reject", reason: "already_terminal" };
+    }
+    return { action: "reject", reason: "uncertain_in_flight" };
   }
 
   if (RESERVABLE.has(existing.status)) {

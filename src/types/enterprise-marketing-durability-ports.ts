@@ -26,6 +26,7 @@ export const MARKETING_CLAIM_REJECT_REASONS = [
   "retry_not_allowed",
   "retry_delayed",
   "concurrency",
+  "uncertain_in_flight",
   "org_mismatch",
   "stopped",
 ] as const;

@@ -9,6 +9,7 @@ import {
   MARKETING_DEFAULT_BATCH_INTERVAL_MS,
   MARKETING_DEFAULT_BATCH_SIZE,
 } from "@/constants/enterprise-marketing-engine/execution";
+import { clampMarketingBatchPolicy } from "@/lib/enterprise-marketing-engine/phase1-live-ceiling";
 import { zonedDateKey } from "./batch-schedule";
 import {
   isWithinDailySendWindow,
@@ -96,7 +97,7 @@ export function computeMarketingSnapshotPacingPlan(input: {
   policy: MarketingBatchPolicy;
   now?: Date;
 }): MarketingSnapshotPacingPlan {
-  const policy = input.policy;
+  const policy = clampMarketingBatchPolicy(input.policy);
   const batchSize = policy.batchSize || MARKETING_DEFAULT_BATCH_SIZE;
   const intervalMs = policy.intervalMs || MARKETING_DEFAULT_BATCH_INTERVAL_MS;
   const sizes = splitMarketingBatchSizes(input.eligibleCount, batchSize);

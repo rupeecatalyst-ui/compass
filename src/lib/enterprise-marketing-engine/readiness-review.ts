@@ -18,9 +18,11 @@ import {
 import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
 import { ENTERPRISE_MARKETING_EXECUTION_ENABLED, ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED } from "@/constants/enterprise-marketing-engine/safety";
 import {
+  MARKETING_PHASE1_BATCH_RECIPIENT_CEILING,
+  MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING,
+  MARKETING_PHASE1_DAILY_RECIPIENT_CEILING,
   MARKETING_PHASE1_FROM_EMAIL,
   MARKETING_PHASE1_FROM_NAME,
-  MARKETING_PHASE1_LIVE_RECIPIENT_CEILING,
   MARKETING_PHASE1_REPLY_TO,
 } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 
@@ -181,7 +183,9 @@ export function composeMarketingReadinessReview(input: {
     { label: "Approval timestamp", value: display(input.campaign.governance.approvedAt) },
     { label: "Live execution", value: executionEnabled ? "ON" : "OFF" },
     { label: "Provider connect", value: providerConnectEnabled ? "ON" : "OFF" },
-    { label: "Phase-1 live recipient ceiling", value: String(MARKETING_PHASE1_LIVE_RECIPIENT_CEILING) },
+    { label: "Phase-1 campaign audience ceiling", value: String(MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING) },
+    { label: "Phase-1 batch ceiling", value: String(MARKETING_PHASE1_BATCH_RECIPIENT_CEILING) },
+    { label: "Phase-1 daily ceiling", value: String(MARKETING_PHASE1_DAILY_RECIPIENT_CEILING) },
     {
       label: "Phase-1 sender identity",
       value: `${MARKETING_PHASE1_FROM_NAME} <${MARKETING_PHASE1_FROM_EMAIL}> · reply ${MARKETING_PHASE1_REPLY_TO}`,

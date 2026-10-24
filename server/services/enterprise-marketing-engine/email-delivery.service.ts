@@ -21,12 +21,9 @@ import {
   renderMarketingEmailHtml,
   renderMarketingEmailPlaintext,
 } from "@/lib/enterprise-marketing-engine/email-render";
+import { resolveLiveHomeLoanCampaignEntry } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
 import { issueCampaignRecipientToken } from "@/lib/product-journey/campaign-link";
-import {
-  compassCampaignEntryUrl,
-  resolveCompassCampaignProduct,
-  withCampaignEntryCtas,
-} from "@/lib/product-journey/campaign-entry-url";
+import { withCampaignEntryCtas } from "@/lib/product-journey/campaign-entry-url";
 import { lookupDurableMarketingSend, marketingDurableSendAlreadyCompleted } from "@/lib/enterprise-marketing-engine/durable-send-idempotency";
 import { isMarketingPhase1Sender } from "@/lib/enterprise-marketing-engine/phase1-sender";
 import { marketingPhase1DeliverySender } from "@/lib/enterprise-marketing-engine/phase1-sender-identity";
@@ -437,20 +434,41 @@ export const marketingEmailDeliveryService = {
     }
 
     const personalization = personalizationFromRow(input.row, { emailColumn: "Email" });
-    const productCode = resolveCompassCampaignProduct(input.product);
-    const entryUrl = productCode
-      ? compassCampaignEntryUrl({
-          productCode,
-          campaignToken: campaignRecipientToken({
-            campaignId: input.campaignId,
-            campaignName: input.campaignName,
-            productCode,
-            row: input.row,
-            recipientFingerprint: input.recipientFingerprint,
-          }),
-        })
-      : null;
-    const content = entryUrl ? withCampaignEntryCtas(input.version.content, entryUrl) : input.version.content;
+    const campaignToken = campaignRecipientToken({
+      campaignId: input.campaignId,
+      campaignName: input.campaignName,
+      productCode: "home-loan",
+      row: input.row,
+      recipientFingerprint: input.recipientFingerprint,
+    });
+    const entry = resolveLiveHomeLoanCampaignEntry({
+      product: input.product,
+      campaignToken,
+    });
+    const liveSmtp =
+      ENTERPRISE_MARKETING_EMAIL_MODE === "live" &&
+      ENTERPRISE_MARKETING_EXECUTION_ENABLED &&
+      ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED;
+    if (liveSmtp && !entry.ok) {
+      const delivery: MarketingEmailDeliveryResult = {
+        idempotencyKey: input.idempotencyKey,
+        outcome: "FAILED",
+        errorCode: entry.code ?? "marketing.campaign.entry_invalid",
+        errorMessage: "Live delivery requires a signed Home Loan campaign application URL",
+        providerMessageId: null,
+        dryRun: true,
+      };
+      return {
+        delivery,
+        ledgerStatus: "failed",
+        countsAsProcessed: false,
+        countsAsFailed: true,
+      };
+    }
+    const content =
+      entry.ok && entry.url
+        ? withCampaignEntryCtas(input.version.content, entry.url)
+        : input.version.content;
     const subject = applyPersonalization(input.version.subject, personalization);
     const htmlBody = renderMarketingEmailHtml({
       content,

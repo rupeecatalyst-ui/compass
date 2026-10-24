@@ -3,7 +3,11 @@
  * No email / WhatsApp / digital provider send. Ledger stores touched recipients only.
  */
 
-import { ENTERPRISE_MARKETING_EXECUTION_ENABLED, type MarketingCampaignStatus } from "@/constants/enterprise-marketing-engine";
+import {
+  ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+  ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+  type MarketingCampaignStatus,
+} from "@/constants/enterprise-marketing-engine";
 import {
   MARKETING_CRON_MAX_CAMPAIGNS_PER_TICK,
   MARKETING_DEFAULT_BATCH_POLICY,
@@ -38,6 +42,7 @@ import { marketingCampaignStore } from "./campaign-store";
 import { marketingDataSourceService } from "./data-source.service";
 import { getConfiguredMarketingDurabilityPorts } from "@/lib/enterprise-marketing-engine/durability/composition";
 import {
+  createMarketingPacingProviderProbe,
   marketingPacingTickToExecutionResult,
   runMarketingSnapshotPacingTick,
 } from "@/lib/enterprise-marketing-engine/execution/snapshot-pacing-worker";
@@ -46,6 +51,10 @@ import { marketingExecutionLedgerStore } from "./execution-ledger-store";
 import { emitMarketingEngagementEvent } from "./engagement.service";
 import { marketingExecutionLeaseStore } from "./execution-lease-store";
 import { marketingEmailDeliveryService } from "./email-delivery.service";
+import {
+  createMarketingSnapshotLiveDeliverer,
+  isMarketingSnapshotLiveDeliveryAuthorized,
+} from "./snapshot-live-deliverer";
 import { marketingWhatsAppDeliveryService } from "./whatsapp-delivery.service";
 import { marketingSuppressionStore } from "./suppression-store";
 
@@ -104,6 +113,30 @@ async function tickFromFrozenSnapshot(input: {
   ports: MarketingDurabilityPorts;
 }): Promise<MarketingExecutionTickResult> {
   // SNAPSHOT_REQUIRED — approved execution never rereads the live Google Sheet.
+  const version = await marketingCampaignStore.getVersion(input.versionId);
+  const liveDeliveryAuthorized = isMarketingSnapshotLiveDeliveryAuthorized({
+    executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+    providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+    campaignStatus: input.campaign.status,
+    approvedAt: input.campaign.governance?.approvedAt,
+    channel: input.campaign.channel,
+  });
+  const probe = createMarketingPacingProviderProbe();
+  const deliver =
+    liveDeliveryAuthorized && version
+      ? createMarketingSnapshotLiveDeliverer({
+          organizationId: input.campaign.organizationId,
+          campaignId: input.campaignId,
+          campaignVersionId: input.versionId,
+          campaignName: input.campaign.name,
+          product: input.campaign.product,
+          senderIdentityId: input.campaign.senderIdentityId,
+          fromAddressHint: input.campaign.sender?.fromAddress,
+          trackingEnabled: version.trackingEnabled,
+          version,
+          probe,
+        })
+      : undefined;
   const tick = await runMarketingSnapshotPacingTick({
     ports: input.ports,
     organizationId: input.campaign.organizationId,
@@ -116,6 +149,9 @@ async function tickFromFrozenSnapshot(input: {
     forceRun: input.forceRun,
     adminTriggered: input.adminTriggered,
     campaignStatus: input.campaign.status,
+    liveDeliveryAuthorized,
+    probe,
+    deliver,
     shouldSuppressDelivery: (recipient) =>
       marketingSuppressionStore.evaluateDelivery({
         organizationId: input.campaign.organizationId,

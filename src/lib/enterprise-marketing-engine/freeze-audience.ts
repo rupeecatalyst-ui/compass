@@ -5,6 +5,7 @@
  */
 
 import { hashMarketingAudienceSnapshot } from "@/lib/enterprise-marketing-engine/snapshot-hash";
+import { assertMarketingPhase1CampaignAudienceCeiling } from "@/lib/enterprise-marketing-engine/phase1-live-ceiling";
 import {
   scanMarketingAudienceEligibility,
   type MarketingEligibilityLookups,
@@ -96,6 +97,8 @@ export async function freezeApprovedAudienceSnapshot(input: {
     purpose: "approval",
     lookups: input.lookups,
   });
+
+  assertMarketingPhase1CampaignAudienceCeiling(scan.counts.eligible);
 
   const extractedAt = nowIso();
   const snapshotHash = hashMarketingAudienceSnapshot({

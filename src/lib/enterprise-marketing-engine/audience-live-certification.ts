@@ -4,7 +4,7 @@
  */
 
 import {
-  MARKETING_PHASE1_LIVE_RECIPIENT_CEILING,
+  MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING,
   MARKETING_SMTP_BLOCK,
 } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 
@@ -83,7 +83,7 @@ export function assessMarketingAudienceLiveCertification(
   if (input.certificationStatus !== "CERTIFIED") reasons.push(MARKETING_AUDIENCE_LIVE_UNCERTIFIED);
   if (
     counted(input.frozenRecipientCount) &&
-    input.frozenRecipientCount! > MARKETING_PHASE1_LIVE_RECIPIENT_CEILING
+    input.frozenRecipientCount! > MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING
   ) {
     reasons.push(MARKETING_SMTP_BLOCK.audienceLimitExceeded);
   }
