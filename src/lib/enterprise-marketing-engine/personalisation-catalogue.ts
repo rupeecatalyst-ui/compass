@@ -219,6 +219,8 @@ export function inspectMarketingPersonalisationUsage(input: {
   const unresolvedTokens = [...usedAllowlisted].filter((token) => !tokenIsMapped(token, mapped));
   const missingFallbackTokens = [...usedAllowlisted].filter((token) => {
     if (!ALLOWED.has(token)) return false;
+    // firstName may be blank: Hello {{firstName}}, → Hello,
+    if (token === "firstName") return false;
     const fallback = MARKETING_PERSONALIZATION_FALLBACKS[token as MarketingPersonalizationToken];
     return !String(fallback ?? "").trim();
   });

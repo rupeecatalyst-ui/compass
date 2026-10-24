@@ -38,12 +38,26 @@ const safety = readFileSync(
   resolve(root, "src/constants/enterprise-marketing-engine/safety.ts"),
   "utf8",
 );
-for (const flag of [
-  "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false",
-]) {
-  if (!safety.includes(flag)) fail(flag);
-  else pass(flag);
-}
+if (!safety.includes("function marketingGateEnabled")) {
+  fail("marketingGateEnabled helper missing");
+} else pass("marketingGateEnabled helper");
+if (!safety.includes('value === "true"')) {
+  fail("marketingGateEnabled must be fail-closed (only env true)");
+} else pass("marketingGateEnabled fail-closed");
+if (
+  !safety.includes(
+    "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)",
+  )
+) {
+  fail("execution flag must be env-gated via marketingGateEnabled");
+} else pass("ENTERPRISE_MARKETING_EXECUTION_ENABLED env-gated");
+if (
+  /\bexport const ENTERPRISE_MARKETING_EXECUTION_ENABLED\s*=\s*true\b/.test(
+    safety,
+  )
+) {
+  fail("execution must not be hardcoded true");
+} else pass("execution not hardcoded true");
 
 const content = readFileSync(
   resolve(root, "src/constants/enterprise-marketing-engine/content.ts"),
@@ -128,6 +142,26 @@ const persMod = await import(persUrl);
 const blocksMod = await import(blocksUrl);
 const utmMod = await import(utmUrl);
 const assetMod = await import(assetUrl);
+const safetyMod = await import(
+  pathToFileURL(resolve(root, "src/constants/enterprise-marketing-engine/safety.ts")).href
+);
+if (safetyMod.marketingGateEnabled(undefined) !== false) {
+  fail("marketingGateEnabled(undefined) must be false");
+} else pass("marketingGateEnabled(undefined) false");
+if (safetyMod.marketingGateEnabled("true") !== true) {
+  fail('marketingGateEnabled("true") must be true');
+} else pass('marketingGateEnabled("true") true');
+if (safetyMod.marketingGateEnabled("1") !== false) {
+  fail('marketingGateEnabled("1") must be false');
+} else pass('marketingGateEnabled("1") false');
+if (
+  process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED !== "true" &&
+  safetyMod.ENTERPRISE_MARKETING_EXECUTION_ENABLED !== false
+) {
+  fail("execution constant must be false when env is not true");
+} else if (process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED === "true") {
+  fail("verify must not run with ENTERPRISE_MARKETING_EXECUTION_ENABLED=true");
+} else pass("execution constant false with env unset");
 
 const svc = campMod.marketingCampaignService;
 const actor = { userId: "mkt08-super", organizationId: "org-mkt-08-verify", role: "SUPER_ADMIN" };
@@ -192,9 +226,12 @@ else pass("highlight + mobile render");
 if (!html.includes("utm_campaign=mkt08")) fail("utm on cta");
 else pass("utm applied to CTA");
 
-const fallback = persMod.applyPersonalization("Hi {{firstName}}", {});
-if (fallback !== "Hi there") fail(`fallback expected "Hi there", got "${fallback}"`);
-else pass("personalization fallback");
+const vacantGreeting = persMod.applyPersonalization("Hello {{firstName}},", {});
+if (vacantGreeting !== "Hello,") fail(`fallback expected "Hello,", got "${vacantGreeting}"`);
+else pass("personalization vacant firstName greeting");
+const namedGreeting = persMod.applyPersonalization("Hello {{firstName}},", { firstName: "Sushant" });
+if (namedGreeting !== "Hello Sushant,") fail(`named greeting expected "Hello Sushant,", got "${namedGreeting}"`);
+else pass("personalization named firstName greeting");
 
 let unsafeBlocked = false;
 try {

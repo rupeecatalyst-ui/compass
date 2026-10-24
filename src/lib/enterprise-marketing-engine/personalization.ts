@@ -80,7 +80,7 @@ export function applyPersonalization(
     normalized.company = normalized.companyName;
   }
 
-  return text.replace(TOKEN_RE, (_full, name: string) => {
+  const replaced = text.replace(TOKEN_RE, (_full, name: string) => {
     if (RESERVED_STRUCTURAL_TOKENS.has(name)) return `{{${name}}}`;
     const key = resolveCanonicalPersonalizationToken(name);
     if (!key) {
@@ -97,6 +97,13 @@ export function applyPersonalization(
     if (opts?.leavePlaceholders && raw === `{{${name}}}`) return raw;
     return escapeHtml ? escapeMarketingMergeValue(raw) : raw;
   });
+  if (opts?.leavePlaceholders) return replaced;
+  return collapseVacantFirstNameGreeting(replaced);
+}
+
+/** `Hello {{firstName}},` with no name must render `Hello,` — not `Hello there,` or `Hello ,`. */
+function collapseVacantFirstNameGreeting(text: string): string {
+  return text.replace(/\bHello\s+,/g, "Hello,");
 }
 
 export function defaultPersonalizationSample(): Record<MarketingPersonalizationToken, string> {

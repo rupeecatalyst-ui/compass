@@ -133,9 +133,10 @@ assert.equal(projected.city, "Pune");
 assert.equal(projected.product, "Home Loan");
 assert.notEqual(projected.lastName, "9999999999");
 
-const missing = personalization.applyPersonalization("Hello {{firstName}} in {{city}}", {});
-assert.match(missing, /there/);
-assert.match(missing, /your city/);
+const missing = personalization.applyPersonalization("Hello {{firstName}}, in {{city}}", {});
+assert.equal(missing, "Hello, in your city");
+const named = personalization.applyPersonalization("Hello {{firstName}},", { firstName: "Sushant" });
+assert.equal(named, "Hello Sushant,");
 
 const unsupported = catalogue.inspectMarketingPersonalisationUsage({
   subject: "Hi {{ssn}} {{firstName}}",
