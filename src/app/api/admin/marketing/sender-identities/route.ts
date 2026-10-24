@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     if (url.searchParams.get("view") === "delivery-mode") {
       return successResponse({ mode: marketingEmailDeliveryService.getMode() });
     }
-    const identities = marketingSenderService.list(ctx);
+    const identities = await marketingSenderService.list(ctx);
     return successResponse({ identities, mode: marketingEmailDeliveryService.getMode() });
   } catch (err) {
     return fromUnknown(err);
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
     if (body.action === "approve") {
       if (!body.id) return errorResponse(400, "INVALID_INPUT", "id is required");
-      const identity = marketingSenderService.approve(ctx, body.id);
+      const identity = await marketingSenderService.approve(ctx, body.id);
       return successResponse({ identity });
     }
 
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       if (!body.displayName?.trim() || !body.fromAddress?.trim()) {
         return errorResponse(400, "INVALID_INPUT", "displayName and fromAddress are required");
       }
-      const identity = marketingSenderService.upsert(ctx, {
+      const identity = await marketingSenderService.upsert(ctx, {
         organizationId: ctx.organizationId,
         id: body.id,
         displayName: body.displayName,

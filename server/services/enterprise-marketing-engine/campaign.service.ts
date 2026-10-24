@@ -551,7 +551,7 @@ export const marketingCampaignService = {
 
     if (action === "APPROVE") {
       const linkedSender = existing.senderIdentityId
-        ? marketingSenderIdentityStore.get(existing.senderIdentityId, organizationId)
+        ? await marketingSenderIdentityStore.get(existing.senderIdentityId, organizationId)
         : null;
       assertMarketingSenderEligibleForCampaignApproval({
         identity: linkedSender,

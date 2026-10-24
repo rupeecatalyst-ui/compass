@@ -42,8 +42,10 @@ const transitions = read("src/constants/enterprise-marketing-engine/transitions.
 const testSend = read("src/lib/enterprise-marketing-engine/test-send-safety.ts");
 
 mustInclude(pkg, "verify:co-marketing-live-email-foundation-001");
-mustInclude(safety, "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false");
-mustInclude(safety, "ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false");
+mustInclude(safety, "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)");
+mustInclude(safety, "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED)");
+assert.doesNotMatch(safety, /ENTERPRISE_MARKETING_EXECUTION_ENABLED = true/);
+assert.doesNotMatch(safety, /ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true/);
 mustInclude(emailMode, 'return "dry_run"');
 mustInclude(deliverySvc, "evaluateDeliverySuppression");
 mustInclude(deliverySvc, "createDryRunEmailDeliveryPort");
@@ -190,8 +192,10 @@ assert.equal(scopeMod.marketingUnsubscribeAppliesToOperationalEmail(), false);
 assert.equal(scopeMod.marketingUnsubscribeAppliesToTransactionalEmail(), false);
 assert.equal(scopeMod.marketingUnsubscribeChannel(), "EMAIL");
 
+senderStoreMod.configureSenderIdentityStoreForTests({ pinMemory: true });
 const senderStore = senderStoreMod.marketingSenderIdentityStore;
-const sender = senderStore.getDefaultActive(org);
+senderStore.reset();
+const sender = await senderStore.getDefaultActive(org);
 assert.ok(sender, "fixture sender");
 const recordStore = recordMod.marketingEmailDeliveryRecordStore;
 recordStore.resetCampaign?.("camp-lef-001");

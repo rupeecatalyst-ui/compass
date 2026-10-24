@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     const actor = requireAccessToken(request);
     requireAdministrator(actor);
     const ctx = await actorCtx(actor);
-    return successResponse(marketingDeliverabilityService.snapshot(ctx));
+    return successResponse(await marketingDeliverabilityService.snapshot(ctx));
   } catch (err) {
     return fromMarketingUnknownError(
       err,

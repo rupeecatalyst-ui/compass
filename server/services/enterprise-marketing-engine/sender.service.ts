@@ -36,16 +36,15 @@ function assertNoSend() {
 }
 
 export const marketingSenderService = {
-  list(actor: Actor) {
+  async list(actor: Actor) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.SENDER_MANAGE);
     const organizationId = orgId(actor.organizationId);
-    return marketingSenderIdentityStore
-      .list(organizationId)
-      .map((row) => marketingSenderIdentityStore.toPublicDto(row));
+    const rows = await marketingSenderIdentityStore.list(organizationId);
+    return rows.map((row) => marketingSenderIdentityStore.toPublicDto(row));
   },
 
-  upsert(
+  async upsert(
     actor: Actor,
     input: Parameters<typeof marketingSenderIdentityStore.upsert>[0],
   ) {
@@ -58,7 +57,7 @@ export const marketingSenderService = {
         code: "SENDER_SIMULATED_NOT_VERIFIED",
       });
     }
-    const saved = marketingSenderIdentityStore.upsert({
+    const saved = await marketingSenderIdentityStore.upsert({
       ...input,
       organizationId,
       createdByUserId: actor.userId ?? null,
@@ -73,11 +72,11 @@ export const marketingSenderService = {
     return marketingSenderIdentityStore.toPublicDto(saved);
   },
 
-  approve(actor: Actor, senderId: string) {
+  async approve(actor: Actor, senderId: string) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.SENDER_APPROVE);
     const organizationId = orgId(actor.organizationId);
-    const saved = marketingSenderIdentityStore.approve({
+    const saved = await marketingSenderIdentityStore.approve({
       organizationId,
       id: senderId,
       actorUserId: actor.userId ?? null,

@@ -35,10 +35,10 @@ function orgId(actorOrg?: string | null) {
 }
 
 export const marketingDeliverabilityService = {
-  snapshot(actor: Actor) {
+  async snapshot(actor: Actor) {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.SENDER_MANAGE);
     const organizationId = orgId(actor.organizationId);
-    const senders = marketingSenderIdentityStore.list(organizationId);
+    const senders = await marketingSenderIdentityStore.list(organizationId);
     const smtpReadiness = assessMarketingLiveEmailProviderReadiness();
     return {
       readiness: composeMarketingDeliverabilityReadiness({

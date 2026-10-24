@@ -88,9 +88,11 @@ const recordMod = await import(recordUrl);
 const svc = deliveryMod.marketingEmailDeliveryService;
 const senderStore = senderMod.marketingSenderIdentityStore;
 const recordStore = recordMod.marketingEmailDeliveryRecordStore;
+senderMod.configureSenderIdentityStoreForTests({ pinMemory: true });
+senderStore.reset();
 
 const org = "mkt07-verify";
-const sender = senderStore.getDefaultActive(org);
+const sender = await senderStore.getDefaultActive(org);
 if (!sender) fail("default sender identity");
 else pass(`default sender=${sender.fromAddress}`);
 

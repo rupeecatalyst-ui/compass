@@ -74,6 +74,9 @@ const [
   import(ts("src/constants/enterprise-marketing-engine/safety.ts")),
 ]);
 
+senderStoreMod.configureSenderIdentityStoreForTests({ pinMemory: true });
+senderStoreMod.marketingSenderIdentityStore.reset();
+
 assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, true);
 assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, true);
 
@@ -419,7 +422,7 @@ assert.equal(/<script/i.test(rendered), false);
 assert.ok(rendered.includes("{{unsubscribeUrl}}") || rendered.includes("unsubscribe"));
 
 const svc = deliveryMod.marketingEmailDeliveryService;
-const sender = senderStoreMod.marketingSenderIdentityStore.getDefaultActive("org-smtp-001");
+const sender = await senderStoreMod.marketingSenderIdentityStore.getDefaultActive("org-smtp-001");
 recordMod.marketingEmailDeliveryRecordStore.resetCampaign?.("camp-smtp-dry");
 const dry = await svc.deliver({
   idempotencyKey: "smtp:dry",

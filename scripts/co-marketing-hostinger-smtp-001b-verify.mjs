@@ -86,6 +86,9 @@ const { configureMarketingDurabilityTestFixture, resetMarketingDurabilityComposi
   ts("src/lib/enterprise-marketing-engine/durability/composition.ts")
 );
 
+senderStoreMod.configureSenderIdentityStoreForTests({ pinMemory: true });
+senderStoreMod.marketingSenderIdentityStore.reset();
+
 assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, true);
 assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, true);
 
@@ -168,7 +171,7 @@ assert.equal(sendMailCalls.length, 0);
 
 const actor = { userId: "verify-1b", organizationId: "org-smtp-1b", role: "SUPER_ADMIN" };
 senderStoreMod.marketingSenderIdentityStore.reset?.();
-const snapshot = delivMod.marketingDeliverabilityService.snapshot(actor);
+const snapshot = await delivMod.marketingDeliverabilityService.snapshot(actor);
 assert.equal(snapshot.smtpReadiness.executionEnabled, true);
 assert.equal(snapshot.smtpReadiness.providerConnectEnabled, true);
 assert.equal(snapshot.smtpReadiness.liveSendAuthorized, false);

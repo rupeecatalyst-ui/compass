@@ -103,13 +103,13 @@ function evaluateDeliverySuppression(request: MarketingEmailDeliveryRequest) {
   return failClosedMarketingDeliverySuppression({ fingerprints, decision });
 }
 
-function resolveSender(input: {
+async function resolveSender(input: {
   organizationId: string;
   senderIdentityId?: string | null;
   fromAddressHint?: string | null;
-}): MarketingEmailDeliverySender | null {
+}): Promise<MarketingEmailDeliverySender | null> {
   if (input.senderIdentityId) {
-    const byId = marketingSenderIdentityStore.get(
+    const byId = await marketingSenderIdentityStore.get(
       input.senderIdentityId,
       input.organizationId,
     );
@@ -123,7 +123,7 @@ function resolveSender(input: {
     }
   }
   if (input.fromAddressHint) {
-    const matched = marketingSenderIdentityStore.resolveByFromAddress(
+    const matched = await marketingSenderIdentityStore.resolveByFromAddress(
       input.organizationId,
       input.fromAddressHint,
     );
@@ -136,17 +136,15 @@ function resolveSender(input: {
       };
     }
   }
-  const fallback = marketingSenderIdentityStore.getDefaultActive(input.organizationId);
+  const fallback = await marketingSenderIdentityStore.getDefaultActive(input.organizationId);
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
-    const phase1 = marketingSenderIdentityStore
-      .list(input.organizationId)
-      .find((identity) =>
-        isMarketingPhase1Sender({
-          fromAddress: identity.fromAddress,
-          displayName: identity.displayName,
-          replyTo: identity.replyTo,
-        }),
-      );
+    const phase1 = (await marketingSenderIdentityStore.list(input.organizationId)).find((identity) =>
+      isMarketingPhase1Sender({
+        fromAddress: identity.fromAddress,
+        displayName: identity.displayName,
+        replyTo: identity.replyTo,
+      }),
+    );
     if (phase1?.active) {
       return {
         senderIdentityId: phase1.id,
@@ -243,17 +241,16 @@ export const marketingEmailDeliveryService = {
     };
   },
 
-  listSenderIdentities(organizationId: string) {
-    return marketingSenderIdentityStore
-      .list(organizationId)
-      .map((i) => marketingSenderIdentityStore.toPublicDto(i));
+  async listSenderIdentities(organizationId: string) {
+    const rows = await marketingSenderIdentityStore.list(organizationId);
+    return rows.map((i) => marketingSenderIdentityStore.toPublicDto(i));
   },
 
-  upsertSenderIdentity(
+  async upsertSenderIdentity(
     organizationId: string,
     input: Parameters<typeof marketingSenderIdentityStore.upsert>[0],
   ) {
-    const saved = marketingSenderIdentityStore.upsert({ ...input, organizationId });
+    const saved = await marketingSenderIdentityStore.upsert({ ...input, organizationId });
     recordMarketingAuditEvent({
       kind: "email.sender_identity.upsert",
       organizationId,
@@ -400,7 +397,7 @@ export const marketingEmailDeliveryService = {
     countsAsProcessed: boolean;
     countsAsFailed: boolean;
   }> {
-    const sender = resolveSender({
+    const sender = await resolveSender({
       organizationId: input.organizationId,
       senderIdentityId: input.senderIdentityId,
       fromAddressHint: input.fromAddressHint,

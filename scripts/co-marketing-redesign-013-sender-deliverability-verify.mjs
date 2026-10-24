@@ -52,7 +52,8 @@ const inboundSvc = read(
 
 mustInclude(pkg, "verify:co-marketing-redesign-013");
 mustInclude(gates, "verify:co-marketing-redesign-013");
-mustInclude(safety, "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false");
+mustInclude(safety, "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)");
+assert.doesNotMatch(safety, /ENTERPRISE_MARKETING_EXECUTION_ENABLED = true/);
 mustInclude(cronSrc, "MARKETING_PACING_CRON_REGISTERED = false");
 mustInclude(executionConst, "MARKETING_DEFAULT_BATCH_SIZE = 100");
 mustInclude(executionConst, "MARKETING_DEFAULT_BATCH_INTERVAL_MS = 60 * 60 * 1000");
@@ -70,6 +71,9 @@ mustInclude(senderConst, "last_validation");
 mustInclude(readinessSrc, "anyVerified: false");
 mustInclude(storeSrc, 'verificationStatus: "PENDING"');
 mustInclude(storeSrc, "simulated: true");
+mustInclude(storeSrc, "isEnterprisePersistencePrisma");
+mustInclude(storeSrc, "enterpriseMarketingSenderIdentity");
+mustInclude(storeSrc, "SENDER_IDENTITY_PERSISTENCE_FAILED");
 mustInclude(senderSvc, "forbidMarketingSenderVerificationEmail");
 mustInclude(eligibilitySrc, "SENDER_VERIFY_EMAIL_FORBIDDEN");
 mustInclude(delivSvc, "composeMarketingDeliverabilityReadiness");
@@ -141,6 +145,7 @@ const readinessMod = await import(readinessUrl);
 const disabledMod = await import(disabledUrl);
 const permMod = await import(permUrl);
 
+storeMod.configureSenderIdentityStoreForTests({ pinMemory: true });
 storeMod.marketingSenderIdentityStore.reset();
 
 const orgA = {
@@ -156,7 +161,7 @@ const adminOnly = {
 
 let defaultRejected = false;
 try {
-  senderMod.marketingSenderService.list({
+  await senderMod.marketingSenderService.list({
     userId: "x",
     organizationId: "default",
     role: "SUPER_ADMIN",
@@ -166,7 +171,7 @@ try {
 }
 assert.equal(defaultRejected, true, "default org must be rejected");
 
-const fixture = storeMod.marketingSenderIdentityStore.getDefaultActive(orgA.organizationId);
+const fixture = await storeMod.marketingSenderIdentityStore.getDefaultActive(orgA.organizationId);
 assert.ok(fixture);
 assert.equal(fixture.simulated, true);
 assert.equal(fixture.verificationStatus, "PENDING");
@@ -175,7 +180,7 @@ assert.notEqual(fixture.verificationStatus, "VERIFIED");
 
 let simulatedApproveBlocked = false;
 try {
-  storeMod.marketingSenderIdentityStore.approve({
+  await storeMod.marketingSenderIdentityStore.approve({
     organizationId: orgA.organizationId,
     id: fixture.id,
     actorUserId: orgA.userId,
@@ -212,7 +217,7 @@ assert.equal(readinessMod.marketingDeliverabilityHasVerifiedSimulated(readiness)
 assert.ok(readiness.lastValidationAt);
 assert.ok(readiness.freshUntil);
 
-const snapshot = delivMod.marketingDeliverabilityService.snapshot(orgA);
+const snapshot = await delivMod.marketingDeliverabilityService.snapshot(orgA);
 assert.equal(snapshot.readiness.anyVerified, false);
 assert.ok(snapshot.senders.some((row) => row.simulated && row.verificationStatus !== "VERIFIED"));
 
@@ -234,7 +239,7 @@ assert.equal(verifyEmailBlocked, true);
 
 let simulatedVerified = false;
 try {
-  storeMod.marketingSenderIdentityStore.upsert({
+  await storeMod.marketingSenderIdentityStore.upsert({
     organizationId: orgA.organizationId,
     displayName: "Bad",
     fromAddress: "bad@example.com",
@@ -246,7 +251,7 @@ try {
 }
 assert.equal(simulatedVerified, true);
 
-const unapproved = storeMod.marketingSenderIdentityStore.upsert({
+const unapproved = await storeMod.marketingSenderIdentityStore.upsert({
   organizationId: orgA.organizationId,
   displayName: "Unapproved sender",
   fromAddress: "unapproved.sender@example.com",
@@ -273,19 +278,19 @@ try {
 }
 assert.equal(blockedUnapproved, true, "campaign approval must block unapproved senders");
 
-const approved = storeMod.marketingSenderIdentityStore.upsert({
+const approved = await storeMod.marketingSenderIdentityStore.upsert({
   organizationId: orgA.organizationId,
   displayName: "Approved sender",
   fromAddress: "approved.sender@example.com",
   simulated: false,
   createdByUserId: orgA.userId,
 });
-storeMod.marketingSenderIdentityStore.approve({
+await storeMod.marketingSenderIdentityStore.approve({
   organizationId: orgA.organizationId,
   id: approved.id,
   actorUserId: orgA.userId,
 });
-const approvedRow = storeMod.marketingSenderIdentityStore.get(approved.id, orgA.organizationId);
+const approvedRow = await storeMod.marketingSenderIdentityStore.get(approved.id, orgA.organizationId);
 assert.equal(approvedRow.approvalStatus, "APPROVED");
 assert.ok(approvedRow.approvedAt);
 assert.equal(approvedRow.approvedByUserId, orgA.userId);
@@ -297,7 +302,7 @@ eligibilityMod.assertMarketingSenderEligibleForCampaignApproval({
 
 let adminApproveDenied = false;
 try {
-  senderMod.marketingSenderService.approve(adminOnly, approved.id);
+  await senderMod.marketingSenderService.approve(adminOnly, approved.id);
 } catch (err) {
   adminApproveDenied = err?.code === "MARKETING_PERMISSION_DENIED";
 }
