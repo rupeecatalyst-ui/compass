@@ -11,6 +11,9 @@ export function classifyGoogleSheetsAccessError(err: unknown): {
   const status =
     typeof err === "object" && err && "code" in err ? String((err as { code?: unknown }).code) : "";
   const lowered = message.toLowerCase();
+  if (status === "429" || /quota exceeded|rate limit/i.test(lowered)) {
+    return { code: "VALIDATION_FAILED", message };
+  }
   if (
     status === "401" ||
     status === "403" ||

@@ -15,7 +15,11 @@ import {
 } from "@/lib/enterprise-marketing-engine/column-mapping";
 import { isValidMarketingEmail } from "@/lib/enterprise-marketing-engine/data-quality";
 import { normalizeMarketingLedgerEmail } from "@/lib/enterprise-marketing-engine/durability/identity";
-import type { MarketingDataSourcePort } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
+import type {
+  MarketingAudienceEstimate,
+  MarketingDataSourcePort,
+  MarketingDatasetSchema,
+} from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import type {
   MarketingEligibilityRules,
   MarketingFilterDefinition,
@@ -117,6 +121,9 @@ export async function scanMarketingAudienceEligibility(input: {
   purpose: MarketingEligibilityScanPurpose;
   lookups?: MarketingEligibilityLookups;
   diagnosticLimit?: number;
+  schema?: MarketingDatasetSchema;
+  estimate?: MarketingAudienceEstimate | null;
+  bypassCache?: boolean;
 }): Promise<MarketingEligibilityScanResult> {
   if (!input.port.getSchema || !input.port.streamRows) {
     throw Object.assign(new Error("Data source port cannot stream rows"), {
@@ -133,10 +140,17 @@ export async function scanMarketingAudienceEligibility(input: {
     );
   }
 
-  const schema = await input.port.getSchema(input.bindingId, input.datasetId);
-  const estimate = input.port.estimateAudience
-    ? await input.port.estimateAudience(input.bindingId, input.datasetId)
-    : null;
+  const schema =
+    input.schema ??
+    (await input.port.getSchema!(input.bindingId, input.datasetId, { bypassCache: input.bypassCache }));
+  const estimate =
+    input.estimate !== undefined
+      ? input.estimate
+      : input.port.estimateAudience
+        ? await input.port.estimateAudience(input.bindingId, input.datasetId, {
+            bypassCache: input.bypassCache,
+          })
+        : null;
   const columns = columnsFromMap(input.columnMap);
   const lookups = input.lookups ?? defaultLookups();
   const diagnosticLimit = input.diagnosticLimit ?? 25;
@@ -180,6 +194,7 @@ export async function scanMarketingAudienceEligibility(input: {
       datasetId: input.datasetId,
       cursor,
       limit: Math.max(1, remaining),
+      bypassCache: input.bypassCache,
     });
     if (page.rows.length === 0) break;
 

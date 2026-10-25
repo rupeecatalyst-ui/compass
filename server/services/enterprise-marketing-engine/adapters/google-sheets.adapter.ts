@@ -25,6 +25,12 @@ import { describeMarketingWorkbookHealthContext } from "@/lib/enterprise-marketi
 import { marketingDataSourceBindingStore } from "../binding-store";
 import { resolveRuntimeWorkbookForOrg } from "../workbook-registry";
 import { classifyGoogleSheetsAccessError } from "./google-sheets-errors";
+import {
+  coalesceGoogleSheetsRead,
+  peekGoogleSheetsReadCache,
+  rememberGoogleSheetsRead,
+} from "./google-sheets-read-cache";
+import { createSheetsQuotaExceededError, isGoogleSheetsQuotaError, withSheetsQuota } from "./google-sheets-quota";
 
 function loadServiceAccount() {
   const clientEmail = (process.env.GOOGLE_SHEETS_CLIENT_EMAIL ?? "").trim();
@@ -42,15 +48,47 @@ function loadServiceAccount() {
   return { clientEmail, privateKey };
 }
 
-async function getSheetsClient() {
-  const { clientEmail, privateKey } = loadServiceAccount();
-  const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
-  await auth.authorize();
-  return google.sheets({ version: "v4", auth });
+type SheetsApiClient = {
+  spreadsheets: {
+    get: (args: { spreadsheetId: string; fields?: string }) => Promise<{ data: unknown }>;
+    values: {
+      get?: (args: {
+        spreadsheetId: string;
+        range: string;
+        majorDimension?: string;
+      }) => Promise<{ data: { values?: string[][] } }>;
+      batchGet: (args: {
+        spreadsheetId: string;
+        ranges: string[];
+        majorDimension?: string;
+      }) => Promise<{ data: { valueRanges?: Array<{ values?: string[][] }> } }>;
+    };
+  };
+};
+
+let sheetsClientPromise: Promise<SheetsApiClient> | null = null;
+let sheetsClientOverride: SheetsApiClient | null = null;
+
+export function setGoogleSheetsApiClientForTests(client: SheetsApiClient | null): void {
+  sheetsClientOverride = client;
+  sheetsClientPromise = null;
+}
+
+async function getSheetsClient(): Promise<SheetsApiClient> {
+  if (sheetsClientOverride) return sheetsClientOverride;
+  if (!sheetsClientPromise) {
+    sheetsClientPromise = (async () => {
+      const { clientEmail, privateKey } = loadServiceAccount();
+      const auth = new google.auth.JWT({
+        email: clientEmail,
+        key: privateKey,
+        scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+      });
+      await auth.authorize();
+      return google.sheets({ version: "v4", auth }) as unknown as SheetsApiClient;
+    })();
+  }
+  return sheetsClientPromise;
 }
 
 async function requireBinding(bindingId: string, organizationId: string) {
@@ -79,21 +117,6 @@ export function sheetsBoundedRanges(
   };
 }
 
-async function withSheetsQuota<T>(read: () => Promise<T>): Promise<T> {
-  let waitMs = 500;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    try {
-      return await read();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (!/429|quota|rate limit/i.test(message) || attempt === 4) throw err;
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-      waitMs *= 2;
-    }
-  }
-  throw new Error("Google Sheets read failed");
-}
-
 function valuesToObjects(
   headers: string[],
   valueRows: string[][],
@@ -118,65 +141,148 @@ function valuesToObjects(
   return { rows, sourceRowNumbers };
 }
 
+type SheetMeta = {
+  sheets: Array<{
+    properties?: {
+      sheetId?: number | null;
+      title?: string | null;
+      gridProperties?: { rowCount?: number | null };
+    };
+  }>;
+};
+
+function wrapSheetsReadError(err: unknown): never {
+  if ((err as { code?: string }).code === "SHEETS_QUOTA_EXCEEDED") throw err;
+  if (isGoogleSheetsQuotaError(err)) {
+    throw createSheetsQuotaExceededError(err);
+  }
+  const message = err instanceof Error ? err.message : "Google Sheets read failed";
+  throw Object.assign(new Error(message), {
+    statusCode: 502,
+    code: "SHEETS_API_ERROR",
+  });
+}
+
+async function readSpreadsheetMeta(spreadsheetId: string, bypass?: boolean): Promise<SheetMeta> {
+  const sheets = await getSheetsClient();
+  try {
+    const meta = await coalesceGoogleSheetsRead({
+      key: `sheets.get:${spreadsheetId}:tabs`,
+      bypass,
+      read: () =>
+        withSheetsQuota(() =>
+          sheets.spreadsheets.get({
+            spreadsheetId,
+            fields: "sheets(properties(sheetId,title,gridProperties(rowCount)))",
+          }),
+        ),
+    });
+    return (meta.data ?? { sheets: [] }) as SheetMeta;
+  } catch (err) {
+    wrapSheetsReadError(err);
+  }
+}
+
+async function readValueRange(
+  spreadsheetId: string,
+  range: string,
+  bypass?: boolean,
+): Promise<string[][]> {
+  const sheets = await getSheetsClient();
+  try {
+    const res = await coalesceGoogleSheetsRead({
+      key: `sheets.values:${spreadsheetId}:${range}`,
+      bypass,
+      read: () =>
+        withSheetsQuota(async () => {
+          if (sheets.spreadsheets.values.get) {
+            return sheets.spreadsheets.values.get({
+              spreadsheetId,
+              range,
+              majorDimension: "ROWS",
+            });
+          }
+          const batched = await sheets.spreadsheets.values.batchGet({
+            spreadsheetId,
+            ranges: [range],
+            majorDimension: "ROWS",
+          });
+          return { data: { values: batched.data.valueRanges?.[0]?.values ?? [] } };
+        }),
+    });
+    return (res.data.values ?? []) as string[][];
+  } catch (err) {
+    wrapSheetsReadError(err);
+  }
+}
+
 async function readHeaderAndPage(args: {
   spreadsheetId: string;
   sheetTitle: string;
   cursor?: string;
   limit: number;
+  bypassCache?: boolean;
 }): Promise<{ headers: string[]; page: MarketingRowPage }> {
   const sheets = await getSheetsClient();
   const startOffset = args.cursor ? Math.max(0, Number.parseInt(args.cursor, 10) || 0) : 0;
   const limit = Math.min(Math.max(1, args.limit), MARKETING_SHEETS_PAGE_MAX_ROWS);
   const ranges = sheetsBoundedRanges(args.sheetTitle, args.cursor, limit);
   const dataStart = 2 + startOffset;
+  const bypass = args.bypassCache === true;
 
-  let headerRes;
-  let pageRes;
   try {
-    headerRes = await withSheetsQuota(() =>
-      sheets.spreadsheets.values.get({
-        spreadsheetId: args.spreadsheetId,
-        range: ranges.headerRange,
-        majorDimension: "ROWS",
-      }),
-    );
-    pageRes = await withSheetsQuota(() =>
-      sheets.spreadsheets.values.get({
-        spreadsheetId: args.spreadsheetId,
-        range: ranges.dataRange,
-        majorDimension: "ROWS",
-      }),
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Google Sheets read failed";
-    throw Object.assign(new Error(message), {
-      statusCode: 502,
-      code: "SHEETS_API_ERROR",
-    });
-  }
+    const headerKey = `sheets.values:${args.spreadsheetId}:${ranges.headerRange}`;
+    const dataKey = `sheets.values:${args.spreadsheetId}:${ranges.dataRange}`;
+    const batchKey = `sheets.batchGet:${args.spreadsheetId}:${ranges.headerRange}|${ranges.dataRange}`;
 
-  const headers = (((headerRes.data.values ?? [])[0] ?? []) as string[]).map((h, i) =>
-    String(h || `Column_${i + 1}`),
-  );
-  const pageValues = (pageRes.data.values ?? []) as string[][];
-  const { rows, sourceRowNumbers } = valuesToObjects(headers, pageValues, dataStart);
-  const nextCursor = pageValues.length >= limit ? String(startOffset + pageValues.length) : undefined;
-  return {
-    headers,
-    page: { rows, sourceRowNumbers, nextCursor },
-  };
+    let headerValues: string[][] | undefined;
+    let pageValues: string[][] | undefined;
+    const cachedHeader = !bypass
+      ? peekGoogleSheetsReadCache<{ data: { values?: string[][] } }>(headerKey)
+      : undefined;
+
+    if (cachedHeader?.data?.values) {
+      headerValues = cachedHeader.data.values;
+      pageValues = await readValueRange(args.spreadsheetId, ranges.dataRange, bypass);
+    } else {
+      const batch = await coalesceGoogleSheetsRead({
+        key: batchKey,
+        bypass,
+        read: () =>
+          withSheetsQuota(() =>
+            sheets.spreadsheets.values.batchGet({
+              spreadsheetId: args.spreadsheetId,
+              ranges: [ranges.headerRange, ranges.dataRange],
+              majorDimension: "ROWS",
+            }),
+          ),
+      });
+      headerValues = (batch.data.valueRanges?.[0]?.values ?? []) as string[][];
+      pageValues = (batch.data.valueRanges?.[1]?.values ?? []) as string[][];
+      rememberGoogleSheetsRead(headerKey, { data: { values: headerValues } });
+      rememberGoogleSheetsRead(dataKey, { data: { values: pageValues } });
+    }
+
+    const headers = ((headerValues[0] ?? []) as string[]).map((h, i) => String(h || `Column_${i + 1}`));
+    const { rows, sourceRowNumbers } = valuesToObjects(headers, pageValues ?? [], dataStart);
+    const nextCursor =
+      (pageValues ?? []).length >= limit ? String(startOffset + (pageValues ?? []).length) : undefined;
+    return {
+      headers,
+      page: { rows, sourceRowNumbers, nextCursor, headers },
+    };
+  } catch (err) {
+    wrapSheetsReadError(err);
+  }
 }
 
 async function resolveSheetTitle(
   spreadsheetId: string,
   datasetId: string,
+  bypass?: boolean,
 ): Promise<{ title: string; gid?: number; rowCount?: number }> {
-  const sheets = await getSheetsClient();
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: "sheets(properties(sheetId,title,gridProperties(rowCount)))",
-  });
-  const list = meta.data.sheets ?? [];
+  const meta = await readSpreadsheetMeta(spreadsheetId, bypass);
+  const list = meta.sheets ?? [];
   for (const s of list) {
     const props = s.properties;
     if (!props) continue;
@@ -233,12 +339,8 @@ export function createGoogleSheetsMarketingDataSourcePort(
     async discoverDatasets(bindingId) {
       const binding = await requireBinding(bindingId, organizationId);
       try {
-        const sheets = await getSheetsClient();
-        const meta = await sheets.spreadsheets.get({
-          spreadsheetId: binding.spreadsheetId,
-          fields: "sheets(properties(sheetId,title,gridProperties(rowCount)))",
-        });
-        const datasets: MarketingDatasetDescriptor[] = (meta.data.sheets ?? []).map((s) => {
+        const meta = await readSpreadsheetMeta(binding.spreadsheetId);
+        const datasets: MarketingDatasetDescriptor[] = (meta.sheets ?? []).map((s) => {
           const props = s.properties;
           const title = props?.title ?? "Untitled";
           const sheetId = String(props?.sheetId ?? title);
@@ -269,13 +371,14 @@ export function createGoogleSheetsMarketingDataSourcePort(
       }
     },
 
-    async getSchema(bindingId, datasetId): Promise<MarketingDatasetSchema> {
+    async getSchema(bindingId, datasetId, opts): Promise<MarketingDatasetSchema> {
       const binding = await requireBinding(bindingId, organizationId);
-      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
+      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId, opts?.bypassCache);
       const { headers } = await readHeaderAndPage({
         spreadsheetId: binding.spreadsheetId,
         sheetTitle: sheet.title,
         limit: 1,
+        bypassCache: opts?.bypassCache,
       });
       const detected = detectMarketingSheetColumns(headers);
       return {
@@ -287,21 +390,22 @@ export function createGoogleSheetsMarketingDataSourcePort(
       };
     },
 
-    async previewRows({ bindingId, datasetId, limit }): Promise<MarketingRowPage> {
+    async previewRows({ bindingId, datasetId, limit, bypassCache }): Promise<MarketingRowPage> {
       const binding = await requireBinding(bindingId, organizationId);
-      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
+      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId, bypassCache);
       const capped = Math.min(Math.max(1, limit), MARKETING_SHEETS_PREVIEW_MAX_ROWS);
       const { page } = await readHeaderAndPage({
         spreadsheetId: binding.spreadsheetId,
         sheetTitle: sheet.title,
         limit: capped,
+        bypassCache,
       });
       return page;
     },
 
-    async estimateAudience(bindingId, datasetId): Promise<MarketingAudienceEstimate> {
+    async estimateAudience(bindingId, datasetId, opts): Promise<MarketingAudienceEstimate> {
       const binding = await requireBinding(bindingId, organizationId);
-      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
+      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId, opts?.bypassCache);
       const grid = sheet.rowCount ?? null;
       return {
         approximateRowCount: grid,
@@ -312,15 +416,16 @@ export function createGoogleSheetsMarketingDataSourcePort(
       };
     },
 
-    async streamRows({ bindingId, datasetId, cursor, limit }): Promise<MarketingRowPage> {
+    async streamRows({ bindingId, datasetId, cursor, limit, bypassCache }): Promise<MarketingRowPage> {
       const binding = await requireBinding(bindingId, organizationId);
-      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId);
+      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId, bypassCache);
       const capped = Math.min(Math.max(1, limit), MARKETING_SHEETS_PAGE_MAX_ROWS);
       const { page } = await readHeaderAndPage({
         spreadsheetId: binding.spreadsheetId,
         sheetTitle: sheet.title,
         cursor,
         limit: capped,
+        bypassCache,
       });
       return page;
     },
@@ -340,9 +445,15 @@ export function createGoogleSheetsMarketingDataSourcePort(
         const sheets = await getSheetsClient();
         authorizeCompleted = true;
         stage = "SPREADSHEETS_GET";
-        await sheets.spreadsheets.get({
-          spreadsheetId: binding.spreadsheetId,
-          fields: "spreadsheetId,properties.title",
+        await coalesceGoogleSheetsRead({
+          key: `sheets.get:${binding.spreadsheetId}:health`,
+          read: () =>
+            withSheetsQuota(() =>
+              sheets.spreadsheets.get({
+                spreadsheetId: binding.spreadsheetId,
+                fields: "spreadsheetId,properties.title",
+              }),
+            ),
         });
         const message = "Google Sheets reachable with service account (readonly).";
         marketingDataSourceBindingStore.patch(bindingId, organizationId, {

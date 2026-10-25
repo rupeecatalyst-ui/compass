@@ -40,19 +40,29 @@ export type MarketingRowPage = {
   nextCursor?: string;
   /** 1-based sheet row numbers corresponding to returned rows (header = 1). */
   sourceRowNumbers?: number[];
+  headers?: string[];
 };
 
 export type MarketingDataSourcePort = {
   readonly providerType: MarketingDataSourceProviderType;
   listBindings(organizationId: string): Promise<{ id: string; displayName: string }[]>;
   discoverDatasets(bindingId: string): Promise<MarketingDatasetDescriptor[]>;
-  getSchema?(bindingId: string, datasetId: string): Promise<MarketingDatasetSchema>;
+  getSchema?(
+    bindingId: string,
+    datasetId: string,
+    opts?: { bypassCache?: boolean },
+  ): Promise<MarketingDatasetSchema>;
   previewRows?(args: {
     bindingId: string;
     datasetId: string;
     limit: number;
+    bypassCache?: boolean;
   }): Promise<MarketingRowPage>;
-  estimateAudience?(bindingId: string, datasetId: string): Promise<MarketingAudienceEstimate>;
+  estimateAudience?(
+    bindingId: string,
+    datasetId: string,
+    opts?: { bypassCache?: boolean },
+  ): Promise<MarketingAudienceEstimate>;
   /**
    * Stream/page rows for future campaign execution — must NOT bulk-mirror into Supabase.
    * MKT-02: available for controlled reads; UI must never request unbounded pages.
@@ -62,6 +72,7 @@ export type MarketingDataSourcePort = {
     datasetId: string;
     cursor?: string;
     limit: number;
+    bypassCache?: boolean;
   }): Promise<MarketingRowPage>;
   healthCheck?(bindingId: string): Promise<{ ok: boolean; message?: string; mode?: string }>;
 };

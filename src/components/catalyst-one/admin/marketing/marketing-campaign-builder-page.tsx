@@ -540,7 +540,7 @@ export function MarketingCampaignBuilderPage({
     }
   }
 
-  async function runPreviewEligibility() {
+  async function runPreviewEligibility(opts?: { refreshSource?: boolean }) {
     if (!bindingId || !datasetId) {
       const message = "Select the authorised workbook and worksheet tab before running eligibility preview.";
       setPreview(null);
@@ -568,11 +568,22 @@ export function MarketingCampaignBuilderPage({
           exclusionDefinition: exclusions,
           columnMap,
           mappingConfirmed,
+          refreshSource: opts?.refreshSource === true,
         }),
       });
-      const body = (await res.json()) as ApiEnvelope<{ preview: MarketingAudiencePreviewResult }>;
+      const body = (await res.json()) as ApiEnvelope<{ preview: MarketingAudiencePreviewResult }> & {
+        error?: { code?: string; message?: string; details?: Record<string, string[]> };
+      };
       const nextPreview = body.data?.preview;
       if (!res.ok || !body.success || !nextPreview || typeof nextPreview.counts?.eligible !== "number") {
+        if (body.error?.code === "SHEETS_QUOTA_EXCEEDED") {
+          const synced = body.error.details?.lastSuccessfulSyncAt?.[0];
+          throw new Error(
+            synced
+              ? `${body.error.message} Use Retry after the quota window resets.`
+              : body.error.message || "Google Sheets read quota was exceeded. Retry after the quota window resets.",
+          );
+        }
         throw new Error(body.error?.message || "Eligibility preview failed");
       }
       setPreview(nextPreview);
@@ -1234,6 +1245,17 @@ export function MarketingCampaignBuilderPage({
                 <Button type="button" variant="outline" disabled={busy} onClick={() => void runPreviewEligibility()} data-mkt-eligibility-preview="true">
                   {previewPending ? "Checking eligibility…" : "Eligibility preview"}
                 </Button>
+                {previewError?.includes("quota") ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void runPreviewEligibility({ refreshSource: true })}
+                    data-mkt-sheets-quota-retry="true"
+                  >
+                    Retry after quota
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   disabled={busy || !eligibilityPreviewReady || !mappingConfirmed || !columnMap.email}
@@ -1244,7 +1266,12 @@ export function MarketingCampaignBuilderPage({
                 </Button>
               </div>
               {previewError ? (
-                <p role="alert" data-mkt-eligibility-error="true" className="text-sm font-semibold text-destructive">
+                <p
+                  role="alert"
+                  data-mkt-eligibility-error="true"
+                  data-mkt-sheets-quota={previewError.includes("quota") ? "true" : undefined}
+                  className="text-sm font-semibold text-destructive"
+                >
                   {previewError}
                 </p>
               ) : null}

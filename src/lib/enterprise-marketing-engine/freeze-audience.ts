@@ -9,7 +9,12 @@ import { assertMarketingPhase1CampaignAudienceCeiling } from "@/lib/enterprise-m
 import {
   scanMarketingAudienceEligibility,
   type MarketingEligibilityLookups,
+  type MarketingEligibilityScanResult,
 } from "@/lib/enterprise-marketing-engine/eligibility-scan";
+import {
+  isCompleteFreezeWorkingSet,
+  rememberCompleteAudienceWorkingSet,
+} from "@/lib/enterprise-marketing-engine/audience-working-set";
 import {
   assertConfirmedMarketingColumnMap,
   type MarketingConfirmedColumnMapping,
@@ -71,6 +76,7 @@ export async function freezeApprovedAudienceSnapshot(input: {
   lookups?: MarketingEligibilityLookups;
   channel?: MarketingChannel | null;
   actorUserId?: string | null;
+  completeScan?: MarketingEligibilityScanResult | null;
 }): Promise<MarketingFrozenAudienceSnapshot> {
   const confirmed = assertConfirmedMarketingColumnMap({
     mapping: input.mapping,
@@ -85,20 +91,39 @@ export async function freezeApprovedAudienceSnapshot(input: {
     excludePreviouslyContacted: false,
   };
 
-  const scan = await scanMarketingAudienceEligibility({
-    port: input.port,
+  const keyInput = {
+    organizationId: input.organizationId,
     bindingId: input.sourceBindingId,
     datasetId: input.sourceTabId,
     columnMap: confirmed.map,
-    mapping: confirmed,
     inclusion: input.inclusion,
     exclusion,
     eligibilityRules,
-    purpose: "approval",
-    lookups: input.lookups,
-  });
+  };
+  let scan =
+    input.completeScan && isCompleteFreezeWorkingSet(input.completeScan)
+      ? input.completeScan
+      : await scanMarketingAudienceEligibility({
+          port: input.port,
+          bindingId: input.sourceBindingId,
+          datasetId: input.sourceTabId,
+          columnMap: confirmed.map,
+          mapping: confirmed,
+          inclusion: input.inclusion,
+          exclusion,
+          eligibilityRules,
+          purpose: "approval",
+          lookups: input.lookups,
+        });
+  if (!isCompleteFreezeWorkingSet(scan)) {
+    throw Object.assign(
+      new Error("Freeze requires a complete approval scan. A capped eligibility preview cannot be frozen."),
+      { statusCode: 409, code: "INCOMPLETE_AUDIENCE_SCAN" },
+    );
+  }
 
   assertMarketingPhase1CampaignAudienceCeiling(scan.counts.eligible);
+  rememberCompleteAudienceWorkingSet(keyInput, scan);
 
   const extractedAt = nowIso();
   const snapshotHash = hashMarketingAudienceSnapshot({

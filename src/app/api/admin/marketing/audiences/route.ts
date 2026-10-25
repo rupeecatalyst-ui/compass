@@ -94,6 +94,7 @@ export async function POST(request: Request) {
       confirmMapping?: boolean;
       headers?: string[];
       fullScan?: boolean;
+      refreshSource?: boolean;
     };
 
     const action = body.action ?? "upsert";
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
         const preview = await marketingAudienceService.previewSaved(
           ctx,
           body.audienceId,
-          { fullScan: body.fullScan },
+          { fullScan: body.fullScan, refreshSource: body.refreshSource },
         );
         return successResponse({ preview });
       }
@@ -161,6 +162,7 @@ export async function POST(request: Request) {
         mapping: body.mapping,
         mappingConfirmed: body.mappingConfirmed,
         fullScan: body.fullScan,
+        refreshSource: body.refreshSource,
       });
       return successResponse({ preview });
     }

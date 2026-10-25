@@ -11,6 +11,11 @@ import {
   suggestMarketingColumnMap,
 } from "@/lib/enterprise-marketing-engine/column-mapping";
 import { scanMarketingAudienceEligibility } from "@/lib/enterprise-marketing-engine/eligibility-scan";
+import {
+  isCompleteFreezeWorkingSet,
+  rememberCompleteAudienceWorkingSet,
+  resolveCompleteAudienceWorkingSet,
+} from "@/lib/enterprise-marketing-engine/audience-working-set";
 import { freezeApprovedAudienceSnapshot } from "@/lib/enterprise-marketing-engine/freeze-audience";
 import { getConfiguredMarketingDurabilityPorts } from "@/lib/enterprise-marketing-engine/durability/composition";
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
@@ -100,17 +105,24 @@ async function evaluateAudiencePreview(input: {
   mappingConfirmed?: boolean;
   purpose?: "preview" | "approval";
   audienceId?: string | null;
+  bypassCache?: boolean;
 }): Promise<MarketingAudiencePreviewResult> {
   assertAudienceStaysNonOperational();
   const port = marketingDataSourceService.getPort(input.organizationId);
   if (!port.getSchema) {
     throw new EnterpriseMarketingSafetyError("audience.sourcePortIncomplete");
   }
-  const schema = await port.getSchema(input.bindingId, input.datasetId);
+  const schema = await port.getSchema(input.bindingId, input.datasetId, {
+    bypassCache: input.bypassCache,
+  });
+  const estimate = port.estimateAudience
+    ? await port.estimateAudience(input.bindingId, input.datasetId, { bypassCache: input.bypassCache })
+    : null;
   const suggestion = suggestMarketingColumnMap(schema.headers);
   const mappingConfirmed = Boolean(input.mapping?.confirmed || input.mappingConfirmed);
   const columnMap = input.mapping?.map ?? input.columnMap ?? suggestion.suggested;
   const purpose = input.purpose ?? "preview";
+  const exclusion = input.exclusionDefinition ?? emptyFilterDefinition();
 
   const scan = await scanMarketingAudienceEligibility({
     port,
@@ -119,11 +131,28 @@ async function evaluateAudiencePreview(input: {
     columnMap,
     mapping: mappingConfirmed && input.mapping ? input.mapping : { confirmed: mappingConfirmed },
     inclusion: input.filterDefinition,
-    exclusion: input.exclusionDefinition ?? emptyFilterDefinition(),
+    exclusion,
     eligibilityRules: input.eligibilityRules,
     purpose,
     lookups: suppressionLookups(input.organizationId, input.suppressionPolicy.applyOrgSuppression),
+    schema,
+    estimate,
+    bypassCache: input.bypassCache,
   });
+  if (isCompleteFreezeWorkingSet(scan)) {
+    rememberCompleteAudienceWorkingSet(
+      {
+        organizationId: input.organizationId,
+        bindingId: input.bindingId,
+        datasetId: input.datasetId,
+        columnMap,
+        inclusion: input.filterDefinition,
+        exclusion,
+        eligibilityRules: input.eligibilityRules,
+      },
+      scan,
+    );
+  }
 
   return {
     audienceId: input.audienceId ?? null,
@@ -343,6 +372,7 @@ export const marketingAudienceService = {
       mapping?: MarketingConfirmedColumnMapping | null;
       mappingConfirmed?: boolean;
       fullScan?: boolean;
+      refreshSource?: boolean;
     },
   ) {
     assertAudienceStaysNonOperational();
@@ -366,6 +396,7 @@ export const marketingAudienceService = {
       mapping: input.mapping,
       mappingConfirmed: input.mappingConfirmed,
       purpose: input.fullScan ? "approval" : "preview",
+      bypassCache: input.refreshSource,
     });
     recordMarketingAuditEvent({
       kind: "audience.preview",
@@ -385,7 +416,7 @@ export const marketingAudienceService = {
   async previewSaved(
     actor: { userId?: string; organizationId?: string | null },
     audienceId: string,
-    opts?: { fullScan?: boolean },
+    opts?: { fullScan?: boolean; refreshSource?: boolean },
   ) {
     const def = await this.get(actor, audienceId);
     return this.previewDraft(actor, {
@@ -399,6 +430,7 @@ export const marketingAudienceService = {
       mapping: def.mapping,
       mappingConfirmed: def.mappingConfirmed,
       fullScan: opts?.fullScan,
+      refreshSource: opts?.refreshSource,
     }).then((r) => ({ ...r, audienceId: def.id }));
   },
 
@@ -436,11 +468,6 @@ export const marketingAudienceService = {
       );
     }
     const port = marketingDataSourceService.getPort(organizationId);
-    const schema = port.getSchema
-      ? await port.getSchema(def.bindingId, def.datasetId)
-      : { headers: [] };
-    const datasets = await marketingDataSourceService.discover(actor, def.bindingId);
-    const tab = datasets.find((d) => d.externalDatasetId === def.datasetId);
     const bindings = await marketingDataSourceService.listBindings(actor);
     const binding = bindings.find((b) => b.id === def.bindingId);
     if (!binding) {
@@ -448,6 +475,26 @@ export const marketingAudienceService = {
         statusCode: 404,
         code: "BINDING_NOT_FOUND",
       });
+    }
+    const working = resolveCompleteAudienceWorkingSet({
+      organizationId,
+      bindingId: def.bindingId,
+      datasetId: def.datasetId,
+      columnMap: def.mapping.map,
+      inclusion: def.filterDefinition,
+      exclusion: def.exclusionDefinition,
+      eligibilityRules: def.eligibilityRules,
+    });
+    let headers = working?.scan.availableFields ?? [];
+    let tabName = def.datasetDisplayName ?? def.datasetId;
+    if (!working) {
+      const schema = port.getSchema
+        ? await port.getSchema(def.bindingId, def.datasetId)
+        : { headers: [] };
+      headers = schema.headers;
+      const datasets = await marketingDataSourceService.discover(actor, def.bindingId);
+      const tab = datasets.find((d) => d.externalDatasetId === def.datasetId);
+      tabName = tab?.displayName ?? tabName;
     }
 
     const frozen = await freezeApprovedAudienceSnapshot({
@@ -460,15 +507,16 @@ export const marketingAudienceService = {
       sourceBindingId: def.bindingId,
       sourceWorkbookId: binding.spreadsheetId,
       sourceTabId: def.datasetId,
-      sourceTabName: tab?.displayName ?? def.datasetDisplayName ?? def.datasetId,
+      sourceTabName: tabName,
       mapping: def.mapping,
-      headers: schema.headers,
+      headers,
       inclusion: def.filterDefinition,
       exclusion: def.exclusionDefinition,
       eligibilityRules: def.eligibilityRules,
       lookups: suppressionLookups(organizationId, def.suppressionPolicy.applyOrgSuppression),
       channel: input.channel ?? "EMAIL",
       actorUserId: actor.userId ?? null,
+      completeScan: working?.scan ?? null,
     });
 
     recordMarketingAuditEvent({

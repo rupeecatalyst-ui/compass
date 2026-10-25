@@ -12,6 +12,7 @@ import {
 import {
   assessMarketingRowQuality,
   detectMarketingSheetColumns,
+  fingerprintSchemaHeaders,
   summarizeSampleQuality,
 } from "@/lib/enterprise-marketing-engine/data-quality";
 import { suggestMarketingColumnMap } from "@/lib/enterprise-marketing-engine/column-mapping";
@@ -295,15 +296,16 @@ export const marketingDataSourceService = {
       MARKETING_SHEETS_PREVIEW_MAX_ROWS,
     );
     const page = await port.previewRows({ bindingId, datasetId, limit: capped });
-    const schema = port.getSchema
-      ? await port.getSchema(bindingId, datasetId)
-      : {
-          headers: page.rows[0] ? Object.keys(page.rows[0]) : [],
-          schemaFingerprint: "",
-          detectedEmailColumn: null,
-          detectedPhoneColumn: null,
-          detectedExternalKeyColumn: null,
-        };
+    const headers =
+      page.headers?.length ? page.headers : page.rows[0] ? Object.keys(page.rows[0]) : [];
+    const detected = detectMarketingSheetColumns(headers);
+    const schema = {
+      headers,
+      schemaFingerprint: fingerprintSchemaHeaders(headers),
+      detectedEmailColumn: detected.emailColumn,
+      detectedPhoneColumn: detected.phoneColumn,
+      detectedExternalKeyColumn: detected.externalKeyColumn,
+    };
 
     const columns = detectMarketingSheetColumns(schema.headers);
     const suggestion = suggestMarketingColumnMap(schema.headers);

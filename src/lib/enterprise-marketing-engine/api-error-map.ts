@@ -11,6 +11,7 @@ export type MarketingMappedApiError = {
   code: string;
   message: string;
   authBody?: ApiResponse<unknown>;
+  details?: Record<string, string[]>;
 };
 
 function isAuthBody(value: unknown): value is ApiResponse<unknown> {
@@ -50,16 +51,23 @@ export function mapMarketingUnknownError(
   const statusCode = named?.statusCode;
   const code = named?.code;
   const message = err instanceof Error ? err.message : fallbackMessage;
+  const sync = (err as { lastSuccessfulSyncAt?: string | null }).lastSuccessfulSyncAt;
+  const details =
+    typeof sync === "string" && sync.trim()
+      ? { lastSuccessfulSyncAt: [sync] }
+      : undefined;
   if (statusCode === 401 || statusCode === 403) {
     return {
       status: statusCode,
       code: code ?? (statusCode === 401 ? "UNAUTHORIZED" : "FORBIDDEN"),
       message,
+      details,
     };
   }
   return {
     status: statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
     code: code ?? fallbackCode,
     message,
+    details,
   };
 }

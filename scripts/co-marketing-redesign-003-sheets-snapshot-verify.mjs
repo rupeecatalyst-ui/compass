@@ -37,6 +37,12 @@ mustInclude(eligibilitySrc, 'purpose === "approval"');
 mustInclude(eligibilitySrc, "Number.POSITIVE_INFINITY");
 mustInclude(freezeSrc, "freezeApprovedAudienceSnapshot");
 mustInclude(freezeSrc, "snapshotHash");
+mustInclude(freezeSrc, "assertMarketingPhase1CampaignAudienceCeiling");
+assert.ok(
+  freezeSrc.indexOf("assertMarketingPhase1CampaignAudienceCeiling") <
+    freezeSrc.indexOf("ports.snapshots.insert"),
+  "Phase-1 ceiling must reject before any snapshot insert",
+);
 mustInclude(executionSrc, "tickFromFrozenSnapshot");
 mustInclude(executionSrc, "SNAPSHOT_REQUIRED");
 mustInclude(executionSrc, "liveSheetReread: false");
@@ -134,13 +140,23 @@ function row(i, extra = {}) {
   };
 }
 
+function extrasFor(base) {
+  return [
+    row(base, { "External Key": "K-DUP", Email: `person.${base}@example.com` }),
+    row(base + 1, { "External Key": "K-BAD", Email: "not-an-email" }),
+    row(base + 2, { "External Key": "K-EMPTY", Email: "" }),
+    row(base + 3, { "External Key": "K-SUP", Email: "suppressed.user@example.com" }),
+    row(base + 4, { "External Key": "K-PRIOR", Email: "already.sent@example.com" }),
+  ];
+}
+
 const largeRows = [];
 for (let i = 1; i <= 2505; i += 1) largeRows.push(row(i));
-largeRows.push(row(1, { "External Key": "K-DUP", Email: "person.1@example.com" }));
-largeRows.push(row(2, { "External Key": "K-BAD", Email: "not-an-email" }));
-largeRows.push(row(3, { "External Key": "K-EMPTY", Email: "" }));
-largeRows.push(row(4, { "External Key": "K-SUP", Email: "suppressed.user@example.com" }));
-largeRows.push(row(5, { "External Key": "K-PRIOR", Email: "already.sent@example.com" }));
+largeRows.push(...extrasFor(1));
+
+const phase1Rows = [];
+for (let i = 1; i <= 2000; i += 1) phase1Rows.push(row(i));
+phase1Rows.push(...extrasFor(1));
 
 fixture.resetMarketingFixtureWorkbook(orgId, [
   {
@@ -161,12 +177,19 @@ fixture.resetMarketingFixtureWorkbook(orgId, [
     headers: largeHeaders,
     rows: largeRows,
   },
+  {
+    id: "tab_phase1",
+    title: "Segment Phase-1 Ceiling",
+    headers: largeHeaders,
+    rows: phase1Rows,
+  },
 ]);
 
 const port = fixture.createFixtureMarketingDataSourcePort(orgId);
 const tabs = await port.discoverDatasets(bindingRecord.id);
 assert.ok(tabs.length >= 3, "multiple tabs must be discovered dynamically");
 assert.ok(tabs.some((t) => t.externalDatasetId === "tab_large"));
+assert.ok(tabs.some((t) => t.externalDatasetId === "tab_phase1"));
 assert.ok(tabs.some((t) => t.externalDatasetId === "tab_beta"));
 
 const schemaLarge = await port.getSchema(bindingRecord.id, "tab_large");
@@ -244,6 +267,75 @@ const preview = await eligibility.scanMarketingAudienceEligibility({
 assert.equal(preview.scanCapped, true, "preview diagnostics may cap");
 assert.ok(preview.counts.scannedRows <= 2000);
 
+const oversizeScan = await eligibility.scanMarketingAudienceEligibility({
+  port,
+  bindingId: bindingRecord.id,
+  datasetId: "tab_large",
+  columnMap: confirmed.map,
+  mapping: confirmed,
+  inclusion: filters.emptyFilterDefinition(),
+  exclusion: filters.emptyFilterDefinition(),
+  eligibilityRules: {
+    requireIdentity: true,
+    requireValidEmailIfPresent: true,
+    excludeDuplicatesInScan: true,
+    excludePreviouslyContacted: true,
+  },
+  purpose: "approval",
+  lookups: {
+    isSuppressed: ({ normalizedEmail }) => normalizedEmail === "suppressed.user@example.com",
+    isPreviouslyContacted: (email) => email === "already.sent@example.com",
+  },
+});
+assert.ok(
+  oversizeScan.counts.eligible > 2000,
+  `2,505-row fixture must still scan past the Phase-1 freeze ceiling, got ${oversizeScan.counts.eligible}`,
+);
+assert.equal(oversizeScan.scanCapped, false);
+assert.equal(oversizeScan.scanMaxRows, null);
+
+const snapshotsBeforeOversize = await ports.snapshots.listByCampaign(orgId, "camp-003-oversize");
+let oversizeFreezeError = null;
+try {
+  await freeze.freezeApprovedAudienceSnapshot({
+    ports,
+    port,
+    organizationId: orgId,
+    campaignId: "camp-003-oversize",
+    campaignVersionId: "ver-003-oversize",
+    sourceBindingId: bindingRecord.id,
+    sourceWorkbookId: "fixture-marketing-master",
+    sourceTabId: "tab_large",
+    sourceTabName: "Segment Large",
+    mapping: confirmed,
+    headers: schemaLarge.headers,
+    inclusion: filters.emptyFilterDefinition(),
+    eligibilityRules: {
+      requireIdentity: true,
+      requireValidEmailIfPresent: true,
+      excludeDuplicatesInScan: true,
+      excludePreviouslyContacted: true,
+    },
+    lookups: {
+      isSuppressed: ({ normalizedEmail }) => normalizedEmail === "suppressed.user@example.com",
+      isPreviouslyContacted: (email) => email === "already.sent@example.com",
+    },
+    channel: "EMAIL",
+    actorUserId: actor.userId,
+  });
+} catch (error) {
+  oversizeFreezeError = error;
+}
+assert.ok(oversizeFreezeError, "oversize audience must not freeze");
+assert.equal(oversizeFreezeError.code, "marketing.phase1.audience_limit_exceeded");
+assert.equal(oversizeFreezeError.statusCode, 403);
+assert.equal(oversizeFreezeError.ceiling, 2000);
+assert.ok(oversizeFreezeError.recipientCount > 2000);
+assert.match(oversizeFreezeError.message, /cannot exceed 2000 frozen recipients/);
+const snapshotsAfterOversize = await ports.snapshots.listByCampaign(orgId, "camp-003-oversize");
+assert.equal(snapshotsBeforeOversize.length, 0);
+assert.equal(snapshotsAfterOversize.length, 0, "oversize freeze must not persist a partial snapshot");
+
 const frozen = await freeze.freezeApprovedAudienceSnapshot({
   ports,
   port,
@@ -252,8 +344,8 @@ const frozen = await freeze.freezeApprovedAudienceSnapshot({
   campaignVersionId: "ver-003",
   sourceBindingId: bindingRecord.id,
   sourceWorkbookId: "fixture-marketing-master",
-  sourceTabId: "tab_large",
-  sourceTabName: "Segment Large",
+  sourceTabId: "tab_phase1",
+  sourceTabName: "Segment Phase-1 Ceiling",
   mapping: confirmed,
   headers: schemaLarge.headers,
   inclusion: filters.emptyFilterDefinition(),
@@ -271,12 +363,12 @@ const frozen = await freeze.freezeApprovedAudienceSnapshot({
   actorUserId: actor.userId,
 });
 
-assert.ok(frozen.eligibleCount > 2000, `approval must scan past 2,000 rows, got ${frozen.eligibleCount}`);
+assert.equal(frozen.eligibleCount, 2000, "Phase-1 freeze must succeed at the 2,000-recipient ceiling");
 assert.equal(frozen.snapshot.snapshotHash, frozen.snapshotHash);
 assert.ok(frozen.snapshotHash.length === 64);
 assert.equal(frozen.snapshot.sourceWorkbookId, "fixture-marketing-master");
-assert.equal(frozen.snapshot.sourceTabId, "tab_large");
-assert.equal(frozen.snapshot.sourceTabName, "Segment Large");
+assert.equal(frozen.snapshot.sourceTabId, "tab_phase1");
+assert.equal(frozen.snapshot.sourceTabName, "Segment Phase-1 Ceiling");
 assert.ok(frozen.snapshot.extractedAt);
 assert.equal(frozen.recipients.length, frozen.eligibleCount);
 assert.ok(frozen.recipients.every((r) => r.normalizedEmail.includes("@")));
@@ -289,7 +381,7 @@ const snapshotBefore = await ports.snapshotRecipients.listBySnapshot(orgId, froz
 const hashBefore = frozen.snapshotHash;
 const emailsBefore = snapshotBefore.map((r) => r.normalizedEmail).sort();
 
-fixture.replaceMarketingFixtureTabHeaders(orgId, "tab_large", [
+fixture.replaceMarketingFixtureTabHeaders(orgId, "tab_phase1", [
   "Member Id",
   "Person Name",
   "Mail",
@@ -300,8 +392,8 @@ fixture.replaceMarketingFixtureTabHeaders(orgId, "tab_large", [
 ]);
 fixture.replaceMarketingFixtureTabRows(
   orgId,
-  "tab_large",
-  largeRows.map((item, index) =>
+  "tab_phase1",
+  phase1Rows.map((item, index) =>
     index < 10
       ? { ...item, Email: `changed.${index}@example.com` }
       : item,
@@ -322,7 +414,7 @@ assert.equal(
 const liveAfterEdit = await eligibility.scanMarketingAudienceEligibility({
   port,
   bindingId: bindingRecord.id,
-  datasetId: "tab_large",
+  datasetId: "tab_phase1",
   columnMap: confirmed.map,
   mapping: confirmed,
   inclusion: filters.emptyFilterDefinition(),
@@ -440,6 +532,9 @@ console.log(
       previewCapped: preview.scanCapped,
       previewScanned: preview.counts.scannedRows,
       frozenEligible: frozen.eligibleCount,
+      oversizeEligibleScanned: oversizeScan.counts.eligible,
+      oversizeFreezeRejected: true,
+      oversizeSnapshotPersisted: snapshotsAfterOversize.length,
       frozenHash: frozen.snapshotHash,
       snapshotUnchangedAfterSheetEdit: true,
       liveEligibleAfterEdit: liveAfterEdit.counts.eligible,

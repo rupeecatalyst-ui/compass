@@ -21,5 +21,5 @@ export function fromMarketingUnknownError(
   if (mapped.authBody) {
     return fromAuthError({ status: mapped.status, body: mapped.authBody });
   }
-  return errorResponse(mapped.status, mapped.code, mapped.message);
+  return errorResponse(mapped.status, mapped.code, mapped.message, mapped.details);
 }
