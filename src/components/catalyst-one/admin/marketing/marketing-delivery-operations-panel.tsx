@@ -32,12 +32,14 @@ export function MarketingDeliveryOperationsPanel({
   actor,
   display,
   campaignStatus,
+  productionLive = false,
   onRefresh,
 }: {
   campaignId: string;
   actor: MarketingPermissionActor;
   display: MarketingDeliveryOperationsDisplay;
   campaignStatus?: string | null;
+  productionLive?: boolean;
   onRefresh: () => void;
 }) {
   const [stopPhrase, setStopPhrase] = useState("");
@@ -79,7 +81,11 @@ export function MarketingDeliveryOperationsPanel({
     <section className="mkt-delivery-ops mkt-cc-panel space-y-4 p-6" aria-label="Delivery operations">
       <div>
         <h3 className="font-semibold">Delivery operations</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{MARKETING_LIVE_PROVIDER_SENDING_DISABLED}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {productionLive
+            ? "Production sending is on. Launch or schedule a campaign to send. Dry run does not send email."
+            : MARKETING_LIVE_PROVIDER_SENDING_DISABLED}
+        </p>
       </div>
       <dl className="grid gap-2 text-sm md:grid-cols-2">
         <div>
@@ -183,7 +189,7 @@ export function MarketingDeliveryOperationsPanel({
             })
           }
         >
-          Simulate launch
+          Dry run
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-3">

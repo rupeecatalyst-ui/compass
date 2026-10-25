@@ -5,6 +5,7 @@
 
 import {
   ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+  ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
   MARKETING_PERMISSIONS,
   type MarketingCampaignAction,
   type MarketingCampaignStatus,
@@ -84,7 +85,8 @@ import {
   runMarketingPrePublishChecks,
 } from "@/lib/enterprise-marketing-engine/pre-publish";
 import { assertLinkedCampaignSender, assertMarketingSenderEligibleForCampaignApproval } from "@/lib/enterprise-marketing-engine/sender-eligibility";
-import { assertMarketingLiveExecutionGate } from "@/lib/enterprise-marketing-engine/safety";
+import { assertMarketingLaunchAllowed } from "@/lib/enterprise-marketing-engine/safety";
+import { isMarketingProductionLiveEnabled } from "./production-mode.service";
 import type {
   MarketingCampaign,
   MarketingCampaignPreviewPayload,
@@ -554,8 +556,9 @@ export const marketingCampaignService = {
     }
 
     // SEND-capable actions remain state-only — never call providers
+    const productionLive = await isMarketingProductionLiveEnabled(organizationId);
     if (action === "RUN" || action === "SCHEDULE") {
-      assertMarketingLiveExecutionGate();
+      assertMarketingLaunchAllowed(productionLive);
     }
 
     const from = existing.status;
@@ -574,7 +577,7 @@ export const marketingCampaignService = {
       assertMarketingSenderEligibleForCampaignApproval({
         identity: linkedSender,
         senderIdentityId: existing.senderIdentityId,
-        productionCapable: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+        productionCapable: productionLive || ENTERPRISE_MARKETING_EXECUTION_ENABLED,
       });
       assertLinkedCampaignSender({
         identity: linkedSender,
@@ -1223,11 +1226,16 @@ export const marketingCampaignService = {
     const history = listMarketingTestSendHistory(campaignId);
     const frozenAudience = await loadCurrentFrozenSnapshot(campaign, draft);
     const snapshot = frozenAudience.snapshot;
+    const productionLive = await isMarketingProductionLiveEnabled(campaign.organizationId);
     return composeMarketingReadinessReview({
       campaign,
       version: draft,
       columnMap: snapshot?.columnMap ?? mapping.columnMap,
       snapshot,
+      liveGates: {
+        executionEnabled: productionLive || ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+        providerConnectEnabled: productionLive || ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+      },
       unresolvedWarnings: unresolvedPersonalisationTokens({
         subject: draft.subject,
         preheader: draft.previewText,

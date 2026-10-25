@@ -37,22 +37,31 @@ export function assertMarketingLiveExecutionGate(
   if (!enabled) throw new EnterpriseMarketingSafetyError("campaign.execution");
 }
 
-/** Allows dry_run email delivery; live campaign send requires execution + provider-connect. Isolated test_send uses email.controlled_test_send. */
-export function assertEmailDeliveryAllowed(operation = "email.deliver"): void {
+/** Allows dry_run email delivery. Live campaign send requires durable production mode or both env gates. */
+export function assertEmailDeliveryAllowed(
+  operation = "email.deliver",
+  options?: { productionLiveSend?: boolean },
+): void {
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {
     throw new EnterpriseMarketingSafetyError(`${operation}:mode_off`);
   }
   if (operation === "email.controlled_test_send") {
-    if (ENTERPRISE_MARKETING_EMAIL_MODE === "live" && !isMarketingControlledTestSendEnabled()) {
+    if (ENTERPRISE_MARKETING_EMAIL_MODE === "live" && !isMarketingControlledTestSendEnabled() && !options?.productionLiveSend) {
       throw new EnterpriseMarketingSafetyError(`${operation}:live_not_authorized`);
     }
     return;
   }
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
+    if (options?.productionLiveSend) return;
     if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED || !ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED) {
       throw new EnterpriseMarketingSafetyError(`${operation}:live_not_authorized`);
     }
   }
+}
+
+export function assertMarketingLaunchAllowed(productionLive: boolean, operation = "campaign.execution"): void {
+  if (productionLive || ENTERPRISE_MARKETING_EXECUTION_ENABLED) return;
+  throw new EnterpriseMarketingSafetyError(operation);
 }
 
 /** Allows dry_run WhatsApp delivery; live requires explicit flags + PO authorization. */

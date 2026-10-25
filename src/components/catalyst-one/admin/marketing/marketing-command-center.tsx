@@ -117,6 +117,7 @@ export function MarketingCommandCenter() {
       safety: {
         executionEnabled: status.safety.executionEnabled,
         providerConnectEnabled: status.safety.providerConnectEnabled,
+        productionLiveEnabled: status.safety.productionLiveEnabled,
         sheetsMode: status.safety.sheetsMode,
         handoffEnabled: status.safety.handoffEnabled,
       },

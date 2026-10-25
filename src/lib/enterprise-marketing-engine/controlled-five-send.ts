@@ -38,6 +38,8 @@ export type MarketingControlledFiveGateInput = {
   executionEnabled: boolean;
   providerConnectEnabled: boolean;
   controlledTestSendEnabled: boolean;
+  /** Durable production operating mode. Allows this bounded send without the isolated env flag. */
+  productionLiveEnabled?: boolean;
   emailMode: string;
   pacingCronRegistered: boolean;
 };
@@ -78,19 +80,12 @@ export function assessMarketingControlledFiveGates(
       message: "Controlled five-recipient send stays unavailable while the pacing cron is registered.",
     };
   }
-  if (input.emailMode !== "live" || !input.controlledTestSendEnabled) {
+  if (input.emailMode !== "live" || (!input.controlledTestSendEnabled && !input.productionLiveEnabled)) {
     return {
       ok: false,
       code: MARKETING_CONTROLLED_FIVE_SEND_BLOCK.notAuthorized,
       message:
-        "Controlled five-recipient send requires live email mode and the existing controlled test-send flag. Neither flag enables organisation-wide sending.",
-    };
-  }
-  if ((input.campaignId ?? "").trim() !== MARKETING_CONTROLLED_FIVE_AUTHORISED_CAMPAIGN_ID) {
-    return {
-      ok: false,
-      code: MARKETING_CONTROLLED_FIVE_SEND_BLOCK.campaignNotAuthorised,
-      message: "Controlled five-recipient send is authorised only for the designated production test campaign.",
+        "Controlled five-recipient send requires live email mode and production Marketing or the isolated test-send flag.",
     };
   }
   return { ok: true };

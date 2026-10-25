@@ -64,10 +64,9 @@ import { MARKETING_PACING_CRON_REGISTERED } from "@/lib/enterprise-marketing-eng
 import {
   assessMarketingControlledFiveAudience,
   assessMarketingControlledFiveGates,
-  MARKETING_CONTROLLED_FIVE_AUTHORISED_CAMPAIGN_ID,
   MARKETING_CONTROLLED_FIVE_RECIPIENT_COUNT,
-  MARKETING_CONTROLLED_FIVE_SEND_BLOCK,
 } from "@/lib/enterprise-marketing-engine/controlled-five-send";
+import { isMarketingProductionLiveEnabled } from "./production-mode.service";
 
 const RUNNABLE: MarketingCampaignStatus[] = ["SCHEDULED", "RUNNING"];
 
@@ -126,18 +125,10 @@ async function tickFromFrozenSnapshot(input: {
 }): Promise<MarketingExecutionTickResult> {
   // SNAPSHOT_REQUIRED — approved execution never rereads the live Google Sheet.
   const version = await marketingCampaignStore.getVersion(input.versionId);
-  if (
-    input.controlledFiveRecipientSend === true &&
-    input.campaignId !== MARKETING_CONTROLLED_FIVE_AUTHORISED_CAMPAIGN_ID
-  ) {
-    throw Object.assign(
-      new Error("Controlled five-recipient send is authorised only for the designated production test campaign."),
-      { statusCode: 403, code: MARKETING_CONTROLLED_FIVE_SEND_BLOCK.campaignNotAuthorised },
-    );
-  }
+  const productionLive = await isMarketingProductionLiveEnabled(input.campaign.organizationId);
   const liveDeliveryAuthorized = isMarketingSnapshotLiveDeliveryAuthorized({
-    executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
-    providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+    executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED || productionLive,
+    providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED || productionLive,
     campaignStatus: input.campaign.status,
     approvedAt: input.campaign.governance?.approvedAt,
     channel: input.campaign.channel,
@@ -159,6 +150,7 @@ async function tickFromFrozenSnapshot(input: {
           version,
           probe,
           controlledTestSend: controlledFive,
+          productionLiveSend: liveDeliveryAuthorized && !controlledFive,
         })
       : undefined;
   const tick = await runMarketingSnapshotPacingTick({
@@ -930,6 +922,7 @@ export const marketingExecutionService = {
       executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
       providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
       controlledTestSendEnabled: isMarketingControlledTestSendEnabled(),
+      productionLiveEnabled: await isMarketingProductionLiveEnabled(organizationId),
       emailMode: ENTERPRISE_MARKETING_EMAIL_MODE,
       pacingCronRegistered: MARKETING_PACING_CRON_REGISTERED,
     });

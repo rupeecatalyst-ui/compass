@@ -76,6 +76,7 @@ export function composeMarketingHomeOverview(input: {
     providerConnectEnabled: boolean;
     sheetsMode: "off" | "fixture" | "live" | string;
     handoffEnabled?: boolean;
+    productionLiveEnabled?: boolean;
   };
 }): MarketingHomeOverview {
   const campaigns = input.campaigns;
@@ -130,7 +131,7 @@ export function composeMarketingHomeOverview(input: {
     sheets === "live" ? "Connected" : sheets === "fixture" ? "Fixture" : "Not connected";
 
   return {
-    testMode: input.safety.executionEnabled !== true,
+    testMode: input.safety.productionLiveEnabled !== true && input.safety.executionEnabled !== true,
     testModeBanner: MARKETING_TEST_MODE_BANNER,
     lifecycleCards,
     qualifiedResponses,

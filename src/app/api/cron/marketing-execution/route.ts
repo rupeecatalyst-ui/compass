@@ -5,6 +5,8 @@
 import { errorResponse, successResponse } from "@/lib/api/auth-route-utils";
 import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine";
 import { marketingExecutionService } from "@server/services/enterprise-marketing-engine/execution.service";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
+import { isMarketingProductionLiveEnabled } from "@server/services/enterprise-marketing-engine/production-mode.service";
 
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -21,19 +23,25 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
+  let productionLive = false;
+  try {
+    productionLive = await isMarketingProductionLiveEnabled(await resolveMarketingOrganizationId());
+  } catch {
+    productionLive = false;
+  }
+  if (!productionLive && !ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
     return errorResponse(
       403,
       "LIVE_SEND_BLOCKED",
-      "Marketing cron refuses to run while live execution is disabled.",
+      "Marketing scheduler refuses to run while production Marketing is off.",
     );
   }
 
   try {
     const result = await marketingExecutionService.runDueCampaigns();
     return successResponse({
-      dryRun: true,
-      liveSend: false,
+      dryRun: !productionLive,
+      liveSend: productionLive,
       processed: result.processed,
       results: result.results,
     });

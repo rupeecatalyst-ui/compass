@@ -21,6 +21,8 @@ export type EnterpriseMarketingFoundationStatus = {
     handoffMode?: "fixture" | "live";
     audienceImportEnabled: false;
     providerConnectEnabled: boolean;
+    /** Durable Super Admin operating mode. Independent of organisation-wide env flags. */
+    productionLiveEnabled?: boolean;
     sheetsMode: "off" | "fixture" | "live";
     sheetsReadEnabled: boolean;
     sourceStatus?: "OFF" | "FIXTURE" | "LIVE" | "NOT_CONFIGURED";
@@ -143,7 +145,8 @@ export type MarketingAuditEventKind =
   | "qualification.handoff.complete"
   | "qualification.handoff.failed"
   | "qualification.notification.recorded"
-  | "qualification.notification.failed";
+  | "qualification.notification.failed"
+  | "marketing.production.mode";
 
 export type MarketingAuditEvent = {
   id: string;

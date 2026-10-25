@@ -55,6 +55,7 @@ export function MarketingSettingsPanel() {
     emailMode?: string;
     whatsappMode?: string;
     providerConnectEnabled?: boolean;
+    productionLiveEnabled?: boolean;
     audienceImportEnabled?: boolean;
     notice?: string;
   } | null>(null);
@@ -144,6 +145,27 @@ export function MarketingSettingsPanel() {
     }
   };
 
+  const setProductionMode = async (enabled: boolean) => {
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/production-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const body = (await res.json()) as ApiEnvelope<unknown>;
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || "Production mode update failed");
+      }
+      toast.success(enabled ? "Production Marketing is on. Campaigns still need approval and launch." : "Marketing is back to dry run.");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Production mode update failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const approve = async (id: string) => {
     setBusy(true);
     try {
@@ -173,7 +195,7 @@ export function MarketingSettingsPanel() {
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Sender identities and Marketing Test Mode. Provider credentials stay server-side only.
+          Sender identities and the production operating mode. Provider credentials stay in Enterprise Communication Center.
         </p>
       </header>
 
@@ -183,15 +205,38 @@ export function MarketingSettingsPanel() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-            {safety?.executionEnabled && safety?.providerConnectEnabled ? "MARKETING LIVE GATES ON" : "MARKETING TEST MODE"}
+            {safety?.productionLiveEnabled ? "PRODUCTION MARKETING" : "MARKETING DRY RUN"}
           </CardTitle>
           <CardDescription>
-            Email delivery mode: <strong>{safety?.emailMode ?? mode}</strong>. Live provider connect
-            is {safety?.providerConnectEnabled ? "ON" : "OFF"}. Controlled test sends follow the effective delivery gates.
+            Email delivery mode: <strong>{safety?.emailMode ?? mode}</strong>. Production sending is{" "}
+            {safety?.productionLiveEnabled ? "on" : "off"}. Organisation-wide execution and provider-connect
+            stay {safety?.executionEnabled || safety?.providerConnectEnabled ? "as configured" : "off"}.
+            Approving a campaign does not send it.
           </CardDescription>
         </CardHeader>
         {safety ? (
           <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+            <p>
+              Production operating mode:{" "}
+              <strong>{safety.productionLiveEnabled ? "On" : "Dry run"}</strong>
+            </p>
+            <div className="flex flex-wrap gap-2 sm:col-span-2">
+              <Button
+                type="button"
+                disabled={busy || safety.productionLiveEnabled === true}
+                onClick={() => void setProductionMode(true)}
+              >
+                Activate production Marketing
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || safety.productionLiveEnabled !== true}
+                onClick={() => void setProductionMode(false)}
+              >
+                Return to dry run
+              </Button>
+            </div>
             <p>
               Live bulk execution:{" "}
               <strong>{safety.executionEnabled ? "Enabled" : "Disabled"}</strong>

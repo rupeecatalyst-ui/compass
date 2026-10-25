@@ -69,6 +69,43 @@ async function resolvePort(request?: MarketingEmailDeliveryRequest): Promise<Mar
     throw new EnterpriseMarketingSafetyError("email.delivery.mode_off");
   }
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
+    if (request?.productionLiveSend) {
+      const productionGates = {
+        executionEnabled: true,
+        providerConnectEnabled: true,
+        controlledTestSendEnabled: false,
+      };
+      const projected = request.sender ? await projectSenderSmtpEnv(request.sender) : null;
+      if (request.sender && projected) {
+        const senderMatch = {
+          fromEmail: request.sender.fromAddress,
+          fromName: request.sender.displayName,
+          replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
+        };
+        return createHostingerSmtpEmailDeliveryPort({
+          transport: createHostingerSmtpTransport({ env: projected, gates: productionGates, senderMatch }),
+          gates: productionGates,
+          smtpEnv: projected,
+          senderMatch,
+        });
+      }
+      if (request.sender) {
+        const senderMatch = {
+          fromEmail: request.sender.fromAddress,
+          fromName: request.sender.displayName,
+          replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
+        };
+        return createHostingerSmtpEmailDeliveryPort({
+          transport: createHostingerSmtpTransport({ gates: productionGates, senderMatch }),
+          gates: productionGates,
+          senderMatch,
+        });
+      }
+      return createHostingerSmtpEmailDeliveryPort({
+        transport: createHostingerSmtpTransport({ gates: productionGates }),
+        gates: productionGates,
+      });
+    }
     if (request?.controlledTestSend) {
       if (!isMarketingControlledTestSendEnabled()) {
         throw new EnterpriseMarketingSafetyError("email.controlled_test_send:live_not_authorized");
@@ -311,6 +348,7 @@ export const marketingEmailDeliveryService = {
   async deliver(request: MarketingEmailDeliveryRequest): Promise<MarketingEmailDeliveryResult> {
     assertEmailDeliveryAllowed(
       request.controlledTestSend ? "email.controlled_test_send" : "email.deliver",
+      { productionLiveSend: request.productionLiveSend === true },
     );
 
     const existing = marketingEmailDeliveryRecordStore.getByIdempotencyKey(request.idempotencyKey);
@@ -443,6 +481,7 @@ export const marketingEmailDeliveryService = {
     product?: string | null;
     campaignName?: string | null;
     controlledTestSend?: boolean;
+    productionLiveSend?: boolean;
   }): Promise<{
     delivery: MarketingEmailDeliveryResult;
     ledgerStatus: ReturnType<typeof mapDeliveryOutcomeToLedgerStatus>;
@@ -451,7 +490,8 @@ export const marketingEmailDeliveryService = {
   }> {
     const liveSmtp =
       ENTERPRISE_MARKETING_EMAIL_MODE === "live" &&
-      (Boolean(input.controlledTestSend && isMarketingControlledTestSendEnabled()) ||
+      (Boolean(input.productionLiveSend) ||
+        Boolean(input.controlledTestSend && isMarketingControlledTestSendEnabled()) ||
         Boolean(ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED));
     if (liveSmtp) {
       const senderLink = assessMarketingLiveSenderLink(input.senderIdentityId);
@@ -596,6 +636,7 @@ export const marketingEmailDeliveryService = {
         recipientFingerprint: input.recipientFingerprint,
       },
       controlledTestSend: input.controlledTestSend === true,
+      productionLiveSend: input.productionLiveSend === true,
     };
 
     const delivery = await this.deliver(request);

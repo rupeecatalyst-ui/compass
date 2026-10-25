@@ -95,11 +95,14 @@ export function MarketingCampaignRegistryPanel() {
       }
       setCampaigns(campBody.data?.campaigns ?? []);
       if (statusRes.ok) {
-        const statusBody = (await statusRes.json()) as ApiEnvelope<{ safety: typeof liveGates }>;
+        const statusBody = (await statusRes.json()) as ApiEnvelope<{
+          safety: typeof liveGates & { productionLiveEnabled?: boolean };
+        }>;
         if (statusBody.success && statusBody.data?.safety) {
+          const productionLive = statusBody.data.safety.productionLiveEnabled === true;
           setLiveGates({
-            executionEnabled: statusBody.data.safety.executionEnabled === true,
-            providerConnectEnabled: statusBody.data.safety.providerConnectEnabled === true,
+            executionEnabled: statusBody.data.safety.executionEnabled === true || productionLive,
+            providerConnectEnabled: statusBody.data.safety.providerConnectEnabled === true || productionLive,
           });
         }
       }

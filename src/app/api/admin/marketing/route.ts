@@ -9,6 +9,8 @@ import {
 } from "@/lib/api/auth-route-utils";
 import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import { enterpriseMarketingFoundationService } from "@server/services/enterprise-marketing-engine";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
+import { isMarketingProductionLiveEnabled } from "@server/services/enterprise-marketing-engine/production-mode.service";
 
 function requireAdministrator(actor: { role: string }) {
   if (actor.role !== "SUPER_ADMIN" && actor.role !== "ADMIN") {
@@ -27,7 +29,16 @@ export async function GET(request: Request) {
       userId: actor.userId,
       organizationId: null,
     });
-    return successResponse(status);
+    let productionLiveEnabled = false;
+    try {
+      productionLiveEnabled = await isMarketingProductionLiveEnabled(await resolveMarketingOrganizationId());
+    } catch {
+      productionLiveEnabled = false;
+    }
+    return successResponse({
+      ...status,
+      safety: { ...status.safety, productionLiveEnabled },
+    });
   } catch (err) {
     return fromMarketingUnknownError(
       err,

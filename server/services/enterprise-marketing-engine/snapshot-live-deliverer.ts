@@ -39,6 +39,7 @@ export function createMarketingSnapshotLiveDeliverer(input: {
   version: MarketingCampaignVersion;
   probe: MarketingPacingProviderProbe;
   controlledTestSend?: boolean;
+  productionLiveSend?: boolean;
 }): MarketingPacingDeliverer {
   return async (recipient, context) => {
     const result = await marketingEmailDeliveryService.deliverForExecutionClaim({
@@ -59,6 +60,7 @@ export function createMarketingSnapshotLiveDeliverer(input: {
       product: input.product,
       campaignName: input.campaignName,
       controlledTestSend: input.controlledTestSend === true,
+      productionLiveSend: input.productionLiveSend === true,
     });
     const delivery = result.delivery;
     if (delivery.dryRun) {

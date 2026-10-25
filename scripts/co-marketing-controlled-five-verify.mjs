@@ -74,17 +74,16 @@ const openGates = {
   pacingCronRegistered: false,
 };
 assert.equal(five.assessMarketingControlledFiveGates(openGates).ok, true);
+assert.equal(five.assessMarketingControlledFiveGates({ ...openGates, campaignId: "another-campaign" }).ok, true);
+assert.equal(five.assessMarketingControlledFiveGates({ ...openGates, campaignId: "" }).ok, true);
+assert.equal(five.assessMarketingControlledFiveGates({ ...openGates, campaignId: undefined }).ok, true);
 assert.equal(
-  five.assessMarketingControlledFiveGates({ ...openGates, campaignId: "another-campaign" }).code,
-  "CONTROLLED_FIVE_CAMPAIGN_NOT_AUTHORISED",
-);
-assert.equal(
-  five.assessMarketingControlledFiveGates({ ...openGates, campaignId: "" }).code,
-  "CONTROLLED_FIVE_CAMPAIGN_NOT_AUTHORISED",
-);
-assert.equal(
-  five.assessMarketingControlledFiveGates({ ...openGates, campaignId: undefined }).code,
-  "CONTROLLED_FIVE_CAMPAIGN_NOT_AUTHORISED",
+  five.assessMarketingControlledFiveGates({
+    ...openGates,
+    controlledTestSendEnabled: false,
+    productionLiveEnabled: true,
+  }).ok,
+  true,
 );
 assert.equal(
   five.assessMarketingControlledFiveGates({ ...openGates, executionEnabled: true }).code,
