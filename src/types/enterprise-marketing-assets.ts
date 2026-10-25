@@ -45,7 +45,10 @@ export type MarketingAssetRecord = {
   mimeType: string;
   storageProvider: "fixture";
   storageRef: string;
-  /** Fixture preview URL (data: or https reference). Never a Hostinger put. */
+  /**
+   * Email-safe image URL (https public serve path, or https reference).
+   * Payload bytes stay in fixture / durable previewUrl — never a Hostinger put.
+   */
   url: string;
   byteSize: number;
   fileSize: number;

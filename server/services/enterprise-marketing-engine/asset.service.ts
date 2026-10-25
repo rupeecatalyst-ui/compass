@@ -45,7 +45,7 @@ function assertNoSend() {
 }
 
 export const marketingAssetService = {
-  list(
+  async list(
     actor: Actor,
     opts?:
       | boolean
@@ -61,7 +61,7 @@ export const marketingAssetService = {
     const organizationId = orgId(actor.organizationId);
     const includeArchived = typeof opts === "boolean" ? opts : opts?.includeArchived === true;
     const query = typeof opts === "boolean" || !opts ? {} : opts;
-    const assets = marketingAssetStore.list(organizationId, { includeArchived });
+    const assets = await marketingAssetStore.list(organizationId, { includeArchived });
     return filterMarketingAssetLibrary(assets, {
       includeArchived,
       search: query.search,
@@ -71,24 +71,24 @@ export const marketingAssetService = {
     });
   },
 
-  get(actor: Actor, assetId: string) {
+  async get(actor: Actor, assetId: string) {
     assertNoSend();
     const organizationId = orgId(actor.organizationId);
-    const asset = marketingAssetStore.getForOrg(assetId, organizationId);
+    const asset = await marketingAssetStore.getForOrg(assetId, organizationId);
     if (!asset) {
       throw Object.assign(new Error("Asset not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
     return asset;
   },
 
-  upload(
+  async upload(
     actor: Actor,
     input: {
       title: string;
       mimeType: string;
       category: MarketingAssetCategory;
       tags?: string[];
-      /** data URL, https reference, or fixture preview — never a Hostinger put. */
+      /** Payload: data URL, https reference, or fixture preview — never a Hostinger put. */
       url: string;
       byteSize?: number;
       assetType?: MarketingAssetType | string | null;
@@ -110,7 +110,7 @@ export const marketingAssetService = {
         { statusCode: 400, code: "ASSET_TOO_LARGE" },
       );
     }
-    const asset = marketingAssetStore.upsert({
+    const asset = await marketingAssetStore.upsert({
       organizationId,
       title: input.title,
       name: input.name ?? input.title,
@@ -136,7 +136,7 @@ export const marketingAssetService = {
     return asset;
   },
 
-  replace(
+  async replace(
     actor: Actor,
     assetId: string,
     input: {
@@ -153,7 +153,7 @@ export const marketingAssetService = {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ASSET_MANAGE);
     const organizationId = orgId(actor.organizationId);
     const byteSize = input.byteSize ?? Buffer.byteLength(input.url, "utf8");
-    const asset = marketingAssetStore.replace(assetId, organizationId, {
+    const asset = await marketingAssetStore.replace(assetId, organizationId, {
       url: input.url,
       mimeType: input.mimeType,
       byteSize,
@@ -178,11 +178,11 @@ export const marketingAssetService = {
     return asset;
   },
 
-  archive(actor: Actor, assetId: string) {
+  async archive(actor: Actor, assetId: string) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ASSET_MANAGE);
     const organizationId = orgId(actor.organizationId);
-    const asset = marketingAssetStore.archive(assetId, organizationId);
+    const asset = await marketingAssetStore.archive(assetId, organizationId);
     recordMarketingAuditEvent({
       kind: "asset.archive",
       actorUserId: actor.userId ?? null,
@@ -192,11 +192,11 @@ export const marketingAssetService = {
     return asset;
   },
 
-  setActive(actor: Actor, assetId: string, active: boolean) {
+  async setActive(actor: Actor, assetId: string, active: boolean) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ASSET_MANAGE);
     const organizationId = orgId(actor.organizationId);
-    const asset = marketingAssetStore.setActive(assetId, organizationId, active);
+    const asset = await marketingAssetStore.setActive(assetId, organizationId, active);
     recordMarketingAuditEvent({
       kind: "asset.archive",
       actorUserId: actor.userId ?? null,
@@ -206,16 +206,16 @@ export const marketingAssetService = {
     return asset;
   },
 
-  setApproval(actor: Actor, assetId: string, approvalStatus: MarketingAssetApprovalStatus) {
+  async setApproval(actor: Actor, assetId: string, approvalStatus: MarketingAssetApprovalStatus) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ASSET_MANAGE);
     const organizationId = orgId(actor.organizationId);
-    return marketingAssetStore.setApproval(assetId, organizationId, approvalStatus);
+    return await marketingAssetStore.setApproval(assetId, organizationId, approvalStatus);
   },
 
-  selectForCampaign(actor: Actor, assetId: string): MarketingAssetSelectPayload {
+  async selectForCampaign(actor: Actor, assetId: string): Promise<MarketingAssetSelectPayload> {
     assertNoSend();
-    const asset = this.get(actor, assetId);
+    const asset = await this.get(actor, assetId);
     const payload: MarketingAssetSelectPayload = {
       assetId: asset.id,
       organizationId: asset.organizationId,

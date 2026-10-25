@@ -28,6 +28,7 @@ import { withCampaignEntryCtas } from "@/lib/product-journey/campaign-entry-url"
 import { lookupDurableMarketingSend, marketingDurableSendAlreadyCompleted } from "@/lib/enterprise-marketing-engine/durable-send-idempotency";
 import { isMarketingPhase1Sender } from "@/lib/enterprise-marketing-engine/phase1-sender";
 import { marketingPhase1DeliverySender } from "@/lib/enterprise-marketing-engine/phase1-sender-identity";
+import { marketingAssetStore } from "./asset-store";
 import { mapDeliveryOutcomeToLedgerStatus } from "@/lib/enterprise-marketing-engine/email-delivery/map-outcome";
 import { redactMarketingEmail } from "@/lib/enterprise-marketing-engine/email-delivery/redact-email";
 import { validateMarketingEmailDeliveryRequest } from "@/lib/enterprise-marketing-engine/email-delivery/validate-request";
@@ -485,10 +486,14 @@ export const marketingEmailDeliveryService = {
         countsAsFailed: true,
       };
     }
+    const hydratedContent = await marketingAssetStore.hydrateContentUrls(
+      input.version.content,
+      input.organizationId,
+    );
     const content =
       entry.ok && entry.url
-        ? withCampaignEntryCtas(input.version.content, entry.url)
-        : input.version.content;
+        ? withCampaignEntryCtas(hydratedContent, entry.url)
+        : hydratedContent;
     const subject = applyPersonalization(input.version.subject, personalization);
     const htmlBody = renderMarketingEmailHtml({
       content,

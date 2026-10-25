@@ -88,9 +88,10 @@ function renderBlock(
       return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props)}">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td></tr>`;
     case "image_text": {
       const url = propString(props, "url");
+      const imageUrl = url && !isUnsafeMarketingHref(url) ? url : "";
       return `<tr><td style="padding:8px 24px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          ${url ? `<td width="40%" style="padding-right:12px;vertical-align:top;"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Image"))}" width="200" style="display:block;width:100%;max-width:200px;height:auto;border:0;" /></td>` : ""}
+          ${imageUrl ? `<td width="40%" style="padding-right:12px;vertical-align:top;"><img src="${esc(imageUrl)}" alt="${esc(propString(props, "alt", "Image"))}" width="200" style="display:block;width:100%;max-width:200px;height:auto;border:0;" /></td>` : ""}
           <td style="vertical-align:top;">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td>
         </tr></table>
       </td></tr>`;

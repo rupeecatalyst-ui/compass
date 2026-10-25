@@ -96,6 +96,7 @@ import type { MarketingBatchPolicy } from "@/types/enterprise-marketing-executio
 import { recordMarketingAuditEvent } from "./audit";
 import { marketingAudienceDefinitionStore } from "./audience-definition-store";
 import { marketingAudienceService } from "./audience.service";
+import { marketingAssetStore } from "./asset-store";
 import { marketingCampaignStore } from "./campaign-store";
 import { marketingEmailDeliveryService } from "./email-delivery.service";
 import { marketingSenderIdentityStore } from "./sender-identity-store";
@@ -205,7 +206,13 @@ export const marketingCampaignService = {
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
-    const draft = await marketingCampaignStore.getVersion(campaign.currentDraftVersionId);
+    const draftRaw = await marketingCampaignStore.getVersion(campaign.currentDraftVersionId);
+    const draft = draftRaw?.content
+      ? {
+          ...draftRaw,
+          content: await marketingAssetStore.hydrateContentUrls(draftRaw.content, organizationId),
+        }
+      : draftRaw;
     const versions = await marketingCampaignStore.listVersions(campaignId);
     const editPolicy = marketingCampaignEditPolicy(campaign.status);
     return { campaign, draft, versions, editPolicy };
@@ -449,7 +456,8 @@ export const marketingCampaignService = {
         ? sanitizeMarketingContentDocument(input.content)
         : draftBefore?.content ?? null;
       if (baseContent) {
-        versionPatch.content = syncCampaignFormFieldsIntoContent(baseContent, {
+        const hydrated = await marketingAssetStore.hydrateContentUrls(baseContent, organizationId);
+        versionPatch.content = syncCampaignFormFieldsIntoContent(hydrated, {
           ctaLabel:
             input.ctaLabel !== undefined ? input.ctaLabel : draftBefore?.ctaLabel ?? null,
           ctaUrl: input.ctaUrl !== undefined ? input.ctaUrl : draftBefore?.ctaUrl ?? null,

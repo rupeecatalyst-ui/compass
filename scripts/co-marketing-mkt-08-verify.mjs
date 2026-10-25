@@ -135,6 +135,9 @@ const utmUrl = pathToFileURL(
 const assetUrl = pathToFileURL(
   resolve(root, "server/services/enterprise-marketing-engine/asset.service.ts"),
 ).href;
+const assetStoreUrl = pathToFileURL(
+  resolve(root, "server/services/enterprise-marketing-engine/asset-store.ts"),
+).href;
 
 const campMod = await import(campUrl);
 const renderMod = await import(renderUrl);
@@ -142,6 +145,9 @@ const persMod = await import(persUrl);
 const blocksMod = await import(blocksUrl);
 const utmMod = await import(utmUrl);
 const assetMod = await import(assetUrl);
+const assetStoreMod = await import(assetStoreUrl);
+assetStoreMod.configureMarketingAssetStoreForTests({ pinMemory: true });
+assetStoreMod.marketingAssetStore.reset();
 const safetyMod = await import(
   pathToFileURL(resolve(root, "src/constants/enterprise-marketing-engine/safety.ts")).href
 );
@@ -312,7 +318,7 @@ const utm = utmMod.appendMarketingUtmParams(
 if (!utm.includes("utm_source=email")) fail("utm helper");
 else pass("utm helper");
 
-const asset = assetMod.marketingAssetService.upload(actor, {
+const asset = await assetMod.marketingAssetService.upload(actor, {
   title: "Hero",
   mimeType: "image/png",
   category: "hero",
@@ -323,7 +329,7 @@ if (!asset.active) fail("asset active");
 else pass("asset active");
 if (asset.suggestedMaxWidth !== 600) fail("asset optimization width");
 else pass("asset optimization");
-const inactive = assetMod.marketingAssetService.setActive(actor, asset.id, false);
+const inactive = await assetMod.marketingAssetService.setActive(actor, asset.id, false);
 if (inactive.active) fail("asset deactivate");
 else pass("asset inactive");
 

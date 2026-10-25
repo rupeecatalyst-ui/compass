@@ -178,9 +178,14 @@ export function runMarketingPrePublishChecks(input: {
         "Fix unsupported or unresolved personalisation tokens before approval",
   });
 
-  // Scheduling validity — placeholder: if enabled, require notes; otherwise advisory pass
+  // Scheduling validity — Step 5 captures startAt + pacing, not notes.
   const scheduleEnabled = campaign.schedulePlaceholder.enabled;
-  const scheduleOk = !scheduleEnabled || Boolean(campaign.schedulePlaceholder.notes?.trim());
+  const scheduleStartAt = (
+    campaign.schedulePlaceholder.startAt ??
+    campaign.batchPolicy?.startAt ??
+    ""
+  ).trim();
+  const scheduleOk = !scheduleEnabled || Boolean(scheduleStartAt);
   checks.push({
     id: "scheduling",
     label: "Scheduling validity",
@@ -188,8 +193,8 @@ export function runMarketingPrePublishChecks(input: {
     passed: scheduleOk,
     message: scheduleEnabled
       ? scheduleOk
-        ? "Schedule placeholder noted"
-        : "Schedule enabled but notes missing"
+        ? "Start time configured"
+        : "Schedule enabled but start time missing"
       : "Schedule not enabled (placeholder OK for approval)",
   });
 

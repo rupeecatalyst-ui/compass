@@ -55,13 +55,13 @@ export async function GET(request: Request) {
     assertMarketingPermission(ctx, MARKETING_PERMISSIONS.ASSET_MANAGE);
     const assetId = url.searchParams.get("id");
     if (assetId) {
-      const asset = marketingAssetService.get(ctx, assetId);
+      const asset = await marketingAssetService.get(ctx, assetId);
       if (url.searchParams.get("view") === "usage") {
         return successResponse({ asset, usage: asset.usageReferences });
       }
       return successResponse({ asset });
     }
-    const assets = marketingAssetService.list(ctx, {
+    const assets = await marketingAssetService.list(ctx, {
       includeArchived: url.searchParams.get("includeArchived") === "1",
       search: url.searchParams.get("search"),
       assetType: (url.searchParams.get("assetType") as MarketingAssetType | "all" | null) ?? "all",
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
         return errorResponse(400, "INVALID_INPUT", "assetId is required");
       }
       assertMarketingPermission(ctx, MARKETING_PERMISSIONS.ASSET_MANAGE);
-      const asset = marketingAssetService.archive(ctx, body.assetId);
+      const asset = await marketingAssetService.archive(ctx, body.assetId);
       return successResponse({ asset });
     }
 
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
       if (!body.assetId || typeof body.active !== "boolean") {
         return errorResponse(400, "INVALID_INPUT", "assetId and active are required");
       }
-      const asset = marketingAssetService.setActive(ctx, body.assetId, body.active);
+      const asset = await marketingAssetService.setActive(ctx, body.assetId, body.active);
       return successResponse({ asset });
     }
 
@@ -139,7 +139,7 @@ export async function POST(request: Request) {
       if (!body.assetId || !body.url) {
         return errorResponse(400, "INVALID_INPUT", "assetId and url are required");
       }
-      const asset = marketingAssetService.replace(ctx, body.assetId, {
+      const asset = await marketingAssetService.replace(ctx, body.assetId, {
         url: body.url,
         mimeType: body.mimeType ?? "image/png",
         byteSize: body.byteSize,
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       if (!body.assetId) {
         return errorResponse(400, "INVALID_INPUT", "assetId is required");
       }
-      const selected = marketingAssetService.selectForCampaign(ctx, body.assetId);
+      const selected = await marketingAssetService.selectForCampaign(ctx, body.assetId);
       return successResponse({ selected });
     }
 
@@ -163,14 +163,14 @@ export async function POST(request: Request) {
       if (!body.assetId || !body.approvalStatus) {
         return errorResponse(400, "INVALID_INPUT", "assetId and approvalStatus are required");
       }
-      const asset = marketingAssetService.setApproval(ctx, body.assetId, body.approvalStatus);
+      const asset = await marketingAssetService.setApproval(ctx, body.assetId, body.approvalStatus);
       return successResponse({ asset });
     }
 
     if (!(body.title?.trim() || body.name?.trim()) || !body.url || !body.category) {
       return errorResponse(400, "INVALID_INPUT", "title, url, and category are required");
     }
-    const asset = marketingAssetService.upload(ctx, {
+    const asset = await marketingAssetService.upload(ctx, {
       title: body.title ?? body.name ?? "",
       name: body.name ?? body.title,
       mimeType: body.mimeType ?? "",

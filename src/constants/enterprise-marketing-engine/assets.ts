@@ -54,6 +54,9 @@ export const MARKETING_ASSET_STORAGE_PROVIDER = "fixture" as const;
 
 export const MARKETING_ASSET_FIXTURE_SCHEME = "fixture://marketing-assets" as const;
 
+/** Unauthenticated image bytes for Gmail/Outlook. Not Document Registry. */
+export const MARKETING_ASSET_PUBLIC_PATH_PREFIX = "/api/marketing/public-assets" as const;
+
 export const MARKETING_SELECTED_ASSET_STORAGE_KEY = "catalyst.marketing.selectedAsset" as const;
 
 /** Image MIME types accepted for visual campaign assets. SVG is rejected (scriptable). */

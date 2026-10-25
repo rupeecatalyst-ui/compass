@@ -48,7 +48,7 @@ const builderPage = read(
 const orgSrc = read("server/services/enterprise-marketing-engine/organization.ts");
 
 mustInclude(pkg, "verify:co-marketing-redesign-011");
-mustInclude(safety, "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false");
+mustInclude(safety, "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)");
 mustInclude(cronSrc, "MARKETING_PACING_CRON_REGISTERED = false");
 mustInclude(executionConst, "MARKETING_DEFAULT_BATCH_SIZE = 100");
 mustInclude(executionConst, "MARKETING_DEFAULT_BATCH_INTERVAL_MS = 60 * 60 * 1000");
@@ -91,6 +91,10 @@ assert.doesNotMatch(serviceSrc, /disabledMarketingAssetStoragePort/);
 assert.doesNotMatch(storeSrc, /disabledMarketingAssetStoragePort\.put/);
 mustInclude(storeSrc, "ASSET_EXTERNAL_UPLOAD_FORBIDDEN");
 mustInclude(storeSrc, "hostinger");
+mustInclude(storeSrc, "enterpriseMarketingAsset");
+mustInclude(storeSrc, "ASSET_PERSISTENCE_FAILED");
+mustInclude(storeSrc, "buildMarketingAssetPublicUrl");
+mustInclude(assetConst, "MARKETING_ASSET_PUBLIC_PATH_PREFIX");
 assert.doesNotMatch(builderPage, /test_send/);
 assert.doesNotMatch(builderPage, /run_test_batch/);
 assert.doesNotMatch(builderPage, /run_next_batch/);
@@ -136,6 +140,7 @@ const campMod = await import(campUrl);
 const tplMod = await import(tplUrl);
 const disabledMod = await import(disabledUrl);
 
+storeMod.configureMarketingAssetStoreForTests({ pinMemory: true });
 storeMod.marketingAssetStore.reset();
 
 const orgA = {
@@ -167,13 +172,13 @@ assert.throws(
 
 let defaultRejected = false;
 try {
-  assetMod.marketingAssetService.list({ userId: "x", organizationId: "default", role: "SUPER_ADMIN" });
+  await assetMod.marketingAssetService.list({ userId: "x", organizationId: "default", role: "SUPER_ADMIN" });
 } catch (err) {
   defaultRejected = err?.code === "ORGANIZATION_REQUIRED";
 }
 assert.equal(defaultRejected, true, "default org must be rejected");
 
-const png = assetMod.marketingAssetService.upload(orgA, {
+const png = await assetMod.marketingAssetService.upload(orgA, {
   title: "Home loan banner",
   mimeType: "image/png",
   category: "banner",
@@ -193,7 +198,7 @@ assert.equal(png.archived, false);
 assert.equal(png.uploadedByUserId, orgA.userId);
 assert.ok(png.uploadedAt);
 
-const hiddenFromB = assetMod.marketingAssetService.list(orgB);
+const hiddenFromB = await assetMod.marketingAssetService.list(orgB);
 assert.equal(
   hiddenFromB.some((asset) => asset.id === png.id),
   false,
@@ -202,7 +207,7 @@ assert.equal(
 
 let crossOrg = false;
 try {
-  assetMod.marketingAssetService.get(orgB, png.id);
+  await assetMod.marketingAssetService.get(orgB, png.id);
 } catch (err) {
   crossOrg = err?.statusCode === 404 || err?.code === "NOT_FOUND";
 }
@@ -210,7 +215,7 @@ assert.equal(crossOrg, true, "cross-org get must fail");
 
 let dangerousUpload = false;
 try {
-  assetMod.marketingAssetService.upload(orgA, {
+  await assetMod.marketingAssetService.upload(orgA, {
     title: "script",
     mimeType: "application/javascript",
     category: "other",
@@ -224,7 +229,7 @@ assert.equal(dangerousUpload, true, "dangerous MIME must be rejected");
 
 let hostingerBlocked = false;
 try {
-  assetMod.marketingAssetService.upload(orgA, {
+  await assetMod.marketingAssetService.upload(orgA, {
     title: "hosted",
     mimeType: "image/png",
     category: "banner",
@@ -236,7 +241,7 @@ try {
 }
 assert.equal(hostingerBlocked, true, "Hostinger URL must be rejected");
 
-const pdf = assetMod.marketingAssetService.upload(orgA, {
+const pdf = await assetMod.marketingAssetService.upload(orgA, {
   title: "Approved collateral",
   mimeType: "application/pdf",
   category: "other",
@@ -247,7 +252,7 @@ const pdf = assetMod.marketingAssetService.upload(orgA, {
 });
 assert.equal(pdf.assetType, "pdf");
 
-const video = assetMod.marketingAssetService.upload(orgA, {
+const video = await assetMod.marketingAssetService.upload(orgA, {
   title: "Social video reference",
   mimeType: "video/mp4",
   category: "product",
@@ -258,7 +263,7 @@ const video = assetMod.marketingAssetService.upload(orgA, {
 });
 assert.equal(video.assetType, "video");
 
-const replaced = assetMod.marketingAssetService.replace(orgA, png.id, {
+const replaced = await assetMod.marketingAssetService.replace(orgA, png.id, {
   url: "https://example.com/banner-v2.png",
   mimeType: "image/png",
   byteSize: 1400,
@@ -307,7 +312,7 @@ tplMod.marketingTemplateStore.save({
   origin: "organisation",
 });
 
-const withUsage = assetMod.marketingAssetService.get(orgA, png.id);
+const withUsage = await assetMod.marketingAssetService.get(orgA, png.id);
 assert.ok(
   withUsage.usageReferences.some((ref) => ref.kind === "campaign" && ref.id === created.campaign.id),
   "campaign usage missing",
@@ -325,7 +330,7 @@ try {
 }
 assert.equal(deleteBlocked, true, "delete must be forbidden");
 
-const archived = assetMod.marketingAssetService.archive(orgA, png.id);
+const archived = await assetMod.marketingAssetService.archive(orgA, png.id);
 assert.equal(archived.archived, true);
 assert.ok(archived.usageReferences.length > 0, "archive must keep usage history");
 
@@ -372,10 +377,41 @@ const allowed = prePubMod.runMarketingPrePublishChecks({
 });
 assert.equal(allowed.readyForApproval, true);
 
+const scheduledWithoutNotes = prePubMod.runMarketingPrePublishChecks({
+  campaign: {
+    ...campaignStub,
+    schedulePlaceholder: { enabled: true, startAt: "2026-10-27T09:00:00.000Z" },
+  },
+  version: versionStub,
+});
+assert.equal(
+  scheduledWithoutNotes.checks.find((check) => check.id === "scheduling")?.passed,
+  true,
+  "enabled schedule with startAt must not require notes",
+);
+assert.equal(scheduledWithoutNotes.blockingCodes.includes("scheduling"), false);
+
+const scheduledWithoutStart = prePubMod.runMarketingPrePublishChecks({
+  campaign: {
+    ...campaignStub,
+    schedulePlaceholder: { enabled: true, startAt: null, notes: "operator note" },
+  },
+  version: versionStub,
+});
+assert.equal(
+  scheduledWithoutStart.checks.find((check) => check.id === "scheduling")?.passed,
+  false,
+  "enabled schedule still requires a start time",
+);
+assert.equal(
+  scheduledWithoutStart.checks.find((check) => check.id === "scheduling")?.message,
+  "Schedule enabled but start time missing",
+);
+
 let assetApproveBlocked = false;
 try {
-  storeMod.marketingAssetStore.setApproval(pdf.id, orgA.organizationId, "APPROVED");
-  const imageNoAlt = assetMod.marketingAssetService.upload(orgA, {
+  await storeMod.marketingAssetStore.setApproval(pdf.id, orgA.organizationId, "APPROVED");
+  const imageNoAlt = await assetMod.marketingAssetService.upload(orgA, {
     title: "No alt",
     mimeType: "image/jpeg",
     category: "hero",
@@ -383,7 +419,7 @@ try {
     byteSize: 100,
     altText: "",
   });
-  assetMod.marketingAssetService.setApproval(orgA, imageNoAlt.id, "APPROVED");
+  await assetMod.marketingAssetService.setApproval(orgA, imageNoAlt.id, "APPROVED");
 } catch (err) {
   assetApproveBlocked = err?.code === "ASSET_ALT_TEXT_REQUIRED";
 }
@@ -403,11 +439,11 @@ try {
 }
 assert.equal(putCalled, false, "live asset.put must remain blocked");
 
-const selected = assetMod.marketingAssetService.selectForCampaign(orgA, pdf.id);
+const selected = await assetMod.marketingAssetService.selectForCampaign(orgA, pdf.id);
 assert.equal(selected.assetId, pdf.id);
 assert.equal(selected.organizationId, orgA.organizationId);
 
-const listed = assetMod.marketingAssetService.list(orgA, {
+const listed = await assetMod.marketingAssetService.list(orgA, {
   includeArchived: true,
   search: "collateral",
   assetType: "pdf",
@@ -421,7 +457,7 @@ Date.now = () => frozenNow;
 try {
   const sameMsIds = [];
   for (let i = 0; i < 8; i += 1) {
-    const sameMs = assetMod.marketingAssetService.upload(orgA, {
+    const sameMs = await assetMod.marketingAssetService.upload(orgA, {
       title: `Same-ms fixture ${i}`,
       mimeType: "image/png",
       category: "banner",
@@ -437,7 +473,7 @@ try {
     false,
     "Date.now() alone must not be the asset identifier",
   );
-  const deterministic = storeMod.marketingAssetStore.upsert({
+  const deterministic = await storeMod.marketingAssetStore.upsert({
     organizationId: orgA.organizationId,
     id: "mkt-asset-fixed-011",
     title: "Deterministic fixture",
@@ -451,5 +487,195 @@ try {
 } finally {
   Date.now = originalNow;
 }
+
+const visualUrl = pathToFileURL(
+  resolve(root, "src/lib/enterprise-marketing-engine/visual-editor.ts"),
+).href;
+const renderUrl = pathToFileURL(
+  resolve(root, "src/lib/enterprise-marketing-engine/email-render.ts"),
+).href;
+const publicUrlModUrl = pathToFileURL(
+  resolve(root, "src/lib/enterprise-marketing-engine/asset-public-url.ts"),
+).href;
+const visualMod = await import(visualUrl);
+const renderMod = await import(renderUrl);
+const publicUrlMod = await import(publicUrlModUrl);
+
+const TINY_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+const stripped = visualMod.sanitizeMarketingContentDocument({
+  version: 1,
+  blocks: [{ id: "logo-data", type: "logo", props: { url: TINY_PNG, alt: "Rupee Catalyst" } }],
+});
+assert.equal(stripped.blocks[0].props.url, "", "data: URLs must still be sanitised away");
+
+const logo = await assetMod.marketingAssetService.upload(orgA, {
+  title: "Official Rupee Catalyst logo",
+  name: "Official Rupee Catalyst logo",
+  mimeType: "image/png",
+  category: "logo",
+  assetType: "logo",
+  url: TINY_PNG,
+  byteSize: 70,
+  altText: "Rupee Catalyst",
+  productCategory: "Home Loan",
+});
+assert.equal(logo.url.startsWith("data:"), false, "uploaded logo must not expose a data URL");
+assert.match(logo.url, /^https?:\/\//);
+assert.ok(logo.url.includes("/api/marketing/public-assets/"));
+assert.ok(logo.storageRef.startsWith("fixture://marketing-assets/"));
+
+const selectedLogo = await assetMod.marketingAssetService.selectForCampaign(orgA, logo.id);
+assert.equal(selectedLogo.url, logo.url);
+assert.equal(selectedLogo.url.startsWith("data:"), false);
+
+const picked = visualMod.sanitizeMarketingContentDocument({
+  version: 1,
+  blocks: [
+    {
+      id: "logo-https",
+      type: "logo",
+      props: { assetId: selectedLogo.assetId, url: selectedLogo.url, alt: selectedLogo.alt },
+    },
+  ],
+});
+assert.equal(picked.blocks[0].props.url, selectedLogo.url, "https logo URL must survive sanitisation");
+
+const deliveryHtml = renderMod.renderMarketingEmailHtml({
+  content: picked,
+  subject: "Home Loan",
+  previewText: "Preview",
+  personalization: {},
+});
+assert.ok(deliveryHtml.includes(`src="${selectedLogo.url}"`), "delivery HTML must include the public logo URL");
+assert.equal(deliveryHtml.includes("data:image"), false, "delivery HTML must not inline data: image URLs");
+
+assert.equal(
+  await storeMod.marketingAssetStore.getPublicImage(logo.id, logo.checksum),
+  null,
+  "DRAFT images must not be served anonymously",
+);
+const approvedLogo = await assetMod.marketingAssetService.setApproval(orgA, logo.id, "APPROVED");
+assert.equal(approvedLogo.approvalStatus, "APPROVED");
+assert.equal(approvedLogo.checksum.length, 64, "checksum must be full SHA-256 of image bytes");
+const publicBytes = await storeMod.marketingAssetStore.getPublicImage(approvedLogo.id, approvedLogo.checksum);
+assert.ok(publicBytes, "approved image bytes must be served");
+assert.equal(publicBytes.mimeType, "image/png");
+assert.ok(publicBytes.bytes.length > 0);
+const wrongChecksum = await storeMod.marketingAssetStore.getPublicImage(approvedLogo.id, "deadbeef");
+assert.equal(wrongChecksum, null, "checksum mismatch must 404");
+const archivedLogo = await assetMod.marketingAssetService.archive(orgA, approvedLogo.id);
+assert.equal(
+  await storeMod.marketingAssetStore.getPublicImage(archivedLogo.id, archivedLogo.checksum),
+  null,
+  "archived images must not be served anonymously",
+);
+
+const sanitisedDraft = visualMod.sanitizeMarketingContentDocument({
+  version: 1,
+  blocks: [
+    {
+      id: "blk-logo",
+      type: "logo",
+      props: { assetId: logo.id, url: TINY_PNG, alt: "Rupee Catalyst" },
+    },
+  ],
+});
+assert.equal(sanitisedDraft.blocks[0].props.url, "", "Save Draft must strip data: URLs");
+assert.equal(sanitisedDraft.blocks[0].props.assetId, logo.id);
+const reopenedDoc = await storeMod.marketingAssetStore.hydrateContentUrls(
+  sanitisedDraft,
+  orgA.organizationId,
+);
+assert.equal(reopenedDoc.blocks[0].props.url, logo.url, "reopen must restore the public logo URL from assetId");
+const previewHtml = renderMod.renderMarketingEmailHtml({
+  content: reopenedDoc,
+  subject: "Home Loan",
+  previewText: "Preview",
+  personalization: {},
+});
+assert.ok(previewHtml.includes(`src="${logo.url}"`), "preview HTML must include the public logo URL");
+
+function createMemoryAssetPrisma() {
+  const assetRows = new Map();
+  const versionRows = new Map();
+  function versionKey(assetId, versionNumber) {
+    return `${assetId}:${versionNumber}`;
+  }
+  function withVersions(row) {
+    const versions = [...versionRows.values()].filter((item) => item.assetId === row.id);
+    return { ...row, versions };
+  }
+  return {
+    assets: {
+      async findMany({ where }) {
+        return [...assetRows.values()]
+          .filter((row) => row.organizationId === where.organizationId)
+          .map(withVersions);
+      },
+      async findFirst({ where }) {
+        const row = [...assetRows.values()].find(
+          (item) => item.id === where.id && (!where.organizationId || item.organizationId === where.organizationId),
+        );
+        return row ? withVersions(row) : null;
+      },
+      async findUnique({ where }) {
+        const row = assetRows.get(where.id);
+        return row ? withVersions(row) : null;
+      },
+      async upsert({ where, create, update }) {
+        const prev = assetRows.get(where.id);
+        const next = prev ? { ...prev, ...update, id: where.id } : { ...create };
+        assetRows.set(where.id, next);
+        return withVersions(next);
+      },
+    },
+    versions: {
+      async upsert({ where, create, update }) {
+        const key = versionKey(where.assetId_versionNumber.assetId, where.assetId_versionNumber.versionNumber);
+        const prev = versionRows.get(key);
+        const next = prev ? { ...prev, ...update } : { ...create };
+        versionRows.set(key, next);
+        return next;
+      },
+    },
+  };
+}
+
+const memoryPrisma = createMemoryAssetPrisma();
+storeMod.configureMarketingAssetStoreForTests({
+  pinMemory: false,
+  forcePrisma: true,
+  prismaDelegate: memoryPrisma.assets,
+  versionDelegate: memoryPrisma.versions,
+});
+storeMod.marketingAssetStore.reset();
+
+const durableLogo = await assetMod.marketingAssetService.upload(orgA, {
+  title: "Durable official logo",
+  mimeType: "image/png",
+  category: "logo",
+  assetType: "logo",
+  url: TINY_PNG,
+  byteSize: 70,
+  altText: "Rupee Catalyst",
+});
+assert.equal(durableLogo.id.startsWith("mkt-asset-"), true);
+await assetMod.marketingAssetService.setApproval(orgA, durableLogo.id, "APPROVED");
+storeMod.marketingAssetStore.reset();
+const reloaded = await assetMod.marketingAssetService.get(orgA, durableLogo.id);
+assert.equal(reloaded.id, durableLogo.id);
+assert.equal(reloaded.url.includes("/api/marketing/public-assets/"), true);
+assert.equal(reloaded.altText, "Rupee Catalyst");
+assert.equal(reloaded.approvalStatus, "APPROVED");
+const reloadedBytes = await storeMod.marketingAssetStore.getPublicImage(reloaded.id, reloaded.checksum);
+assert.ok(reloadedBytes?.bytes.length > 0, "durable payload must survive memory reset");
+
+assert.equal(publicUrlMod.isMarketingAssetDataUrl(TINY_PNG), true);
+assert.equal(publicUrlMod.isMarketingAssetDataUrl(reloaded.url), false);
+
+storeMod.configureMarketingAssetStoreForTests({ pinMemory: true });
+storeMod.marketingAssetStore.reset();
 
 console.log("CO-MARKETING-REDESIGN-011 assets verify: PASS");
