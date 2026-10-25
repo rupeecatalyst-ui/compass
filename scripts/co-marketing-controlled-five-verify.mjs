@@ -3,6 +3,7 @@
  * Local fixtures and a mock provider only. Does not send email.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -31,6 +32,8 @@ const execution = await import(ts("server/services/enterprise-marketing-engine/e
 const campaigns = await import(ts("server/services/enterprise-marketing-engine/campaign.service.ts"));
 const campaignStore = await import(ts("server/services/enterprise-marketing-engine/campaign-store.ts"));
 const senderStore = await import(ts("server/services/enterprise-marketing-engine/sender-identity-store.ts"));
+const smtpSecrets = await import(ts("src/lib/enterprise-communication-center/smtp-secret-resolver.ts"));
+const mailboxCodes = await import(ts("src/lib/enterprise-communication-center/mailbox-profile.ts"));
 
 const FROM = smtp.MARKETING_PHASE1_FROM_EMAIL;
 const ORG = "org-controlled-five";
@@ -61,7 +64,9 @@ function verifiedSender(overrides = {}) {
   };
 }
 
+const AUTHORISED_CAMPAIGN = five.MARKETING_CONTROLLED_FIVE_AUTHORISED_CAMPAIGN_ID;
 const openGates = {
+  campaignId: AUTHORISED_CAMPAIGN,
   executionEnabled: false,
   providerConnectEnabled: false,
   controlledTestSendEnabled: true,
@@ -69,6 +74,18 @@ const openGates = {
   pacingCronRegistered: false,
 };
 assert.equal(five.assessMarketingControlledFiveGates(openGates).ok, true);
+assert.equal(
+  five.assessMarketingControlledFiveGates({ ...openGates, campaignId: "another-campaign" }).code,
+  "CONTROLLED_FIVE_CAMPAIGN_NOT_AUTHORISED",
+);
+assert.equal(
+  five.assessMarketingControlledFiveGates({ ...openGates, campaignId: "" }).code,
+  "CONTROLLED_FIVE_CAMPAIGN_NOT_AUTHORISED",
+);
+assert.equal(
+  five.assessMarketingControlledFiveGates({ ...openGates, campaignId: undefined }).code,
+  "CONTROLLED_FIVE_CAMPAIGN_NOT_AUTHORISED",
+);
 assert.equal(
   five.assessMarketingControlledFiveGates({ ...openGates, executionEnabled: true }).code,
   "CONTROLLED_FIVE_SEND_EXECUTION_ENABLED",
@@ -92,6 +109,7 @@ const readyAudience = {
   channel: "EMAIL",
   eligibleCount: 5,
   recipientCount: 5,
+  senderIdentityId: "sender-phase1",
   fromAddress: FROM,
   sender: verifiedSender(),
 };
@@ -101,15 +119,100 @@ assert.equal(
   "CONTROLLED_FIVE_RECIPIENT_COUNT",
 );
 assert.equal(
-  five.assessMarketingControlledFiveAudience({ ...readyAudience, fromAddress: "other@example.com" }).code,
+  five.assessMarketingControlledFiveAudience({ ...readyAudience, senderIdentityId: null }).code,
   "CONTROLLED_FIVE_SENDER",
 );
+assert.equal(five.assessMarketingLiveSenderLink(null).code, "SENDER_IDENTITY_REQUIRED");
+assert.equal(five.assessMarketingLiveSenderLink("sender-phase1").ok, true);
 const pending = five.assessMarketingControlledFiveAudience({
   ...readyAudience,
   sender: verifiedSender({ verificationStatus: "PENDING" }),
 });
 assert.equal(pending.ok, false);
 assert.equal(pending.code, "AWAITING_PROVIDER_VERIFICATION");
+assert.equal(
+  five.assessMarketingControlledFiveAudience({ ...readyAudience, fromAddress: "other@example.com" }).code,
+  "CONTROLLED_FIVE_SENDER",
+);
+assert.equal(
+  five.assessMarketingControlledFiveAudience({
+    ...readyAudience,
+    senderIdentityId: "sender-connect",
+    fromAddress: "connect@rupeecatalyst.com",
+    fromName: "Rupee Catalyst Connect",
+    sender: verifiedSender({
+      id: "sender-connect",
+      displayName: "Rupee Catalyst Connect",
+      fromAddress: "connect@rupeecatalyst.com",
+      replyTo: "connect@rupeecatalyst.com",
+    }),
+  }).ok,
+  true,
+);
+const futureSender = verifiedSender({
+  id: "sender-finance",
+  displayName: "Rupee Catalyst Finance",
+  fromAddress: "finance@rupeecatalyst.com",
+  replyTo: "finance@rupeecatalyst.com",
+});
+assert.equal(
+  five.assessMarketingControlledFiveAudience({
+    ...readyAudience,
+    senderIdentityId: futureSender.id,
+    fromAddress: "finance@rupeecatalyst.com",
+    fromName: "Rupee Catalyst Finance",
+    sender: futureSender,
+  }).ok,
+  true,
+);
+assert.equal(
+  five.assessMarketingControlledFiveAudience({
+    ...readyAudience,
+    senderIdentityId: futureSender.id,
+    fromAddress: "finance@rupeecatalyst.com",
+    fromName: "Different Name",
+    sender: futureSender,
+  }).code,
+  "CONTROLLED_FIVE_SENDER",
+);
+assert.doesNotThrow(() =>
+  senderElig.assertLinkedCampaignSender({
+    senderIdentityId: null,
+    identity: null,
+    campaignFromAddress: "legacy@example.com",
+  }),
+);
+assert.throws(
+  () =>
+    senderElig.assertLinkedCampaignSender({
+      senderIdentityId: "sender-finance",
+      identity: verifiedSender({ verificationStatus: "PENDING" }),
+      campaignFromAddress: FROM,
+    }),
+  (error) => error?.code === "AWAITING_PROVIDER_VERIFICATION",
+);
+assert.throws(
+  () =>
+    senderElig.assertLinkedCampaignSender({
+      senderIdentityId: futureSender.id,
+      identity: futureSender,
+      campaignFromAddress: "other@example.com",
+      campaignFromName: futureSender.displayName,
+    }),
+  (error) => error?.code === "SENDER_IDENTITY_MISMATCH",
+);
+assert.doesNotThrow(() =>
+  senderElig.assertLinkedCampaignSender({
+    senderIdentityId: futureSender.id,
+    identity: futureSender,
+    campaignFromAddress: futureSender.fromAddress,
+    campaignFromName: futureSender.displayName,
+  }),
+);
+assert.equal(smtpSecrets.smtpSecretEnvName("CUSTOMERS"), "ECC_CUSTOMERS_SMTP_PASSWORD");
+assert.equal(smtpSecrets.smtpSecretEnvName("MAILBOX_SALES"), "ECC_MAILBOX_SALES_SMTP_PASSWORD");
+assert.equal(mailboxCodes.mailboxProfileCode("sales@rupeecatalyst.com"), "MAILBOX_SALES");
+assert.equal(smtpSecrets.resolveSmtpSecret("MAILBOX_SALES"), null);
 assert.equal(senderElig.assessMarketingSenderLiveReadiness(verifiedSender()).eligible, true);
 assert.equal(
   senderElig.assessMarketingSenderLiveReadiness(verifiedSender({ verificationStatus: "PENDING" })).eligible,
@@ -230,6 +333,15 @@ await campaigns.marketingCampaignService.save(actor, created.campaign.id, {
   sender: { fromName: "Rupee Catalyst Opportunities", fromAddress: FROM },
   ctaLabel: "Discover My Advantage",
   ctaUrl: "https://rupeecatalyst.com/home-loan",
+});
+const unlinked = await campaignStore.marketingCampaignStore.getForOrg(created.campaign.id, ORG);
+assert.equal(unlinked.senderIdentityId ?? null, null);
+assert.equal(unlinked.status, "DRAFT");
+assert.equal(unlinked.sender.fromAddress, FROM);
+assert.equal(unlinked.name, "RC Salaried Home Loan – Test 01");
+await campaigns.marketingCampaignService.save(actor, created.campaign.id, {
+  senderIdentityId: "sender-phase1",
+  sender: { fromName: "Rupee Catalyst Opportunities", fromAddress: FROM },
 });
 const linked = await campaignStore.marketingCampaignStore.getForOrg(created.campaign.id, ORG);
 assert.equal(linked.senderIdentityId, "sender-phase1");
@@ -430,6 +542,17 @@ await assert.rejects(
     }),
   (err) => err.code === "LIVE_PROVIDER_FORBIDDEN",
 );
+
+const builder = readFileSync(
+  resolve(root, "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx"),
+  "utf8",
+);
+assert.match(builder, /\/api\/admin\/marketing\/sender-identities/);
+assert.match(builder, /senderIdentityId: selectedSenderIdentityId/);
+assert.match(builder, /identity\.displayName/);
+assert.match(builder, /identity\.fromAddress/);
+assert.doesNotMatch(builder, /listMarketingAuthorisedMailboxes/);
+assert.doesNotMatch(builder, /opportunities@rupeecatalyst\.com/);
 
 console.log("co-marketing-controlled-five-verify: PASS");
 process.exit(0);

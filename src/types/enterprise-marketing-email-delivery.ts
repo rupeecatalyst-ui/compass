@@ -64,6 +64,8 @@ export type MarketingEmailDeliverySender = {
   displayName: string;
   fromAddress: string;
   replyTo: string | null;
+  /** ECC profile code associated with this sender. Not a credential. */
+  providerProfileId?: string | null;
 };
 
 export type MarketingEmailDeliveryTrackingMeta = {

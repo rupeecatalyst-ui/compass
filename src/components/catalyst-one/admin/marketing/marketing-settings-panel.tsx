@@ -103,21 +103,32 @@ export function MarketingSettingsPanel() {
     };
   }, [load]);
 
-  const upsert = async () => {
+  const upsert = async (input?: {
+    verificationStatus?: "PENDING" | "VERIFIED";
+    identity?: SenderIdentity;
+  }) => {
     setBusy(true);
     try {
+      const address = (input?.identity?.fromAddress ?? fromAddress).trim().toLowerCase();
+      const name = input?.identity?.displayName ?? displayName;
+      const reply = (input?.identity?.replyTo ?? replyTo) || address;
+      const existing = identities.find((row) => row.fromAddress.trim().toLowerCase() === address) ?? input?.identity;
+      if (!existing) {
+        throw new Error("Register this mailbox in Enterprise Communication Center before it can be approved.");
+      }
       const res = await authenticatedJsonFetch("/api/admin/marketing/sender-identities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "upsert",
-          displayName,
-          fromAddress,
-          replyTo: replyTo || null,
-          active: true,
-          verificationStatus: "PENDING",
-          simulated: true,
-          providerType: "dry_run",
+          id: existing.id,
+          displayName: name,
+          fromAddress: existing.fromAddress,
+          replyTo: reply,
+          active: existing.active,
+          verificationStatus: input?.verificationStatus ?? existing.verificationStatus,
+          simulated: existing.simulated === true,
+          providerType: existing.providerMapping?.providerType ?? "dry_run",
         }),
       });
       const body = (await res.json()) as ApiEnvelope<unknown>;
@@ -128,6 +139,27 @@ export function MarketingSettingsPanel() {
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = async (id: string) => {
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/sender-identities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", id }),
+      });
+      const body = (await res.json()) as ApiEnvelope<unknown>;
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || "Approval failed");
+      }
+      toast.success("Sender identity approved. Verification is still required.");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Approval failed");
     } finally {
       setBusy(false);
     }
@@ -223,7 +255,8 @@ export function MarketingSettingsPanel() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Sender identities</CardTitle>
           <CardDescription>
-            Non-secret from-name / from-address metadata for campaigns. Do not paste API keys here.
+            Connect and Opportunities are authorised mailboxes. Connect uses the existing customer
+            communication profile. Credentials stay in the server environment.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -252,11 +285,36 @@ export function MarketingSettingsPanel() {
                       {!id.active ? " · inactive" : ""}
                       {id.approvedByUserId ? ` · approved by ${id.approvedByUserId}` : ""}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {!id.simulated && id.approvalStatus !== "APPROVED" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void approve(id.id)}
+                        >
+                          Approve sender
+                        </Button>
+                      ) : null}
+                      {!id.simulated && id.approvalStatus === "APPROVED" && id.verificationStatus !== "VERIFIED" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void upsert({ verificationStatus: "VERIFIED", identity: id })}
+                        >
+                          Record provider verification
+                        </Button>
+                      ) : null}
+                    </div>
                   </li>
                 ))
               )}
             </ul>
           )}
+          <p className="text-xs text-muted-foreground">
+            Sender mailboxes are registered in Enterprise Communication Center. Approve and record verification here after the provider mailbox is confirmed. Credentials are never entered on this screen.
+          </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <Label htmlFor="mkt-settings-from-name">From name</Label>

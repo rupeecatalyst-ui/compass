@@ -168,4 +168,35 @@ export const enterpriseCommunicationCenterRepository = {
       data,
     });
   },
+
+  async createMailbox(input: {
+    organizationId: string;
+    profileCode: string;
+    displayName: string;
+    senderEmail: string;
+    replyToEmail: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpUsername: string;
+    modifiedBy: string;
+  }) {
+    return prisma.enterpriseCommunicationProfile.create({
+      data: {
+        organizationId: input.organizationId,
+        profileCode: input.profileCode,
+        displayName: input.displayName.trim(),
+        senderEmail: input.senderEmail.trim().toLowerCase(),
+        replyToEmail: input.replyToEmail.trim().toLowerCase(),
+        smtpProvider: "smtp",
+        smtpHost: input.smtpHost.trim(),
+        smtpPort: input.smtpPort,
+        smtpUsername: input.smtpUsername.trim(),
+        signature: "",
+        footer: "",
+        usedForJson: ["Organisation sender mailbox"],
+        active: true,
+        modifiedBy: input.modifiedBy,
+      },
+    });
+  },
 };

@@ -126,6 +126,36 @@ export function assessMarketingSenderLiveReadiness(
   };
 }
 
+/** Revalidate a linked campaign sender. Unlinked legacy campaigns are left unchanged. */
+export function assertLinkedCampaignSender(input: {
+  identity: MarketingSenderIdentity | null;
+  senderIdentityId?: string | null;
+  campaignFromAddress?: string | null;
+  campaignFromName?: string | null;
+}): void {
+  if (!input.senderIdentityId) return;
+  const readiness = assessMarketingSenderLiveReadiness(input.identity);
+  if (!readiness.eligible || !input.identity) {
+    throw Object.assign(new Error("The linked sender must be approved, active, non-simulated, and verified."), {
+      statusCode: 400,
+      code: readiness.reasons.includes(MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION)
+        ? MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION
+        : readiness.reasons[0] ?? MARKETING_SENDER_NOT_APPROVED,
+    });
+  }
+  const from = (input.campaignFromAddress ?? "").trim().toLowerCase();
+  const name = (input.campaignFromName ?? "").trim();
+  if (
+    from !== input.identity.fromAddress.trim().toLowerCase() ||
+    (name && name !== input.identity.displayName.trim())
+  ) {
+    throw Object.assign(new Error("Campaign sender does not match the linked sender identity."), {
+      statusCode: 400,
+      code: "SENDER_IDENTITY_MISMATCH",
+    });
+  }
+}
+
 export function assertMarketingSenderEligibleForLiveSend(input: {
   identity: MarketingSenderIdentity | null;
 }): MarketingSenderLiveReadiness {

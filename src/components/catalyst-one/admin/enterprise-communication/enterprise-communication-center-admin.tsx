@@ -50,6 +50,7 @@ export function EnterpriseCommunicationCenterAdmin() {
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<EnterpriseCommunicationProfileRecord>>({});
+  const [mailboxNotice, setMailboxNotice] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -123,6 +124,21 @@ export function EnterpriseCommunicationCenterAdmin() {
     }
   }
 
+  async function registerSelectedSender() {
+    if (!selectedCode) return;
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/enterprise-communication/profiles", {
+        method: "POST",
+        body: JSON.stringify({ action: "register_sender", profileCode: selectedCode }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error?.message || "Could not register sender");
+      toast.success("Sender registered. Approve and record verification in Marketing before a live campaign.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not register sender");
+    }
+  }
+
   if (loading && !bundle) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
@@ -142,10 +158,13 @@ export function EnterpriseCommunicationCenterAdmin() {
           <h1 className="text-xl font-semibold tracking-tight">Enterprise Communication Center</h1>
           <p className="text-xs text-muted-foreground">
             Configure Communication Profiles. Modules specify event types — ECC resolves the
-            sender. Never hardcode From addresses in application code. Separate from Marketing
-            campaign email.
+            sender. Never hardcode From addresses in application code. Registered profiles can be
+            selected by authorised workflows, including Marketing.
           </p>
         </div>
+        <Button type="button" size="sm" variant="outline" onClick={() => void registerSelectedSender()} disabled={!selectedCode}>
+          Register as organisation sender
+        </Button>
         <Button type="button" size="sm" onClick={() => void save()} disabled={saving || !selectedCode}>
           {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
           Save Profile
@@ -158,6 +177,14 @@ export function EnterpriseCommunicationCenterAdmin() {
       />
 
       <IncomingEmailServerPanel />
+
+      <OrganisationMailboxForm
+        notice={mailboxNotice}
+        onCreated={(message) => {
+          setMailboxNotice(message);
+          void refresh();
+        }}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
         <Card>
@@ -374,5 +401,93 @@ export function EnterpriseCommunicationCenterAdmin() {
         </div>
       </div>
     </div>
+  );
+}
+
+function OrganisationMailboxForm({
+  notice,
+  onCreated,
+}: {
+  notice: string | null;
+  onCreated: (message: string) => void;
+}) {
+  const [displayName, setDisplayName] = useState("");
+  const [senderEmail, setSenderEmail] = useState("");
+  const [replyToEmail, setReplyToEmail] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("465");
+  const [smtpUsername, setSmtpUsername] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function createMailbox() {
+    setSaving(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/enterprise-communication/profiles", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "create_mailbox",
+          displayName,
+          senderEmail,
+          replyToEmail,
+          smtpHost,
+          smtpPort: Number(smtpPort),
+          smtpUsername,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error?.message || "Could not add mailbox");
+      const envName = json?.data?.credentialEnvName ? String(json.data.credentialEnvName) : "";
+      onCreated(envName ? `Mailbox added. Set ${envName} on the server. The password is not stored here.` : "Mailbox added.");
+      setDisplayName("");
+      setSenderEmail("");
+      setReplyToEmail("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add mailbox");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Add organisation sender</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-1.5">
+          <Label>Display name</Label>
+          <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Email address</Label>
+          <Input type="email" value={senderEmail} onChange={(event) => setSenderEmail(event.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Reply-to</Label>
+          <Input type="email" value={replyToEmail} onChange={(event) => setReplyToEmail(event.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>SMTP host</Label>
+          <Input value={smtpHost} onChange={(event) => setSmtpHost(event.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Port</Label>
+          <Input value={smtpPort} onChange={(event) => setSmtpPort(event.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>SMTP username</Label>
+          <Input value={smtpUsername} onChange={(event) => setSmtpUsername(event.target.value)} />
+        </div>
+        <div className="sm:col-span-3 flex flex-wrap items-center gap-3">
+          <Button type="button" size="sm" variant="outline" disabled={saving} onClick={() => void createMailbox()}>
+            Add sender
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Credentials stay in the server environment. No password is entered or returned here.
+          </p>
+        </div>
+        {notice ? <p className="sm:col-span-3 text-xs text-foreground">{notice}</p> : null}
+      </CardContent>
+    </Card>
   );
 }

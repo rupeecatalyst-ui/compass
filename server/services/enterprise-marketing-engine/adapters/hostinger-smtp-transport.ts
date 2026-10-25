@@ -62,6 +62,7 @@ export type HostingerSmtpTransportOptions = {
     /** Isolated test_send SMTP. Does not enable campaign execution. */
     controlledTestSendEnabled?: boolean;
   };
+  senderMatch?: { fromEmail: string; fromName: string; replyTo: string };
   clientFactory?: MarketingSmtpClientFactory;
 };
 
@@ -130,7 +131,7 @@ export function createHostingerSmtpTransport(
         ),
       };
     }
-    const assessment = assessMarketingSmtpConfig(env);
+    const assessment = assessMarketingSmtpConfig(env, options.senderMatch);
     if (!marketingSmtpConfigIsComplete(assessment)) {
       const code = assessment.blockers[0] ?? MARKETING_SMTP_BLOCK.configMissing;
       return {
@@ -144,7 +145,7 @@ export function createHostingerSmtpTransport(
         verify: notConfiguredVerify(code),
       };
     }
-    const resolved = resolveMarketingSmtpConnectionOptions(env);
+    const resolved = resolveMarketingSmtpConnectionOptions(env, options.senderMatch);
     if (!resolved.ok) {
       const code = resolved.blockers[0] ?? MARKETING_SMTP_BLOCK.configMissing;
       return {

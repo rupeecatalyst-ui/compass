@@ -13,6 +13,9 @@ import type {
   UpdateCommunicationProfileInput,
 } from "@/types/enterprise-communication-center";
 import { isDatabaseAvailable } from "@server/lib/prisma";
+import { mailboxProfileCode } from "@/lib/enterprise-communication-center/mailbox-profile";
+import { smtpSecretEnvName } from "@/lib/enterprise-communication-center/smtp-secret-resolver";
+import { marketingSenderIdentityStore } from "@server/services/enterprise-marketing-engine/sender-identity-store";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import {
   enterpriseCommunicationCenterRepository,
@@ -134,5 +137,77 @@ export const enterpriseCommunicationCenterService = {
     }
 
     return identityFromProfileSeed(profileCode, eventType);
+  },
+
+  async createMailbox(input: {
+    displayName: string;
+    senderEmail: string;
+    replyToEmail?: string | null;
+    smtpHost: string;
+    smtpPort: number;
+    smtpUsername: string;
+    modifiedBy: string;
+  }) {
+    requireDb();
+    if (input.smtpPort !== 465 && input.smtpPort !== 587) {
+      throw new EccError("SMTP port must be 465 or 587", "INVALID_PORT");
+    }
+    const senderEmail = input.senderEmail.trim().toLowerCase();
+    if (!senderEmail.includes("@")) throw new EccError("A sender email is required", "SENDER_REQUIRED");
+    const organizationId = await this.ensureProfilesSeeded(input.modifiedBy);
+    const existing = await enterpriseCommunicationCenterRepository.listProfiles(organizationId);
+    if (existing.some((row) => row.senderEmail.trim().toLowerCase() === senderEmail)) {
+      throw new EccError("That sender address is already configured", "SENDER_EXISTS", 409);
+    }
+    const profileCode = mailboxProfileCode(senderEmail);
+    if (existing.some((row) => row.profileCode === profileCode)) {
+      throw new EccError("A mailbox profile for that address already exists", "SENDER_EXISTS", 409);
+    }
+    const row = await enterpriseCommunicationCenterRepository.createMailbox({
+      organizationId,
+      profileCode,
+      displayName: input.displayName,
+      senderEmail,
+      replyToEmail: input.replyToEmail?.trim() || senderEmail,
+      smtpHost: input.smtpHost,
+      smtpPort: input.smtpPort,
+      smtpUsername: input.smtpUsername,
+      modifiedBy: input.modifiedBy,
+    });
+    const identity = await this.registerSender(profileCode, input.modifiedBy);
+    return { profile: mapProfileRow(row), identity, credentialEnvName: smtpSecretEnvName(profileCode) };
+  },
+
+  async registerSender(profileCode: string, actorUserId: string) {
+    requireDb();
+    const organizationId = await resolvePilotOrganizationId();
+    const row = await enterpriseCommunicationCenterRepository.getByCode(organizationId, profileCode);
+    if (!row?.active) throw new EccError("Communication profile was not found", "PROFILE_NOT_FOUND", 404);
+    if (row.smtpProvider !== "smtp" || !row.smtpHost || !row.smtpPort || !row.smtpUsername) {
+      throw new EccError("Configure SMTP host, port, and username before registering this sender", "SMTP_NOT_CONFIGURED");
+    }
+    const listed = await marketingSenderIdentityStore.list(organizationId);
+    const senderEmail = row.senderEmail.trim().toLowerCase();
+    const existing = listed.find(
+      (identity) =>
+        identity.providerMapping.providerProfileId === row.profileCode ||
+        identity.fromAddress.trim().toLowerCase() === senderEmail,
+    );
+    const sameAddress = existing?.fromAddress.trim().toLowerCase() === senderEmail;
+    const saved = await marketingSenderIdentityStore.upsert({
+      organizationId,
+      id: existing?.id,
+      displayName: row.displayName,
+      fromAddress: senderEmail,
+      replyTo: row.replyToEmail,
+      active: true,
+      simulated: false,
+      providerType: "smtp",
+      providerProfileId: row.profileCode,
+      verificationStatus: sameAddress ? existing?.verificationStatus : "PENDING",
+      approvalStatus: sameAddress ? existing?.approvalStatus : "DRAFT",
+      createdByUserId: actorUserId,
+    });
+    return marketingSenderIdentityStore.toPublicDto(saved);
   },
 };

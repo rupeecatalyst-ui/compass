@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ assetId: string }> | { assetId: string } },
+  context: { params: Promise<{ assetId: string }> },
 ) {
   const params = await context.params;
   const assetId = decodeURIComponent(params.assetId ?? "").trim();

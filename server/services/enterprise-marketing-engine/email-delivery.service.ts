@@ -24,6 +24,7 @@ import {
   renderMarketingEmailPlaintext,
 } from "@/lib/enterprise-marketing-engine/email-render";
 import { attributeHomeLoanCampaignDestination } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
+import { assessMarketingLiveSenderLink } from "@/lib/enterprise-marketing-engine/controlled-five-send";
 import { issueCampaignRecipientToken } from "@/lib/product-journey/campaign-link";
 import { withCampaignEntryCtas } from "@/lib/product-journey/campaign-entry-url";
 import { lookupDurableMarketingSend, marketingDurableSendAlreadyCompleted } from "@/lib/enterprise-marketing-engine/durable-send-idempotency";
@@ -49,6 +50,7 @@ import { recordMarketingAuditEvent } from "./audit";
 import { createDryRunEmailDeliveryPort } from "./adapters/dry-run-email-delivery.adapter";
 import { createHostingerSmtpEmailDeliveryPort } from "./adapters/hostinger-smtp.adapter";
 import { createHostingerSmtpTransport } from "./adapters/hostinger-smtp-transport";
+import { projectSenderSmtpEnv } from "./operational-mailbox-smtp";
 import { marketingEmailDeliveryRecordStore } from "./delivery-record-store";
 import { marketingExecutionLedgerStore } from "./execution-ledger-store";
 import {
@@ -62,7 +64,7 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function resolvePort(request?: Pick<MarketingEmailDeliveryRequest, "controlledTestSend">): MarketingEmailDeliveryPort {
+async function resolvePort(request?: MarketingEmailDeliveryRequest): Promise<MarketingEmailDeliveryPort> {
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {
     throw new EnterpriseMarketingSafetyError("email.delivery.mode_off");
   }
@@ -71,19 +73,40 @@ function resolvePort(request?: Pick<MarketingEmailDeliveryRequest, "controlledTe
       if (!isMarketingControlledTestSendEnabled()) {
         throw new EnterpriseMarketingSafetyError("email.controlled_test_send:live_not_authorized");
       }
+      const controlledGates = {
+        executionEnabled: false,
+        providerConnectEnabled: false,
+        controlledTestSendEnabled: true,
+      };
+      const projected = request.sender ? await projectSenderSmtpEnv(request.sender) : null;
+      if (request.sender && projected) {
+        const senderMatch = {
+          fromEmail: request.sender.fromAddress,
+          fromName: request.sender.displayName,
+          replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
+        };
+        return createHostingerSmtpEmailDeliveryPort({
+          transport: createHostingerSmtpTransport({ env: projected, gates: controlledGates, senderMatch }),
+          gates: controlledGates,
+          smtpEnv: projected,
+          senderMatch,
+        });
+      }
+      if (request.sender) {
+        const senderMatch = {
+          fromEmail: request.sender.fromAddress,
+          fromName: request.sender.displayName,
+          replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
+        };
+        return createHostingerSmtpEmailDeliveryPort({
+          transport: createHostingerSmtpTransport({ gates: controlledGates, senderMatch }),
+          gates: controlledGates,
+          senderMatch,
+        });
+      }
       return createHostingerSmtpEmailDeliveryPort({
-        transport: createHostingerSmtpTransport({
-          gates: {
-            executionEnabled: false,
-            providerConnectEnabled: false,
-            controlledTestSendEnabled: true,
-          },
-        }),
-        gates: {
-          executionEnabled: false,
-          providerConnectEnabled: false,
-          controlledTestSendEnabled: true,
-        },
+        transport: createHostingerSmtpTransport({ gates: controlledGates }),
+        gates: controlledGates,
       });
     }
     if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED || !ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED) {
@@ -141,8 +164,10 @@ async function resolveSender(input: {
         displayName: byId.displayName,
         fromAddress: byId.fromAddress,
         replyTo: byId.replyTo,
+        providerProfileId: byId.providerMapping.providerProfileId,
       };
     }
+    return null;
   }
   if (input.fromAddressHint) {
     const matched = await marketingSenderIdentityStore.resolveByFromAddress(
@@ -155,8 +180,10 @@ async function resolveSender(input: {
         displayName: matched.displayName,
         fromAddress: matched.fromAddress,
         replyTo: matched.replyTo,
+        providerProfileId: matched.providerMapping.providerProfileId,
       };
     }
+    return null;
   }
   const fallback = await marketingSenderIdentityStore.getDefaultActive(input.organizationId);
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
@@ -341,7 +368,7 @@ export const marketingEmailDeliveryService = {
     }
 
     const prepared = applyUnsubscribePlaceholders(request);
-    const port = resolvePort(request);
+    const port = await resolvePort(prepared);
     const result = await port.deliver(prepared);
     this.persistRecord(request, result);
     await this.emitDeliveryEvent(request, result);
@@ -422,6 +449,40 @@ export const marketingEmailDeliveryService = {
     countsAsProcessed: boolean;
     countsAsFailed: boolean;
   }> {
+    const liveSmtp =
+      ENTERPRISE_MARKETING_EMAIL_MODE === "live" &&
+      (Boolean(input.controlledTestSend && isMarketingControlledTestSendEnabled()) ||
+        Boolean(ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED));
+    if (liveSmtp) {
+      const senderLink = assessMarketingLiveSenderLink(input.senderIdentityId);
+      if (!senderLink.ok) {
+        const delivery: MarketingEmailDeliveryResult = {
+          idempotencyKey: input.idempotencyKey,
+          outcome: "FAILED",
+          errorCode: senderLink.code,
+          errorMessage: senderLink.message,
+          providerMessageId: null,
+          dryRun: true,
+        };
+        await emitMarketingEngagementEvent({
+          organizationId: input.organizationId,
+          campaignId: input.campaignId,
+          campaignVersionId: input.campaignVersionId,
+          channel: "EMAIL",
+          type: "FAILED",
+          recipientFingerprint: input.recipientFingerprint,
+          idempotencyKey: input.idempotencyKey,
+          batchId: input.batchId,
+          errorCode: senderLink.code,
+        });
+        return {
+          delivery,
+          ledgerStatus: "failed",
+          countsAsProcessed: false,
+          countsAsFailed: true,
+        };
+      }
+    }
     const sender = await resolveSender({
       organizationId: input.organizationId,
       senderIdentityId: input.senderIdentityId,
@@ -468,10 +529,6 @@ export const marketingEmailDeliveryService = {
       intendedUrl: input.version.ctaUrl,
       campaignToken,
     });
-    const liveSmtp =
-      ENTERPRISE_MARKETING_EMAIL_MODE === "live" &&
-      (Boolean(input.controlledTestSend && isMarketingControlledTestSendEnabled()) ||
-        Boolean(ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED));
     if (liveSmtp && !entry.ok) {
       const delivery: MarketingEmailDeliveryResult = {
         idempotencyKey: input.idempotencyKey,

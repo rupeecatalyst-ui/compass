@@ -83,8 +83,7 @@ import {
   isCurrentFrozenMarketingAudienceSnapshot,
   runMarketingPrePublishChecks,
 } from "@/lib/enterprise-marketing-engine/pre-publish";
-import { assertMarketingSenderEligibleForCampaignApproval } from "@/lib/enterprise-marketing-engine/sender-eligibility";
-import { senderIdentityIdForAddress } from "@/lib/enterprise-marketing-engine/sender-link";
+import { assertLinkedCampaignSender, assertMarketingSenderEligibleForCampaignApproval } from "@/lib/enterprise-marketing-engine/sender-eligibility";
 import { assertMarketingLiveExecutionGate } from "@/lib/enterprise-marketing-engine/safety";
 import type {
   MarketingCampaign,
@@ -431,9 +430,6 @@ export const marketingCampaignService = {
     }
     if (input.senderIdentityId !== undefined) {
       campaignPatch.senderIdentityId = input.senderIdentityId;
-    } else if (input.sender?.fromAddress !== undefined) {
-      const identities = await marketingSenderIdentityStore.list(organizationId);
-      campaignPatch.senderIdentityId = senderIdentityIdForAddress(identities, input.sender.fromAddress);
     }
     if (input.whatsappTemplateId !== undefined) {
       campaignPatch.whatsappTemplateId = input.whatsappTemplateId;
@@ -579,6 +575,12 @@ export const marketingCampaignService = {
         identity: linkedSender,
         senderIdentityId: existing.senderIdentityId,
         productionCapable: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+      });
+      assertLinkedCampaignSender({
+        identity: linkedSender,
+        senderIdentityId: existing.senderIdentityId,
+        campaignFromAddress: existing.sender?.fromAddress,
+        campaignFromName: existing.sender?.fromName,
       });
       const mapping = loadCampaignMapping(actor, existing.audienceId);
       const frozenAudience = await loadCurrentFrozenSnapshot(existing, draft);

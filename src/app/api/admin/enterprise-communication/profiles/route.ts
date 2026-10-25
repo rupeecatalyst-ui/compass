@@ -59,8 +59,33 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     guard();
-    requireAccessToken(request);
+    const actor = requireAccessToken(request);
     const body = await request.json();
+    if (body.smtpPassword || body.password || body.apiKey) {
+      return errorResponse(400, "SECRETS_NOT_ALLOWED", "SMTP credentials cannot be submitted via API.");
+    }
+    if (body.action === "create_mailbox" || body.action === "register_sender") {
+      if (!["SUPER_ADMIN", "ADMIN"].includes(actor.role)) {
+        return errorResponse(403, "FORBIDDEN", "Admin role required");
+      }
+      if (body.action === "register_sender") {
+        const identity = await enterpriseCommunicationCenterService.registerSender(
+          String(body.profileCode ?? ""),
+          actor.userId,
+        );
+        return successResponse({ identity });
+      }
+      const created = await enterpriseCommunicationCenterService.createMailbox({
+        displayName: String(body.displayName ?? ""),
+        senderEmail: String(body.senderEmail ?? ""),
+        replyToEmail: body.replyToEmail ? String(body.replyToEmail) : null,
+        smtpHost: String(body.smtpHost ?? ""),
+        smtpPort: Number(body.smtpPort),
+        smtpUsername: String(body.smtpUsername ?? ""),
+        modifiedBy: actor.userId,
+      });
+      return successResponse(created);
+    }
     if (body.eventType) {
       const identity = await enterpriseCommunicationCenterService.resolveIdentity({
         eventType: String(body.eventType) as EnterpriseCommunicationEventType,

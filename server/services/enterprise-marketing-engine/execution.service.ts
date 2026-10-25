@@ -64,7 +64,9 @@ import { MARKETING_PACING_CRON_REGISTERED } from "@/lib/enterprise-marketing-eng
 import {
   assessMarketingControlledFiveAudience,
   assessMarketingControlledFiveGates,
+  MARKETING_CONTROLLED_FIVE_AUTHORISED_CAMPAIGN_ID,
   MARKETING_CONTROLLED_FIVE_RECIPIENT_COUNT,
+  MARKETING_CONTROLLED_FIVE_SEND_BLOCK,
 } from "@/lib/enterprise-marketing-engine/controlled-five-send";
 
 const RUNNABLE: MarketingCampaignStatus[] = ["SCHEDULED", "RUNNING"];
@@ -124,6 +126,15 @@ async function tickFromFrozenSnapshot(input: {
 }): Promise<MarketingExecutionTickResult> {
   // SNAPSHOT_REQUIRED — approved execution never rereads the live Google Sheet.
   const version = await marketingCampaignStore.getVersion(input.versionId);
+  if (
+    input.controlledFiveRecipientSend === true &&
+    input.campaignId !== MARKETING_CONTROLLED_FIVE_AUTHORISED_CAMPAIGN_ID
+  ) {
+    throw Object.assign(
+      new Error("Controlled five-recipient send is authorised only for the designated production test campaign."),
+      { statusCode: 403, code: MARKETING_CONTROLLED_FIVE_SEND_BLOCK.campaignNotAuthorised },
+    );
+  }
   const liveDeliveryAuthorized = isMarketingSnapshotLiveDeliveryAuthorized({
     executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
     providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
@@ -915,6 +926,7 @@ export const marketingExecutionService = {
   ) {
     assertDryRunExecutionAllowed("execution.controlledFive");
     const gates = assessMarketingControlledFiveGates({
+      campaignId,
       executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
       providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
       controlledTestSendEnabled: isMarketingControlledTestSendEnabled(),
@@ -954,6 +966,8 @@ export const marketingExecutionService = {
       eligibleCount: snapshot.eligibleCount,
       recipientCount: recipients.length,
       fromAddress: campaign.sender?.fromAddress,
+      fromName: campaign.sender?.fromName,
+      senderIdentityId: campaign.senderIdentityId,
       sender,
     });
     if (!audience.ok) {

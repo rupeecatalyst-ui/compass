@@ -155,6 +155,18 @@ export function MarketingCampaignBuilderPage({
   const [snapshotStatus, setSnapshotStatus] = useState<MarketingBuilderDraft["snapshotStatus"]>("Unavailable");
   const [senderName, setSenderName] = useState("");
   const [senderAddress, setSenderAddress] = useState("");
+  const [selectedSenderIdentityId, setSelectedSenderIdentityId] = useState<string | null>(null);
+  const [senderIdentities, setSenderIdentities] = useState<
+    Array<{
+      id: string;
+      displayName: string;
+      fromAddress: string;
+      active: boolean;
+      simulated?: boolean;
+      approvalStatus?: string;
+      verificationStatus?: string;
+    }>
+  >([]);
   const [subject, setSubject] = useState("");
   const [preheader, setPreheader] = useState("");
   const [templateId, setTemplateId] = useState("");
@@ -272,6 +284,7 @@ export function MarketingCampaignBuilderPage({
     setAudienceId(campaignRow.audienceId ?? "");
     setSenderName(campaignRow.sender.fromName);
     setSenderAddress(campaignRow.sender.fromAddress);
+    setSelectedSenderIdentityId(campaignRow.senderIdentityId ?? null);
     setSubject(version?.subject ?? "");
     setPreheader(version?.previewText ?? "");
     setTemplateId(campaignRow.templateId ?? campaignRow.whatsappTemplateId ?? "");
@@ -413,6 +426,20 @@ export function MarketingCampaignBuilderPage({
   }, [loading, campaign?.id]);
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/sender-identities");
+      const body = (await res.json()) as ApiEnvelope<{ identities?: typeof senderIdentities }>;
+      if (!cancelled && res.ok && body.success && body.data?.identities) {
+        setSenderIdentities(body.data.identities);
+      }
+    })().catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirty) return;
       event.preventDefault();
@@ -529,6 +556,7 @@ export function MarketingCampaignBuilderPage({
       const content = emailContent;
       const payload = {
         ...marketingBuilderDraftSavePayload(campaignId, { ...draft, audienceId: nextAudienceId ?? "" }),
+        ...(selectedSenderIdentityId ? { senderIdentityId: selectedSenderIdentityId } : {}),
         content,
         whatsappTemplateId: channel === "WHATSAPP" ? templateId || null : null,
         templateId: channel === "EMAIL" ? templateId || null : undefined,
@@ -1424,17 +1452,51 @@ export function MarketingCampaignBuilderPage({
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {channel === "EMAIL" ? (
                 <>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="mkt-builder-sender-identity">Sender identity</Label>
+                <Select
+                  value={selectedSenderIdentityId ?? ""}
+                  onValueChange={(identityId) => {
+                    const identity = senderIdentities.find((row) => row.id === identityId);
+                    if (!identity) return;
+                    setSelectedSenderIdentityId(identity.id);
+                    setSenderName(identity.displayName);
+                    setSenderAddress(identity.fromAddress);
+                  }}
+                >
+                  <SelectTrigger id="mkt-builder-sender-identity">
+                    <SelectValue placeholder="Select a verified sender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {senderIdentities.map((identity) => {
+                      const eligible =
+                        identity.active &&
+                        identity.simulated !== true &&
+                        identity.approvalStatus === "APPROVED" &&
+                        identity.verificationStatus === "VERIFIED";
+                      return (
+                        <SelectItem key={identity.id} value={identity.id} disabled={!eligible}>
+                          {identity.displayName} &lt;{identity.fromAddress}&gt;
+                          {eligible ? "" : ` · ${identity.approvalStatus ?? "DRAFT"} / ${identity.verificationStatus ?? "PENDING"}`}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="mkt-builder-from-name">Sender name</Label>
-                <Input id="mkt-builder-from-name" value={senderName} onChange={(e) => setSenderName(e.target.value)} />
+                <Input id="mkt-builder-from-name" value={senderName} readOnly />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="mkt-builder-from-address">Sender address</Label>
-                <Input id="mkt-builder-from-address" value={senderAddress} onChange={(e) => setSenderAddress(e.target.value)} />
+                <Input id="mkt-builder-from-address" value={senderAddress} readOnly />
                 <p className="text-xs text-muted-foreground">
-                  {campaign?.senderIdentityId
-                    ? `Linked sender identity: ${campaign.senderIdentityId}`
-                    : "Sender identity links on save when this address matches an active identity."}
+                  {selectedSenderIdentityId
+                    ? `Linked sender identity: ${selectedSenderIdentityId}`
+                    : senderAddress
+                      ? "This campaign is not linked to a registered sender. Select a verified identity before a live send."
+                      : "Select a verified sender. The From name and address come from that identity."}
                 </p>
               </div>
                   <div className="space-y-1.5 md:col-span-2">

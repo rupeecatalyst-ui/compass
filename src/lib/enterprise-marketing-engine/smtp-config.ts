@@ -45,6 +45,7 @@ function parsePort(raw: string): number | null {
 
 export function assessMarketingSmtpConfig(
   env: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {},
+  match?: { fromEmail: string; fromName: string; replyTo: string },
 ): MarketingSmtpConfigPresence {
   const hostPresent = Boolean(readEnv(env, MARKETING_SMTP_ENV.host));
   const portRaw = readEnv(env, MARKETING_SMTP_ENV.port);
@@ -61,9 +62,12 @@ export function assessMarketingSmtpConfig(
   const fromEmailPresent = Boolean(fromEmail);
   const fromNamePresent = Boolean(fromName);
   const replyToPresent = Boolean(replyTo);
-  const fromEmailMatchesPhase1 = fromEmail === MARKETING_PHASE1_FROM_EMAIL;
-  const fromNameMatchesPhase1 = fromName === MARKETING_PHASE1_FROM_NAME;
-  const replyToMatchesPhase1 = replyTo === MARKETING_PHASE1_REPLY_TO;
+  const expectedEmail = (match?.fromEmail ?? MARKETING_PHASE1_FROM_EMAIL).trim().toLowerCase();
+  const expectedName = (match?.fromName ?? MARKETING_PHASE1_FROM_NAME).trim();
+  const expectedReply = (match?.replyTo ?? MARKETING_PHASE1_REPLY_TO).trim().toLowerCase();
+  const fromEmailMatchesPhase1 = fromEmail === expectedEmail;
+  const fromNameMatchesPhase1 = fromName === expectedName;
+  const replyToMatchesPhase1 = replyTo === expectedReply;
   const secureExplicitFalse = secureFlag === "false" || secureFlag === "0";
   const tlsSafe =
     portValid &&
@@ -114,8 +118,9 @@ export type MarketingSmtpConnectionOptions = {
 
 export function resolveMarketingSmtpConnectionOptions(
   env: Record<string, string | undefined> = typeof process !== "undefined" ? process.env : {},
+  match?: { fromEmail: string; fromName: string; replyTo: string },
 ): { ok: true; connection: MarketingSmtpConnectionOptions } | { ok: false; blockers: string[] } {
-  const assessment = assessMarketingSmtpConfig(env);
+  const assessment = assessMarketingSmtpConfig(env, match);
   if (!marketingSmtpConfigIsComplete(assessment) || assessment.port == null) {
     return { ok: false, blockers: assessment.blockers };
   }

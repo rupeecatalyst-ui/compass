@@ -36,6 +36,8 @@ export type HostingerSmtpAdapterOptions = {
   transport?: MarketingSmtpTransport;
   gates?: HostingerSmtpAdapterGates;
   smtpEnv?: Record<string, string | undefined>;
+  /** When set, the message From identity must match this projection. */
+  senderMatch?: { fromEmail: string; fromName: string; replyTo: string };
 };
 
 function sanitizeSmtpError(message: string): string {
@@ -113,6 +115,16 @@ export function createHostingerSmtpEmailDeliveryPort(
       if (existing) return { ...existing, duplicate: true };
 
       const isolatedTestSend = Boolean(gates.controlledTestSendEnabled && request.controlledTestSend);
+      if (options.smtpEnv) {
+        const projected = assessMarketingSmtpConfig(options.smtpEnv, options.senderMatch);
+        if (!marketingSmtpConfigIsComplete(projected)) {
+          return failed(
+            request,
+            projected.blockers[0] ?? MARKETING_SMTP_BLOCK.configMissing,
+            "SMTP configuration is incomplete",
+          );
+        }
+      }
       if (!isolatedTestSend && !gates.executionEnabled) {
         return failed(request, MARKETING_SMTP_BLOCK.executionDisabled, "Live Marketing execution is disabled");
       }
@@ -131,7 +143,7 @@ export function createHostingerSmtpEmailDeliveryPort(
         );
       }
 
-      const smtp = assessMarketingSmtpConfig(options.smtpEnv);
+      const smtp = assessMarketingSmtpConfig(options.smtpEnv, options.senderMatch);
       if (!marketingSmtpConfigIsComplete(smtp)) {
         return failed(request, smtp.blockers[0] ?? MARKETING_SMTP_BLOCK.configMissing, "SMTP configuration is incomplete");
       }
@@ -144,15 +156,24 @@ export function createHostingerSmtpEmailDeliveryPort(
         );
       }
 
-      try {
-        assertMarketingPhase1Sender({
-          fromAddress: request.sender.fromAddress,
-          displayName: request.sender.displayName,
-          replyTo: request.sender.replyTo,
-        });
-      } catch (err) {
-        const code = err && typeof err === "object" && "code" in err ? String(err.code) : MARKETING_SMTP_BLOCK.senderNotPhase1;
-        return blocked(request, code, "Phase 1 sender identity is required");
+      if (options.senderMatch) {
+        const matchesProjection =
+          request.sender.fromAddress.trim().toLowerCase() === options.senderMatch.fromEmail.trim().toLowerCase() &&
+          request.sender.displayName.trim() === options.senderMatch.fromName.trim();
+        if (!matchesProjection || !request.sender.displayName.trim()) {
+          return blocked(request, MARKETING_SMTP_BLOCK.senderNotPhase1, "The selected sender does not match the SMTP From identity");
+        }
+      } else {
+        try {
+          assertMarketingPhase1Sender({
+            fromAddress: request.sender.fromAddress,
+            displayName: request.sender.displayName,
+            replyTo: request.sender.replyTo,
+          });
+        } catch (err) {
+          const code = err && typeof err === "object" && "code" in err ? String(err.code) : MARKETING_SMTP_BLOCK.senderNotPhase1;
+          return blocked(request, code, "Phase 1 sender identity is required");
+        }
       }
 
       if (!htmlHasUnsubscribeLink(request.htmlBody)) {
