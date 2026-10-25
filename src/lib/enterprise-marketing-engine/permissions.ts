@@ -9,9 +9,22 @@ export type MarketingPermissionActor = {
   userId?: string;
   role?: string;
   organizationId?: string | null;
-  /** Explicit grants (e.g. from EUM later). */
+  /** Server/EUM grants only — never accept this from a client request body. */
   marketingPermissions?: string[];
 };
+
+/** Map the authenticated session user. UI hints only; APIs authorise from the access token. */
+export function marketingPermissionActorFromUser(user: {
+  id?: string | null;
+  role?: string | null;
+  organizationId?: string | null;
+} | null | undefined): MarketingPermissionActor {
+  return {
+    userId: user?.id ?? undefined,
+    role: user?.role ?? undefined,
+    organizationId: user?.organizationId ?? undefined,
+  };
+}
 
 const ADMIN_DEFAULT: MarketingPermission[] = [
   MARKETING_PERMISSIONS.COMMAND_CENTER,

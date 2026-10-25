@@ -323,6 +323,7 @@ export function composeMarketingBuilderReview(input: {
   status: MarketingCampaignStatus;
   actor: MarketingPermissionActor;
   executionEnabled: boolean;
+  providerConnectEnabled?: boolean;
   prePublish: MarketingPrePublishCheckResult | null;
 }): MarketingBuilderReview {
   const blockers: string[] = [];
@@ -344,30 +345,30 @@ export function composeMarketingBuilderReview(input: {
     warnings.push(`Audience snapshot: ${input.draft.snapshotStatus}`);
   }
 
+  const liveGatesOn = input.executionEnabled === true && input.providerConnectEnabled === true;
   const canApprovePermission = hasMarketingPermission(input.actor, MARKETING_PERMISSIONS.CAMPAIGN_APPROVE);
-  const canSendPermission = hasMarketingPermission(input.actor, MARKETING_PERMISSIONS.CAMPAIGN_SEND);
+  const canSchedulePermission = hasMarketingPermission(input.actor, MARKETING_PERMISSIONS.CAMPAIGN_SCHEDULE);
   const ready = blockers.length === 0 && (input.prePublish?.readyForApproval ?? false);
   let approveReason: string | null = null;
   if (!canApprovePermission) approveReason = "Requires campaign approve permission";
   else if (input.status !== "READY_FOR_REVIEW") approveReason = "Submit for review before approval";
   else if (!ready) approveReason = "Fix blockers before approval";
 
-  const approved = input.status === "APPROVED" || input.status === "SCHEDULED";
   const launchBlockers = [...new Set(blockers)];
   if (input.draft.snapshotStatus !== "Frozen") {
     launchBlockers.push("Audience snapshot is not frozen");
   }
   let launchReason: string | null = null;
-  if (!input.executionEnabled) launchReason = "Live send is disabled in TEST MODE";
-  else if (!canSendPermission) launchReason = "Requires campaign send permission";
-  else if (!approved) launchReason = "Campaign must be approved before launch";
+  if (!liveGatesOn) launchReason = "Live send is disabled in TEST MODE";
+  else if (!canSchedulePermission) launchReason = "Requires campaign schedule permission";
+  else if (input.status !== "APPROVED") launchReason = "Campaign must be approved before launch";
   else if (launchBlockers.length) launchReason = `Launch blocked: ${launchBlockers.join("; ")}`;
 
   return {
     blockers: [...new Set(blockers)],
     warnings: [...new Set(warnings)],
-    testStatus: input.executionEnabled ? "Live execution available" : "TEST MODE — simulated only, not run",
-    canApprove: approveReason == null && canApprovePermission && ready,
+    testStatus: liveGatesOn ? "Live execution available" : "TEST MODE — simulated only, not run",
+    canApprove: approveReason == null,
     approveReason,
     canLaunch: launchReason == null,
     launchReason,

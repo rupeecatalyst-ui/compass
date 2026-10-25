@@ -222,6 +222,7 @@
     "verify:co-marketing-redesign-007": "node --import tsx scripts/co-marketing-redesign-007-visual-editor-verify.mjs",
     "verify:co-marketing-redesign-008": "node --import tsx scripts/co-marketing-redesign-008-preview-personalisation-verify.mjs",
     "verify:co-marketing-redesign-009": "node --import tsx scripts/co-marketing-redesign-009-review-controls-verify.mjs",
+    "verify:co-marketing-approval-ui": "node --import tsx scripts/co-marketing-approval-ui-verify.mjs",
     "verify:co-marketing-redesign-010": "node --import tsx scripts/co-marketing-redesign-010-monitoring-handoff-verify.mjs",
     "verify:co-marketing-redesign-011": "node --import tsx scripts/co-marketing-redesign-011-assets-verify.mjs",
     "verify:co-marketing-redesign-012": "node --import tsx scripts/co-marketing-redesign-012-consent-suppression-verify.mjs",

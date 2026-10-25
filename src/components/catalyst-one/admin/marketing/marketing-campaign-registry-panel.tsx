@@ -40,7 +40,8 @@ import {
 } from "@/lib/enterprise-marketing-engine/campaign-registry";
 import { paginateMarketingCollection } from "@/lib/enterprise-marketing-engine/ux-pagination";
 import { formatMarketingMetricValue } from "@/lib/enterprise-marketing-engine/home-overview";
-import { hasMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
+import { hasMarketingPermission, marketingPermissionActorFromUser } from "@/lib/enterprise-marketing-engine/permissions";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import type { MarketingCampaign } from "@/types/enterprise-marketing-campaign";
 import type { MarketingAudienceDefinition } from "@/types/enterprise-marketing-audience";
 import type { MarketingAnalyticsDashboard } from "@/types/enterprise-marketing-analytics";
@@ -52,10 +53,13 @@ import "@/styles/marketing-command-centre.css";
 
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: { message?: string } };
 
-const ACTOR = { role: "ADMIN" as const };
-
 export function MarketingCampaignRegistryPanel() {
   const searchParams = useSearchParams();
+  const { user } = useAuthContext();
+  const actor = useMemo(
+    () => marketingPermissionActorFromUser(user),
+    [user?.id, user?.role, user?.organizationId],
+  );
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [audiences, setAudiences] = useState<MarketingAudienceDefinition[]>([]);
   const [analytics, setAnalytics] = useState<MarketingAnalyticsDashboard | null>(null);
@@ -72,8 +76,8 @@ export function MarketingCampaignRegistryPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const canCreate = hasMarketingPermission(ACTOR, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
-  const canFilterOwner = hasMarketingPermission(ACTOR, MARKETING_PERMISSIONS.COMMAND_CENTER);
+  const canCreate = hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
+  const canFilterOwner = hasMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,10 +138,10 @@ export function MarketingCampaignRegistryPanel() {
         campaigns: filtered,
         audiences,
         analyticsRows: analytics?.campaigns ?? null,
-        actor: ACTOR,
+        actor,
         executionEnabled: liveGates.executionEnabled,
       }),
-    [filtered, audiences, analytics, liveGates.executionEnabled],
+    [filtered, audiences, analytics, actor, liveGates.executionEnabled],
   );
   const paged = useMemo(
     () => paginateMarketingCollection(rows, page, MARKETING_REGISTRY_PAGE_SIZE),

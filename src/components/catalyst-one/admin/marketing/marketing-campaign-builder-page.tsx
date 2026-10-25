@@ -79,7 +79,11 @@ import {
 } from "@/lib/enterprise-marketing-engine/campaign-builder-shell";
 import { composeMarketingReadinessReview, projectMarketingDeliveryOperations } from "@/lib/enterprise-marketing-engine/readiness-review";
 import { canWithdrawMarketingCampaignToDraft } from "@/lib/enterprise-marketing-engine/campaign-registry";
-import { hasMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
+import {
+  hasMarketingPermission,
+  marketingPermissionActorFromUser,
+} from "@/lib/enterprise-marketing-engine/permissions";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import type { MarketingCampaign, MarketingCampaignVersion, MarketingContentDocument, MarketingContentTemplate, MarketingPrePublishCheckResult } from "@/types/enterprise-marketing-campaign";
 import type { MarketingAudienceDefinition, MarketingAudiencePreviewResult, MarketingFilterDefinition } from "@/types/enterprise-marketing-audience";
 import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability";
@@ -89,8 +93,6 @@ import "@/styles/marketing-command-centre.css";
 import "@/styles/marketing-visual-editor.css";
 
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: { message?: string } };
-
-const ACTOR = { role: "ADMIN" as const };
 
 function bodyFromContent(version: MarketingCampaignVersion | null): string {
   return version ? paragraphTextFromDocument(version.content) : "";
@@ -115,7 +117,12 @@ export function MarketingCampaignBuilderPage({
   initialStep?: number;
 }) {
   const router = useRouter();
-  const canCreate = hasMarketingPermission(ACTOR, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
+  const { user } = useAuthContext();
+  const actor = useMemo(
+    () => marketingPermissionActorFromUser(user),
+    [user?.id, user?.role, user?.organizationId],
+  );
+  const canCreate = hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -762,8 +769,9 @@ export function MarketingCampaignBuilderPage({
     ? composeMarketingBuilderReview({
         draft,
         status: campaign.status,
-        actor: ACTOR,
+        actor,
         executionEnabled: liveGates.executionEnabled,
+        providerConnectEnabled: liveGates.providerConnectEnabled,
         prePublish,
       })
     : null;
@@ -823,7 +831,7 @@ export function MarketingCampaignBuilderPage({
   }
 
   async function withdrawToDraft() {
-    if (!campaign || !canWithdrawMarketingCampaignToDraft(campaign.status, ACTOR)) {
+    if (!campaign || !canWithdrawMarketingCampaignToDraft(campaign.status, actor)) {
       toast.error("Withdraw to Draft is not available for this campaign.");
       return;
     }
@@ -852,11 +860,21 @@ export function MarketingCampaignBuilderPage({
     }
   }
 
-  async function transition(lifecycleAction: "SUBMIT_FOR_REVIEW" | "APPROVE") {
+  async function transition(lifecycleAction: "SUBMIT_FOR_REVIEW" | "APPROVE" | "SCHEDULE") {
+    if (lifecycleAction === "APPROVE" && review && !review.canApprove) {
+      toast.error(review.approveReason ?? "Approve is not available.");
+      return;
+    }
+    if (lifecycleAction === "SCHEDULE" && review && !review.canLaunch) {
+      toast.error(review.launchReason ?? "Schedule / Launch is not available.");
+      return;
+    }
     setBusy(true);
     try {
-      const saved = await saveDraft();
-      if (!saved) return;
+      if (lifecycleAction === "SUBMIT_FOR_REVIEW") {
+        const saved = await saveDraft();
+        if (!saved) return;
+      }
       const res = await authenticatedJsonFetch("/api/admin/marketing/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -891,7 +909,7 @@ export function MarketingCampaignBuilderPage({
   const eligibilityPreviewReady = preview != null && previewError == null && !previewPending;
   const contentLocked = campaign ? !marketingCampaignEditPolicy(campaign.status).contentEditable : false;
   const canWithdraw = campaign
-    ? canWithdrawMarketingCampaignToDraft(campaign.status, ACTOR)
+    ? canWithdrawMarketingCampaignToDraft(campaign.status, actor)
     : false;
 
   return (
@@ -1595,7 +1613,7 @@ export function MarketingCampaignBuilderPage({
               <MarketingControlledTestPanel campaignId={campaignId} history={testHistory} onHistory={setTestHistory} />
               <MarketingDeliveryOperationsPanel
                 campaignId={campaignId}
-                actor={ACTOR}
+                actor={actor}
                 display={deliveryOps}
                 onRefresh={() => {
                   void loadReview();
@@ -1639,8 +1657,9 @@ export function MarketingCampaignBuilderPage({
                 <Button
                   type="button"
                   variant="secondary"
-                  disabled
-                  title={review.launchReason ?? "Launch unavailable"}
+                  disabled={busy || !review.canLaunch}
+                  title={review.launchReason ?? undefined}
+                  onClick={() => void transition("SCHEDULE")}
                 >
                   Schedule / Launch
                 </Button>

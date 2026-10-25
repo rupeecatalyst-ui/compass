@@ -182,14 +182,12 @@ export async function POST(request: Request) {
       note?: string;
       confirmed?: boolean;
       confirmationPhrase?: string;
-      /** Test / EUM grant overrides — never enables send. */
-      marketingPermissions?: string[];
       /** Rejected if present — SAVE must not publish. */
       status?: string;
     };
 
     const action = body.action ?? "create";
-    const ctx = await actorCtx(actor, body.marketingPermissions);
+    const ctx = await actorCtx(actor);
 
     if (body.status !== undefined && action === "save") {
       return errorResponse(
