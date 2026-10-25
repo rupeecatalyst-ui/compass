@@ -6,12 +6,15 @@
  */
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { ROUTES } from "@/constants/routes";
 import {
   MARKETING_BATCH_CONFIRMATION_PHRASE,
+  MARKETING_CONTROLLED_FIVE_CONFIRMATION_PHRASE,
   MARKETING_DELIVERY_OPERATION_LABELS,
   MARKETING_LIVE_PROVIDER_SENDING_DISABLED,
   MARKETING_PERMISSIONS,
@@ -28,24 +31,30 @@ export function MarketingDeliveryOperationsPanel({
   campaignId,
   actor,
   display,
+  campaignStatus,
   onRefresh,
 }: {
   campaignId: string;
   actor: MarketingPermissionActor;
   display: MarketingDeliveryOperationsDisplay;
+  campaignStatus?: string | null;
   onRefresh: () => void;
 }) {
   const [stopPhrase, setStopPhrase] = useState("");
   const [batchPhrase, setBatchPhrase] = useState("");
   const [retryPhrase, setRetryPhrase] = useState("");
+  const [fivePhrase, setFivePhrase] = useState("");
   const [busy, setBusy] = useState(false);
 
   const canPause = hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_PAUSE);
   const canStop = hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_STOP);
   const canRun = hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_RUN);
   const canRetry = hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_RETRY);
+  const canSend = hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_SEND);
+  const approvedForControlledSend =
+    campaignStatus === "APPROVED" || campaignStatus === "SCHEDULED" || campaignStatus === "RUNNING";
 
-  async function post(body: Record<string, unknown>) {
+  async function post(body: Record<string, unknown>, notice: string = MARKETING_LIVE_PROVIDER_SENDING_DISABLED) {
     setBusy(true);
     try {
       const res = await authenticatedJsonFetch("/api/admin/marketing/campaigns", {
@@ -53,11 +62,11 @@ export function MarketingDeliveryOperationsPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const payload = (await res.json()) as Envelope<unknown>;
+      const payload = (await res.json()) as Envelope<{ notice?: string }>;
       if (!res.ok || !payload.success) {
         throw new Error(payload.error?.message ?? "Delivery operation failed");
       }
-      toast.message(MARKETING_LIVE_PROVIDER_SENDING_DISABLED);
+      toast.message(payload.data?.notice ?? notice);
       onRefresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Delivery operation failed");
@@ -106,6 +115,43 @@ export function MarketingDeliveryOperationsPanel({
           <dd>{display.nextScheduledExecution}</dd>
         </div>
       </dl>
+      <div className="space-y-2 rounded-xl border p-4">
+        <h4 className="font-medium">Controlled five-recipient send</h4>
+        <p className="text-sm text-muted-foreground">
+          After approval, send the frozen snapshot of exactly five recipients. Organisation-wide execution stays off.
+        </p>
+        <Label htmlFor="mkt-five-confirm">Type {MARKETING_CONTROLLED_FIVE_CONFIRMATION_PHRASE} to send</Label>
+        <Input id="mkt-five-confirm" value={fivePhrase} onChange={(e) => setFivePhrase(e.target.value)} />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            disabled={busy || !canSend || !approvedForControlledSend}
+            title={
+              canSend
+                ? approvedForControlledSend
+                  ? undefined
+                  : "Approve the campaign before the controlled five-recipient send"
+                : "Requires send permission"
+            }
+            onClick={() =>
+              void post(
+                {
+                  action: "controlled_five_send",
+                  campaignId,
+                  confirmed: true,
+                  confirmationPhrase: fivePhrase,
+                },
+                "Controlled five-recipient send did not record five provider acceptances.",
+              )
+            }
+          >
+            Send five recipients
+          </Button>
+          <Button type="button" variant="outline" asChild>
+            <Link href={ROUTES.ADMIN_MARKETING_MONITORING}>Open monitoring</Link>
+          </Button>
+        </div>
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"

@@ -1431,6 +1431,11 @@ export function MarketingCampaignBuilderPage({
               <div className="space-y-1.5">
                 <Label htmlFor="mkt-builder-from-address">Sender address</Label>
                 <Input id="mkt-builder-from-address" value={senderAddress} onChange={(e) => setSenderAddress(e.target.value)} />
+                <p className="text-xs text-muted-foreground">
+                  {campaign?.senderIdentityId
+                    ? `Linked sender identity: ${campaign.senderIdentityId}`
+                    : "Sender identity links on save when this address matches an active identity."}
+                </p>
               </div>
                   <div className="space-y-1.5 md:col-span-2">
                     <Label htmlFor="mkt-builder-subject">Subject</Label>
@@ -1643,6 +1648,7 @@ export function MarketingCampaignBuilderPage({
                 campaignId={campaignId}
                 actor={actor}
                 display={deliveryOps}
+                campaignStatus={campaign?.status}
                 onRefresh={() => {
                   void loadReview();
                   void loadCampaign();

@@ -145,6 +145,9 @@ export type MarketingDurableSnapshotRecipientRecord = {
   sourceStableKey: string;
   recipientFingerprint: string;
   normalizedEmail: string;
+  displayName?: string | null;
+  normalizedMobile?: string | null;
+  mappedAttributesJson?: Record<string, string> | null;
   assignedBatchNumber: number | null;
   createdAt: string;
   updatedAt: string;

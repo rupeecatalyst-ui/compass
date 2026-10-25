@@ -23,7 +23,7 @@ import {
   renderMarketingEmailHtml,
   renderMarketingEmailPlaintext,
 } from "@/lib/enterprise-marketing-engine/email-render";
-import { resolveLiveHomeLoanCampaignEntry } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
+import { attributeHomeLoanCampaignDestination } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
 import { issueCampaignRecipientToken } from "@/lib/product-journey/campaign-link";
 import { withCampaignEntryCtas } from "@/lib/product-journey/campaign-entry-url";
 import { lookupDurableMarketingSend, marketingDurableSendAlreadyCompleted } from "@/lib/enterprise-marketing-engine/durable-send-idempotency";
@@ -193,7 +193,13 @@ function personalizationFromRow(row: Record<string, unknown>, _columns: {
     const v = row[key];
     return typeof v === "string" ? v : v != null ? String(v) : "";
   };
-  const mappedName = str("Full Name") || str("Name") || str("full name") || str("name");
+  const mappedName =
+    str("Full Name") ||
+    str("Name") ||
+    str("full name") ||
+    str("name") ||
+    str("fullName") ||
+    [str("firstName"), str("lastName")].filter(Boolean).join(" ");
   return resolvePersonalizationValues(
     projectAllowlistedSampleValues({
       name: mappedName,
@@ -457,8 +463,9 @@ export const marketingEmailDeliveryService = {
       row: input.row,
       recipientFingerprint: input.recipientFingerprint,
     });
-    const entry = resolveLiveHomeLoanCampaignEntry({
+    const entry = attributeHomeLoanCampaignDestination({
       product: input.product,
+      intendedUrl: input.version.ctaUrl,
       campaignToken,
     });
     const liveSmtp =
@@ -485,10 +492,19 @@ export const marketingEmailDeliveryService = {
       input.version.content,
       input.organizationId,
     );
-    const content =
+    const attributed =
       entry.ok && entry.url
         ? withCampaignEntryCtas(hydratedContent, entry.url)
         : hydratedContent;
+    const ctaLabel = input.version.ctaLabel?.trim();
+    const content = ctaLabel
+      ? {
+          ...attributed,
+          blocks: attributed.blocks.map((block) =>
+            block.type === "cta" ? { ...block, props: { ...block.props, label: ctaLabel } } : block,
+          ),
+        }
+      : attributed;
     const subject = applyPersonalization(input.version.subject, personalization);
     const htmlBody = renderMarketingEmailHtml({
       content,

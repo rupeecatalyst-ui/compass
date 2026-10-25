@@ -29,7 +29,10 @@ import {
   MARKETING_CONTROLLED_TEST_BATCH_SIZES,
   MARKETING_DEFAULT_BATCH_POLICY,
 } from "@/constants/enterprise-marketing-engine/execution";
-import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
+import {
+  MARKETING_CONTROLLED_FIVE_CONFIRMATION_PHRASE,
+  MARKETING_LIVE_PROVIDER_SENDING_DISABLED,
+} from "@/constants/enterprise-marketing-engine/delivery-operations";
 import {
   assertMarketingDeliveryConfirmation,
 } from "@/lib/enterprise-marketing-engine/delivery-operations";
@@ -133,7 +136,8 @@ export async function POST(request: Request) {
         | "test_send"
         | "reopen_draft"
         | "simulate_launch"
-        | "retry_eligible_failures";
+        | "retry_eligible_failures"
+        | "controlled_five_send";
       /** Lifecycle action when action=transition */
       lifecycleAction?: MarketingCampaignAction;
       campaignId?: string;
@@ -424,6 +428,35 @@ export async function POST(request: Request) {
         execution: marketingExecutionService.getSummary(body.campaignId),
         deliveryLabel: tick.deliveryLabel,
         actuallySent: tick.actuallySent,
+      });
+    }
+
+    if (action === "controlled_five_send") {
+      if (!body.campaignId) {
+        return errorResponse(400, "INVALID_INPUT", "campaignId is required");
+      }
+      assertMarketingPermission(ctx, MARKETING_PERMISSIONS.CAMPAIGN_SEND);
+      const phrase = (body.confirmationPhrase ?? "").trim().toUpperCase();
+      if (body.confirmed !== true || phrase !== MARKETING_CONTROLLED_FIVE_CONFIRMATION_PHRASE) {
+        return errorResponse(
+          400,
+          "DELIVERY_CONFIRMATION_REQUIRED",
+          `Type ${MARKETING_CONTROLLED_FIVE_CONFIRMATION_PHRASE} to confirm the controlled five-recipient send`,
+        );
+      }
+      const tick = await marketingExecutionService.runControlledFiveRecipientSend(
+        body.campaignId,
+        ctx.organizationId,
+        ctx.userId,
+      );
+      return successResponse({
+        tick,
+        execution: marketingExecutionService.getSummary(body.campaignId),
+        actuallySent: tick.actuallySent,
+        recipientCount: tick.recipientCount,
+        notice: tick.actuallySent
+          ? "Controlled five-recipient send recorded provider results for exactly five recipients."
+          : "Controlled five-recipient send did not record five provider acceptances.",
       });
     }
 

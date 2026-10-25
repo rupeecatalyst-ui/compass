@@ -228,7 +228,27 @@ export function createPrismaMarketingDurabilityPorts(
         let inserted = 0;
         for (const record of records) {
           try {
-            await db.enterpriseMarketingSnapshotRecipient.create({ data: record });
+            await db.enterpriseMarketingSnapshotRecipient.create({
+              data: {
+                id: record.id,
+                organizationId: record.organizationId,
+                snapshotId: record.snapshotId,
+                campaignId: record.campaignId,
+                sourceWorkbookId: record.sourceWorkbookId,
+                sourceTabId: record.sourceTabId,
+                sourceTabName: record.sourceTabName,
+                sourceRowNumber: record.sourceRowNumber,
+                sourceStableKey: record.sourceStableKey,
+                recipientFingerprint: record.recipientFingerprint,
+                normalizedEmail: record.normalizedEmail,
+                displayName: record.displayName ?? null,
+                normalizedMobile: record.normalizedMobile ?? null,
+                mappedAttributesJson: record.mappedAttributesJson ?? {},
+                assignedBatchNumber: record.assignedBatchNumber,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt,
+              },
+            });
             inserted += 1;
           } catch (error) {
             if (!isPrismaUniqueConflict(error)) throw error;

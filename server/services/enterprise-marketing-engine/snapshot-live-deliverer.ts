@@ -5,6 +5,7 @@
  */
 
 import { isDeliveryOutcomeRetryable } from "@/lib/enterprise-marketing-engine/email-delivery/map-outcome";
+import { marketingPersonalizationRowFromRecipient } from "@/lib/enterprise-marketing-engine/snapshot-personalization";
 import type {
   MarketingPacingDeliverer,
   MarketingPacingProviderProbe,
@@ -37,6 +38,7 @@ export function createMarketingSnapshotLiveDeliverer(input: {
   trackingEnabled: boolean;
   version: MarketingCampaignVersion;
   probe: MarketingPacingProviderProbe;
+  controlledTestSend?: boolean;
 }): MarketingPacingDeliverer {
   return async (recipient, context) => {
     const result = await marketingEmailDeliveryService.deliverForExecutionClaim({
@@ -52,10 +54,11 @@ export function createMarketingSnapshotLiveDeliverer(input: {
       senderIdentityId: input.senderIdentityId,
       fromAddressHint: input.fromAddressHint,
       version: input.version,
-      row: { Email: recipient.normalizedEmail },
+      row: marketingPersonalizationRowFromRecipient(recipient),
       trackingEnabled: input.trackingEnabled,
       product: input.product,
       campaignName: input.campaignName,
+      controlledTestSend: input.controlledTestSend === true,
     });
     const delivery = result.delivery;
     if (delivery.dryRun) {

@@ -84,6 +84,7 @@ import {
   runMarketingPrePublishChecks,
 } from "@/lib/enterprise-marketing-engine/pre-publish";
 import { assertMarketingSenderEligibleForCampaignApproval } from "@/lib/enterprise-marketing-engine/sender-eligibility";
+import { senderIdentityIdForAddress } from "@/lib/enterprise-marketing-engine/sender-link";
 import { assertMarketingLiveExecutionGate } from "@/lib/enterprise-marketing-engine/safety";
 import type {
   MarketingCampaign,
@@ -430,6 +431,9 @@ export const marketingCampaignService = {
     }
     if (input.senderIdentityId !== undefined) {
       campaignPatch.senderIdentityId = input.senderIdentityId;
+    } else if (input.sender?.fromAddress !== undefined) {
+      const identities = await marketingSenderIdentityStore.list(organizationId);
+      campaignPatch.senderIdentityId = senderIdentityIdForAddress(identities, input.sender.fromAddress);
     }
     if (input.whatsappTemplateId !== undefined) {
       campaignPatch.whatsappTemplateId = input.whatsappTemplateId;

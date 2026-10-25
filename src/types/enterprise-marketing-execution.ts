@@ -100,6 +100,7 @@ export type MarketingExecutionTickResult = {
   nextRunAt: string | null;
   streamCursor: string | null;
   campaignComplete: boolean;
+  liveProviderInvoked?: boolean;
 };
 
 export type MarketingExecutionSummary = {

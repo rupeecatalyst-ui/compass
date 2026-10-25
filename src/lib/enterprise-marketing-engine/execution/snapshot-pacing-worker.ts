@@ -1,7 +1,8 @@
 /**
  * CO-MARKETING-REDESIGN-004 — Restart-safe snapshot pacing worker.
  * Executes one planned batch from the frozen audience snapshot.
- * Never rereads the live Google Sheet. Live SMTP is opt-in via liveDeliveryAuthorized.
+ * Never rereads the live Google Sheet. Live SMTP is opt-in via liveDeliveryAuthorized
+ * or a controlled five-recipient authorisation. Neither path is on by default.
  */
 
 import { MARKETING_EXECUTION_LEASE_TTL_MS } from "@/constants/enterprise-marketing-engine/execution";
@@ -262,7 +263,11 @@ export async function runMarketingSnapshotPacingTick(input: {
   shouldSuppressDelivery?: (recipient: MarketingDurableSnapshotRecipientRecord) => boolean;
   recovery?: MarketingRecoveryStore;
   liveDeliveryAuthorized?: boolean;
+  controlledRecipientDeliveryAuthorized?: boolean;
 }): Promise<MarketingSnapshotPacingTickResult> {
+  const providerAuthorized = Boolean(
+    input.liveDeliveryAuthorized || input.controlledRecipientDeliveryAuthorized,
+  );
   const now = input.now ?? new Date();
   const nowMs = now.getTime();
   const probe = input.probe ?? createMarketingPacingProviderProbe();
@@ -292,6 +297,12 @@ export async function runMarketingSnapshotPacingTick(input: {
     ),
   );
   assertMarketingPhase1CampaignAudienceCeiling(recipients.length);
+  if (input.controlledRecipientDeliveryAuthorized && recipients.length !== 5) {
+    throw Object.assign(new Error("Controlled send requires a frozen snapshot of exactly five recipients."), {
+      statusCode: 400,
+      code: "CONTROLLED_FIVE_RECIPIENT_COUNT",
+    });
+  }
   const policy = clampMarketingBatchPolicy(input.policy);
   const plan = computeMarketingSnapshotPacingPlan({
     eligibleCount: recipients.length,
@@ -553,7 +564,7 @@ export async function runMarketingSnapshotPacingTick(input: {
         scheduledAt: dueBatch.scheduledAt,
         plannedSize: dueBatch.size,
         workerId: input.holderId,
-        dryRun: !input.liveDeliveryAuthorized,
+        dryRun: !providerAuthorized,
       });
       if (!claimedBatch.ok || !claimedBatch.record) {
         return emptyTick(campaignId, "batch_claim_rejected", {
@@ -576,6 +587,13 @@ export async function runMarketingSnapshotPacingTick(input: {
     let retried = 0;
     let suppressed = 0;
     let lastCursor: string | null = lease.streamCursor;
+
+    if (input.controlledRecipientDeliveryAuthorized && pending.length !== 5) {
+      throw Object.assign(new Error("Controlled send delivers exactly five pending recipients in one batch."), {
+        statusCode: 400,
+        code: "CONTROLLED_FIVE_RECIPIENT_COUNT",
+      });
+    }
 
     for (const recipient of pending) {
       await ports.leases.tryAcquire(
@@ -661,7 +679,7 @@ export async function runMarketingSnapshotPacingTick(input: {
           liveProviderInvoked: false,
         };
       }
-      if (!input.liveDeliveryAuthorized && (outcome.liveProviderInvoked || probe.liveProviderCalls > 0)) {
+      if (!providerAuthorized && (outcome.liveProviderInvoked || probe.liveProviderCalls > 0)) {
         throw Object.assign(new Error("Live provider invocation is forbidden in dry-run pacing"), {
           statusCode: 500,
           code: "LIVE_PROVIDER_FORBIDDEN",
@@ -791,9 +809,9 @@ export async function runMarketingSnapshotPacingTick(input: {
       snapshotId: snapshot.id,
       batchId: batchRecord.id,
       batchNumber: dueBatch.batchNumber,
-      dryRun: !input.liveDeliveryAuthorized,
+      dryRun: !providerAuthorized,
       liveSheetReread: false,
-      liveProviderInvoked: Boolean(input.liveDeliveryAuthorized && probe.liveProviderCalls > 0),
+      liveProviderInvoked: Boolean(providerAuthorized && probe.liveProviderCalls > 0),
       skippedReason: null,
       claimed,
       selected: selected.length,
@@ -843,6 +861,7 @@ export function marketingPacingTickToExecutionResult(
   nextRunAt: string | null;
   streamCursor: string | null;
   campaignComplete: boolean;
+  liveProviderInvoked: boolean;
 } {
   return {
     campaignId: tick.campaignId,
@@ -859,5 +878,6 @@ export function marketingPacingTickToExecutionResult(
     nextRunAt: tick.nextRunAt,
     streamCursor: tick.streamCursor,
     campaignComplete: tick.campaignComplete,
+    liveProviderInvoked: tick.liveProviderInvoked,
   };
 }

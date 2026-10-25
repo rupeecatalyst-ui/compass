@@ -74,17 +74,17 @@ export function forbidMarketingDnsMutation(): never {
 }
 
 export type MarketingSenderLiveReadiness = {
-  eligible: false;
+  eligible: boolean;
   approved: boolean;
   simulated: boolean;
   verificationStatus: MarketingSenderIdentity["verificationStatus"] | "MISSING";
   fromAddressPresent: boolean;
   displayNamePresent: boolean;
   replyToPresent: boolean;
-  providerVerificationState: typeof MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION;
-  domainVerificationState: typeof MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION;
-  spfState: typeof MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION;
-  dkimState: typeof MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION;
+  providerVerificationState: string;
+  domainVerificationState: string;
+  spfState: string;
+  dkimState: string;
   lastVerificationAt: string | null;
   reasons: string[];
 };
@@ -102,20 +102,25 @@ export function assessMarketingSenderLiveReadiness(
     if (!identity.fromAddress?.trim() || !identity.displayName?.trim()) {
       reasons.push("SENDER_IDENTITY_INCOMPLETE");
     }
+    if (identity.verificationStatus !== "VERIFIED") {
+      reasons.push(MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION);
+    }
   }
-  reasons.push(MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION);
+  if (!identity) reasons.push(MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION);
+  const verified = identity?.verificationStatus === "VERIFIED";
+  const awaiting = MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION;
   return {
-    eligible: false,
+    eligible: reasons.length === 0,
     approved: Boolean(identity && identity.approvalStatus === "APPROVED" && identity.active),
     simulated: identity?.simulated === true,
     verificationStatus: identity?.verificationStatus ?? "MISSING",
     fromAddressPresent: Boolean(identity?.fromAddress?.trim()),
     displayNamePresent: Boolean(identity?.displayName?.trim()),
     replyToPresent: Boolean(identity?.replyTo?.trim()),
-    providerVerificationState: MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION,
-    domainVerificationState: MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION,
-    spfState: MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION,
-    dkimState: MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION,
+    providerVerificationState: verified ? "VERIFIED" : awaiting,
+    domainVerificationState: verified ? "NOT_ASSESSED" : awaiting,
+    spfState: verified ? "NOT_ASSESSED" : awaiting,
+    dkimState: verified ? "NOT_ASSESSED" : awaiting,
     lastVerificationAt: identity?.lastValidationAt ?? null,
     reasons,
   };
@@ -123,8 +128,9 @@ export function assessMarketingSenderLiveReadiness(
 
 export function assertMarketingSenderEligibleForLiveSend(input: {
   identity: MarketingSenderIdentity | null;
-}): never {
+}): MarketingSenderLiveReadiness {
   const readiness = assessMarketingSenderLiveReadiness(input.identity);
+  if (readiness.eligible) return readiness;
   throw Object.assign(new Error(readiness.reasons[0] ?? MARKETING_SENDER_LIVE_NOT_VERIFIED), {
     statusCode: 403,
     code: readiness.reasons.includes(MARKETING_SENDER_AWAITING_PROVIDER_VERIFICATION)

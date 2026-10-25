@@ -4,8 +4,10 @@
  */
 
 import {
+  ENTERPRISE_MARKETING_EMAIL_MODE,
   ENTERPRISE_MARKETING_EXECUTION_ENABLED,
   ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+  isMarketingControlledTestSendEnabled,
   type MarketingCampaignStatus,
 } from "@/constants/enterprise-marketing-engine";
 import {
@@ -57,6 +59,13 @@ import {
 } from "./snapshot-live-deliverer";
 import { marketingWhatsAppDeliveryService } from "./whatsapp-delivery.service";
 import { marketingSuppressionStore } from "./suppression-store";
+import { marketingSenderIdentityStore } from "./sender-identity-store";
+import { MARKETING_PACING_CRON_REGISTERED } from "@/lib/enterprise-marketing-engine/execution/cron-activation";
+import {
+  assessMarketingControlledFiveAudience,
+  assessMarketingControlledFiveGates,
+  MARKETING_CONTROLLED_FIVE_RECIPIENT_COUNT,
+} from "@/lib/enterprise-marketing-engine/controlled-five-send";
 
 const RUNNABLE: MarketingCampaignStatus[] = ["SCHEDULED", "RUNNING"];
 
@@ -111,6 +120,7 @@ async function tickFromFrozenSnapshot(input: {
   forceRun?: boolean;
   now?: Date;
   ports: MarketingDurabilityPorts;
+  controlledFiveRecipientSend?: boolean;
 }): Promise<MarketingExecutionTickResult> {
   // SNAPSHOT_REQUIRED — approved execution never rereads the live Google Sheet.
   const version = await marketingCampaignStore.getVersion(input.versionId);
@@ -122,8 +132,10 @@ async function tickFromFrozenSnapshot(input: {
     channel: input.campaign.channel,
   });
   const probe = createMarketingPacingProviderProbe();
+  const controlledFive =
+    input.controlledFiveRecipientSend === true && Boolean(version) && !liveDeliveryAuthorized;
   const deliver =
-    liveDeliveryAuthorized && version
+    version && (liveDeliveryAuthorized || controlledFive)
       ? createMarketingSnapshotLiveDeliverer({
           organizationId: input.campaign.organizationId,
           campaignId: input.campaignId,
@@ -135,6 +147,7 @@ async function tickFromFrozenSnapshot(input: {
           trackingEnabled: version.trackingEnabled,
           version,
           probe,
+          controlledTestSend: controlledFive,
         })
       : undefined;
   const tick = await runMarketingSnapshotPacingTick({
@@ -150,6 +163,7 @@ async function tickFromFrozenSnapshot(input: {
     adminTriggered: input.adminTriggered,
     campaignStatus: input.campaign.status,
     liveDeliveryAuthorized,
+    controlledRecipientDeliveryAuthorized: controlledFive,
     probe,
     deliver,
     shouldSuppressDelivery: (recipient) =>
@@ -886,6 +900,128 @@ export const marketingExecutionService = {
       testBatchSize: size,
       deliveryLabel: "SIMULATED" as const,
       actuallySent: false as const,
+    };
+  },
+
+  /**
+   * One authorised batch of exactly five frozen recipients.
+   * Uses the controlled-test SMTP gate. Organisation-wide execution stays off.
+   * Campaign status is left unchanged so the pacing cron cannot continue the send.
+   */
+  async runControlledFiveRecipientSend(
+    campaignId: string,
+    organizationId: string,
+    actorUserId?: string | null,
+  ) {
+    assertDryRunExecutionAllowed("execution.controlledFive");
+    const gates = assessMarketingControlledFiveGates({
+      executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+      providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+      controlledTestSendEnabled: isMarketingControlledTestSendEnabled(),
+      emailMode: ENTERPRISE_MARKETING_EMAIL_MODE,
+      pacingCronRegistered: MARKETING_PACING_CRON_REGISTERED,
+    });
+    if (!gates.ok) {
+      throw Object.assign(new Error(gates.message), { statusCode: 403, code: gates.code });
+    }
+    const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
+    if (!campaign) {
+      throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
+    }
+    const ports = getConfiguredMarketingDurabilityPorts();
+    if (!ports) {
+      throw Object.assign(new Error("Controlled send requires a durable frozen audience snapshot"), {
+        statusCode: 400,
+        code: "SNAPSHOT_REQUIRED",
+      });
+    }
+    const snapshots = await ports.snapshots.listByCampaign(organizationId, campaignId);
+    const snapshot = [...snapshots].sort((a, b) => b.frozenAt.localeCompare(a.frozenAt))[0];
+    if (!snapshot) {
+      throw Object.assign(new Error("Controlled send requires a durable frozen audience snapshot"), {
+        statusCode: 400,
+        code: "SNAPSHOT_REQUIRED",
+      });
+    }
+    const recipients = await ports.snapshotRecipients.listBySnapshot(organizationId, snapshot.id);
+    const sender = campaign.senderIdentityId
+      ? await marketingSenderIdentityStore.get(campaign.senderIdentityId, organizationId)
+      : null;
+    const audience = assessMarketingControlledFiveAudience({
+      campaignStatus: campaign.status,
+      approvedAt: campaign.governance?.approvedAt,
+      channel: campaign.channel,
+      eligibleCount: snapshot.eligibleCount,
+      recipientCount: recipients.length,
+      fromAddress: campaign.sender?.fromAddress,
+      sender,
+    });
+    if (!audience.ok) {
+      throw Object.assign(new Error(audience.message), { statusCode: 403, code: audience.code });
+    }
+    const versionId = campaign.activePublishedVersionId ?? campaign.currentDraftVersionId;
+    const version = await marketingCampaignStore.getVersion(versionId);
+    if (!version) {
+      throw Object.assign(new Error("Campaign version is required before the controlled send"), {
+        statusCode: 400,
+        code: "VERSION_REQUIRED",
+      });
+    }
+    const base = resolveBatchPolicy(campaign.batchPolicy);
+    const policy: MarketingBatchPolicy = {
+      ...base,
+      batchSize: MARKETING_CONTROLLED_FIVE_RECIPIENT_COUNT,
+      dailyMax: Math.max(base.dailyMax, MARKETING_CONTROLLED_FIVE_RECIPIENT_COUNT),
+    };
+    await this.configure(campaignId, organizationId, policy, { resetCursor: false });
+    const lease = marketingExecutionLeaseStore.get(campaignId);
+    if (!lease) {
+      throw Object.assign(new Error("Execution lease not configured"), {
+        statusCode: 400,
+        code: "EXECUTION_NOT_CONFIGURED",
+      });
+    }
+    const tick = await tickFromFrozenSnapshot({
+      campaignId,
+      campaign,
+      versionId,
+      lease,
+      holderId: `controlled-five-${actorUserId ?? "admin"}-${Date.now()}`,
+      adminTriggered: true,
+      forceRun: true,
+      ports,
+      controlledFiveRecipientSend: true,
+    });
+    const actuallySent =
+      tick.processed === MARKETING_CONTROLLED_FIVE_RECIPIENT_COUNT &&
+      tick.failed === 0 &&
+      tick.liveProviderInvoked === true;
+    recordMarketingAuditEvent({
+      kind: "execution.batch.frozen_snapshot",
+      organizationId,
+      actorUserId: actorUserId ?? null,
+      action: "controlled_five_send",
+      objectType: "campaign",
+      objectId: campaignId,
+      versionId,
+      detail: {
+        campaignId,
+        controlledFive: true,
+        recipientCount: recipients.length,
+        processed: tick.processed,
+        failed: tick.failed,
+        claimed: tick.claimed,
+        suppressed: tick.suppressed,
+        actuallySent,
+        liveProviderInvoked: tick.liveProviderInvoked === true,
+        organisationExecutionEnabled: false,
+      },
+    });
+    return {
+      ...tick,
+      controlledFive: true as const,
+      recipientCount: MARKETING_CONTROLLED_FIVE_RECIPIENT_COUNT,
+      actuallySent,
     };
   },
 

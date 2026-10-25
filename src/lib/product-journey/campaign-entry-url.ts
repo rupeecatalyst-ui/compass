@@ -104,3 +104,19 @@ export function withCampaignEntryCtas(
     ),
   };
 }
+
+/** Keep a saved button label while the URL writer attaches the campaign destination. */
+export function withAttributedCampaignCtas(
+  content: MarketingContentDocument,
+  input: { url: string; label?: string | null },
+): MarketingContentDocument {
+  const rewritten = withCampaignEntryCtas(content, input.url);
+  const label = input.label?.trim();
+  if (!label) return rewritten;
+  return {
+    ...rewritten,
+    blocks: rewritten.blocks.map((block) =>
+      block.type === "cta" ? { ...block, props: { ...block.props, label } } : block,
+    ),
+  };
+}
