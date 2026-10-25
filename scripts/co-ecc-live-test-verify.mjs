@@ -13,7 +13,27 @@ const ts = (rel) => pathToFileURL(resolve(root, rel)).href;
 const read = (rel) => readFileSync(resolve(root, rel), "utf8");
 
 const live = await import(ts("server/services/enterprise-communication-center/ecc-live-test-email.service.ts"));
+const probeMod = await import(ts("server/services/enterprise-communication-center/smtp-probe.service.ts"));
 const render = await import(ts("src/lib/enterprise-marketing-engine/email-render.ts"));
+const notSmtp = await probeMod.probeSmtpProfile({
+  profileCode: "CHANNEL_PARTNERS",
+  smtpProvider: "none",
+  smtpHost: null,
+  smtpPort: null,
+  smtpUsername: null,
+  active: true,
+});
+assert.equal(notSmtp.ok, false);
+assert.match(notSmtp.message, /CHANNEL_PARTNERS provider is none, not smtp/);
+const inactive = await probeMod.probeSmtpProfile({
+  profileCode: "CUSTOMERS",
+  smtpProvider: "smtp",
+  smtpHost: "smtp.example",
+  smtpPort: 465,
+  smtpUsername: "connect@rupeecatalyst.com",
+  active: false,
+});
+assert.match(inactive.message, /CUSTOMERS is inactive/);
 
 assert.equal(live.assessEccLiveTestRequest({ role: "ADMIN", confirmationPhrase: "SEND TEST", recipientEmail: "a@example.com" }).code, "FORBIDDEN");
 assert.equal(
@@ -83,8 +103,15 @@ assert.match(simulation, /mode: "simulation"/);
 assert.match(simulation, /status: "simulated"/);
 const deal = read("server/services/enterprise-communication-center/operational-email-dispatch.service.ts");
 assert.match(deal, /sendOperationalSmtpMessage/);
+assert.match(deal, /profileCode === "CUSTOMERS"/);
+assert.match(deal, /resolveSmtpSecret\("CUSTOMERS"\)/);
 const probe = read("server/services/enterprise-communication-center/smtp-probe.service.ts");
 assert.doesNotMatch(probe, /verificationStatus|VERIFIED/);
+assert.match(probe, /provider is \$\{profile\.smtpProvider \|\| "unset"\}, not smtp/);
+const panel = read("src/components/catalyst-one/admin/enterprise-communication/operational-email-activation-panel.tsx");
+assert.match(panel, /profileCode: testProfile \|\| selectedCode \|\| "CUSTOMERS"/);
+const admin = read("src/components/catalyst-one/admin/enterprise-communication/enterprise-communication-center-admin.tsx");
+assert.match(admin, /p\.profileCode === "CUSTOMERS"/);
 
 console.log("co-ecc-live-test-verify: PASS");
 process.exit(0);

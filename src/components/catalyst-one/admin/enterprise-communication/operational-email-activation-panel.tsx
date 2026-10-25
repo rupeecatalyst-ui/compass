@@ -5,7 +5,7 @@
  * categories, honest domain/delivery status, production OFF gate, controlled test send.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,9 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
 
   const [recipient, setRecipient] = useState("");
   const [testProfile, setTestProfile] = useState<string>(selectedCode || "CUSTOMERS");
+  useEffect(() => {
+    if (selectedCode) setTestProfile(selectedCode);
+  }, [selectedCode]);
   const [confirmation, setConfirmation] = useState("");
   const [sending, setSending] = useState(false);
   const [liveSending, setLiveSending] = useState(false);
@@ -116,7 +119,7 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
         {
           method: "POST",
           body: JSON.stringify({
-            profileCode: profile?.profileCode || testProfile || "CUSTOMERS",
+            profileCode: testProfile || selectedCode || "CUSTOMERS",
           }),
         },
       );

@@ -128,6 +128,9 @@ export async function probeSmtpProfile(
   const credentialSource = secret ? ("env" as const) : ("missing" as const);
 
   if (!profile.active || profile.smtpProvider !== "smtp") {
+    const reason = !profile.active
+      ? "is inactive"
+      : `provider is ${profile.smtpProvider || "unset"}, not smtp`;
     return {
       ok: false,
       profileCode: profile.profileCode,
@@ -136,7 +139,7 @@ export async function probeSmtpProfile(
       credentialSource,
       tlsConnected: false,
       authVerified: false,
-      message: "Profile is inactive or provider is not SMTP.",
+      message: `Profile ${profile.profileCode} ${reason}. No email was sent.`,
     };
   }
   if (!host || !port || !username) {

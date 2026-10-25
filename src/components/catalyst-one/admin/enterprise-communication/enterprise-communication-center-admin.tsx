@@ -60,7 +60,8 @@ export function EnterpriseCommunicationCenterAdmin() {
       if (!res.ok) throw new Error(json?.error?.message || "Failed to load Communication Center");
       const data = json.data as Bundle;
       setBundle(data);
-      const first = data.profiles[0];
+      const customers = data.profiles.find((p) => p.profileCode === "CUSTOMERS");
+      const first = customers || data.profiles[0];
       const code = selectedCode || first?.profileCode || null;
       setSelectedCode(code);
       const profile = data.profiles.find((p) => p.profileCode === code) || first;
