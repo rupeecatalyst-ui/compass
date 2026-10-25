@@ -18,7 +18,7 @@ export const RUPEE_CATALYST_CORPORATE_BRAND = {
     { label: "LinkedIn", url: "https://www.linkedin.com/company/rupee-catalyst" },
   ] as const,
   /** Official logo path — never redraw; presentation may resolve via asset library later. */
-  logoPath: "/brand/rupee-catalyst-logo.svg",
+  logoPath: "/brand/rupee-catalyst-logo.png",
   supportPhone: "+91 98219 84181",
 } as const;
 

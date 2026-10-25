@@ -39,8 +39,8 @@ export function AuthLayout({
       {/* Left hero — COMPASS */}
       <aside className="auth-hero relative hidden flex-col justify-between overflow-hidden p-10 text-zinc-50 xl:p-14 lg:flex">
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
-            <RupeeCatalystLogo size={26} />
+          <div className="flex h-10 max-w-[8rem] items-center rounded-xl bg-white px-1 ring-1 ring-white/20">
+            <RupeeCatalystLogo size={32} />
           </div>
           <div className="min-w-0 leading-tight">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-200/90">
@@ -85,8 +85,8 @@ export function AuthLayout({
               </p>
             ) : null}
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700/10 ring-1 ring-teal-700/20">
-                <RupeeCatalystLogo size={22} />
+              <div className="flex h-9 max-w-[7.5rem] items-center rounded-lg bg-white px-1 ring-1 ring-black/5 dark:ring-white/15">
+                <RupeeCatalystLogo size={28} />
               </div>
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">Catalyst One</h1>

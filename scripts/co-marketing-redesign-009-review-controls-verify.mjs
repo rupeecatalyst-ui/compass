@@ -83,6 +83,8 @@ mustInclude(campaignSrc, "simulateLaunch");
 mustInclude(apiSrc, "simulate_launch");
 mustInclude(apiSrc, "retry_eligible_failures");
 mustInclude(builderPage, "Approve");
+mustInclude(builderPage, "Withdraw to Draft");
+mustInclude(builderPage, "REOPEN_DRAFT");
 mustInclude(builderPage, "Schedule / Launch");
 mustInclude(builderPage, "disabled");
 mustInclude(builderPage, "MarketingReadinessReview");

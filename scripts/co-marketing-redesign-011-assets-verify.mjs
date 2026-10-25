@@ -81,7 +81,11 @@ mustInclude(apiSrc, 'action === "delete"');
 mustInclude(apiSrc, 'action === "select_for_campaign"');
 mustInclude(panelSrc, "Document Registry");
 mustInclude(panelSrc, "Select for campaign");
+mustInclude(panelSrc, "libraryPreviewSrc");
+mustInclude(panelSrc, 'set_approval');
+mustInclude(panelSrc, "Approve");
 mustInclude(panelSrc, "mkt-asset-card");
+mustInclude(assetConst, "EnterpriseMarketingAsset");
 mustInclude(panelSrc, "Usage history");
 mustInclude(editorSrc, "Browse Asset Library");
 mustInclude(prePublish, "Images require accessibility alt text before campaign approval");
@@ -525,6 +529,8 @@ assert.equal(logo.url.startsWith("data:"), false, "uploaded logo must not expose
 assert.match(logo.url, /^https?:\/\//);
 assert.ok(logo.url.includes("/api/marketing/public-assets/"));
 assert.ok(logo.storageRef.startsWith("fixture://marketing-assets/"));
+assert.equal(logo.approvalStatus, "DRAFT");
+assert.ok(logo.previewUrl.startsWith("data:image/"), "authorised library preview must keep payload for DRAFT");
 
 const selectedLogo = await assetMod.marketingAssetService.selectForCampaign(orgA, logo.id);
 assert.equal(selectedLogo.url, logo.url);
@@ -555,6 +561,13 @@ assert.equal(
   await storeMod.marketingAssetStore.getPublicImage(logo.id, logo.checksum),
   null,
   "DRAFT images must not be served anonymously",
+);
+const rejectedLogo = await assetMod.marketingAssetService.setApproval(orgA, logo.id, "REJECTED");
+assert.equal(rejectedLogo.approvalStatus, "REJECTED");
+assert.equal(
+  await storeMod.marketingAssetStore.getPublicImage(rejectedLogo.id, rejectedLogo.checksum),
+  null,
+  "REJECTED images must not be served anonymously",
 );
 const approvedLogo = await assetMod.marketingAssetService.setApproval(orgA, logo.id, "APPROVED");
 assert.equal(approvedLogo.approvalStatus, "APPROVED");

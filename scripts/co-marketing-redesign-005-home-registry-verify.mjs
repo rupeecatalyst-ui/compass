@@ -222,6 +222,35 @@ const send = draftActions.find((a) => a.id === "send");
 assert.equal(send.kind, "forbidden");
 assert.match(send.reason, /unapproved draft/i);
 assert.equal(draftActions.some((a) => a.lifecycleAction === "PAUSE"), false);
+assert.equal(draftActions.some((a) => a.id === "withdraw_draft"), false);
+
+const reviewActions = registry.marketingRegistryActionsForCampaign({
+  status: "READY_FOR_REVIEW",
+  actor: { role: "ADMIN" },
+  executionEnabled: false,
+});
+assert.ok(
+  reviewActions.some((a) => a.id === "withdraw_draft" && a.lifecycleAction === "REOPEN_DRAFT"),
+  "READY_FOR_REVIEW must expose Withdraw to Draft",
+);
+const reviewDenied = registry.marketingRegistryActionsForCampaign({
+  status: "READY_FOR_REVIEW",
+  actor: { role: "USER" },
+  executionEnabled: false,
+});
+assert.equal(reviewDenied.some((a) => a.id === "withdraw_draft"), false);
+for (const locked of ["APPROVED", "SCHEDULED", "RUNNING", "PAUSED", "COMPLETED", "STOPPED", "CANCELLED"]) {
+  const actions = registry.marketingRegistryActionsForCampaign({
+    status: locked,
+    actor: { role: "ADMIN" },
+    executionEnabled: false,
+  });
+  assert.equal(
+    actions.some((a) => a.id === "withdraw_draft"),
+    false,
+    `${locked} must not expose Withdraw to Draft`,
+  );
+}
 
 const runningActions = registry.marketingRegistryActionsForCampaign({
   status: "RUNNING",

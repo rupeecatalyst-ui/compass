@@ -223,6 +223,7 @@ export const marketingAssetService = {
       alt: asset.altText,
       assetType: asset.assetType,
       name: asset.name,
+      approvalStatus: asset.approvalStatus,
     };
     recordMarketingAuditEvent({
       kind: "asset.select_for_campaign",

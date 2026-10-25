@@ -47,9 +47,14 @@ export type MarketingAssetRecord = {
   storageRef: string;
   /**
    * Email-safe image URL (https public serve path, or https reference).
-   * Payload bytes stay in fixture / durable previewUrl — never a Hostinger put.
+   * Never a data: URL. Public GET still requires APPROVED + checksum.
    */
   url: string;
+  /**
+   * Authenticated-library preview only (data URL or https reference).
+   * Must not be used as the unauthenticated public serve path.
+   */
+  previewUrl: string;
   byteSize: number;
   fileSize: number;
   width: number | null;
@@ -80,4 +85,5 @@ export type MarketingAssetSelectPayload = {
   alt: string;
   assetType: MarketingAssetType;
   name: string;
+  approvalStatus: MarketingAssetApprovalStatus;
 };

@@ -1,7 +1,7 @@
 /**
  * CO-MARKETING-REDESIGN-011 — Admin Marketing Asset Library API.
  * Campaign collateral only. Separate from Document Registry. No campaign send.
- * Fixture storage only — never Hostinger or an external provider.
+ * Durable Prisma storage. Public retrieval remains approved images only.
  */
 
 import {

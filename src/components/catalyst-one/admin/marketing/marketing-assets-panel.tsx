@@ -3,19 +3,21 @@
 /**
  * CO-MARKETING-REDESIGN-011 — Organisation-scoped Marketing Asset Library.
  * Campaign collateral only. Not the Enterprise Document Registry.
- * Fixture storage only — never Hostinger or an external provider.
+ * Durable Prisma storage. Public retrieval remains approved images only.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
+  Check,
   FileText,
   ImageIcon,
   Loader2,
   RefreshCw,
   Replace,
   Upload,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +55,23 @@ import "@/styles/marketing-command-centre.css";
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: { message?: string } };
 
 function isVisual(asset: MarketingAsset) {
-  return asset.mimeType.startsWith("image/") || asset.url.startsWith("data:image");
+  const preview = asset.previewUrl ?? "";
+  return (
+    asset.mimeType.startsWith("image/") ||
+    preview.startsWith("data:image") ||
+    asset.url.startsWith("data:image")
+  );
+}
+
+/** Authorised library thumbnail — never the unauthenticated public path for DRAFT. */
+function libraryPreviewSrc(asset: MarketingAsset) {
+  if (asset.previewUrl?.startsWith("data:") || asset.previewUrl?.startsWith("blob:")) {
+    return asset.previewUrl;
+  }
+  if (asset.previewUrl && !asset.previewUrl.includes("/api/marketing/public-assets/")) {
+    return asset.previewUrl;
+  }
+  return asset.previewUrl || asset.url;
 }
 
 export function MarketingAssetsPanel() {
@@ -212,7 +230,32 @@ export function MarketingAssetsPanel() {
     }
   };
 
+  const setApproval = async (assetId: string, approvalStatus: "APPROVED" | "REJECTED") => {
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_approval", assetId, approvalStatus }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{ asset: MarketingAsset }>;
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || "Approval update failed");
+      }
+      toast.success(approvalStatus === "APPROVED" ? "Asset approved" : "Asset rejected");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Approval update failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const selectForCampaign = async (asset: MarketingAsset) => {
+    if (asset.approvalStatus !== "APPROVED" || asset.archived) {
+      toast.error("Approve this asset before using it in a campaign email.");
+      return;
+    }
     setBusy(true);
     try {
       const res = await authenticatedJsonFetch("/api/admin/marketing/assets", {
@@ -424,7 +467,7 @@ export function MarketingAssetsPanel() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mkt-asset-url">Or HTTPS / data URL (fixture reference)</Label>
+              <Label htmlFor="mkt-asset-url">Or HTTPS / data URL (library payload)</Label>
               <Input
                 id="mkt-asset-url"
                 value={url.startsWith("data:") ? "(data URL loaded locally)" : url}
@@ -475,7 +518,7 @@ export function MarketingAssetsPanel() {
                     >
                       {isVisual(a) ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={a.url} alt={a.altText || a.name} />
+                        <img src={libraryPreviewSrc(a)} alt={a.altText || a.name} />
                       ) : a.assetType === "pdf" ? (
                         <FileText className="h-10 w-10 text-muted-foreground" />
                       ) : (
@@ -505,7 +548,36 @@ export function MarketingAssetsPanel() {
                       <p className="text-xs text-muted-foreground">No campaign or template usage yet.</p>
                     )}
                     <div className="mt-auto flex flex-wrap gap-2">
-                      <Button type="button" size="sm" disabled={busy} onClick={() => void selectForCampaign(a)}>
+                      {a.approvalStatus !== "APPROVED" && !a.archived ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void setApproval(a.id, "APPROVED")}
+                        >
+                          <Check className="mr-1 h-3 w-3" />
+                          Approve
+                        </Button>
+                      ) : null}
+                      {a.approvalStatus !== "REJECTED" && !a.archived ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void setApproval(a.id, "REJECTED")}
+                        >
+                          <X className="mr-1 h-3 w-3" />
+                          Reject
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={a.approvalStatus === "APPROVED" ? "default" : "outline"}
+                        disabled={busy || a.approvalStatus !== "APPROVED" || a.archived}
+                        onClick={() => void selectForCampaign(a)}
+                      >
                         Select for campaign
                       </Button>
                       <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => beginReplace(a)}>
@@ -558,7 +630,7 @@ export function MarketingAssetsPanel() {
             <div className="mkt-asset-thumb min-h-[18rem]">
               {isVisual(preview) ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview.url} alt={preview.altText || preview.name} />
+                <img src={libraryPreviewSrc(preview)} alt={preview.altText || preview.name} />
               ) : (
                 <p className="text-sm text-muted-foreground">Preview available for images only.</p>
               )}

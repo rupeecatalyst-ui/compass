@@ -89,6 +89,22 @@ export function filterMarketingRegistryCampaigns(
   });
 }
 
+/**
+ * Explicit Withdraw to Draft — only campaigns awaiting review.
+ * Does not apply to launched (SCHEDULED/RUNNING/PAUSED) or terminal campaigns.
+ * Uses the existing REOPEN_DRAFT lifecycle action; edit/submit permission required.
+ */
+export function canWithdrawMarketingCampaignToDraft(
+  status: MarketingCampaignStatus,
+  actor: MarketingPermissionActor,
+): boolean {
+  if (status !== "READY_FOR_REVIEW") return false;
+  return (
+    hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE) ||
+    hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_SUBMIT)
+  );
+}
+
 export function marketingRegistryActionsForCampaign(input: {
   status: MarketingCampaignStatus;
   actor: MarketingPermissionActor;
@@ -123,6 +139,14 @@ export function marketingRegistryActionsForCampaign(input: {
   }
   if (status === "READY_FOR_REVIEW" && hasMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_APPROVE)) {
     actions.push({ id: "approve", label: "Approve", lifecycleAction: "APPROVE", kind: "lifecycle" });
+  }
+  if (canWithdrawMarketingCampaignToDraft(status, actor)) {
+    actions.push({
+      id: "withdraw_draft",
+      label: "Withdraw to Draft",
+      lifecycleAction: "REOPEN_DRAFT",
+      kind: "lifecycle",
+    });
   }
   return actions;
 }

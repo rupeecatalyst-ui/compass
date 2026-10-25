@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { workspaces } from "@/config/navigation";
 import { STORAGE_KEYS } from "@/constants/animations";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { RupeeCatalystLogo } from "@/components/branding/rupee-catalyst-logo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,10 +22,16 @@ export function WorkspaceSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2 h-9 max-w-[200px]">
-          <div className="flex h-5 w-5 items-center justify-center rounded bg-primary text-[10px] font-bold text-primary-foreground">
-            {current.name.charAt(0)}
-          </div>
+        <Button variant="outline" className="gap-2 h-9 max-w-[240px]">
+          {current.id === "rc" ? (
+            <span className="flex h-6 max-w-[5.5rem] shrink-0 items-center rounded-sm bg-white px-0.5">
+              <RupeeCatalystLogo size={20} />
+            </span>
+          ) : (
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-primary text-[10px] font-bold text-primary-foreground">
+              {current.name.charAt(0)}
+            </div>
+          )}
           <span className="truncate text-sm">{current.name}</span>
           <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
         </Button>
@@ -38,9 +45,15 @@ export function WorkspaceSwitcher() {
             onClick={() => setActiveWorkspace(workspace.id)}
             className="gap-2"
           >
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-              {workspace.name.charAt(0)}
-            </div>
+            {workspace.id === "rc" ? (
+              <span className="flex h-6 max-w-[5.5rem] shrink-0 items-center rounded-sm bg-white px-0.5">
+                <RupeeCatalystLogo size={18} />
+              </span>
+            ) : (
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                {workspace.name.charAt(0)}
+              </div>
+            )}
             <span className="flex-1">{workspace.name}</span>
             {workspace.id === activeWorkspace && <Check className="h-4 w-4 text-primary" />}
           </DropdownMenuItem>

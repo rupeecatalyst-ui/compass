@@ -179,10 +179,12 @@ function versionTable(): MarketingAssetVersionPrismaDelegate {
 
 function withComputed(asset: MarketingAsset): MarketingAsset {
   const usageReferences = collectMarketingAssetUsage(asset);
+  const payload = payloadOf(asset);
   const url = emailSafeAssetUrl(asset);
   return {
     ...asset,
     url,
+    previewUrl: payload,
     name: asset.name || asset.title,
     title: asset.title || asset.name,
     fileSize: asset.byteSize,
@@ -286,6 +288,7 @@ function mapRow(row: AssetRow): MarketingAsset {
     storageProvider: MARKETING_ASSET_STORAGE_PROVIDER,
     storageRef: row.storageRef,
     url: row.previewUrl,
+    previewUrl: row.previewUrl,
     byteSize: row.byteSize,
     fileSize: row.byteSize,
     width: row.width,
@@ -589,6 +592,7 @@ export const marketingAssetStore = {
       storageProvider: MARKETING_ASSET_STORAGE_PROVIDER,
       storageRef,
       url: input.url,
+      previewUrl: input.url,
       byteSize: input.byteSize,
       fileSize: input.byteSize,
       width: input.width ?? prev?.width ?? null,

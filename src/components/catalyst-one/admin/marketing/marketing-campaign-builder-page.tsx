@@ -38,6 +38,7 @@ import {
   MARKETING_TEST_MODE_BANNER,
   MARKETING_LIVE_PROVIDER_SENDING_DISABLED,
   MARKETING_WORKBOOK_CONNECTION_LABELS,
+  marketingCampaignEditPolicy,
 } from "@/constants/enterprise-marketing-engine";
 import { ROUTES } from "@/constants/routes";
 import { createEmptyContentDocument } from "@/lib/enterprise-marketing-engine/content-blocks";
@@ -77,6 +78,7 @@ import {
   type MarketingBuilderDraft,
 } from "@/lib/enterprise-marketing-engine/campaign-builder-shell";
 import { composeMarketingReadinessReview, projectMarketingDeliveryOperations } from "@/lib/enterprise-marketing-engine/readiness-review";
+import { canWithdrawMarketingCampaignToDraft } from "@/lib/enterprise-marketing-engine/campaign-registry";
 import { hasMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 import type { MarketingCampaign, MarketingCampaignVersion, MarketingContentDocument, MarketingContentTemplate, MarketingPrePublishCheckResult } from "@/types/enterprise-marketing-campaign";
 import type { MarketingAudienceDefinition, MarketingAudiencePreviewResult, MarketingFilterDefinition } from "@/types/enterprise-marketing-audience";
@@ -480,6 +482,12 @@ export function MarketingCampaignBuilderPage({
       toast.error("Not authorised to save drafts");
       return false;
     }
+    if (campaign && !marketingCampaignEditPolicy(campaign.status).contentEditable) {
+      toast.error(
+        `Content is locked in status ${campaign.status}. Withdraw to Draft or clone.`,
+      );
+      return false;
+    }
     setBusy(true);
     try {
       const nextAudienceId = await persistAudience();
@@ -814,6 +822,36 @@ export function MarketingCampaignBuilderPage({
     if (execRes.ok && execBody.data?.execution) setExecutionSummary(execBody.data.execution);
   }
 
+  async function withdrawToDraft() {
+    if (!campaign || !canWithdrawMarketingCampaignToDraft(campaign.status, ACTOR)) {
+      toast.error("Withdraw to Draft is not available for this campaign.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "transition",
+          campaignId,
+          lifecycleAction: "REOPEN_DRAFT",
+        }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{ campaign: MarketingCampaign }>;
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message ?? "Withdraw to Draft failed");
+      }
+      toast.success("Campaign withdrawn to Draft. Content, audience, and schedule were preserved.");
+      await loadCampaign();
+      await loadReview();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Withdraw to Draft failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function transition(lifecycleAction: "SUBMIT_FOR_REVIEW" | "APPROVE") {
     setBusy(true);
     try {
@@ -851,6 +889,10 @@ export function MarketingCampaignBuilderPage({
 
   const currentStep = MARKETING_CAMPAIGN_BUILDER_STEPS[step - 1];
   const eligibilityPreviewReady = preview != null && previewError == null && !previewPending;
+  const contentLocked = campaign ? !marketingCampaignEditPolicy(campaign.status).contentEditable : false;
+  const canWithdraw = campaign
+    ? canWithdrawMarketingCampaignToDraft(campaign.status, ACTOR)
+    : false;
 
   return (
     <div className="mkt-cc mkt-cc-page mkt-builder-shell">
@@ -871,7 +913,24 @@ export function MarketingCampaignBuilderPage({
           <Button type="button" variant="outline" className="rounded-xl" onClick={requestExit}>
             Exit to Campaign Registry
           </Button>
-          <Button type="button" className="rounded-xl" disabled={busy || !canCreate} onClick={() => void saveDraft()}>
+          {canWithdraw ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-xl"
+              disabled={busy}
+              onClick={() => void withdrawToDraft()}
+            >
+              Withdraw to Draft
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            className="rounded-xl"
+            disabled={busy || !canCreate || contentLocked}
+            title={contentLocked ? "Withdraw to Draft before saving content" : undefined}
+            onClick={() => void saveDraft()}
+          >
             <Save className="mr-2 h-4 w-4" aria-hidden />
             Save Draft
           </Button>
@@ -881,6 +940,13 @@ export function MarketingCampaignBuilderPage({
       {!(liveGates.executionEnabled && liveGates.providerConnectEnabled) ? (
         <div className="mkt-cc-banner" role="status">
           {MARKETING_TEST_MODE_BANNER}
+        </div>
+      ) : null}
+
+      {contentLocked ? (
+        <div className="mkt-cc-banner" role="status">
+          Content is locked while this campaign is {campaign ? MARKETING_CAMPAIGN_STATUS_LABELS[campaign.status] : "in review"}.
+          Withdraw to Draft to edit. Campaign ID, content, audience, schedule, and history are preserved.
         </div>
       ) : null}
 
@@ -1544,10 +1610,20 @@ export function MarketingCampaignBuilderPage({
                     : MARKETING_LIVE_PROVIDER_SENDING_DISABLED}
                 </p>
                 <div className="flex flex-wrap gap-2">
+                {canWithdraw ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void withdrawToDraft()}
+                  >
+                    Withdraw to Draft
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={busy}
+                  disabled={busy || contentLocked}
                   onClick={() => void transition("SUBMIT_FOR_REVIEW")}
                 >
                   Submit for review
@@ -1583,7 +1659,18 @@ export function MarketingCampaignBuilderPage({
           Back
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy} onClick={() => void saveDraft()}>
+          {canWithdraw ? (
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void withdrawToDraft()}>
+              Withdraw to Draft
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || contentLocked}
+            title={contentLocked ? "Withdraw to Draft before saving content" : undefined}
+            onClick={() => void saveDraft()}
+          >
             Save Draft
           </Button>
           {step < 6 ? (
