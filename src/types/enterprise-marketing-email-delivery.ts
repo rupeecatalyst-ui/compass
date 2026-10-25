@@ -89,6 +89,8 @@ export type MarketingEmailDeliveryRequest = {
   textBody: string;
   assetRefs?: string[];
   tracking?: MarketingEmailDeliveryTrackingMeta;
+  /** Isolated test_send only. Never set on campaign audience delivery. */
+  controlledTestSend?: boolean;
 };
 
 export type MarketingEmailDeliveryResult = {

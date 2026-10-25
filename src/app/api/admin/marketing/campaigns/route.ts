@@ -324,6 +324,13 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
+      if (typeof body.testRecipientEmail !== "string" && body.testRecipientEmail != null) {
+        return errorResponse(400, "INVALID_INPUT", "test_send accepts exactly one recipient email");
+      }
+      const extraRecipients = (body as { testRecipientEmails?: unknown }).testRecipientEmails;
+      if (Array.isArray(extraRecipients)) {
+        return errorResponse(400, "INVALID_INPUT", "test_send cannot expand to multiple recipients");
+      }
       const result = await marketingCampaignService.testSend(ctx, body.campaignId, {
         recipientEmail: body.testRecipientEmail ?? "",
         personalization: body.personalization,

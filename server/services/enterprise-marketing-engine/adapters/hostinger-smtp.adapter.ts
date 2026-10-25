@@ -28,6 +28,8 @@ import type {
 export type HostingerSmtpAdapterGates = {
   executionEnabled: boolean;
   providerConnectEnabled: boolean;
+  /** Isolated test_send SMTP. Does not enable campaign audience delivery. */
+  controlledTestSendEnabled?: boolean;
 };
 
 export type HostingerSmtpAdapterOptions = {
@@ -100,6 +102,7 @@ export function createHostingerSmtpEmailDeliveryPort(
   const gates: HostingerSmtpAdapterGates = options.gates ?? {
     executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
     providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+    controlledTestSendEnabled: false,
   };
 
   return {
@@ -109,10 +112,11 @@ export function createHostingerSmtpEmailDeliveryPort(
       const existing = sent.get(request.idempotencyKey);
       if (existing) return { ...existing, duplicate: true };
 
-      if (!gates.executionEnabled) {
+      const isolatedTestSend = Boolean(gates.controlledTestSendEnabled && request.controlledTestSend);
+      if (!isolatedTestSend && !gates.executionEnabled) {
         return failed(request, MARKETING_SMTP_BLOCK.executionDisabled, "Live Marketing execution is disabled");
       }
-      if (!gates.providerConnectEnabled) {
+      if (!isolatedTestSend && !gates.providerConnectEnabled) {
         return failed(
           request,
           MARKETING_SMTP_BLOCK.providerConnectDisabled,

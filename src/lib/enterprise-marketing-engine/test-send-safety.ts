@@ -12,6 +12,7 @@ import {
 import {
   ENTERPRISE_MARKETING_EXECUTION_ENABLED,
   ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+  isMarketingControlledTestSendEnabled,
 } from "@/constants/enterprise-marketing-engine/safety";
 import { ENTERPRISE_MARKETING_EMAIL_MODE } from "@/constants/enterprise-marketing-engine/email-delivery";
 import {
@@ -74,21 +75,37 @@ export function assertMarketingTestSendConfirmed(input: {
   }
 }
 
+function liveCampaignExecutionAuthorized(): boolean {
+  return Boolean(ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED);
+}
+
+function liveIsolatedTestSendAuthorized(): boolean {
+  return ENTERPRISE_MARKETING_EMAIL_MODE === "live" && isMarketingControlledTestSendEnabled();
+}
+
+export function buildMarketingControlledTestSendIdempotencyKey(input: {
+  organizationId: string;
+  campaignId: string;
+  campaignVersionId: string;
+  recipientEmail: string;
+}): string {
+  return `mkt-test:${input.organizationId}:${input.campaignId}:${input.campaignVersionId}:${input.recipientEmail.trim().toLowerCase()}`;
+}
+
 /**
- * Live test-send extra barrier. Dry-run keeps the internal 008 allowlist.
+ * Live test-send: env ∩ frozen three-address list. Dry-run keeps the internal 008 allowlist.
  * Campaign audiences never read this env list.
  */
 export function assertMarketingLiveTestSendAllowlistIfLive(email?: string): string {
   if (ENTERPRISE_MARKETING_EMAIL_MODE !== "live") {
     return assertMarketingInternalTestRecipient(email ?? "");
   }
-  const resolved = resolveExactMarketingLiveTestRecipient(email);
-  return assertMarketingInternalTestRecipient(resolved);
+  return resolveExactMarketingLiveTestRecipient(email);
 }
 
 export function assertMarketingTestSendDryRunOnly(input: { dryRun?: boolean }): void {
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
-    if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED || !ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED) {
+    if (!liveIsolatedTestSendAuthorized() && !liveCampaignExecutionAuthorized()) {
       throw Object.assign(new Error("Live test-send is not authorised."), {
         statusCode: 403,
         code: "TEST_SEND_LIVE_FORBIDDEN",
@@ -105,27 +122,28 @@ export function assertMarketingTestSendDryRunOnly(input: { dryRun?: boolean }): 
 }
 
 /**
- * Future controlled live test-send remains allowlist-only.
- * Does not add operator addresses. Does not authorise live send while flags are off.
+ * Isolated test_send gate. Campaign execution flags are not used here.
  */
 export function assessMarketingControlledTestSendSafety(input: { recipientEmail: string }): {
   allowlisted: boolean;
   liveAllowlisted: boolean;
-  liveSendAuthorized: false;
+  liveSendAuthorized: boolean;
   actuallySent: false;
-  dryRunRequired: true;
+  dryRunRequired: boolean;
 } {
+  const liveAllowlisted = isMarketingLiveTestRecipientAllowlisted(input.recipientEmail);
+  const liveSendAuthorized = liveIsolatedTestSendAuthorized() && liveAllowlisted;
   return {
-    allowlisted: isMarketingInternalTestRecipient(input.recipientEmail),
-    liveAllowlisted: isMarketingLiveTestRecipientAllowlisted(input.recipientEmail),
-    liveSendAuthorized: false,
+    allowlisted: isMarketingInternalTestRecipient(input.recipientEmail) || liveAllowlisted,
+    liveAllowlisted,
+    liveSendAuthorized,
     actuallySent: false,
-    dryRunRequired: true,
+    dryRunRequired: !liveSendAuthorized,
   };
 }
 
 export function forceMarketingTestSendNotActuallySent(sent?: boolean): boolean {
-  if (ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
+  if (liveIsolatedTestSendAuthorized() || (ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED)) {
     return sent === true;
   }
   return false;
@@ -139,7 +157,8 @@ export function recordMarketingTestSendHistory(
   },
 ): MarketingTestSendHistoryEntry {
   const live =
-    ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED;
+    liveIsolatedTestSendAuthorized() ||
+    (ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED);
   const stored: MarketingTestSendHistoryEntry = {
     id: entry.id,
     campaignId: entry.campaignId,

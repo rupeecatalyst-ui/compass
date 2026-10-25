@@ -19,6 +19,9 @@ export function validateMarketingEmailDeliveryRequest(
   if (!request.recipientEmail?.trim()) {
     return { code: "MISSING_RECIPIENT", message: "Recipient email is required" };
   }
+  if (request.recipientEmail.includes(",") || request.recipientEmail.includes(";")) {
+    return { code: "SINGLE_RECIPIENT_REQUIRED", message: "Each delivery request accepts exactly one recipient" };
+  }
   if (!isValidMarketingEmail(request.recipientEmail)) {
     return { code: "MALFORMED_EMAIL", message: "Recipient email format is invalid" };
   }

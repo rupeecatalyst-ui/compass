@@ -59,6 +59,8 @@ export type HostingerSmtpTransportOptions = {
   gates?: {
     executionEnabled: boolean;
     providerConnectEnabled: boolean;
+    /** Isolated test_send SMTP. Does not enable campaign execution. */
+    controlledTestSendEnabled?: boolean;
   };
   clientFactory?: MarketingSmtpClientFactory;
 };
@@ -104,6 +106,7 @@ export function createHostingerSmtpTransport(
   const gates = options.gates ?? {
     executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
     providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+    controlledTestSendEnabled: false,
   };
   let client: MarketingSmtpClient | null = null;
   let clientCreateCount = 0;
@@ -112,7 +115,7 @@ export function createHostingerSmtpTransport(
     | { ok: true; client: MarketingSmtpClient }
     | { ok: false; result: MarketingSmtpTransportResult; verify: MarketingSmtpVerifyResult }
   > {
-    if (!gates.providerConnectEnabled) {
+    if (!gates.providerConnectEnabled && !gates.controlledTestSendEnabled) {
       return {
         ok: false,
         result: {
@@ -180,7 +183,7 @@ export function createHostingerSmtpTransport(
   return {
     clientCreateCount: () => clientCreateCount,
     async send(message: MarketingSmtpMessage): Promise<MarketingSmtpTransportResult> {
-      if (!gates.executionEnabled) {
+      if (!gates.executionEnabled && !gates.controlledTestSendEnabled) {
         return {
           accepted: false,
           providerMessageId: null,

@@ -55,6 +55,14 @@ export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED =
   typeof process !== "undefined" && marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED);
 
 /**
+ * Isolated test_send SMTP only. Does not enable campaign execution, pacing cron,
+ * or organisation-wide audience delivery. Evaluated at request time.
+ */
+export function isMarketingControlledTestSendEnabled(): boolean {
+  return typeof process !== "undefined" && marketingGateEnabled(process.env.ENTERPRISE_MARKETING_CONTROLLED_TEST_SEND_ENABLED);
+}
+
+/**
  * CO-MARKETING-MKT-02 — Google Sheets data-source READ mode.
  * Snapshot at module load only. Production status must call resolveMarketingSheetsSourceStatus().
  */
@@ -81,6 +89,7 @@ export const ENTERPRISE_MARKETING_SAFETY = {
   handoffMode: ENTERPRISE_MARKETING_HANDOFF_MODE,
   audienceImportEnabled: ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED,
   providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+  controlledTestSendUsesSeparateEnv: true,
   sheetsMode: ENTERPRISE_MARKETING_SHEETS_MODE,
   sheetsReadEnabled: ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
   sprint: "CO-MARKETING-ACTIVATION-002",

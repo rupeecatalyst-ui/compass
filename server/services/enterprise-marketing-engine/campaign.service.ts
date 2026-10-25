@@ -42,6 +42,7 @@ import {
   assertMarketingLiveTestSendAllowlistIfLive,
   assertMarketingTestSendConfirmed,
   assertMarketingTestSendDryRunOnly,
+  buildMarketingControlledTestSendIdempotencyKey,
   forceMarketingTestSendNotActuallySent,
   listMarketingTestSendHistory,
   recordMarketingTestSendHistory,
@@ -49,8 +50,6 @@ import {
 import { MARKETING_TEST_SEND_DRY_RUN_NOTICE } from "@/constants/enterprise-marketing-engine/personalisation";
 import {
   MARKETING_PHASE1_FROM_EMAIL,
-  MARKETING_PHASE1_FROM_NAME,
-  MARKETING_PHASE1_REPLY_TO,
 } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
 import {
@@ -946,35 +945,32 @@ export const marketingCampaignService = {
     }
 
     const organizationId = orgId(actor.organizationId);
-    const batchId = `test-send-${Date.now()}`;
-    const idempotencyKey = `mkt-test:${campaignId}:${recipientEmail}:${batchId}`;
+    const batchId = `test-send:${campaignId}:${draft.id}:${recipientEmail}`;
+    const idempotencyKey = buildMarketingControlledTestSendIdempotencyKey({
+      organizationId,
+      campaignId,
+      campaignVersionId: draft.id,
+      recipientEmail,
+    });
 
-    const delivery = await marketingEmailDeliveryService.deliver({
-      idempotencyKey,
+    const claimed = await marketingEmailDeliveryService.deliverForExecutionClaim({
       organizationId,
       campaignId,
       campaignVersionId: draft.id,
       batchId,
+      idempotencyKey,
       recipientFingerprint: `email:${recipientEmail}`,
       recipientEmail,
-      sender: {
-        senderIdentityId: campaign.senderIdentityId || "mkt-sender-phase1-hostinger-smtp",
-        displayName: MARKETING_PHASE1_FROM_NAME,
-        fromAddress: MARKETING_PHASE1_FROM_EMAIL,
-        replyTo: MARKETING_PHASE1_REPLY_TO,
-      },
-      subject: preview.subject,
-      htmlBody: preview.htmlDesktop,
-      textBody: preview.plaintext,
-      assetRefs: [],
-      tracking: {
-        enabled: draft.trackingEnabled,
-        campaignId,
-        batchId,
-        campaignVersionId: draft.id,
-        recipientFingerprint: `email:${recipientEmail}`,
-      },
+      senderIdentityId: campaign.senderIdentityId,
+      fromAddressHint: campaign.sender?.fromAddress ?? MARKETING_PHASE1_FROM_EMAIL,
+      version: draft,
+      row: { Email: recipientEmail, ...(input.personalization ?? {}) },
+      trackingEnabled: draft.trackingEnabled,
+      product: campaign.product || "home-loan",
+      campaignName: campaign.name,
+      controlledTestSend: true,
     });
+    const delivery = claimed.delivery;
 
     assertMarketingTestSendDryRunOnly({ dryRun: delivery.dryRun });
     const liveAccepted =

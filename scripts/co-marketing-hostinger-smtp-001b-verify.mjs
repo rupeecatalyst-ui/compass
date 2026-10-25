@@ -45,6 +45,11 @@ assert.ok(panelSrc.includes("Verify SMTP connection"));
 const campaignSrc = read("server/services/enterprise-marketing-engine/campaign.service.ts");
 assert.ok(campaignSrc.includes("assertMarketingLiveTestSendAllowlistIfLive"));
 assert.ok(!campaignSrc.includes("ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST"));
+assert.ok(campaignSrc.includes("controlledTestSend: true"));
+assert.ok(campaignSrc.includes("buildMarketingControlledTestSendIdempotencyKey"));
+assert.ok(safety.includes("ENTERPRISE_MARKETING_CONTROLLED_TEST_SEND_ENABLED"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_CONTROLLED_TEST_SEND_ENABLED = true"));
+assert.ok(safety.includes("isMarketingControlledTestSendEnabled"));
 
 const [
   smtpConfigMod,
@@ -217,19 +222,20 @@ assert.equal(allowlistMod.parseMarketingTestRecipientAllowlist("").length, 0);
 assert.equal(allowlistMod.isMarketingLiveTestRecipientAllowlisted("anyone@example.com"), false);
 assert.throws(() => allowlistMod.assertMarketingLiveTestRecipientAllowlisted("anyone@example.com"));
 assert.throws(() =>
-  allowlistMod.assertMarketingLiveTestRecipientAllowlisted("qa@rupeecatalyst.com", ""),
+  allowlistMod.assertMarketingLiveTestRecipientAllowlisted("rahul@rupeecatalyst.com", ""),
 );
+const three = "rahulakapoor@gmail.com,rahul@rupeecatalyst.com,rupeecatalyst@gmail.com";
 assert.equal(
-  allowlistMod.assertMarketingLiveTestRecipientAllowlisted(
-    "qa@rupeecatalyst.com",
-    "qa@rupeecatalyst.com",
-  ),
-  "qa@rupeecatalyst.com",
+  allowlistMod.assertMarketingLiveTestRecipientAllowlisted("rahul@rupeecatalyst.com", three),
+  "rahul@rupeecatalyst.com",
+);
+assert.throws(() =>
+  allowlistMod.assertMarketingLiveTestRecipientAllowlisted("qa@rupeecatalyst.com", three),
 );
 assert.throws(() =>
   allowlistMod.assertMarketingLiveTestRecipientAllowlisted(
-    "other@rupeecatalyst.com",
-    "qa@rupeecatalyst.com",
+    "rahul@rupeecatalyst.com,rupeecatalyst@gmail.com",
+    three,
   ),
 );
 
@@ -237,23 +243,44 @@ assert.equal(
   testSendMod.assertMarketingLiveTestSendAllowlistIfLive("qa@rupeecatalyst.com"),
   "qa@rupeecatalyst.com",
 );
-process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST = "qa@rupeecatalyst.com";
-assert.equal(allowlistMod.resolveExactMarketingLiveTestRecipient(), "qa@rupeecatalyst.com");
+process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST = three;
+assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient());
 assert.equal(
-  allowlistMod.resolveExactMarketingLiveTestRecipient("qa@rupeecatalyst.com"),
-  "qa@rupeecatalyst.com",
+  allowlistMod.resolveExactMarketingLiveTestRecipient("rahulakapoor@gmail.com"),
+  "rahulakapoor@gmail.com",
 );
 assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient("other@rupeecatalyst.com"));
-process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST = "one@rupeecatalyst.com,two@rupeecatalyst.com";
-assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient());
+process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST = "qa@rupeecatalyst.com,anyone@gmail.com";
+assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient("qa@rupeecatalyst.com"));
+assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient("anyone@gmail.com"));
 delete process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST;
-assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient());
+assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient("rahul@rupeecatalyst.com"));
 const testSafety = testSendMod.assessMarketingControlledTestSendSafety({
   recipientEmail: "qa@rupeecatalyst.com",
 });
 assert.equal(testSafety.allowlisted, true);
 assert.equal(testSafety.liveAllowlisted, false);
 assert.equal(testSafety.liveSendAuthorized, false);
+
+const isolatedTransport = transportMod.createHostingerSmtpTransport({
+  env: secretEnv,
+  clientFactory: mockFactory,
+  gates: { executionEnabled: false, providerConnectEnabled: false, controlledTestSendEnabled: true },
+});
+const isolatedSend = await isolatedTransport.send({
+  to: "rahul@rupeecatalyst.com",
+  fromName: "Rupee Catalyst Opportunities",
+  fromEmail: "opportunities@rupeecatalyst.com",
+  replyTo: "opportunities@rupeecatalyst.com",
+  subject: "x",
+  html: "<p>x</p>",
+  text: "x",
+  idempotencyKey: "k-isolated",
+});
+assert.equal(isolatedSend.accepted, true);
+assert.equal(sendMailCalls.length, 1);
+assert.equal(sendMailCalls[0].to, "rahul@rupeecatalyst.com");
+sendMailCalls.length = 0;
 
 assert.equal(
   senderMod.isMarketingPhase1Sender({
@@ -284,6 +311,46 @@ const phase1Sender = {
   fromAddress: "opportunities@rupeecatalyst.com",
   replyTo: "opportunities@rupeecatalyst.com",
 };
+
+const isolatedAdapter = adapterMod.createHostingerSmtpEmailDeliveryPort({
+  transport: isolatedTransport,
+  smtpEnv: secretEnv,
+  gates: { executionEnabled: false, providerConnectEnabled: false, controlledTestSendEnabled: true },
+});
+const campaignOnIsolated = await isolatedAdapter.deliver({
+  idempotencyKey: "smtp-1b:isolated-campaign",
+  organizationId: "org-smtp-1b",
+  campaignId: "camp-1b",
+  campaignVersionId: "ver-1b",
+  batchId: "b1",
+  recipientFingerprint: "email:one@example.com",
+  recipientEmail: "one@example.com",
+  sender: phase1Sender,
+  subject: "Hello",
+  htmlBody: html,
+  textBody: "Hello",
+});
+assert.equal(campaignOnIsolated.outcome, "FAILED");
+assert.equal(campaignOnIsolated.errorCode, "marketing.execution.disabled");
+const testOnIsolated = await isolatedAdapter.deliver({
+  idempotencyKey: "smtp-1b:isolated-test",
+  organizationId: "org-smtp-1b",
+  campaignId: "camp-1b",
+  campaignVersionId: "ver-1b",
+  batchId: "b1",
+  recipientFingerprint: "email:rahul@rupeecatalyst.com",
+  recipientEmail: "rahul@rupeecatalyst.com",
+  sender: phase1Sender,
+  subject: "Hello",
+  htmlBody: html,
+  textBody: "Hello",
+  controlledTestSend: true,
+});
+assert.equal(testOnIsolated.outcome, "ACCEPTED");
+assert.equal(testOnIsolated.dryRun, false);
+assert.equal(sendMailCalls.length, 1);
+assert.equal(sendMailCalls[0].to, "rahul@rupeecatalyst.com");
+sendMailCalls.length = 0;
 
 const adapter = adapterMod.createHostingerSmtpEmailDeliveryPort({
   transport: liveTransport,

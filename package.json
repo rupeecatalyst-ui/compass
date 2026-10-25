@@ -230,6 +230,7 @@
     "verify:co-marketing-live-email-foundation-001": "node --import tsx scripts/co-marketing-live-email-foundation-001-verify.mjs",
     "verify:co-marketing-hostinger-smtp-001": "node --import tsx scripts/co-marketing-hostinger-smtp-001-verify.mjs",
     "verify:co-marketing-hostinger-smtp-001b": "node --import tsx scripts/co-marketing-hostinger-smtp-001b-verify.mjs",
+    "verify:co-marketing-controlled-three-email-test": "node --import tsx scripts/co-marketing-controlled-three-email-test-verify.mjs",
     "verify:co-marketing-p0-launch-execution": "node --import tsx scripts/co-marketing-p0-launch-execution-verify.mjs",
     "verify:co-marketing-redesign-015": "node --import tsx scripts/co-marketing-redesign-015-monitoring-verify.mjs",
     "verify:co-marketing-redesign-016": "node --import tsx scripts/co-marketing-redesign-016-qualification-verify.mjs",

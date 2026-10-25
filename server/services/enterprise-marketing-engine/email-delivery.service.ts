@@ -7,6 +7,7 @@ import {
   ENTERPRISE_MARKETING_EMAIL_MODE,
   ENTERPRISE_MARKETING_EXECUTION_ENABLED,
   ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+  isMarketingControlledTestSendEnabled,
 } from "@/constants/enterprise-marketing-engine";
 import { applyPersonalization } from "@/lib/enterprise-marketing-engine/personalization";
 import {
@@ -59,11 +60,30 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function resolvePort(): MarketingEmailDeliveryPort {
+function resolvePort(request?: Pick<MarketingEmailDeliveryRequest, "controlledTestSend">): MarketingEmailDeliveryPort {
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {
     throw new EnterpriseMarketingSafetyError("email.delivery.mode_off");
   }
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
+    if (request?.controlledTestSend) {
+      if (!isMarketingControlledTestSendEnabled()) {
+        throw new EnterpriseMarketingSafetyError("email.controlled_test_send:live_not_authorized");
+      }
+      return createHostingerSmtpEmailDeliveryPort({
+        transport: createHostingerSmtpTransport({
+          gates: {
+            executionEnabled: false,
+            providerConnectEnabled: false,
+            controlledTestSendEnabled: true,
+          },
+        }),
+        gates: {
+          executionEnabled: false,
+          providerConnectEnabled: false,
+          controlledTestSendEnabled: true,
+        },
+      });
+    }
     if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED || !ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED) {
       throw new EnterpriseMarketingSafetyError("email.delivery.live_not_authorized");
     }
@@ -260,7 +280,9 @@ export const marketingEmailDeliveryService = {
   },
 
   async deliver(request: MarketingEmailDeliveryRequest): Promise<MarketingEmailDeliveryResult> {
-    assertEmailDeliveryAllowed("email.deliver");
+    assertEmailDeliveryAllowed(
+      request.controlledTestSend ? "email.controlled_test_send" : "email.deliver",
+    );
 
     const existing = marketingEmailDeliveryRecordStore.getByIdempotencyKey(request.idempotencyKey);
     if (existing) {
@@ -317,7 +339,7 @@ export const marketingEmailDeliveryService = {
     }
 
     const prepared = applyUnsubscribePlaceholders(request);
-    const port = resolvePort();
+    const port = resolvePort(request);
     const result = await port.deliver(prepared);
     this.persistRecord(request, result);
     await this.emitDeliveryEvent(request, result);
@@ -391,6 +413,7 @@ export const marketingEmailDeliveryService = {
     trackingEnabled: boolean;
     product?: string | null;
     campaignName?: string | null;
+    controlledTestSend?: boolean;
   }): Promise<{
     delivery: MarketingEmailDeliveryResult;
     ledgerStatus: ReturnType<typeof mapDeliveryOutcomeToLedgerStatus>;
@@ -444,8 +467,8 @@ export const marketingEmailDeliveryService = {
     });
     const liveSmtp =
       ENTERPRISE_MARKETING_EMAIL_MODE === "live" &&
-      ENTERPRISE_MARKETING_EXECUTION_ENABLED &&
-      ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED;
+      (Boolean(input.controlledTestSend && isMarketingControlledTestSendEnabled()) ||
+        Boolean(ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED));
     if (liveSmtp && !entry.ok) {
       const delivery: MarketingEmailDeliveryResult = {
         idempotencyKey: input.idempotencyKey,
@@ -499,6 +522,7 @@ export const marketingEmailDeliveryService = {
         campaignVersionId: input.campaignVersionId,
         recipientFingerprint: input.recipientFingerprint,
       },
+      controlledTestSend: input.controlledTestSend === true,
     };
 
     const delivery = await this.deliver(request);

@@ -10,6 +10,7 @@ import {
   ENTERPRISE_MARKETING_HANDOFF_ENABLED,
   ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
   ENTERPRISE_MARKETING_WHATSAPP_MODE,
+  isMarketingControlledTestSendEnabled,
 } from "@/constants/enterprise-marketing-engine";
 
 export class EnterpriseMarketingSafetyError extends Error {
@@ -36,10 +37,16 @@ export function assertMarketingLiveExecutionGate(
   if (!enabled) throw new EnterpriseMarketingSafetyError("campaign.execution");
 }
 
-/** Allows dry_run email delivery; live requires explicit flags + PO authorization. */
+/** Allows dry_run email delivery; live campaign send requires execution + provider-connect. Isolated test_send uses email.controlled_test_send. */
 export function assertEmailDeliveryAllowed(operation = "email.deliver"): void {
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {
     throw new EnterpriseMarketingSafetyError(`${operation}:mode_off`);
+  }
+  if (operation === "email.controlled_test_send") {
+    if (ENTERPRISE_MARKETING_EMAIL_MODE === "live" && !isMarketingControlledTestSendEnabled()) {
+      throw new EnterpriseMarketingSafetyError(`${operation}:live_not_authorized`);
+    }
+    return;
   }
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
     if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED || !ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED) {

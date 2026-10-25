@@ -53,6 +53,8 @@ export const MARKETING_SMTP_BLOCK = {
   allowlistEmpty: "marketing.test.allowlist_empty",
   allowlistNotExactlyOne: "marketing.test.allowlist_not_exactly_one",
   recipientNotAllowlisted: "marketing.test.recipient_not_allowlisted",
+  singleRecipientRequired: "marketing.test.single_recipient_required",
+  requestedRecipientRequired: "marketing.test.requested_recipient_required",
   senderNotPhase1: "marketing.sender.not_phase1_sender",
   unsubscribeSecretMissing: "marketing.unsubscribe.secret_missing",
   publicOriginMissing: "marketing.public_origin_missing",
