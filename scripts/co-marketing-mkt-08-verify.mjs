@@ -233,7 +233,7 @@ if (!html.includes("utm_campaign=mkt08")) fail("utm on cta");
 else pass("utm applied to CTA");
 
 const vacantGreeting = persMod.applyPersonalization("Hello {{firstName}},", {});
-if (vacantGreeting !== "Hello,") fail(`fallback expected "Hello,", got "${vacantGreeting}"`);
+if (vacantGreeting !== "Hello Customer,") fail(`fallback expected "Hello Customer,", got "${vacantGreeting}"`);
 else pass("personalization vacant firstName greeting");
 const namedGreeting = persMod.applyPersonalization("Hello {{firstName}},", { firstName: "Sushant" });
 if (namedGreeting !== "Hello Sushant,") fail(`named greeting expected "Hello Sushant,", got "${namedGreeting}"`);

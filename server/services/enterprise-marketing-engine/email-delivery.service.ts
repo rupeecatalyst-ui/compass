@@ -9,7 +9,8 @@ import {
   ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
   isMarketingControlledTestSendEnabled,
 } from "@/constants/enterprise-marketing-engine";
-import { applyPersonalization } from "@/lib/enterprise-marketing-engine/personalization";
+import { applyPersonalization, resolvePersonalizationValues } from "@/lib/enterprise-marketing-engine/personalization";
+import { projectAllowlistedSampleValues } from "@/lib/enterprise-marketing-engine/personalisation-catalogue";
 import {
   failClosedMarketingDeliverySuppression,
   marketingDeliveryFingerprints,
@@ -185,27 +186,21 @@ async function resolveSender(input: {
   };
 }
 
-function personalizationFromRow(row: Record<string, unknown>, columns: {
+function personalizationFromRow(row: Record<string, unknown>, _columns: {
   emailColumn: string | null;
 }) {
   const str = (key: string) => {
     const v = row[key];
     return typeof v === "string" ? v : v != null ? String(v) : "";
   };
-  const emailHeader = columns.emailColumn;
-  const emailValue = emailHeader ? str(emailHeader) : "";
-  const fullName = str("Full Name") || str("Name") || str("full name") || emailValue;
-  const parts = fullName.trim().split(/\s+/);
-  return {
-    firstName: parts[0] ?? "",
-    lastName: parts.slice(1).join(" ") || (parts[0] ?? ""),
-    fullName: fullName || "Subscriber",
-    city: str("City") || str("city"),
-    state: str("State") || str("state"),
-    profession: str("Profession") || str("profession"),
-    company: str("Company") || str("company"),
-    product: str("Product") || str("product"),
-  };
+  const mappedName = str("Full Name") || str("Name") || str("full name") || str("name");
+  return resolvePersonalizationValues(
+    projectAllowlistedSampleValues({
+      name: mappedName,
+      location: str("City") || str("city") || str("Location"),
+      productInterest: str("Product") || str("product") || str("Product Interest"),
+    }),
+  );
 }
 
 function campaignLinkSecret(): string {

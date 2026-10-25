@@ -117,14 +117,13 @@ export const MARKETING_PERSONALIZATION_TOKEN_ALIASES: Partial<
 
 /**
  * Safe fallback when a personalization value is missing (never executes code).
- * firstName is intentionally blank so `Hello {{firstName}},` renders as `Hello,`
- * rather than `Hello there,`. applyPersonalization collapses the vacant greeting.
+ * firstName uses a nonblank generic greeting — never invent a recipient's name.
  */
 export const MARKETING_PERSONALIZATION_FALLBACKS: Record<
   MarketingPersonalizationToken,
   string
 > = {
-  firstName: "",
+  firstName: "Customer",
   lastName: "Customer",
   fullName: "Valued Customer",
   city: "your city",

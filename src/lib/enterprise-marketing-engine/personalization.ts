@@ -11,6 +11,51 @@ import {
 } from "@/constants/enterprise-marketing-engine/content";
 import { sanitizeMarketingPlainText } from "@/lib/enterprise-marketing-engine/html-sanitize";
 
+/** Split a mapped display name. Never invents a name when the source is blank. */
+export function splitMarketingDisplayName(full: string): {
+  firstName: string;
+  lastName: string;
+  fullName: string;
+} {
+  const trimmed = full.trim();
+  if (!trimmed) return { firstName: "", lastName: "", fullName: "" };
+  const bits = trimmed.split(/\s+/);
+  return {
+    firstName: bits[0] ?? "",
+    lastName: bits.slice(1).join(" "),
+    fullName: trimmed,
+  };
+}
+
+/**
+ * Shared preview + delivery resolver. Extracts first name from a mapped full name
+ * and applies allowlisted fallbacks. Does not invent recipient-specific names.
+ */
+export function resolvePersonalizationValues(
+  values: Partial<Record<MarketingPersonalizationToken, string>>,
+): Record<MarketingPersonalizationToken, string> {
+  const incoming: Partial<Record<MarketingPersonalizationToken, string>> = {};
+  for (const token of MARKETING_PERSONALIZATION_TOKENS) {
+    const value = values[token];
+    if (value != null && String(value).trim()) incoming[token] = String(value).trim();
+  }
+  if (!incoming.companyName && incoming.company) incoming.companyName = incoming.company;
+  if (!incoming.company && incoming.companyName) incoming.company = incoming.companyName;
+
+  const nameSource =
+    incoming.fullName || [incoming.firstName, incoming.lastName].filter(Boolean).join(" ");
+  const split = splitMarketingDisplayName(nameSource);
+  if (!incoming.firstName && split.firstName) incoming.firstName = split.firstName;
+  if (!incoming.lastName && split.lastName) incoming.lastName = split.lastName;
+  if (!incoming.fullName && split.fullName) incoming.fullName = split.fullName;
+
+  const resolved = { ...MARKETING_PERSONALIZATION_FALLBACKS };
+  for (const token of MARKETING_PERSONALIZATION_TOKENS) {
+    if (incoming[token]) resolved[token] = incoming[token]!;
+  }
+  return resolved;
+}
+
 const TOKEN_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g;
 /** Any mustache pair — used to reject expressions, prototypes, and unknown tokens. */
 const ANY_MUSTACHE_RE = /\{\{([^}]*)\}\}/g;
@@ -69,16 +114,7 @@ export function applyPersonalization(
 ): string {
   assertSafePersonalizationTokens(text);
   const escapeHtml = opts?.escapeHtml !== false;
-  const normalized: Partial<Record<MarketingPersonalizationToken, string>> = {
-    ...values,
-  };
-  // Alias: companyName ↔ company
-  if (!normalized.companyName && normalized.company) {
-    normalized.companyName = normalized.company;
-  }
-  if (!normalized.company && normalized.companyName) {
-    normalized.company = normalized.companyName;
-  }
+  const normalized = resolvePersonalizationValues(values);
 
   const replaced = text.replace(TOKEN_RE, (_full, name: string) => {
     if (RESERVED_STRUCTURAL_TOKENS.has(name)) return `{{${name}}}`;
@@ -97,13 +133,7 @@ export function applyPersonalization(
     if (opts?.leavePlaceholders && raw === `{{${name}}}`) return raw;
     return escapeHtml ? escapeMarketingMergeValue(raw) : raw;
   });
-  if (opts?.leavePlaceholders) return replaced;
-  return collapseVacantFirstNameGreeting(replaced);
-}
-
-/** `Hello {{firstName}},` with no name must render `Hello,` — not `Hello there,` or `Hello ,`. */
-function collapseVacantFirstNameGreeting(text: string): string {
-  return text.replace(/\bHello\s+,/g, "Hello,");
+  return replaced;
 }
 
 export function defaultPersonalizationSample(): Record<MarketingPersonalizationToken, string> {

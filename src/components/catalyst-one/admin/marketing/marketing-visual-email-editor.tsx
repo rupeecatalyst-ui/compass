@@ -381,6 +381,7 @@ function BlockFields({
                 alt: asset.altText || propString(props, "alt"),
                 assetType: asset.assetType,
                 name: asset.name,
+                approvalStatus: asset.approvalStatus,
               }),
             )
           }

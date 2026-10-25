@@ -17,6 +17,8 @@ import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability
 import type { MarketingContentDocument } from "@/types/enterprise-marketing-campaign";
 import {
   resolveCanonicalPersonalizationToken,
+  resolvePersonalizationValues,
+  splitMarketingDisplayName,
 } from "@/lib/enterprise-marketing-engine/personalization";
 
 const ANY_MUSTACHE_RE = /\{\{\s*([^}]+?)\s*\}\}/g;
@@ -79,14 +81,7 @@ export function collectMarketingPersonalisationCorpus(input: {
 }
 
 function splitName(full: string): { firstName: string; lastName: string; fullName: string } {
-  const trimmed = full.trim();
-  if (!trimmed) return { firstName: "", lastName: "", fullName: "" };
-  const bits = trimmed.split(/\s+/);
-  return {
-    firstName: bits[0] ?? "",
-    lastName: bits.slice(1).join(" "),
-    fullName: trimmed,
-  };
+  return splitMarketingDisplayName(full);
 }
 
 export function projectAllowlistedSampleValues(input: {
@@ -219,8 +214,6 @@ export function inspectMarketingPersonalisationUsage(input: {
   const unresolvedTokens = [...usedAllowlisted].filter((token) => !tokenIsMapped(token, mapped));
   const missingFallbackTokens = [...usedAllowlisted].filter((token) => {
     if (!ALLOWED.has(token)) return false;
-    // firstName may be blank: Hello {{firstName}}, → Hello,
-    if (token === "firstName") return false;
     const fallback = MARKETING_PERSONALIZATION_FALLBACKS[token as MarketingPersonalizationToken];
     return !String(fallback ?? "").trim();
   });
@@ -241,14 +234,7 @@ export function inspectMarketingPersonalisationUsage(input: {
 export function resolvePersonalisationWithFallbacks(
   values: Partial<Record<MarketingPersonalizationToken, string>>,
 ): Record<MarketingPersonalizationToken, string> {
-  const resolved = { ...MARKETING_PERSONALIZATION_FALLBACKS };
-  for (const token of MARKETING_PERSONALIZATION_TOKENS) {
-    const value = values[token];
-    if (value != null && String(value).trim()) resolved[token] = String(value).trim();
-  }
-  if (!resolved.companyName && resolved.company) resolved.companyName = resolved.company;
-  if (!resolved.company && resolved.companyName) resolved.company = resolved.companyName;
-  return resolved;
+  return resolvePersonalizationValues(values);
 }
 
 export function insertPersonalisationTokenIntoText(text: string, token: string): string {

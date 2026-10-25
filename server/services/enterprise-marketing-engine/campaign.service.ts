@@ -15,7 +15,11 @@ import {
   marketingCampaignEditPolicy,
   MARKETING_ACTION_TARGET_STATUS,
 } from "@/constants/enterprise-marketing-engine/transitions";
-import { cloneContentDocument, syncCampaignFormFieldsIntoContent } from "@/lib/enterprise-marketing-engine/content-blocks";
+import {
+  cloneContentDocument,
+  extractCtaFieldsFromContent,
+  syncCampaignFormFieldsIntoContent,
+} from "@/lib/enterprise-marketing-engine/content-blocks";
 import { paragraphTextFromDocument, sanitizeMarketingContentDocument } from "@/lib/enterprise-marketing-engine/visual-editor";
 import {
   renderMarketingEmailHtml,
@@ -457,13 +461,20 @@ export const marketingCampaignService = {
         : draftBefore?.content ?? null;
       if (baseContent) {
         const hydrated = await marketingAssetStore.hydrateContentUrls(baseContent, organizationId);
+        const contentIsSsot = input.content !== undefined;
         versionPatch.content = syncCampaignFormFieldsIntoContent(hydrated, {
           ctaLabel:
             input.ctaLabel !== undefined ? input.ctaLabel : draftBefore?.ctaLabel ?? null,
           ctaUrl: input.ctaUrl !== undefined ? input.ctaUrl : draftBefore?.ctaUrl ?? null,
           disclaimer:
             input.disclaimer !== undefined ? input.disclaimer : draftBefore?.disclaimer ?? null,
+          overlayCta: !contentIsSsot || input.ctaLabel !== undefined || input.ctaUrl !== undefined,
         });
+        if (contentIsSsot && input.ctaLabel === undefined && input.ctaUrl === undefined) {
+          const cta = extractCtaFieldsFromContent(versionPatch.content);
+          versionPatch.ctaLabel = cta.label;
+          versionPatch.ctaUrl = cta.url;
+        }
       }
 
       await marketingCampaignStore.updateDraftVersion(campaignId, organizationId, versionPatch);

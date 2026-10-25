@@ -289,10 +289,12 @@ export function MarketingCampaignBuilderPage({
     setWindowStart(campaignRow.batchPolicy?.sendWindowStart ?? MARKETING_DEFAULT_BATCH_POLICY.sendWindowStart);
     setWindowEnd(campaignRow.batchPolicy?.sendWindowEnd ?? MARKETING_DEFAULT_BATCH_POLICY.sendWindowEnd);
     setDailyMax(campaignRow.batchPolicy?.dailyMax ?? MARKETING_DEFAULT_BATCH_POLICY.dailyMax);
-    setPersonalizationSample({
-      ...MARKETING_PERSONALIZATION_FALLBACKS,
-      senderName: campaignRow.sender.fromName || MARKETING_PERSONALIZATION_FALLBACKS.senderName,
-    });
+    setPersonalizationSample((current) =>
+      resolvePersonalisationWithFallbacks({
+        ...current,
+        senderName: campaignRow.sender.fromName || MARKETING_PERSONALIZATION_FALLBACKS.senderName,
+      }),
+    );
   }, []);
 
   const loadCampaign = useCallback(async () => {
@@ -362,6 +364,32 @@ export function MarketingCampaignBuilderPage({
               setFilters(audience.filterDefinition ?? emptyMarketingFilters());
               setExclusions(audience.exclusionDefinition ?? emptyMarketingFilters());
               setSnapshotStatus(audience.lastSnapshotId ? "Frozen" : audience.mappingConfirmed ? "Not frozen" : "Unavailable");
+              try {
+                const sampleRes = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "preview",
+                    audienceId: audience.id,
+                  }),
+                });
+                const sampleBody = (await sampleRes.json()) as ApiEnvelope<{
+                  preview: MarketingAudiencePreviewResult;
+                }>;
+                const samples = sampleBody.data?.preview?.sampleRecipients ?? [];
+                if (!cancelled && samples.length) {
+                  setSampleRecipients(samples);
+                  setSelectedSampleId(samples[0]?.id ?? null);
+                  setPersonalizationSample(
+                    resolvePersonalisationWithFallbacks({
+                      ...samples[0]?.values,
+                      senderName: detail.campaign.sender.fromName,
+                    }),
+                  );
+                }
+              } catch {
+                // Frozen audience is unchanged. Preview samples stay unavailable until eligibility can be read.
+              }
             }
           }
         }

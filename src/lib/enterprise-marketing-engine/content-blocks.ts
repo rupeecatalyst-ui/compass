@@ -115,10 +115,23 @@ export function cloneContentDocument(doc: MarketingContentDocument): MarketingCo
   };
 }
 
+/** Read the first CTA block. Content document is SSOT for visual-editor edits. */
+export function extractCtaFieldsFromContent(doc: MarketingContentDocument): {
+  label: string | null;
+  url: string | null;
+} {
+  const cta = doc.blocks.find((block) => block.type === "cta");
+  if (!cta) return { label: null, url: null };
+  const label = typeof cta.props.label === "string" ? cta.props.label.trim() : "";
+  const url = typeof cta.props.url === "string" ? cta.props.url.trim() : "";
+  return { label: label || null, url: url || null };
+}
+
 /**
  * Keep form-level CTA / disclaimer in sync with content blocks so email-render
  * (which only renders blocks) matches what operators configure in Campaign Builder.
  * Does not invent content — only upserts existing block types when values are set.
+ * Pass overlayCta: false when the visual document is the CTA authority.
  */
 export function syncCampaignFormFieldsIntoContent(
   doc: MarketingContentDocument,
@@ -126,14 +139,16 @@ export function syncCampaignFormFieldsIntoContent(
     ctaLabel?: string | null;
     ctaUrl?: string | null;
     disclaimer?: string | null;
+    overlayCta?: boolean;
   },
 ): MarketingContentDocument {
   const blocks = [...doc.blocks];
   const ctaLabel = fields.ctaLabel?.trim() ?? "";
   const ctaUrl = fields.ctaUrl?.trim() ?? "";
   const disclaimer = fields.disclaimer?.trim() ?? "";
+  const overlayCta = fields.overlayCta !== false;
 
-  if (ctaLabel || ctaUrl) {
+  if (overlayCta && (ctaLabel || ctaUrl)) {
     const ctaIdx = blocks.findIndex((b) => b.type === "cta");
     if (ctaIdx >= 0) {
       blocks[ctaIdx] = {
