@@ -9,7 +9,6 @@ import {
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { ENCE_EXTERNAL_DELIVERY_ENABLED } from "@/constants/enterprise-notification-communication-engine";
-import type { EnterpriseCommunicationProfileCode } from "@/types/enterprise-communication-center";
 import {
   enterpriseCommunicationCenterService,
   EccError,
@@ -39,18 +38,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const profileCode = String(body.profileCode || "CUSTOMERS") as EnterpriseCommunicationProfileCode;
-
-    if (profileCode !== "CUSTOMERS") {
-      return errorResponse(
-        400,
-        "PROFILE_NOT_ALLOWED",
-        "Controlled SMTP probe is limited to the CUSTOMERS operational profile.",
-      );
+    const profileCode = String(body.profileCode || "CUSTOMERS").trim();
+    if (!profileCode) {
+      return errorResponse(400, "PROFILE_REQUIRED", "Select a communication profile.");
     }
 
-    const profiles = await enterpriseCommunicationCenterService.listProfiles();
-    const profile = profiles.find((p) => p.profileCode === profileCode);
+    const profile = await enterpriseCommunicationCenterService.getStoredProfile(profileCode);
     if (!profile) {
       return errorResponse(404, "PROFILE_NOT_FOUND", `Profile ${profileCode} not found`);
     }

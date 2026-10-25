@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     return successResponse({
       mode: "simulation",
       productionSendingEnabled: false,
-      status: "success",
+      status: "simulated",
       deliveryStatus: simulation.status,
       timestamp,
       recipientEmail,
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
       senderEmail: identity.senderEmail,
       providerResponse: {
         message:
-          "Test recorded as ENCE simulation only. Operational production email remains OFF.",
+          "Simulation recorded. No email was sent. Operational production email remains OFF.",
         simulationId: simulation.id,
         warning: simulation.warning ?? null,
       },

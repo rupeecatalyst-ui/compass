@@ -18,9 +18,22 @@ import {
   sanitizeMarketingPlainText,
   sanitizeMarketingRichText,
 } from "@/lib/enterprise-marketing-engine/html-sanitize";
+import { RUPEE_CATALYST_OFFICIAL_LOGO_SRC } from "@/constants/rupee-catalyst-brand";
+import { resolveMarketingPublicOrigin } from "@/lib/enterprise-marketing-engine/asset-public-url";
 
 function esc(s: string): string {
   return sanitizeMarketingPlainText(s);
+}
+
+export function officialMarketingEmailLogoUrl(): string {
+  return `${resolveMarketingPublicOrigin()}${RUPEE_CATALYST_OFFICIAL_LOGO_SRC}`;
+}
+
+function logoSrcForEmail(raw: string): string {
+  const url = raw.trim();
+  if (!url || url === RUPEE_CATALYST_OFFICIAL_LOGO_SRC) return officialMarketingEmailLogoUrl();
+  if (isUnsafeMarketingHref(url)) return "";
+  return url;
 }
 
 function textToHtmlParagraphs(template: string, personalize: (s: string) => string): string {
@@ -72,9 +85,9 @@ function renderBlock(
         ${propString(props, "subtitle") ? `<div style="font-size:13px;color:#64748b;margin-top:4px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "subtitle")))}</div>` : ""}
       </td></tr>`;
     case "logo": {
-      const url = propString(props, "url");
-      if (!url || isUnsafeMarketingHref(url)) return "";
-      return `<tr><td style="padding:16px 24px;" align="center"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Logo"))}" width="140" style="display:block;max-width:140px;height:auto;border:0;" /></td></tr>`;
+      const url = logoSrcForEmail(propString(props, "url"));
+      if (!url) return "";
+      return `<tr><td style="padding:16px 24px;" align="center"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Rupee Catalyst"))}" width="140" style="display:block;max-width:140px;height:auto;border:0;" /></td></tr>`;
     }
     case "hero_image":
     case "image": {

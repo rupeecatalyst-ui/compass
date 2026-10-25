@@ -58,7 +58,8 @@ async function verifySmtpAuth(input: {
   port: number;
   username: string;
   password: string;
-}): Promise<boolean> {
+}): Promise<{ tlsConnected: boolean; authVerified: boolean }> {
+  const connected = { tlsConnected: true, authVerified: false };
   return new Promise((resolve) => {
     const socket = tls.connect(
       { host: input.host, port: input.port, servername: input.host, rejectUnauthorized: true },
@@ -67,50 +68,50 @@ async function verifySmtpAuth(input: {
           const greeting = await readSmtpResponse(socket);
           if (!greeting.startsWith("220")) {
             socket.end();
-            resolve(false);
+            resolve(connected);
             return;
           }
           writeLine(socket, "EHLO catalyst-one-probe");
           const ehlo = await readSmtpResponse(socket);
           if (!ehlo.includes("250")) {
             socket.end();
-            resolve(false);
+            resolve(connected);
             return;
           }
           writeLine(socket, "AUTH LOGIN");
           const authPrompt = await readSmtpResponse(socket);
           if (!authPrompt.startsWith("334")) {
             socket.end();
-            resolve(false);
+            resolve(connected);
             return;
           }
           writeLine(socket, base64(input.username));
           const userPrompt = await readSmtpResponse(socket);
           if (!userPrompt.startsWith("334")) {
             socket.end();
-            resolve(false);
+            resolve(connected);
             return;
           }
           writeLine(socket, base64(input.password));
           const authResult = await readSmtpResponse(socket);
           writeLine(socket, "QUIT");
           socket.end();
-          resolve(authResult.startsWith("235"));
+          resolve({ tlsConnected: true, authVerified: authResult.startsWith("235") });
         } catch {
           try {
             socket.destroy();
           } catch {
             /* ignore */
           }
-          resolve(false);
+          resolve(connected);
         }
       },
     );
     socket.setTimeout(12_000, () => {
       socket.destroy();
-      resolve(false);
+      resolve({ tlsConnected: false, authVerified: false });
     });
-    socket.on("error", () => resolve(false));
+    socket.on("error", () => resolve({ tlsConnected: false, authVerified: false }));
   });
 }
 
@@ -163,7 +164,7 @@ export async function probeSmtpProfile(
     };
   }
 
-  const authVerified = await verifySmtpAuth({
+  const checked = await verifySmtpAuth({
     host,
     port,
     username,
@@ -171,16 +172,18 @@ export async function probeSmtpProfile(
   });
 
   return {
-    ok: authVerified,
+    ok: checked.tlsConnected && checked.authVerified,
     profileCode: profile.profileCode,
     host,
     port,
     credentialSource,
-    tlsConnected: authVerified,
-    authVerified,
-    message: authVerified
-      ? "SMTP connectivity and authentication verified (no message sent)."
-      : "SMTP probe failed — check host, port, username, and server credential.",
+    tlsConnected: checked.tlsConnected,
+    authVerified: checked.authVerified,
+    message: checked.authVerified
+      ? "SMTP connection reached the server and authentication succeeded. No email was sent."
+      : checked.tlsConnected
+        ? "SMTP connection reached the server, but authentication failed. No email was sent."
+        : "SMTP connection was not established. No email was sent.",
   };
 }
 

@@ -69,6 +69,17 @@ export const enterpriseCommunicationCenterService = {
     return rows.map(mapProfileRow);
   },
 
+  /** Read one stored profile. Does not seed or create missing profiles. */
+  async getStoredProfile(profileCode: string) {
+    requireDb();
+    const organizationId = await resolvePilotOrganizationId();
+    const row = await enterpriseCommunicationCenterRepository.getByCode(
+      organizationId,
+      profileCode.trim(),
+    );
+    return row ? mapProfileRow(row) : null;
+  },
+
   async getEventMappings() {
     return ECC_EVENT_MAPPINGS.map((m) => ({ ...m }));
   },

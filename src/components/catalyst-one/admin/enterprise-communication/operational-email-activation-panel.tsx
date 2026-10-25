@@ -56,6 +56,9 @@ function statusBadgeClass(status: string): string {
     case "pending":
     case "credential_pending":
     case "simulation_only":
+    case "simulated":
+    case "submitted":
+    case "ambiguous":
       return "border-amber-500/40 text-amber-900 dark:text-amber-100";
     case "failed":
       return "border-destructive/40 text-destructive";
@@ -91,13 +94,17 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
 
   const [recipient, setRecipient] = useState("");
   const [testProfile, setTestProfile] = useState<string>(selectedCode || "CUSTOMERS");
+  const [confirmation, setConfirmation] = useState("");
   const [sending, setSending] = useState(false);
+  const [liveSending, setLiveSending] = useState(false);
   const [probing, setProbing] = useState(false);
   const [lastResult, setLastResult] = useState<TestResult | null>(null);
   const [lastProbe, setLastProbe] = useState<{
     ok: boolean;
     message: string;
     timestamp: string;
+    tlsConnected?: boolean;
+    authVerified?: boolean;
   } | null>(null);
 
   async function probeSmtp() {
@@ -128,8 +135,10 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
         ok: Boolean(payload?.ok),
         message: String(payload?.message || "Probe complete"),
         timestamp: String(payload?.timestamp || new Date().toISOString()),
+        tlsConnected: payload?.tlsConnected,
+        authVerified: payload?.authVerified,
       });
-      toast.success(payload?.ok ? "SMTP probe passed" : "SMTP probe failed");
+      toast.success(payload?.authVerified ? "SMTP authentication succeeded. No email was sent." : "SMTP probe finished. No email was sent.");
     } catch {
       setLastProbe({
         ok: false,
@@ -171,11 +180,7 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
       }
       const data = json.data as TestResult;
       setLastResult(data);
-      toast.success(
-        productionOn
-          ? "Test email accepted"
-          : "Test recorded (simulation) — production sending remains OFF",
-      );
+      toast.success("Simulation recorded. No email was sent.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Test send failed";
       setLastResult({
@@ -188,6 +193,48 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
       toast.error(message);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function sendLiveTest() {
+    setLiveSending(true);
+    setLastResult(null);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/enterprise-communication/live-test", {
+        method: "POST",
+        body: JSON.stringify({
+          recipientEmail: recipient,
+          profileCode: testProfile || selectedCode || "CUSTOMERS",
+          confirmationPhrase: confirmation,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errMsg = json?.error?.message || "Live test failed";
+        setLastResult({
+          mode: "live_test",
+          status: "failed",
+          timestamp: new Date().toISOString(),
+          recipientEmail: recipient,
+          error: errMsg,
+        });
+        toast.error(errMsg);
+        return;
+      }
+      const outcome = String(json?.data?.outcome || "failed");
+      setLastResult({
+        mode: "live_test",
+        status: outcome,
+        timestamp: String(json?.data?.timestamp || new Date().toISOString()),
+        recipientEmail: String(json?.data?.recipientEmail || recipient),
+        senderEmail: json?.data?.senderEmail,
+        providerResponse: { message: json?.data?.message },
+      });
+      toast.success(outcome === "submitted" ? "Provider accepted the message. Not confirmed as delivered." : `Live test ${outcome}. No retry was made.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Live test failed");
+    } finally {
+      setLiveSending(false);
     }
   }
 
@@ -290,12 +337,12 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">SMTP connectivity probe</CardTitle>
+          <CardTitle className="text-sm">Test SMTP connection</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3">
           <p className="text-xs text-muted-foreground">
-            Verifies Hostinger SMTP reachability and authentication only. Does not send email and
-            does not enable ENCE production delivery.
+            Checks reachability and authentication for the selected mailbox. Does not send an email
+            and does not enable organisation-wide delivery.
           </p>
           <div>
             <Button
@@ -320,6 +367,10 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
                 {lastProbe.ok ? "success" : "failed"}
               </Badge>
               <p className="mt-1 text-foreground">{lastProbe.message}</p>
+              <p className="mt-1 text-muted-foreground">
+                Reachable: {lastProbe.tlsConnected ? "yes" : "no"} · Authentication:{" "}
+                {lastProbe.authVerified ? "succeeded" : "not confirmed"} · No email was sent.
+              </p>
             </div>
           ) : null}
         </CardContent>
@@ -329,45 +380,58 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Send test email</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-[1fr_180px_auto]">
-          <div className="space-y-1.5">
-            <Label>Test recipient</Label>
-            <Input
-              type="email"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder="admin@example.com"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Sender profile</Label>
-            <Select value={testProfile} onValueChange={setTestProfile}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((p) => (
-                  <SelectItem key={p.profileCode} value={p.profileCode}>
-                    {p.profileCode}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              size="sm"
-              disabled={sending || !recipient.trim()}
-              onClick={() => void sendTest()}
-            >
-              {sending ? (
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Send className="mr-1 h-3.5 w-3.5" />
-              )}
-              Send test
-            </Button>
+        <CardContent className="grid gap-3">
+          <p className="text-xs text-muted-foreground">
+            Simulation records an audit entry and does not send mail. Live test sends exactly one
+            message through the selected mailbox and reports Submitted, not Delivered.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Test recipient</Label>
+              <Input
+                type="email"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="name@example.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sender profile</Label>
+              <Select value={testProfile} onValueChange={setTestProfile}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.profileCode} value={p.profileCode}>
+                      {p.displayName} · {p.senderEmail}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Live confirmation</Label>
+              <Input
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                placeholder="SEND TEST"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={sending || !recipient.trim()} onClick={() => void sendTest()}>
+                Record simulation
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={liveSending || confirmation.trim() !== "SEND TEST" || !recipient.trim()}
+                onClick={() => void sendLiveTest()}
+              >
+                {liveSending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />}
+                Send live test email
+              </Button>
+            </div>
           </div>
           {lastResult ? (
             <div className="sm:col-span-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs">
