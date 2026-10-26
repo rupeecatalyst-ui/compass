@@ -18,6 +18,7 @@ import type {
   MarketingDurableTestSendRecord,
 } from "@/types/enterprise-marketing-durability";
 import type { MarketingDurabilityPorts } from "@/types/enterprise-marketing-durability-ports";
+import { createMarketingScopedId } from "@/lib/enterprise-marketing-engine/scoped-id";
 import { marketingDurabilityUnavailable } from "../errors";
 import { decideMarketingBatchClaim, decideMarketingRecipientClaim } from "../claim";
 import { MARKETING_APPROVED_RETRY_POLICY } from "../retry-policy";
@@ -305,6 +306,7 @@ export function createPrismaMarketingDurabilityPorts(
           try {
             const record = (await tx.enterpriseMarketingDeliveryBatch.create({
               data: {
+                id: createMarketingScopedId("mkt-batch", input.organizationId),
                 organizationId: input.organizationId,
                 campaignId: input.campaignId,
                 snapshotId: input.snapshotId,
@@ -313,6 +315,8 @@ export function createPrismaMarketingDurabilityPorts(
                 plannedSize: input.plannedSize,
                 status: "processing",
                 dryRun: input.dryRun ?? true,
+                createdByUserId: input.workerId,
+                updatedByUserId: input.workerId,
               },
             })) as MarketingDurableDeliveryBatchRecord;
             return { ok: true, duplicate: false, record };
@@ -403,22 +407,49 @@ export function createPrismaMarketingDurabilityPorts(
             return { ok: true, duplicate: false, record };
           }
           try {
+            const snapshotRecipient = (await tx.enterpriseMarketingSnapshotRecipient.findFirst({
+              where: {
+                id: input.snapshotRecipientId,
+                organizationId: input.organizationId,
+                snapshotId: input.snapshotId,
+                campaignId: input.campaignId,
+              },
+            })) as MarketingDurableSnapshotRecipientRecord | null;
+            if (
+              !snapshotRecipient?.sourceWorkbookId ||
+              !snapshotRecipient.sourceTabId ||
+              !snapshotRecipient.sourceTabName ||
+              !snapshotRecipient.recipientFingerprint
+            ) {
+              throw Object.assign(new Error("Delivery ledger requires the frozen snapshot recipient"), {
+                statusCode: 409,
+                code: "SNAPSHOT_RECIPIENT_REQUIRED",
+              });
+            }
             const record = (await tx.enterpriseMarketingRecipientLedger.create({
               data: {
+                id: createMarketingScopedId("mkt-led", input.organizationId),
                 organizationId: input.organizationId,
                 campaignId: input.campaignId,
                 campaignVersionId: input.campaignVersionId,
                 snapshotId: input.snapshotId,
                 snapshotRecipientId: input.snapshotRecipientId,
-                channel: input.channel,
-                normalizedEmail: input.normalizedEmail,
-                sourceStableKey: input.sourceStableKey,
-                idempotencyKey: input.idempotencyKey,
                 batchId: input.batchId,
                 batchNumber: input.batchNumber,
+                channel: input.channel,
+                sourceWorkbookId: snapshotRecipient.sourceWorkbookId,
+                sourceTabId: snapshotRecipient.sourceTabId,
+                sourceTabName: snapshotRecipient.sourceTabName,
+                sourceRowNumber: snapshotRecipient.sourceRowNumber,
+                sourceStableKey: input.sourceStableKey,
+                recipientFingerprint: snapshotRecipient.recipientFingerprint,
+                normalizedEmail: input.normalizedEmail,
                 status: "processing",
+                idempotencyKey: input.idempotencyKey,
                 attemptCount: 1,
                 claimedAt: new Date(),
+                createdByUserId: input.workerId,
+                updatedByUserId: input.workerId,
               },
             })) as MarketingDurableLedgerRecord;
             return { ok: true, duplicate: false, record };
