@@ -39,7 +39,16 @@ import {
   isMarketingAssetDataUrl,
 } from "@/lib/enterprise-marketing-engine/asset-public-url";
 import { marketingAssetRequiresAltText } from "@/lib/enterprise-marketing-engine/asset-alt-text";
-import { collectMarketingAssetUsage } from "@/lib/enterprise-marketing-engine/asset-usage";
+import { assertMarketingAssetApprovalTransition } from "@/lib/enterprise-marketing-engine/asset-approval-transition";
+import { findMarketingAssetChecksumDuplicate } from "@/lib/enterprise-marketing-engine/asset-checksum";
+import {
+  EMPTY_MARKETING_ASSET_RIGHTS,
+  normalizeMarketingAssetRights,
+  parseMarketingAssetTagsJson,
+  serializeMarketingAssetTagsJson,
+  type MarketingAssetRights,
+} from "@/lib/enterprise-marketing-engine/asset-rights";
+import { collectMarketingAssetUsage, marketingAssetIsReferenced } from "@/lib/enterprise-marketing-engine/asset-usage";
 import { createMarketingScopedId } from "@/lib/enterprise-marketing-engine/scoped-id";
 import type { MarketingAsset } from "@/types/enterprise-marketing-campaign";
 import type { MarketingAssetVersion } from "@/types/enterprise-marketing-assets";
@@ -274,7 +283,8 @@ function mapVersionRow(row: VersionRow): MarketingAssetVersion {
 }
 
 function mapRow(row: AssetRow): MarketingAsset {
-  const tags = Array.isArray(row.tagsJson) ? (row.tagsJson as string[]) : [];
+  const parsedTags = parseMarketingAssetTagsJson(row.tagsJson);
+  const tags = parsedTags.tags;
   const versions = (row.versions ?? []).map(mapVersionRow).sort((a, b) => a.versionNumber - b.versionNumber);
   putMarketingAssetFixture(row.storageRef, row.previewUrl);
   const base: MarketingAsset = {
@@ -296,6 +306,7 @@ function mapRow(row: AssetRow): MarketingAsset {
     uploadedByUserId: row.uploadedByUserId,
     uploadedAt: toIso(row.uploadedAt),
     tags,
+    rights: parsedTags.rights,
     productCategory: row.productCategory as MarketingAssetProductCategory,
     approvalStatus: row.approvalStatus as MarketingAssetApprovalStatus,
     altText: row.altText,
@@ -330,7 +341,7 @@ function toRow(asset: MarketingAsset): Omit<AssetRow, "versions"> {
     height: asset.height,
     uploadedByUserId: asset.uploadedByUserId,
     uploadedAt: new Date(asset.uploadedAt),
-    tagsJson: asset.tags as unknown as Prisma.JsonValue,
+    tagsJson: serializeMarketingAssetTagsJson(asset.tags, asset.rights) as Prisma.JsonValue,
     productCategory: asset.productCategory,
     approvalStatus: asset.approvalStatus,
     altText: asset.altText,
@@ -491,7 +502,6 @@ export const marketingAssetStore = {
     }
     if (!asset) return null;
     if (asset.approvalStatus !== "APPROVED") return null;
-    if (asset.archived || asset.active === false) return null;
     if (asset.checksum !== expected) return null;
     if (!isMarketingVisualImageMime(asset.mimeType)) return null;
     const payload = payloadOf(asset);
@@ -520,6 +530,7 @@ export const marketingAssetStore = {
     assetType?: MarketingAssetType | string | null;
     name?: string;
     altText?: string | null;
+    rights?: MarketingAssetRights | null;
     productCategory?: MarketingAssetProductCategory | string | null;
     approvalStatus?: MarketingAssetApprovalStatus | null;
     width?: number | null;
@@ -550,6 +561,19 @@ export const marketingAssetStore = {
       });
     }
     const checksum = input.checksum ?? checksumOf(input.url);
+    const duplicate = findMarketingAssetChecksumDuplicate(assets.values(), {
+      organizationId,
+      checksum,
+      exceptId: input.id,
+    });
+    if (duplicate) {
+      throw Object.assign(
+        new Error(
+          `This image is already in the library as "${duplicate.name}" (${duplicate.approvalStatus}${duplicate.archived ? ", archived" : ""}).`,
+        ),
+        { statusCode: 409, code: "ASSET_DUPLICATE", assetId: duplicate.id },
+      );
+    }
     const assessment = isMarketingVisualImageMime(mimeType)
       ? assessMarketingImageAsset({
           mimeType,
@@ -600,6 +624,7 @@ export const marketingAssetStore = {
       uploadedByUserId: input.uploadedByUserId ?? prev?.uploadedByUserId ?? null,
       uploadedAt: prev && prevPayload === input.url ? prev.uploadedAt : ts,
       tags: input.tags ?? prev?.tags ?? [],
+      rights: normalizeMarketingAssetRights(input.rights ?? prev?.rights ?? EMPTY_MARKETING_ASSET_RIGHTS),
       productCategory,
       approvalStatus: input.approvalStatus ?? prev?.approvalStatus ?? "DRAFT",
       altText,
@@ -646,6 +671,14 @@ export const marketingAssetStore = {
     if (!prev) {
       throw Object.assign(new Error("Asset not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
+    if (prev.approvalStatus === "APPROVED" || marketingAssetIsReferenced(prev)) {
+      throw Object.assign(
+        new Error(
+          "This image cannot be replaced. Upload a new image so mail already sent keeps the current picture and checksum.",
+        ),
+        { statusCode: 409, code: "ASSET_REPLACE_FORBIDDEN" },
+      );
+    }
     return this.upsert({
       id,
       organizationId,
@@ -677,6 +710,7 @@ export const marketingAssetStore = {
     if (!a) {
       throw Object.assign(new Error("Asset not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
+    assertMarketingAssetApprovalTransition(a.approvalStatus, approvalStatus);
     if (
       approvalStatus === "APPROVED" &&
       marketingAssetRequiresAltText(a.mimeType) &&

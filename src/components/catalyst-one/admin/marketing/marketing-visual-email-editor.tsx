@@ -5,7 +5,7 @@
  * Structured document is SSOT. HTML is derived and sanitised.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,9 +37,14 @@ import {
   applyMarketingAssetToImageBlock,
   consumeMarketingSelectedAsset,
 } from "@/lib/enterprise-marketing-engine/asset-select";
-import { MARKETING_ASSET_IMAGE_BLOCK_TYPES } from "@/constants/enterprise-marketing-engine/assets";
+import { MARKETING_ASSET_IMAGE_BLOCK_TYPES, MARKETING_ASSET_PRODUCT_CATEGORIES } from "@/constants/enterprise-marketing-engine/assets";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { paginateMarketingCollection } from "@/lib/enterprise-marketing-engine/ux-pagination";
+import {
+  filterApprovedMarketingPickerImages,
+  marketingAssetCollectionLabel,
+} from "@/lib/enterprise-marketing-engine/asset-library";
+import { prepareMarketingUploadImage } from "@/lib/enterprise-marketing-engine/asset-image-prepare";
 import type { MarketingContentDocument, MarketingAsset } from "@/types/enterprise-marketing-campaign";
 import type { MarketingPersonalizationToken } from "@/constants/enterprise-marketing-engine/content";
 import { MarketingUxPagination } from "./marketing-ux-pagination";
@@ -495,17 +500,23 @@ function AssetLibraryPicker({ onPick }: { onPick: (asset: MarketingAsset) => voi
   const [assets, setAssets] = useState<MarketingAsset[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [product, setProduct] = useState("all");
+  const [collection, setCollection] = useState("all");
+  const [uploadNote, setUploadNote] = useState("");
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await authenticatedJsonFetch(
-        "/api/admin/marketing/assets?approvalStatus=APPROVED&assetType=image",
-      );
+      const res = await authenticatedJsonFetch("/api/admin/marketing/assets?approvalStatus=APPROVED");
       const body = (await res.json()) as { success?: boolean; data?: { assets: MarketingAsset[] } };
       setAssets(
         (body.data?.assets ?? []).filter(
-          (asset) => asset.approvalStatus === "APPROVED" && asset.assetType === "image",
+          (asset) =>
+            asset.approvalStatus === "APPROVED" &&
+            !asset.archived &&
+            asset.mimeType.startsWith("image/"),
         ),
       );
       setPage(1);
@@ -515,34 +526,146 @@ function AssetLibraryPicker({ onPick }: { onPick: (asset: MarketingAsset) => voi
     }
   }
 
-  const paged = paginateMarketingCollection(assets, page, MARKETING_ASSET_LIBRARY_PAGE_SIZE);
+  async function uploadNew(file: File | null) {
+    if (!file) return;
+    setUploadNote("");
+    try {
+      const prepared = await prepareMarketingUploadImage(file, { frame: "original", focal: "center" });
+      const title = file.name.replace(/\.[^.]+$/, "") || "Image";
+      const res = await authenticatedJsonFetch("/api/admin/marketing/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upload",
+          title,
+          name: title,
+          mimeType: prepared.mimeType,
+          category: "hero",
+          assetType: "image",
+          productCategory: "Unspecified",
+          url: prepared.dataUrl,
+          byteSize: prepared.byteSize,
+          altText: "",
+          filename: prepared.filename,
+          width: prepared.width,
+          height: prepared.height,
+        }),
+      });
+      const body = (await res.json()) as { success?: boolean; data?: { asset?: MarketingAsset }; error?: { message?: string } };
+      if (!res.ok || !body.success || body.data?.asset?.approvalStatus !== "DRAFT") {
+        setUploadNote(body.error?.message || "Image was not saved as a draft");
+        return;
+      }
+      setUploadNote(`${title} saved as a draft. Submit it for review in the Asset Library. It cannot be selected until it is approved.`);
+    } catch (error) {
+      setUploadNote(error instanceof Error ? error.message : "Upload failed");
+    }
+  }
+
+  const collections = Array.from(
+    new Set(assets.map((asset) => marketingAssetCollectionLabel(asset.tags)).filter(Boolean)),
+  ).sort();
+  const visible = filterApprovedMarketingPickerImages(assets, {
+    search,
+    productCategory: product,
+    collection,
+  });
+  const paged = paginateMarketingCollection(visible, page, MARKETING_ASSET_LIBRARY_PAGE_SIZE);
 
   return (
     <div className="space-y-2">
-      <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => void load()}>
-        Browse Asset Library
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => void load()}>
+          Browse Asset Library
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => uploadRef.current?.click()}>
+          Upload New Image
+        </Button>
+        <input
+          ref={uploadRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(event) => {
+            void uploadNew(event.target.files?.[0] ?? null);
+            event.target.value = "";
+          }}
+        />
+      </div>
+      {uploadNote ? <p className="text-xs text-muted-foreground">{uploadNote}</p> : null}
       {open ? (
-        <div className="max-h-40 space-y-1 overflow-auto rounded-md border p-2" role="listbox" aria-label="Asset library">
-          {assets.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No assets in this organisation.</p>
+        <div className="max-h-80 space-y-2 overflow-auto rounded-md border p-2" role="listbox" aria-label="Approved marketing images">
+          <Input
+            aria-label="Search approved images"
+            value={search}
+            placeholder="Search title, tag, or alt text"
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+          />
+          <select
+            aria-label="Image category"
+            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+            value={product}
+            onChange={(event) => {
+              setProduct(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">All categories</option>
+            {MARKETING_ASSET_PRODUCT_CATEGORIES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Image collection"
+            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+            value={collection}
+            onChange={(event) => {
+              setCollection(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">All collections</option>
+            {collections.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <a href="/admin/marketing/assets" className="inline-block text-xs underline">
+            Open Asset Library to review drafts
+          </a>
+          {visible.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No approved images match.</p>
           ) : (
             <>
-              {paged.slice.map((asset) => (
-                <button
-                  key={asset.id}
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  className="block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted"
-                  onClick={() => {
-                    onPick(asset);
-                    setOpen(false);
-                  }}
-                >
-                  {asset.name} · {asset.assetType}
-                </button>
-              ))}
+              {paged.slice.map((asset) => {
+                const thumb = asset.previewUrl?.startsWith("data:") ? asset.previewUrl : asset.url;
+                return (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted"
+                    onClick={() => {
+                      onPick(asset);
+                      setOpen(false);
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={thumb} alt="" className="h-10 w-14 rounded object-cover" />
+                    <span className="min-w-0 truncate">
+                      {asset.name} · {asset.productCategory}
+                      {marketingAssetCollectionLabel(asset.tags) ? ` · ${marketingAssetCollectionLabel(asset.tags)}` : ""}
+                    </span>
+                  </button>
+                );
+              })}
               <MarketingUxPagination
                 page={paged.page}
                 totalPages={paged.totalPages}

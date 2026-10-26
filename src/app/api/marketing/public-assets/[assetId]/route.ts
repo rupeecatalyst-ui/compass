@@ -1,7 +1,8 @@
 /**
  * Public Marketing image bytes for email clients (Gmail / Outlook).
- * No authentication. Approved, active images only. Checksum required.
- * Not Document Registry. DRAFT / REJECTED / archived assets are not served.
+ * No authentication. Approved images only. Checksum required.
+ * Not Document Registry. DRAFT and REJECTED assets are not served.
+ * Archiving an approved image hides it from new campaigns and keeps the checksum URL.
  */
 
 import { NextResponse } from "next/server";

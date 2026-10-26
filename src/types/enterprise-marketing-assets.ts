@@ -9,6 +9,7 @@ import type {
   MarketingAssetType,
 } from "@/constants/enterprise-marketing-engine/assets";
 import type { MarketingAssetCategory } from "@/constants/enterprise-marketing-engine/content";
+import type { MarketingAssetRights } from "@/lib/enterprise-marketing-engine/asset-rights";
 
 export type MarketingAssetUsageKind = "campaign" | "template";
 
@@ -62,6 +63,7 @@ export type MarketingAssetRecord = {
   uploadedByUserId: string | null;
   uploadedAt: string;
   tags: string[];
+  rights: MarketingAssetRights;
   productCategory: MarketingAssetProductCategory;
   approvalStatus: MarketingAssetApprovalStatus;
   altText: string;

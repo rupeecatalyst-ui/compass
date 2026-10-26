@@ -20,6 +20,7 @@ import type {
 } from "@/constants/enterprise-marketing-engine/assets";
 import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
 import { marketingAssetService } from "@server/services/enterprise-marketing-engine";
+import { normalizeMarketingAssetRights } from "@/lib/enterprise-marketing-engine/asset-rights";
 
 function requireAdministrator(actor: { role: string }) {
   if (actor.role !== "SUPER_ADMIN" && actor.role !== "ADMIN") {
@@ -106,6 +107,12 @@ export async function POST(request: Request) {
       active?: boolean;
       altText?: string;
       productCategory?: MarketingAssetProductCategory;
+      rights?: {
+        source?: string;
+        license?: string;
+        attribution?: string;
+        restrictions?: string;
+      };
       width?: number | null;
       height?: number | null;
       filename?: string;
@@ -180,6 +187,7 @@ export async function POST(request: Request) {
       url: body.url,
       byteSize: body.byteSize,
       altText: body.altText,
+      rights: body.rights ? normalizeMarketingAssetRights(body.rights) : undefined,
       productCategory: body.productCategory,
       width: body.width,
       height: body.height,

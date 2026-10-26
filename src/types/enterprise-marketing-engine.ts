@@ -115,6 +115,7 @@ export type MarketingAuditEventKind =
   | "campaign.complete"
   | "campaign.cancel"
   | "asset.upload"
+  | "asset.approval"
   | "asset.archive"
   | "asset.replace"
   | "asset.version"

@@ -2,7 +2,7 @@
  * CO-MARKETING-REDESIGN-011 — Marketing Asset Library constants.
  * Campaign collateral only. Not the Enterprise Document Registry.
  * Durable Prisma storage (EnterpriseMarketingAsset). Public bytes are
- * served only for approved, non-archived images.
+ * served only for approved images. Archived approved images remain at the same checksum URL.
  */
 
 export const MARKETING_ASSET_TYPES = [
@@ -118,4 +118,4 @@ export const MARKETING_ASSET_DOCUMENT_REGISTRY_NOTICE =
   "Marketing Asset Library is campaign collateral only. Transaction documents remain in the Enterprise Document Registry." as const;
 
 export const MARKETING_ASSET_FIXTURE_NOTICE =
-  "Asset bytes persist in Catalyst One Prisma (EnterpriseMarketingAsset). Public retrieval is limited to approved, non-archived images. Nothing is uploaded to a Hostinger file host or CDN." as const;
+  "Asset bytes persist in Catalyst One Prisma (EnterpriseMarketingAsset). Public retrieval is limited to approved images. Archiving hides an image from new campaigns and keeps its public URL. Nothing is uploaded to a Hostinger file host or CDN." as const;

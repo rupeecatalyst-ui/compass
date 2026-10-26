@@ -18,6 +18,7 @@ import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/p
 import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 import { filterMarketingAssetLibrary } from "@/lib/enterprise-marketing-engine/asset-library";
 import { forbidDestructiveMarketingAssetDelete } from "@/lib/enterprise-marketing-engine/asset-usage";
+import type { MarketingAssetRights } from "@/lib/enterprise-marketing-engine/asset-rights";
 import { recordMarketingAuditEvent } from "./audit";
 import { marketingAssetStore } from "./asset-store";
 import type { MarketingAssetSelectPayload } from "@/types/enterprise-marketing-assets";
@@ -94,6 +95,7 @@ export const marketingAssetService = {
       assetType?: MarketingAssetType | string | null;
       name?: string;
       altText?: string | null;
+      rights?: MarketingAssetRights | null;
       productCategory?: MarketingAssetProductCategory | string | null;
       width?: number | null;
       height?: number | null;
@@ -121,6 +123,7 @@ export const marketingAssetService = {
       url: input.url,
       byteSize,
       altText: input.altText,
+      rights: input.rights,
       productCategory: input.productCategory,
       width: input.width,
       height: input.height,
@@ -131,7 +134,14 @@ export const marketingAssetService = {
       kind: "asset.upload",
       actorUserId: actor.userId ?? null,
       organizationId,
-      detail: { assetId: asset.id, storageRef: asset.storageRef, storageProvider: asset.storageProvider },
+      detail: {
+        assetId: asset.id,
+        storageRef: asset.storageRef,
+        storageProvider: asset.storageProvider,
+        sourceUrl: asset.rights.sourceUrl || null,
+        license: asset.rights.license || null,
+        commercialEmail: asset.rights.commercialEmail || null,
+      },
     });
     return asset;
   },
@@ -210,12 +220,30 @@ export const marketingAssetService = {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ASSET_MANAGE);
     const organizationId = orgId(actor.organizationId);
-    return await marketingAssetStore.setApproval(assetId, organizationId, approvalStatus);
+    const current = await this.get(actor, assetId);
+    const asset = await marketingAssetStore.setApproval(assetId, organizationId, approvalStatus);
+    recordMarketingAuditEvent({
+      kind: "asset.approval",
+      actorUserId: actor.userId ?? null,
+      organizationId,
+      objectType: "marketing_asset",
+      objectId: assetId,
+      previousState: current.approvalStatus,
+      resultingState: asset.approvalStatus,
+      detail: { assetId, from: current.approvalStatus, to: asset.approvalStatus },
+    });
+    return asset;
   },
 
   async selectForCampaign(actor: Actor, assetId: string): Promise<MarketingAssetSelectPayload> {
     assertNoSend();
     const asset = await this.get(actor, assetId);
+    if (asset.approvalStatus !== "APPROVED" || asset.archived) {
+      throw Object.assign(new Error("Only an approved image can be selected for a campaign."), {
+        statusCode: 400,
+        code: "ASSET_NOT_APPROVED",
+      });
+    }
     const payload: MarketingAssetSelectPayload = {
       assetId: asset.id,
       organizationId: asset.organizationId,

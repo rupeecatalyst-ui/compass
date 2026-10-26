@@ -6,7 +6,7 @@
  * Durable Prisma storage. Public retrieval remains approved images only.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
@@ -41,9 +41,16 @@ import {
   MARKETING_ASSET_TYPE_LABELS,
   MARKETING_ASSET_TYPES,
   MARKETING_TEST_MODE_BANNER,
+  type MarketingAssetApprovalStatus,
 } from "@/constants/enterprise-marketing-engine";
 import { rememberMarketingSelectedAsset } from "@/lib/enterprise-marketing-engine/asset-select";
 import { isAllowedMarketingAssetMime } from "@/lib/enterprise-marketing-engine/asset-mime";
+import {
+  prepareMarketingUploadImage,
+  type MarketingImageFocal,
+  type MarketingImageFrame,
+  type PreparedMarketingUploadImage,
+} from "@/lib/enterprise-marketing-engine/asset-image-prepare";
 import { paginateMarketingCollection } from "@/lib/enterprise-marketing-engine/ux-pagination";
 import type { MarketingAsset } from "@/types/enterprise-marketing-campaign";
 import type { MarketingAssetSelectPayload } from "@/types/enterprise-marketing-assets";
@@ -53,6 +60,14 @@ import { toast } from "sonner";
 import "@/styles/marketing-command-centre.css";
 
 type ApiEnvelope<T> = { success: boolean; data?: T; error?: { message?: string } };
+
+type ImageQueueItem = PreparedMarketingUploadImage & {
+  key: string;
+  title: string;
+  altText: string;
+};
+
+type UploadFileResult = { key: string; title: string; ok: boolean; detail: string };
 
 function isVisual(asset: MarketingAsset) {
   const preview = asset.previewUrl ?? "";
@@ -98,6 +113,18 @@ export function MarketingAssetsPanel() {
   const [productFilter, setProductFilter] = useState("all");
   const [approvalFilter, setApprovalFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [rightsSourceUrl, setRightsSourceUrl] = useState("");
+  const [rightsLicense, setRightsLicense] = useState("");
+  const [rightsCommercialEmail, setRightsCommercialEmail] = useState("");
+  const [rightsAttribution, setRightsAttribution] = useState("");
+  const [rightsRestrictions, setRightsRestrictions] = useState("");
+  const [rightsEvidence, setRightsEvidence] = useState("");
+  const [frame, setFrame] = useState<MarketingImageFrame>("original");
+  const [focal, setFocal] = useState<MarketingImageFocal>("center");
+  const [queue, setQueue] = useState<ImageQueueItem[]>([]);
+  const [uploadReport, setUploadReport] = useState<UploadFileResult[]>([]);
+  const singleFileRef = useRef<HTMLInputElement>(null);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -161,6 +188,105 @@ export function MarketingAssetsPanel() {
     reader.readAsDataURL(file);
   };
 
+  const onImageFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const prepared: ImageQueueItem[] = [];
+    const prepareFailures: UploadFileResult[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const image = await prepareMarketingUploadImage(file, { frame, focal });
+        prepared.push({
+          ...image,
+          key: `${file.name}-${file.size}-${file.lastModified}-${prepared.length}`,
+          title: file.name.replace(/\.[^.]+$/, "") || "Image",
+          altText: "",
+        });
+      } catch (e) {
+        prepareFailures.push({
+          key: `prepare-${file.name}-${prepareFailures.length}`,
+          title: file.name,
+          ok: false,
+          detail: e instanceof Error ? e.message : "Could not prepare this image",
+        });
+      }
+    }
+    if (prepared.length) setQueue((current) => [...current, ...prepared]);
+    if (prepareFailures.length) setUploadReport((current) => [...prepareFailures, ...current]);
+  };
+
+  const imageRights = () => ({
+    sourceUrl: rightsSourceUrl,
+    license: rightsLicense,
+    commercialEmail: rightsCommercialEmail,
+    attribution: rightsAttribution,
+    restrictions: rightsRestrictions,
+    evidenceReference: rightsEvidence,
+  });
+
+  const saveImageDrafts = async () => {
+    if (!queue.length) return;
+    setBusy(true);
+    const results: UploadFileResult[] = [];
+    const failedKeys = new Set<string>();
+    try {
+      for (const item of queue) {
+        const res = await authenticatedJsonFetch("/api/admin/marketing/assets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "upload",
+            title: item.title,
+            name: item.title,
+            mimeType: item.mimeType,
+            category,
+            assetType: "image",
+            productCategory,
+            tags: tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean),
+            url: item.dataUrl,
+            byteSize: item.byteSize,
+            altText: item.altText,
+            filename: item.filename,
+            width: item.width,
+            height: item.height,
+            rights: imageRights(),
+          }),
+        });
+        const body = (await res.json()) as ApiEnvelope<{ asset: MarketingAsset }>;
+        if (!res.ok || !body.success || !body.data?.asset) {
+          const detail = body.error?.message || "Upload failed";
+          failedKeys.add(item.key);
+          results.push({ key: item.key, title: item.title, ok: false, detail });
+        } else if (body.data.asset.approvalStatus !== "DRAFT") {
+          failedKeys.add(item.key);
+          results.push({
+            key: item.key,
+            title: item.title,
+            ok: false,
+            detail: "Upload did not remain a draft",
+          });
+        } else {
+          results.push({ key: item.key, title: item.title, ok: true, detail: "Saved as draft" });
+        }
+      }
+      setUploadReport(results);
+      const saved = results.filter((row) => row.ok).length;
+      const failed = results.length - saved;
+      if (saved) {
+        toast.success(`${saved} image${saved === 1 ? "" : "s"} saved as draft`);
+        setQueue((current) => current.filter((row) => failedKeys.has(row.key)));
+        await load();
+      }
+      if (failed) toast.error(`${failed} image${failed === 1 ? "" : "s"} not saved`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveAsset = async () => {
     if (!title.trim() || !url.trim()) {
       toast.error("Name and file/URL are required");
@@ -188,6 +314,7 @@ export function MarketingAssetsPanel() {
           url,
           altText,
           filename,
+            rights: imageRights(),
         }),
       });
       const body = (await res.json()) as ApiEnvelope<{ asset: MarketingAsset }>;
@@ -230,7 +357,7 @@ export function MarketingAssetsPanel() {
     }
   };
 
-  const setApproval = async (assetId: string, approvalStatus: "APPROVED" | "REJECTED") => {
+  const setApproval = async (assetId: string, approvalStatus: MarketingAssetApprovalStatus) => {
     setBusy(true);
     try {
       const res = await authenticatedJsonFetch("/api/admin/marketing/assets", {
@@ -242,7 +369,13 @@ export function MarketingAssetsPanel() {
       if (!res.ok || !body.success) {
         throw new Error(body.error?.message || "Approval update failed");
       }
-      toast.success(approvalStatus === "APPROVED" ? "Asset approved" : "Asset rejected");
+      const labels: Record<MarketingAssetApprovalStatus, string> = {
+        APPROVED: "Image approved",
+        REJECTED: "Image rejected",
+        PENDING_REVIEW: "Submitted for review",
+        DRAFT: "Returned to draft",
+      };
+      toast.success(labels[approvalStatus]);
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Approval update failed");
@@ -379,8 +512,67 @@ export function MarketingAssetsPanel() {
                 {replaceId ? "Replace / version" : "Upload preparation"}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Max {Math.round(MARKETING_ASSET_MAX_BYTES / 1000)} KB. Images need alt text before campaign approval.
+                Max {Math.round(MARKETING_ASSET_MAX_BYTES / 1000)} KB. New images stay in Draft until they are submitted for review and approved. Alt text is required before approval.
               </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" onClick={() => singleFileRef.current?.click()}>
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Upload Image
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => bulkFileRef.current?.click()}>
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Bulk Upload
+              </Button>
+              <input
+                ref={singleFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  void onImageFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <input
+                ref={bulkFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void onImageFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-frame">Frame</Label>
+                <Select value={frame} onValueChange={(value) => setFrame(value as MarketingImageFrame)}>
+                  <SelectTrigger id="mkt-asset-frame">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="original">Original</SelectItem>
+                    <SelectItem value="hero">Hero 16:9</SelectItem>
+                    <SelectItem value="card">Card square</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-focal">Position</Label>
+                <Select value={focal} onValueChange={(value) => setFocal(value as MarketingImageFocal)}>
+                  <SelectTrigger id="mkt-asset-focal">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="top">Top</SelectItem>
+                    <SelectItem value="center">Center</SelectItem>
+                    <SelectItem value="bottom">Bottom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mkt-asset-name">Asset name</Label>
@@ -446,7 +638,42 @@ export function MarketingAssetsPanel() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mkt-asset-tags">Tags (comma-separated)</Label>
-              <Input id="mkt-asset-tags" value={tags} onChange={(e) => setTags(e.target.value)} />
+              <Input id="mkt-asset-tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="collection:home-loans, placement:hero" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-source">Source URL</Label>
+                <Input id="mkt-asset-source" value={rightsSourceUrl} onChange={(e) => setRightsSourceUrl(e.target.value)} placeholder="https://…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-license">License</Label>
+                <Input id="mkt-asset-license" value={rightsLicense} onChange={(e) => setRightsLicense(e.target.value)} placeholder="License name" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-commercial">Commercial email permission</Label>
+                <Select value={rightsCommercialEmail || "unrecorded"} onValueChange={(value) => setRightsCommercialEmail(value === "unrecorded" ? "" : value)}>
+                  <SelectTrigger id="mkt-asset-commercial">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unrecorded">Not recorded</SelectItem>
+                    <SelectItem value="yes">Permitted</SelectItem>
+                    <SelectItem value="no">Not permitted</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-evidence">Evidence reference</Label>
+                <Input id="mkt-asset-evidence" value={rightsEvidence} onChange={(e) => setRightsEvidence(e.target.value)} placeholder="Receipt or authorization id" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-attribution">Attribution</Label>
+                <Input id="mkt-asset-attribution" value={rightsAttribution} onChange={(e) => setRightsAttribution(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mkt-asset-restrictions">Usage restrictions</Label>
+                <Input id="mkt-asset-restrictions" value={rightsRestrictions} onChange={(e) => setRightsRestrictions(e.target.value)} />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mkt-asset-alt">Accessibility alt text</Label>
@@ -481,7 +708,56 @@ export function MarketingAssetsPanel() {
                 </Button>
               ) : null}
             </div>
+            {queue.length ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  {queue.length} image{queue.length === 1 ? "" : "s"} ready. Add a title and alt text, then save as draft. There is no library size cap.
+                </p>
+                {queue.map((item) => (
+                  <div key={item.key} className="flex gap-3 rounded-md border p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.dataUrl} alt={item.altText || item.title} className="h-16 w-24 rounded object-cover" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Input
+                        aria-label={`Title for ${item.filename}`}
+                        value={item.title}
+                        onChange={(e) =>
+                          setQueue((current) =>
+                            current.map((row) => (row.key === item.key ? { ...row, title: e.target.value } : row)),
+                          )
+                        }
+                      />
+                      <Input
+                        aria-label={`Alt text for ${item.filename}`}
+                        value={item.altText}
+                        placeholder="Alt text"
+                        onChange={(e) =>
+                          setQueue((current) =>
+                            current.map((row) => (row.key === item.key ? { ...row, altText: e.target.value } : row)),
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {uploadReport.length ? (
+              <ul className="space-y-1 text-xs" aria-label="Upload results">
+                {uploadReport.map((row) => (
+                  <li key={row.key} className={row.ok ? "text-foreground" : "text-destructive"}>
+                    {row.ok ? "Saved as draft" : "Not saved"} — {row.title}: {row.detail}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <div className="flex flex-wrap gap-2">
+              {queue.length ? (
+                <Button size="sm" disabled={busy} onClick={() => void saveImageDrafts()}>
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  Save {queue.length} draft{queue.length === 1 ? "" : "s"}
+                </Button>
+              ) : null}
               <Button size="sm" disabled={busy} onClick={() => void saveAsset()}>
                 <Upload className="mr-1.5 h-3.5 w-3.5" />
                 {replaceId ? "Save new version" : "Save asset"}
@@ -535,7 +811,10 @@ export function MarketingAssetsPanel() {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {a.mimeType} · {a.fileSize} B · v{a.currentVersionNumber} · {a.storageProvider}
+                      Source {a.rights?.sourceUrl || "not recorded"} · License {a.rights?.license || "not recorded"} · Commercial email {a.rights?.commercialEmail || "not recorded"}
+                      {a.rights?.attribution ? ` · Attribution ${a.rights.attribution}` : ""}
+                      {a.rights?.restrictions ? ` · Restrictions ${a.rights.restrictions}` : ""}
+                      {a.rights?.evidenceReference ? ` · Evidence ${a.rights.evidenceReference}` : ""}
                     </p>
                     {a.usageReferences.length ? (
                       <div className="text-xs text-muted-foreground">
@@ -548,7 +827,17 @@ export function MarketingAssetsPanel() {
                       <p className="text-xs text-muted-foreground">No campaign or template usage yet.</p>
                     )}
                     <div className="mt-auto flex flex-wrap gap-2">
-                      {a.approvalStatus !== "APPROVED" && !a.archived ? (
+                      {(a.approvalStatus === "DRAFT" || a.approvalStatus === "REJECTED") && !a.archived ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void setApproval(a.id, "PENDING_REVIEW")}
+                        >
+                          Submit for review
+                        </Button>
+                      ) : null}
+                      {a.approvalStatus === "PENDING_REVIEW" && !a.archived ? (
                         <Button
                           type="button"
                           size="sm"
@@ -559,7 +848,18 @@ export function MarketingAssetsPanel() {
                           Approve
                         </Button>
                       ) : null}
-                      {a.approvalStatus !== "REJECTED" && !a.archived ? (
+                      {a.approvalStatus === "PENDING_REVIEW" && !a.archived ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void setApproval(a.id, "DRAFT")}
+                        >
+                          Return to draft
+                        </Button>
+                      ) : null}
+                      {a.approvalStatus !== "APPROVED" && a.approvalStatus !== "REJECTED" && !a.archived ? (
                         <Button
                           type="button"
                           variant="outline"
@@ -571,6 +871,11 @@ export function MarketingAssetsPanel() {
                           Reject
                         </Button>
                       ) : null}
+                      {a.approvalStatus === "PENDING_REVIEW" ? (
+                        <p className="w-full text-xs text-muted-foreground">
+                          Recorded rights are notes for the reviewer. They are not a legal approval. Approve only after a person has checked the image and its rights.
+                        </p>
+                      ) : null}
                       <Button
                         type="button"
                         size="sm"
@@ -580,7 +885,18 @@ export function MarketingAssetsPanel() {
                       >
                         Select for campaign
                       </Button>
-                      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => beginReplace(a)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy || a.approvalStatus === "APPROVED" || a.usageReferences.length > 0}
+                        title={
+                          a.approvalStatus === "APPROVED" || a.usageReferences.length
+                            ? "Upload a new image. This picture stays available for mail already sent."
+                            : undefined
+                        }
+                        onClick={() => beginReplace(a)}
+                      >
                         <Replace className="mr-1 h-3 w-3" />
                         Replace
                       </Button>
@@ -635,7 +951,23 @@ export function MarketingAssetsPanel() {
                 <p className="text-sm text-muted-foreground">Preview available for images only.</p>
               )}
             </div>
-            <p className="text-sm">{preview.altText || "No alt text yet — required before campaign approval."}</p>
+            <p className="text-sm">{preview.altText || "No alt text yet — required before approval."}</p>
+            <p className="text-xs text-muted-foreground">
+              Source URL: {preview.rights?.sourceUrl || "Not recorded"}
+              <br />
+              License: {preview.rights?.license || "Not recorded"}
+              <br />
+              Commercial email permission: {preview.rights?.commercialEmail || "Not recorded"}
+              <br />
+              Attribution: {preview.rights?.attribution || "Not recorded"}
+              <br />
+              Restrictions: {preview.rights?.restrictions || "Not recorded"}
+              <br />
+              Evidence: {preview.rights?.evidenceReference || "Not recorded"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Recorded rights are notes for the reviewer. They are not a legal approval. A person must review the image before it is approved.
+            </p>
             <div className="text-xs text-muted-foreground">
               Usage history:{" "}
               {preview.usageReferences.length

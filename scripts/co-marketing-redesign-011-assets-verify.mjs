@@ -326,6 +326,19 @@ assert.ok(
   "template usage missing",
 );
 
+let replaceBlocked = false;
+try {
+  await assetMod.marketingAssetService.replace(orgA, png.id, {
+    url: "https://example.com/banner-v3.png",
+    mimeType: "image/png",
+    byteSize: 1500,
+    altText: "Should not replace a referenced image",
+  });
+} catch (err) {
+  replaceBlocked = err?.code === "ASSET_REPLACE_FORBIDDEN";
+}
+assert.equal(replaceBlocked, true, "a referenced image cannot be replaced");
+
 let deleteBlocked = false;
 try {
   assetMod.marketingAssetService.delete(orgA, png.id);
@@ -414,6 +427,7 @@ assert.equal(
 
 let assetApproveBlocked = false;
 try {
+  await storeMod.marketingAssetStore.setApproval(pdf.id, orgA.organizationId, "PENDING_REVIEW");
   await storeMod.marketingAssetStore.setApproval(pdf.id, orgA.organizationId, "APPROVED");
   const imageNoAlt = await assetMod.marketingAssetService.upload(orgA, {
     title: "No alt",
@@ -423,6 +437,7 @@ try {
     byteSize: 100,
     altText: "",
   });
+  await assetMod.marketingAssetService.setApproval(orgA, imageNoAlt.id, "PENDING_REVIEW");
   await assetMod.marketingAssetService.setApproval(orgA, imageNoAlt.id, "APPROVED");
 } catch (err) {
   assetApproveBlocked = err?.code === "ASSET_ALT_TEXT_REQUIRED";
@@ -532,7 +547,24 @@ assert.ok(logo.storageRef.startsWith("fixture://marketing-assets/"));
 assert.equal(logo.approvalStatus, "DRAFT");
 assert.ok(logo.previewUrl.startsWith("data:image/"), "authorised library preview must keep payload for DRAFT");
 
-const selectedLogo = await assetMod.marketingAssetService.selectForCampaign(orgA, logo.id);
+let draftSelectBlocked = false;
+try {
+  await assetMod.marketingAssetService.selectForCampaign(orgA, logo.id);
+} catch (err) {
+  draftSelectBlocked = err?.code === "ASSET_NOT_APPROVED";
+}
+assert.equal(draftSelectBlocked, true, "draft images cannot be selected for a campaign");
+assert.equal(
+  await storeMod.marketingAssetStore.getPublicImage(logo.id, logo.checksum),
+  null,
+  "DRAFT images must not be served anonymously",
+);
+
+const reviewedLogo = await assetMod.marketingAssetService.setApproval(orgA, logo.id, "PENDING_REVIEW");
+assert.equal(reviewedLogo.approvalStatus, "PENDING_REVIEW");
+const selectedLogo = await assetMod.marketingAssetService.setApproval(orgA, logo.id, "APPROVED").then(() =>
+  assetMod.marketingAssetService.selectForCampaign(orgA, logo.id),
+);
 assert.equal(selectedLogo.url, logo.url);
 assert.equal(selectedLogo.url.startsWith("data:"), false);
 
@@ -557,19 +589,30 @@ const deliveryHtml = renderMod.renderMarketingEmailHtml({
 assert.ok(deliveryHtml.includes(`src="${selectedLogo.url}"`), "delivery HTML must include the public logo URL");
 assert.equal(deliveryHtml.includes("data:image"), false, "delivery HTML must not inline data: image URLs");
 
+const draftToReject = await assetMod.marketingAssetService.upload(orgA, {
+  title: "Unapproved draft to reject",
+  mimeType: "image/png",
+  category: "banner",
+  url: "https://example.com/unapproved-draft-reject.png",
+  byteSize: 90,
+  altText: "Draft",
+});
+const rejectedDraft = await assetMod.marketingAssetService.setApproval(orgA, draftToReject.id, "REJECTED");
+assert.equal(rejectedDraft.approvalStatus, "REJECTED");
 assert.equal(
-  await storeMod.marketingAssetStore.getPublicImage(logo.id, logo.checksum),
-  null,
-  "DRAFT images must not be served anonymously",
-);
-const rejectedLogo = await assetMod.marketingAssetService.setApproval(orgA, logo.id, "REJECTED");
-assert.equal(rejectedLogo.approvalStatus, "REJECTED");
-assert.equal(
-  await storeMod.marketingAssetStore.getPublicImage(rejectedLogo.id, rejectedLogo.checksum),
+  await storeMod.marketingAssetStore.getPublicImage(rejectedDraft.id, rejectedDraft.checksum),
   null,
   "REJECTED images must not be served anonymously",
 );
-const approvedLogo = await assetMod.marketingAssetService.setApproval(orgA, logo.id, "APPROVED");
+
+let approvedRejectBlocked = false;
+try {
+  await assetMod.marketingAssetService.setApproval(orgA, logo.id, "REJECTED");
+} catch (err) {
+  approvedRejectBlocked = err?.code === "ASSET_APPROVAL_LOCKED";
+}
+assert.equal(approvedRejectBlocked, true, "an approved image cannot be rejected");
+const approvedLogo = await assetMod.marketingAssetService.get(orgA, logo.id);
 assert.equal(approvedLogo.approvalStatus, "APPROVED");
 assert.equal(approvedLogo.checksum.length, 64, "checksum must be full SHA-256 of image bytes");
 const publicBytes = await storeMod.marketingAssetStore.getPublicImage(approvedLogo.id, approvedLogo.checksum);
@@ -579,11 +622,18 @@ assert.ok(publicBytes.bytes.length > 0);
 const wrongChecksum = await storeMod.marketingAssetStore.getPublicImage(approvedLogo.id, "deadbeef");
 assert.equal(wrongChecksum, null, "checksum mismatch must 404");
 const archivedLogo = await assetMod.marketingAssetService.archive(orgA, approvedLogo.id);
-assert.equal(
-  await storeMod.marketingAssetStore.getPublicImage(archivedLogo.id, archivedLogo.checksum),
-  null,
-  "archived images must not be served anonymously",
+const archivedBytes = await storeMod.marketingAssetStore.getPublicImage(
+  archivedLogo.id,
+  archivedLogo.checksum,
 );
+assert.ok(archivedBytes, "an archived approved image stays at its checksum URL for mail already sent");
+let archivedSelectBlocked = false;
+try {
+  await assetMod.marketingAssetService.selectForCampaign(orgA, archivedLogo.id);
+} catch (err) {
+  archivedSelectBlocked = err?.code === "ASSET_NOT_APPROVED";
+}
+assert.equal(archivedSelectBlocked, true, "archived images cannot be selected for a new campaign");
 
 const sanitisedDraft = visualMod.sanitizeMarketingContentDocument({
   version: 1,
@@ -675,6 +725,7 @@ const durableLogo = await assetMod.marketingAssetService.upload(orgA, {
   altText: "Rupee Catalyst",
 });
 assert.equal(durableLogo.id.startsWith("mkt-asset-"), true);
+await assetMod.marketingAssetService.setApproval(orgA, durableLogo.id, "PENDING_REVIEW");
 await assetMod.marketingAssetService.setApproval(orgA, durableLogo.id, "APPROVED");
 storeMod.marketingAssetStore.reset();
 const reloaded = await assetMod.marketingAssetService.get(orgA, durableLogo.id);
