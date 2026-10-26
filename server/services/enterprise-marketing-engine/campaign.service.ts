@@ -752,6 +752,7 @@ export const marketingCampaignService = {
           fromStatus: from,
           action,
           actorUserId: actor.userId ?? null,
+          batchPolicy: existing.batchPolicy,
         });
       } else if (action === "PAUSE") {
         marketingExecutionService.onPause(campaignId);

@@ -1,3 +1,5 @@
+import type { MarketingBatchPolicy } from "@/types/enterprise-marketing-execution";
+
 /**
  * CO-MARKETING-REDESIGN-001 — Durable operating-record contracts.
  * Framework-independent. Not a prospect database. Live send remains disabled.
@@ -198,6 +200,8 @@ export type MarketingDurableExecutionLeaseRecord = MarketingDurableActorStamp & 
   organizationId: string;
   campaignId: string;
   snapshotId: string | null;
+  /** Prisma column `batch_policy_json`. Required on create. Campaign delivery policy, not a default. */
+  batchPolicyJson: MarketingBatchPolicy;
   nextRunAt: string | null;
   streamCursor: string | null;
   lastCompletedBatchNumber: number | null;

@@ -5,12 +5,23 @@
 
 import type { MarketingCampaignAction, MarketingCampaignStatus } from "@/constants/enterprise-marketing-engine/lifecycle";
 import type { MarketingDurabilityPorts } from "@/types/enterprise-marketing-durability-ports";
+import type { MarketingBatchPolicy } from "@/types/enterprise-marketing-execution";
 import { assertMarketingActionAllowed } from "./lifecycle";
 import { assertMarketingLeasePauseTransition } from "./lease-state";
 import { isTerminalSuccessfulDelivery } from "./retry-policy";
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function requireCampaignBatchPolicy(policy: MarketingBatchPolicy | null | undefined): MarketingBatchPolicy {
+  if (!policy) {
+    throw Object.assign(new Error("Execution lease requires the campaign batch policy"), {
+      statusCode: 400,
+      code: "BATCH_POLICY_REQUIRED",
+    });
+  }
+  return policy;
 }
 
 export type MarketingOperationalControlAction = Extract<
@@ -25,6 +36,7 @@ export async function applyMarketingOperationalControl(input: {
   fromStatus: MarketingCampaignStatus;
   action: MarketingOperationalControlAction;
   actorUserId: string | null;
+  batchPolicy?: MarketingBatchPolicy | null;
   authorisedRestart?: boolean;
 }): Promise<{ toStatus: MarketingCampaignStatus; pauseState: string }> {
   if (input.action === "RESUME" && input.fromStatus === "STOPPED") {
@@ -48,6 +60,7 @@ export async function applyMarketingOperationalControl(input: {
         organizationId: input.organizationId,
         campaignId: input.campaignId,
         snapshotId: null,
+        batchPolicyJson: requireCampaignBatchPolicy(input.batchPolicy),
         nextRunAt: null,
         streamCursor: null,
         lastCompletedBatchNumber: null,
@@ -89,6 +102,7 @@ export async function applyMarketingOperationalControl(input: {
         organizationId: input.organizationId,
         campaignId: input.campaignId,
         snapshotId: null,
+        batchPolicyJson: requireCampaignBatchPolicy(input.batchPolicy),
         nextRunAt: null,
         streamCursor: null,
         lastCompletedBatchNumber: null,

@@ -202,6 +202,7 @@ async function ensureLease(
     snapshotId: string;
     now: Date;
     timezone: string;
+    batchPolicy: MarketingBatchPolicy;
   },
 ) {
   const existing = await ports.leases.getByCampaign(input.organizationId, input.campaignId);
@@ -212,6 +213,7 @@ async function ensureLease(
     organizationId: input.organizationId,
     campaignId: input.campaignId,
     snapshotId: input.snapshotId,
+    batchPolicyJson: input.batchPolicy,
     nextRunAt: ts,
     streamCursor: null,
     lastCompletedBatchNumber: null,
@@ -316,6 +318,7 @@ export async function runMarketingSnapshotPacingTick(input: {
     snapshotId: snapshot.id,
     now,
     timezone: policy.timezone,
+    batchPolicy: input.policy,
   });
 
   if (input.campaignStatus === "PAUSED" || lease.pauseState === "PAUSED") {

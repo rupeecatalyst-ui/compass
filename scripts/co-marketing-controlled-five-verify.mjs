@@ -480,6 +480,16 @@ assert.deepEqual(
 );
 assert.ok(calls.every((call) => call.name?.startsWith("Recipient") && call.city === "Pune"));
 
+const createdLease = await ports.leases.getByCampaign(ORG, "camp-five");
+assert.equal(createdLease.batchPolicyJson.batchSize, policy.batchSize);
+assert.equal(createdLease.batchPolicyJson.intervalMs, policy.intervalMs);
+assert.equal(createdLease.batchPolicyJson.dailyMax, policy.dailyMax);
+assert.equal(createdLease.batchPolicyJson.sendWindowStart, policy.sendWindowStart);
+assert.equal(createdLease.batchPolicyJson.sendWindowEnd, policy.sendWindowEnd);
+assert.equal(createdLease.batchPolicyJson.timezone, policy.timezone);
+assert.equal(createdLease.batchPolicyJson.startAt, policy.startAt);
+assert.equal(createdLease.batchPolicyJson.endAt, policy.endAt);
+
 const ledger = await ports.ledger.listByCampaign(ORG, "camp-five");
 const sent = ledger.filter((row) => row.status === "sent");
 assert.equal(sent.length, 5);
