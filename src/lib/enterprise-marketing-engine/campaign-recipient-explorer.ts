@@ -37,6 +37,7 @@ import {
   evaluateMarketingMonitoringRetry,
   resolveMarketingMonitoringNextAction,
 } from "./monitoring-retry";
+import { marketingMonitoringTimestampIso, marketingMonitoringTimestampMs } from "./monitoring-time";
 
 function relatedByIdentity<T extends { fingerprint?: string; identityFingerprint?: string; normalizedIdentity?: string; normalizedEmail?: string | null; recipientFingerprint?: string }>(
   rows: T[],
@@ -60,32 +61,51 @@ function relatedByIdentity<T extends { fingerprint?: string; identityFingerprint
   });
 }
 
+function pushMonitoringEvent(
+  candidates: Array<{ label: string; at: string; ms: number }>,
+  label: string,
+  value: unknown,
+) {
+  const ms = marketingMonitoringTimestampMs(value);
+  const at = marketingMonitoringTimestampIso(value);
+  if (ms == null || !at) return;
+  candidates.push({ label, at, ms });
+}
+
 function latestEventLabel(input: {
   ledger: MarketingDurableLedgerRecord | null;
   engagements: MarketingDurableEngagementEventRecord[];
 }): { label: string | null; at: string | null } {
-  const candidates: Array<{ label: string; at: string }> = [];
+  const candidates: Array<{ label: string; at: string; ms: number }> = [];
   if (input.ledger) {
-    candidates.push({ label: `Ledger ${input.ledger.status}`, at: input.ledger.updatedAt || input.ledger.createdAt });
-    if (input.ledger.processedAt) candidates.push({ label: "Processed", at: input.ledger.processedAt });
-    if (input.ledger.openedAt) candidates.push({ label: "Opened", at: input.ledger.openedAt });
-    if (input.ledger.clickedAt) candidates.push({ label: "Clicked", at: input.ledger.clickedAt });
-    if (input.ledger.repliedAt) candidates.push({ label: "Replied", at: input.ledger.repliedAt });
-    if (input.ledger.unsubscribedAt) candidates.push({ label: "Unsubscribed", at: input.ledger.unsubscribedAt });
+    const updatedMs = marketingMonitoringTimestampMs(input.ledger.updatedAt);
+    pushMonitoringEvent(
+      candidates,
+      `Ledger ${input.ledger.status}`,
+      updatedMs != null ? input.ledger.updatedAt : input.ledger.createdAt,
+    );
+    if (input.ledger.processedAt) pushMonitoringEvent(candidates, "Processed", input.ledger.processedAt);
+    if (input.ledger.openedAt) pushMonitoringEvent(candidates, "Opened", input.ledger.openedAt);
+    if (input.ledger.clickedAt) pushMonitoringEvent(candidates, "Clicked", input.ledger.clickedAt);
+    if (input.ledger.repliedAt) pushMonitoringEvent(candidates, "Replied", input.ledger.repliedAt);
+    if (input.ledger.unsubscribedAt) pushMonitoringEvent(candidates, "Unsubscribed", input.ledger.unsubscribedAt);
   }
   for (const event of input.engagements) {
-    candidates.push({ label: event.eventType, at: event.occurredAt });
+    pushMonitoringEvent(candidates, event.eventType, event.occurredAt);
   }
-  candidates.sort((a, b) => a.at.localeCompare(b.at));
+  candidates.sort((a, b) => a.ms - b.ms || a.label.localeCompare(b.label));
   const last = candidates[candidates.length - 1];
   return { label: last?.label ?? null, at: last?.at ?? null };
 }
 
 function inRange(iso: string | null, from?: string | null, to?: string | null): boolean {
-  if (!from && !to) return true;
-  if (!iso) return false;
-  if (from && iso.localeCompare(from) < 0) return false;
-  if (to && iso.localeCompare(to) > 0) return false;
+  const fromMs = from ? marketingMonitoringTimestampMs(from) : null;
+  const toMs = to ? marketingMonitoringTimestampMs(to) : null;
+  if (fromMs == null && toMs == null) return true;
+  const ms = marketingMonitoringTimestampMs(iso);
+  if (ms == null) return false;
+  if (fromMs != null && ms < fromMs) return false;
+  if (toMs != null && ms > toMs) return false;
   return true;
 }
 

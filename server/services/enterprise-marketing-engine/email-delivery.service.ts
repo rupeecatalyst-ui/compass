@@ -26,6 +26,7 @@ import {
 import { attributeHomeLoanCampaignDestination } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
 import { assessMarketingLiveSenderLink } from "@/lib/enterprise-marketing-engine/controlled-five-send";
 import { issueCampaignRecipientToken } from "@/lib/product-journey/campaign-link";
+import { classifyCampaignRecipientRef } from "@/lib/product-journey/campaign-recipient-binding";
 import { withCampaignEntryCtas } from "@/lib/product-journey/campaign-entry-url";
 import { lookupDurableMarketingSend, marketingDurableSendAlreadyCompleted } from "@/lib/enterprise-marketing-engine/durable-send-idempotency";
 import { isMarketingPhase1Sender } from "@/lib/enterprise-marketing-engine/phase1-sender";
@@ -287,17 +288,21 @@ function campaignRecipientToken(input: {
   campaignName?: string | null;
   productCode: string;
   row: Record<string, unknown>;
-  recipientFingerprint: string;
+  snapshotRecipientId?: string | null;
 }): string | null {
   const secret = campaignLinkSecret();
   if (!secret) return null;
-  const rawRef = ["contactId", "ContactId", "recipientRef", "ecmContactId"]
+  const snapshotRef = input.snapshotRecipientId?.trim() ?? "";
+  const contactRef = ["contactId", "ContactId", "recipientRef", "ecmContactId"]
     .map((key) => input.row[key])
-    .find((value) => typeof value === "string" && value.trim() && !value.includes("@"));
+    .find((value): value is string => typeof value === "string" && classifyCampaignRecipientRef(value) === "contact");
   const recipientRef =
-    typeof rawRef === "string" && rawRef.trim()
-      ? rawRef.trim()
-      : `audience:${input.recipientFingerprint}`;
+    classifyCampaignRecipientRef(snapshotRef) === "snapshot"
+      ? snapshotRef
+      : typeof contactRef === "string"
+        ? contactRef.trim()
+        : "";
+  if (!recipientRef) return null;
   try {
     return issueCampaignRecipientToken(
       {
@@ -472,6 +477,7 @@ export const marketingEmailDeliveryService = {
     batchId: string;
     idempotencyKey: string;
     recipientFingerprint: string;
+    snapshotRecipientId?: string | null;
     recipientEmail: string;
     senderIdentityId?: string | null;
     fromAddressHint?: string | null;
@@ -562,7 +568,7 @@ export const marketingEmailDeliveryService = {
       campaignName: input.campaignName,
       productCode: "home-loan",
       row: input.row,
-      recipientFingerprint: input.recipientFingerprint,
+      snapshotRecipientId: input.snapshotRecipientId,
     });
     const entry = attributeHomeLoanCampaignDestination({
       product: input.product,

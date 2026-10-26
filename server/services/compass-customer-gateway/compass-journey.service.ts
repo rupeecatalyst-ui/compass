@@ -51,6 +51,11 @@ import {
   verifyCampaignRecipientToken,
   type CampaignRecipientClaims,
 } from "@/lib/product-journey/campaign-link";
+import {
+  bindFrozenSnapshotRecipient,
+  campaignOpportunityAttributionFields,
+  classifyCampaignRecipientRef,
+} from "@/lib/product-journey/campaign-recipient-binding";
 import type {
   CompassAnalysisDto,
   CompassJourneyAnswersPatch,
@@ -161,6 +166,56 @@ function campaignLinkSecret(): string {
 function sameCampaignProduct(left: string, right: string): boolean {
   const normalize = (value: string) => value.trim().toLowerCase().replace(/-/g, "_");
   return normalize(left) === normalize(right);
+}
+
+async function resolveCampaignRecipient(organizationId: string, claims: CampaignRecipientClaims): Promise<{
+  mobile: string | null;
+  contact: Awaited<ReturnType<typeof ecmContactRepository.findById>>;
+  snapshotId: string | null;
+}> {
+  const kind = classifyCampaignRecipientRef(claims.recipientRef);
+  if (kind === "rejected") {
+    throw new CompassJourneyError("CAMPAIGN_TOKEN_INVALID", "This campaign link is not valid.", 401);
+  }
+  if (kind === "contact") {
+    const contact = await ecmContactRepository.findById(claims.recipientRef);
+    return {
+      mobile: contact && !contact.isDeleted ? contact.mobilePrimary : null,
+      contact,
+      snapshotId: null,
+    };
+  }
+  const recipient = await prisma.enterpriseMarketingSnapshotRecipient.findFirst({
+    where: { id: claims.recipientRef, organizationId },
+    select: { id: true, campaignId: true, snapshotId: true, normalizedMobile: true },
+  });
+  const snapshot = recipient
+    ? await prisma.enterpriseMarketingAudienceSnapshot.findFirst({
+        where: { id: recipient.snapshotId, organizationId },
+        select: { id: true, campaignId: true, campaignVersionId: true },
+      })
+    : null;
+  const campaign = await prisma.enterpriseMarketingCampaign.findFirst({
+    where: { id: claims.campaignId, organizationId },
+    select: { approvedSnapshotId: true, activePublishedVersionId: true },
+  });
+  const approvedSnapshot = campaign?.approvedSnapshotId
+    ? await prisma.enterpriseMarketingAudienceSnapshot.findFirst({
+        where: { id: campaign.approvedSnapshotId, organizationId },
+        select: { id: true, campaignId: true, campaignVersionId: true },
+      })
+    : null;
+  const bound = bindFrozenSnapshotRecipient({
+    claims,
+    recipient,
+    snapshot,
+    approvedSnapshot,
+    approvedVersionId: campaign?.activePublishedVersionId ?? null,
+  });
+  if (!bound.ok) {
+    throw new CompassJourneyError("CAMPAIGN_TOKEN_INVALID", "This campaign link is not valid.", 401);
+  }
+  return { mobile: bound.mobile, contact: null, snapshotId: bound.snapshotId };
 }
 
 function parseLoanAmount(value: unknown): number {
@@ -402,10 +457,10 @@ async function resolveCampaignHandoff(token: string, productCode: string) {
       401,
     );
   }
-  const recipient = await ecmContactRepository.findById(claims.recipientRef);
+  const bound = await resolveCampaignRecipient(await resolveCompassGatewayOrganizationId(), claims);
   return {
     valid: true as const,
-    emailOnFile: Boolean(recipient && !recipient.isDeleted && recipient.personalEmail),
+    emailOnFile: Boolean(bound.contact && !bound.contact.isDeleted && bound.contact.personalEmail),
     emailIndependentlyVerified: false as const,
     campaignId: claims.campaignId,
     sourceCode: claims.sourceCode,
@@ -424,6 +479,7 @@ async function resolveCampaignForStart(
   emailOnFile: string | null;
   recipientId: string | null;
   recipientName: string | null;
+  snapshotId: string | null;
 } | null> {
   const trimmed = token?.trim();
   if (!trimmed) return null;
@@ -444,9 +500,10 @@ async function resolveCampaignForStart(
       401,
     );
   }
-  const recipient = await ecmContactRepository.findById(claims.recipientRef);
+  const bound = await resolveCampaignRecipient(await resolveCompassGatewayOrganizationId(), claims);
+  const recipient = bound.contact;
   const decision = decideCampaignIdentity({
-    recipientMobile: recipient && !recipient.isDeleted ? recipient.mobilePrimary : null,
+    recipientMobile: bound.mobile,
     enteredMobile,
   });
   if (decision === "conflict") {
@@ -462,6 +519,7 @@ async function resolveCampaignForStart(
     emailOnFile: decision === "matched" && recipient?.personalEmail ? recipient.personalEmail : null,
     recipientId: decision === "matched" && recipient && !recipient.isDeleted ? recipient.id : null,
     recipientName: decision === "matched" && recipient ? recipient.name : null,
+    snapshotId: bound.snapshotId,
   };
 }
 
@@ -625,11 +683,11 @@ export const compassJourneyService = {
         snapshot: {
           compassChannel: campaign ? "campaign" : "website",
           ...(campaign
-            ? {
-                compassCampaignId: campaign.claims.campaignId,
-                compassCampaignRecipientRef: campaign.claims.recipientRef,
-                compassCampaignIdentity: campaign.decision,
-              }
+            ? campaignOpportunityAttributionFields({
+                claims: campaign.claims,
+                decision: campaign.decision,
+                snapshotId: campaign.snapshotId,
+              })
             : {}),
           compassMobileVerified: otpOn,
           compassProductCode: definition.enterpriseProductCode,

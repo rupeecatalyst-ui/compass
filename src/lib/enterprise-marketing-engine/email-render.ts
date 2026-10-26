@@ -18,22 +18,36 @@ import {
   sanitizeMarketingPlainText,
   sanitizeMarketingRichText,
 } from "@/lib/enterprise-marketing-engine/html-sanitize";
-import { RUPEE_CATALYST_OFFICIAL_LOGO_SRC } from "@/constants/rupee-catalyst-brand";
-import { resolveMarketingPublicOrigin } from "@/lib/enterprise-marketing-engine/asset-public-url";
+import { RUPEE_CATALYST_OFFICIAL_LOGO_ALT } from "@/constants/rupee-catalyst-brand";
+import {
+  OFFICIAL_EMAIL_LOGO_WIDTH_PX,
+  RUPEE_CATALYST_OFFICIAL_LOGO_EMAIL_URL,
+  isOfficialRupeeCatalystLogoUrl,
+  officialEmailLogoAlt,
+  resolveMarketingEmailImageUrl,
+} from "@/lib/enterprise-marketing-engine/official-email-logo";
 
 function esc(s: string): string {
   return sanitizeMarketingPlainText(s);
 }
 
 export function officialMarketingEmailLogoUrl(): string {
-  return `${resolveMarketingPublicOrigin()}${RUPEE_CATALYST_OFFICIAL_LOGO_SRC}`;
+  return RUPEE_CATALYST_OFFICIAL_LOGO_EMAIL_URL;
 }
 
 function logoSrcForEmail(raw: string): string {
-  const url = raw.trim();
-  if (!url || url === RUPEE_CATALYST_OFFICIAL_LOGO_SRC) return officialMarketingEmailLogoUrl();
-  if (isUnsafeMarketingHref(url)) return "";
+  const trimmed = raw.trim();
+  const url =
+    !trimmed || isOfficialRupeeCatalystLogoUrl(trimmed)
+      ? officialMarketingEmailLogoUrl()
+      : resolveMarketingEmailImageUrl(trimmed);
+  if (!url || isUnsafeMarketingHref(url)) return "";
   return url;
+}
+
+function emailImageTag(url: string, alt: string, width: number): string {
+  const radius = isOfficialRupeeCatalystLogoUrl(url) ? "" : "border-radius:8px;";
+  return `<img src="${esc(url)}" alt="${esc(alt)}" width="${width}" border="0" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;${radius}" />`;
 }
 
 function textToHtmlParagraphs(template: string, personalize: (s: string) => string): string {
@@ -87,24 +101,37 @@ function renderBlock(
     case "logo": {
       const url = logoSrcForEmail(propString(props, "url"));
       if (!url) return "";
-      return `<tr><td style="padding:16px 24px;" align="center"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Rupee Catalyst"))}" width="140" style="display:block;max-width:140px;height:auto;border:0;" /></td></tr>`;
+      const alt = isOfficialRupeeCatalystLogoUrl(url)
+        ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT))
+        : propString(props, "alt", "Rupee Catalyst");
+      return `<tr><td style="padding:16px 24px;" align="center">${emailImageTag(url, alt, OFFICIAL_EMAIL_LOGO_WIDTH_PX)}</td></tr>`;
     }
     case "hero_image":
     case "image": {
-      const url = propString(props, "url");
+      const url = resolveMarketingEmailImageUrl(propString(props, "url"));
       if (!url || isUnsafeMarketingHref(url)) return "";
-      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props, "center")}"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Image"))}" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0;border-radius:8px;" />
+      const official = isOfficialRupeeCatalystLogoUrl(url);
+      const alt = official
+        ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT))
+        : propString(props, "alt", "Image");
+      const width = official ? OFFICIAL_EMAIL_LOGO_WIDTH_PX : 520;
+      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props, "center")}">${emailImageTag(url, alt, width)}
         ${propString(props, "caption") ? `<div style="font-size:12px;color:#64748b;margin-top:6px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "caption")))}</div>` : ""}
       </td></tr>`;
     }
     case "text":
       return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props)}">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td></tr>`;
     case "image_text": {
-      const url = propString(props, "url");
+      const url = resolveMarketingEmailImageUrl(propString(props, "url"));
       const imageUrl = url && !isUnsafeMarketingHref(url) ? url : "";
+      const official = imageUrl ? isOfficialRupeeCatalystLogoUrl(imageUrl) : false;
+      const alt = official
+        ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT))
+        : propString(props, "alt", "Image");
+      const width = official ? OFFICIAL_EMAIL_LOGO_WIDTH_PX : 200;
       return `<tr><td style="padding:8px 24px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          ${imageUrl ? `<td width="40%" style="padding-right:12px;vertical-align:top;"><img src="${esc(imageUrl)}" alt="${esc(propString(props, "alt", "Image"))}" width="200" style="display:block;width:100%;max-width:200px;height:auto;border:0;" /></td>` : ""}
+          ${imageUrl ? `<td width="40%" style="padding-right:12px;vertical-align:top;">${emailImageTag(imageUrl, alt, width)}</td>` : ""}
           <td style="vertical-align:top;">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td>
         </tr></table>
       </td></tr>`;

@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { isIssuableCampaignRecipientRef } from "@/lib/product-journey/campaign-recipient-binding";
 
 /**
  * Opaque campaign-recipient token.
@@ -49,11 +50,13 @@ export function issueCampaignRecipientToken(
   nowSec = Math.floor(Date.now() / 1000),
 ): string {
   if (!secret.trim()) throw new Error("CAMPAIGN_LINK_SECRET_MISSING");
+  const recipientRef = input.recipientRef.trim();
+  if (!isIssuableCampaignRecipientRef(recipientRef)) throw new Error("CAMPAIGN_TOKEN_INVALID");
   const payload: CampaignRecipientClaims = {
     v: 1,
     kind: "campaign-recipient",
     campaignId: input.campaignId,
-    recipientRef: input.recipientRef,
+    recipientRef,
     productCode: input.productCode,
     sourceCode: input.sourceCode,
     campaignLabel: input.campaignLabel,

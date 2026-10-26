@@ -51,6 +51,7 @@ export function createMarketingSnapshotLiveDeliverer(input: {
         context?.idempotencyKey ??
         `${input.organizationId}:${input.campaignId}:EMAIL:${recipient.normalizedEmail}`,
       recipientFingerprint: recipient.recipientFingerprint,
+      snapshotRecipientId: recipient.id,
       recipientEmail: recipient.normalizedEmail,
       senderIdentityId: input.senderIdentityId,
       fromAddressHint: input.fromAddressHint,

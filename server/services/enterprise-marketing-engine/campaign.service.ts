@@ -989,6 +989,7 @@ export const marketingCampaignService = {
       batchId,
       idempotencyKey,
       recipientFingerprint: `email:${recipientEmail}`,
+      snapshotRecipientId: input.sampleRecipientId,
       recipientEmail,
       senderIdentityId: campaign.senderIdentityId,
       fromAddressHint: campaign.sender?.fromAddress ?? MARKETING_PHASE1_FROM_EMAIL,
