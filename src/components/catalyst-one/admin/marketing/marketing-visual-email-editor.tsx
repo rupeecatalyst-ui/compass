@@ -179,6 +179,16 @@ export function MarketingVisualEmailEditor({
               tabIndex={0}
               aria-label={`${block.type} block`}
               aria-current={block.id === selectedId ? "true" : undefined}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const from = Number(event.dataTransfer.getData("text/plain"));
+                if (!Number.isInteger(from) || from === index) return;
+                commit(reorderMarketingBlock(document, from, index));
+              }}
               onClick={() => setSelectedId(block.id)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -188,7 +198,17 @@ export function MarketingVisualEmailEditor({
               }}
             >
               <div className="mkt-ve-block-toolbar">
-                <span className="text-xs font-semibold uppercase tracking-wide">{block.type}</span>
+                <span
+                  className="cursor-grab text-xs font-semibold uppercase tracking-wide"
+                  draggable
+                  onDragStart={(event) => {
+                    event.stopPropagation();
+                    event.dataTransfer.setData("text/plain", String(index));
+                    event.dataTransfer.effectAllowed = "move";
+                  }}
+                >
+                  Drag · {block.type}
+                </span>
                 <Button
                   type="button"
                   size="sm"
@@ -230,10 +250,12 @@ export function MarketingVisualEmailEditor({
                   variant="ghost"
                   onClick={(event) => {
                     event.stopPropagation();
+                    if (block.type === "unsubscribe" || block.type === "disclaimer") return;
                     const next = deleteMarketingBlock(document, block.id);
                     commit(next);
                     if (selectedId === block.id) setSelectedId(next.blocks[0]?.id ?? null);
                   }}
+                  disabled={block.type === "unsubscribe" || block.type === "disclaimer"}
                 >
                   Delete
                 </Button>
@@ -261,6 +283,22 @@ export function MarketingVisualEmailEditor({
               value={propString(selected.props, "padding", "8")}
               onChange={(value) => commit(updateMarketingBlock(document, selected.id, { padding: value }))}
             />
+            <div className="space-y-1">
+              <Label id="mkt-ve-background">Background</Label>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="mkt-ve-background">
+                {MARKETING_EMAIL_SAFE_COLORS.map((color) => (
+                  <button
+                    key={`bg-${color}`}
+                    type="button"
+                    aria-label={`Background ${color}`}
+                    aria-pressed={propString(selected.props, "background") === color}
+                    className="h-6 w-6 rounded-full border"
+                    style={{ background: color }}
+                    onClick={() => commit(updateMarketingBlock(document, selected.id, { background: color }))}
+                  />
+                ))}
+              </div>
+            </div>
             <div className="space-y-1">
               <Label id="mkt-ve-colour">Colour</Label>
               <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="mkt-ve-colour">
@@ -317,9 +355,17 @@ function Field({
 
 function BlockPreview({ type, props }: { type: string; props: Record<string, unknown> }) {
   if (type === "header") return <p className="text-base font-semibold">{propString(props, "title") || "Heading"}</p>;
-  if (type === "text") return <p className="whitespace-pre-wrap text-sm">{propString(props, "html") || "Paragraph"}</p>;
+  if (type === "text" || type === "disclaimer") {
+    return <p className="whitespace-pre-wrap text-sm">{propString(props, type === "disclaimer" ? "text" : "html") || type}</p>;
+  }
   if (type === "cta") return <p className="text-sm font-semibold">{propString(props, "label") || "Button"}</p>;
-  if (type === "image") return <p className="text-sm text-muted-foreground">{propString(props, "alt") || "Image URL (no download)"}</p>;
+  if (type === "image" || type === "logo" || type === "hero_image") {
+    return <p className="text-sm text-muted-foreground">{propString(props, "alt") || propString(props, "caption") || "Image"}</p>;
+  }
+  if (type === "highlight" || type === "product_card" || type === "offer_card") {
+    return <p className="text-sm font-semibold">{propString(props, "title") || type}</p>;
+  }
+  if (type === "contact") return <p className="text-sm">{propString(props, "name") || "Contact"}</p>;
   if (type === "unsubscribe") return <p className="text-sm underline">{propString(props, "label", "Unsubscribe")}</p>;
   if (type === "columns") {
     return (
@@ -371,6 +417,7 @@ function BlockFields({
       <>
         <Field label="Image URL" value={propString(props, "url")} onChange={(url) => onChange({ url })} />
         <Field label="Alt text" value={propString(props, "alt")} onChange={(alt) => onChange({ alt })} />
+        <Field label="Caption" value={propString(props, "caption")} onChange={(caption) => onChange({ caption })} />
         <AssetLibraryPicker
           onPick={(asset) =>
             onChange(
@@ -416,6 +463,30 @@ function BlockFields({
   if (type === "spacer") {
     return <Field label="Height (px)" value={propString(props, "heightPx", "24")} onChange={(heightPx) => onChange({ heightPx })} />;
   }
+  if (type === "highlight" || type === "product_card" || type === "offer_card") {
+    return (
+      <>
+        <Field label="Badge" value={propString(props, "badge")} onChange={(badge) => onChange({ badge })} />
+        <Field label="Title" value={propString(props, "title")} onChange={(title) => onChange({ title })} />
+        <Field label="Body" value={propString(props, "body")} multiline onChange={(body) => onChange({ body })} />
+        {type === "offer_card" ? (
+          <Field label="Amount label" value={propString(props, "amountLabel")} onChange={(amountLabel) => onChange({ amountLabel })} />
+        ) : null}
+      </>
+    );
+  }
+  if (type === "disclaimer") {
+    return <Field label="Disclaimer" value={propString(props, "text")} multiline onChange={(text) => onChange({ text })} />;
+  }
+  if (type === "contact") {
+    return (
+      <>
+        <Field label="Name" value={propString(props, "name")} onChange={(name) => onChange({ name })} />
+        <Field label="Email" value={propString(props, "email")} onChange={(email) => onChange({ email })} />
+        <Field label="Phone" value={propString(props, "phone")} onChange={(phone) => onChange({ phone })} />
+      </>
+    );
+  }
   return null;
 }
 
@@ -428,9 +499,15 @@ function AssetLibraryPicker({ onPick }: { onPick: (asset: MarketingAsset) => voi
   async function load() {
     setLoading(true);
     try {
-      const res = await authenticatedJsonFetch("/api/admin/marketing/assets");
+      const res = await authenticatedJsonFetch(
+        "/api/admin/marketing/assets?approvalStatus=APPROVED&assetType=image",
+      );
       const body = (await res.json()) as { success?: boolean; data?: { assets: MarketingAsset[] } };
-      setAssets(body.data?.assets ?? []);
+      setAssets(
+        (body.data?.assets ?? []).filter(
+          (asset) => asset.approvalStatus === "APPROVED" && asset.assetType === "image",
+        ),
+      );
       setPage(1);
       setOpen(true);
     } finally {

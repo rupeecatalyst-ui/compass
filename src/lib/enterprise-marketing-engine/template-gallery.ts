@@ -4,6 +4,7 @@
  */
 
 import { cloneContentDocument, createEmptyContentDocument } from "@/lib/enterprise-marketing-engine/content-blocks";
+import { MARKETING_PREMIUM_EMAIL_TEMPLATES } from "@/lib/enterprise-marketing-engine/premium-email-templates";
 import { MARKETING_STANDARD_EMAIL_TEMPLATES } from "@/lib/enterprise-marketing-engine/standard-email-templates";
 import { hasMarketingUnsubscribeBlock } from "@/lib/enterprise-marketing-engine/visual-editor";
 import type {
@@ -17,12 +18,14 @@ export const MARKETING_BLANK_TEMPLATE_ID = "mkt-tpl-blank";
 export type MarketingTemplateGallerySectionId =
   | "blank"
   | "organisation"
+  | "premium"
   | "standard"
   | "recent";
 
 export type MarketingTemplateGalleryCard = {
   id: string;
   name: string;
+  description: string;
   category: MarketingTemplateCategory;
   status: MarketingTemplateStatus | "BLANK";
   updatedAt: string;
@@ -40,6 +43,13 @@ export type MarketingTemplateGallerySection = {
 };
 
 const BLOCK_COLORS: Record<string, string> = {
+  logo: "#0f172a",
+  hero_image: "#1e3a5f",
+  highlight: "#0f766e",
+  product_card: "#134e4a",
+  offer_card: "#0f766e",
+  contact: "#334155",
+  disclaimer: "#94a3b8",
   header: "#0f172a",
   text: "#94a3b8",
   image: "#cbd5e1",
@@ -80,7 +90,8 @@ export function generateMarketingTemplateThumbnailSvg(doc: MarketingContentDocum
   const rows = doc.blocks.slice(0, 8);
   const bars = rows
     .map((block, index) => {
-      const fill = BLOCK_COLORS[block.type] ?? "#cbd5e1";
+      const background = typeof block.props.background === "string" ? block.props.background : "";
+      const fill = /^#[0-9a-fA-F]{6}$/.test(background) ? background : (BLOCK_COLORS[block.type] ?? "#cbd5e1");
       const y = 10 + index * 14;
       const width = block.type === "cta" || block.type === "unsubscribe" ? 70 : 140;
       const x = block.type === "cta" || block.type === "unsubscribe" ? 45 : 10;
@@ -94,6 +105,7 @@ function toCard(template: MarketingContentTemplate): MarketingTemplateGalleryCar
   return {
     id: template.id,
     name: template.name,
+    description: template.description?.trim() || "",
     category: template.category,
     status: template.origin === "blank" ? "BLANK" : template.status,
     updatedAt: template.updatedAt,
@@ -125,6 +137,11 @@ export function composeMarketingTemplateGallery(input: {
         .map(toCard),
     },
     {
+      id: "premium",
+      title: "Premium starters",
+      cards: MARKETING_PREMIUM_EMAIL_TEMPLATES.map(toCard),
+    },
+    {
       id: "standard",
       title: "Approved standard templates",
       cards: MARKETING_STANDARD_EMAIL_TEMPLATES.filter((row) => row.status === "APPROVED").map(toCard),
@@ -141,6 +158,8 @@ export function resolveMarketingGalleryTemplate(
   if (id === MARKETING_BLANK_TEMPLATE_ID) return blankMarketingEmailTemplate();
   const standard = MARKETING_STANDARD_EMAIL_TEMPLATES.find((row) => row.id === id);
   if (standard) return standard;
+  const premium = MARKETING_PREMIUM_EMAIL_TEMPLATES.find((row) => row.id === id);
+  if (premium) return premium;
   return saved.find((row) => row.id === id && row.organizationId === organizationId) ?? null;
 }
 

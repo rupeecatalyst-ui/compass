@@ -54,6 +54,7 @@ export function MarketingTemplateGallery({
                   />
                   <div>
                     <p className="font-semibold">{card.name}</p>
+                    {card.description ? <p className="mkt-tpl-meta">{card.description}</p> : null}
                     <p className="mkt-tpl-meta">
                       {card.category} · {card.status} · v{card.versionNumber}
                     </p>

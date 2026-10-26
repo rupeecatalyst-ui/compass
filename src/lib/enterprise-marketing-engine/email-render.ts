@@ -50,7 +50,11 @@ function emailImageTag(url: string, alt: string, width: number): string {
   return `<img src="${esc(url)}" alt="${esc(alt)}" width="${width}" border="0" style="display:block;width:100%;max-width:${width}px;height:auto;border:0;outline:none;text-decoration:none;${radius}" />`;
 }
 
-function textToHtmlParagraphs(template: string, personalize: (s: string) => string): string {
+function textToHtmlParagraphs(
+  template: string,
+  personalize: (s: string) => string,
+  color = "#1f2937",
+): string {
   const sanitisedTemplate = sanitizeMarketingRichText(template);
   const htmlish = /<[a-z][\s\S]*>/i.test(sanitisedTemplate);
   const merged = personalize(sanitisedTemplate);
@@ -59,7 +63,7 @@ function textToHtmlParagraphs(template: string, personalize: (s: string) => stri
     .split(/\n{2,}/)
     .map(
       (p) =>
-        `<p style="margin:0 0 12px 0;font-size:15px;line-height:1.5;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${p.replace(/\n/g, "<br/>")}</p>`,
+        `<p style="margin:0 0 12px 0;font-size:15px;line-height:1.5;color:${color};font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${p.replace(/\n/g, "<br/>")}</p>`,
     )
     .join("");
 }
@@ -86,6 +90,47 @@ function safeColor(props: Record<string, unknown>, key: string, fallback: string
   return (MARKETING_EMAIL_SAFE_COLORS as readonly string[]).includes(value) ? value : fallback;
 }
 
+const LIGHT_EMAIL_COLORS = new Set(["#ffffff", "#f8fafc", "#f0fdfa", "#ccfbf1", "#fff7ed", "#e2e8f0"]);
+
+function solidBackground(props: Record<string, unknown>): string {
+  const value = propString(props, "background");
+  return (MARKETING_EMAIL_SAFE_COLORS as readonly string[]).includes(value) ? value : "";
+}
+
+function cellStyle(props: Record<string, unknown>, fallbackPad: string): string {
+  const bg = solidBackground(props);
+  const padding = `padding:${cellPad(props, fallbackPad)};`;
+  return bg ? `background-color:${bg};${padding}` : padding;
+}
+
+function cellAttrs(props: Record<string, unknown>, fallbackPad: string, align?: string): string {
+  const bg = solidBackground(props);
+  const alignAttr = align ? ` align="${align}"` : "";
+  const bgAttr = bg ? ` bgcolor="${bg}"` : "";
+  return `${bgAttr}${alignAttr} style="${cellStyle(props, fallbackPad)}"`;
+}
+
+function buttonFill(props: Record<string, unknown>): string {
+  const value = propString(props, "color");
+  if (!value || LIGHT_EMAIL_COLORS.has(value)) return "#0f766e";
+  return (MARKETING_EMAIL_SAFE_COLORS as readonly string[]).includes(value) ? value : "#0f766e";
+}
+
+function renderImageRow(
+  props: Record<string, unknown>,
+  personalize: (s: string) => string,
+  url: string,
+  width: number,
+): string {
+  const official = isOfficialRupeeCatalystLogoUrl(url);
+  const alt = official
+    ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT))
+    : propString(props, "alt", "Image");
+  return `<tr><td${cellAttrs(props, "8", alignOf(props, "center"))}>${emailImageTag(url, alt, width)}
+        ${propString(props, "caption") ? `<div style="font-size:12px;color:#64748b;margin-top:6px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "caption")))}</div>` : ""}
+      </td></tr>`;
+}
+
 function renderBlock(
   type: string,
   props: Record<string, unknown>,
@@ -94,9 +139,9 @@ function renderBlock(
 ): string {
   switch (type) {
     case "header":
-      return `<tr><td style="padding:${cellPad(props, "16")};" align="${alignOf(props)}">
+      return `<tr><td${cellAttrs(props, "16", alignOf(props))}>
         <div style="font-size:20px;font-weight:700;color:${safeColor(props, "color", "#0f172a")};font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "title")))}</div>
-        ${propString(props, "subtitle") ? `<div style="font-size:13px;color:#64748b;margin-top:4px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "subtitle")))}</div>` : ""}
+        ${propString(props, "subtitle") ? `<div style="font-size:13px;color:${solidBackground(props) && !LIGHT_EMAIL_COLORS.has(solidBackground(props)) ? "#e2e8f0" : "#64748b"};margin-top:4px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "subtitle")))}</div>` : ""}
       </td></tr>`;
     case "logo": {
       const url = logoSrcForEmail(propString(props, "url"));
@@ -104,56 +149,74 @@ function renderBlock(
       const alt = isOfficialRupeeCatalystLogoUrl(url)
         ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT))
         : propString(props, "alt", "Rupee Catalyst");
-      return `<tr><td style="padding:16px 24px;" align="center">${emailImageTag(url, alt, OFFICIAL_EMAIL_LOGO_WIDTH_PX)}</td></tr>`;
+      const image = emailImageTag(url, alt, OFFICIAL_EMAIL_LOGO_WIDTH_PX);
+      const bg = solidBackground(props);
+      if (!bg) return `<tr><td style="padding:16px 24px;" align="center">${image}</td></tr>`;
+      return `<tr><td bgcolor="${bg}" align="center" style="background-color:${bg};padding:16px 24px;">${image}</td></tr>`;
     }
-    case "hero_image":
+    case "hero_image": {
+      const url = resolveMarketingEmailImageUrl(propString(props, "url"));
+      if (!url || isUnsafeMarketingHref(url)) {
+        const bg = solidBackground(props) || "#0b1f33";
+        const caption = propString(props, "caption", "Photograph");
+        return `<tr><td bgcolor="${bg}" align="center" style="background-color:${bg};padding:28px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td align="center" style="border:1px solid #94a3b8;padding:36px 20px;">
+              <div style="font-size:22px;line-height:1.35;font-weight:700;color:#ffffff;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(caption))}</div>
+            </td>
+          </tr></table>
+        </td></tr>`;
+      }
+      return renderImageRow(props, personalize, url, 520);
+    }
     case "image": {
       const url = resolveMarketingEmailImageUrl(propString(props, "url"));
       if (!url || isUnsafeMarketingHref(url)) return "";
-      const official = isOfficialRupeeCatalystLogoUrl(url);
-      const alt = official
-        ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT))
-        : propString(props, "alt", "Image");
-      const width = official ? OFFICIAL_EMAIL_LOGO_WIDTH_PX : 520;
-      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props, "center")}">${emailImageTag(url, alt, width)}
-        ${propString(props, "caption") ? `<div style="font-size:12px;color:#64748b;margin-top:6px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "caption")))}</div>` : ""}
-      </td></tr>`;
+      return renderImageRow(props, personalize, url, isOfficialRupeeCatalystLogoUrl(url) ? OFFICIAL_EMAIL_LOGO_WIDTH_PX : 520);
     }
-    case "text":
-      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props)}">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td></tr>`;
+    case "text": {
+      const bg = solidBackground(props);
+      const color = bg && !LIGHT_EMAIL_COLORS.has(bg) ? "#ffffff" : "#1f2937";
+      return `<tr><td${cellAttrs(props, "8", alignOf(props))}>${textToHtmlParagraphs(propString(props, "html"), personalize, color)}</td></tr>`;
+    }
     case "image_text": {
       const url = resolveMarketingEmailImageUrl(propString(props, "url"));
       const imageUrl = url && !isUnsafeMarketingHref(url) ? url : "";
-      const official = imageUrl ? isOfficialRupeeCatalystLogoUrl(imageUrl) : false;
-      const alt = official
-        ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT))
-        : propString(props, "alt", "Image");
-      const width = official ? OFFICIAL_EMAIL_LOGO_WIDTH_PX : 200;
       return `<tr><td style="padding:8px 24px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          ${imageUrl ? `<td width="40%" style="padding-right:12px;vertical-align:top;">${emailImageTag(imageUrl, alt, width)}</td>` : ""}
+          ${imageUrl ? `<td width="40%" style="padding-right:12px;vertical-align:top;">${emailImageTag(imageUrl, isOfficialRupeeCatalystLogoUrl(imageUrl) ? officialEmailLogoAlt(propString(props, "alt", RUPEE_CATALYST_OFFICIAL_LOGO_ALT)) : propString(props, "alt", "Image"), isOfficialRupeeCatalystLogoUrl(imageUrl) ? OFFICIAL_EMAIL_LOGO_WIDTH_PX : 200)}</td>` : ""}
           <td style="vertical-align:top;">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td>
         </tr></table>
       </td></tr>`;
     }
     case "product_card":
-    case "offer_card":
+    case "offer_card": {
+      const cardBg = solidBackground(props) || "#f8fafc";
+      const dark = !LIGHT_EMAIL_COLORS.has(cardBg);
+      const titleColor = dark ? "#ffffff" : "#0f172a";
+      const bodyColor = dark ? "#e2e8f0" : "#475569";
+      const badgeColor = dark ? "#ccfbf1" : "#134e4a";
+      const edge = dark ? cardBg : "#cbd5e1";
       return `<tr><td style="padding:8px 24px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
-          <tr><td style="padding:16px;">
-            ${propString(props, "badge") ? `<div style="display:inline-block;font-size:11px;font-weight:700;color:#0f766e;background:#ccfbf1;padding:2px 8px;border-radius:999px;margin-bottom:8px;">${esc(propString(props, "badge"))}</div>` : ""}
-            <div style="font-size:16px;font-weight:700;color:#0f172a;">${esc(personalize(propString(props, "title")))}</div>
-            <div style="font-size:14px;color:#475569;margin-top:6px;">${esc(personalize(propString(props, "body")))}</div>
-            ${propString(props, "amountLabel") ? `<div style="font-size:14px;font-weight:600;color:#0f172a;margin-top:8px;">${esc(personalize(propString(props, "amountLabel")))}</div>` : ""}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${cardBg}" style="border:1px solid ${edge};background-color:${cardBg};">
+          <tr><td style="padding:18px 16px;">
+            ${propString(props, "badge") ? `<div style="font-size:12px;font-weight:700;letter-spacing:0.4px;color:${badgeColor};margin-bottom:8px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(propString(props, "badge"))}</div>` : ""}
+            <div style="font-size:16px;font-weight:700;color:${titleColor};font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "title")))}</div>
+            <div style="font-size:14px;color:${bodyColor};margin-top:6px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "body")))}</div>
+            ${propString(props, "amountLabel") ? `<div style="font-size:14px;font-weight:600;color:${titleColor};margin-top:8px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "amountLabel")))}</div>` : ""}
           </td></tr>
         </table>
       </td></tr>`;
+    }
     case "cta": {
       const label = personalize(propString(props, "label", "Continue"));
       const rawUrl = propString(props, "url", "#");
       const url = appendMarketingUtmParams(rawUrl, linkOpts.utm, linkOpts.trackingEnabled);
-      return `<tr><td style="padding:16px 24px;" align="center">
-        <a href="${esc(url)}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:8px;">${esc(label)}</a>
+      const fill = buttonFill(props);
+      return `<tr><td${cellAttrs(props, "16", "center")}>
+        <table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr><td bgcolor="${fill}" style="background-color:${fill};">
+          <a href="${esc(url)}" style="display:inline-block;background-color:${fill};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(label)}</a>
+        </td></tr></table>
       </td></tr>`;
     }
     case "divider":
@@ -165,13 +228,17 @@ function renderBlock(
     }
     case "highlight": {
       const tone = propString(props, "tone", "teal");
-      const bg = tone === "gold" ? "#fffbeb" : tone === "slate" ? "#f8fafc" : "#f0fdfa";
+      const toneBg = tone === "gold" ? "#fffbeb" : tone === "slate" ? "#f8fafc" : "#f0fdfa";
+      const bg = solidBackground(props) || toneBg;
+      const dark = !LIGHT_EMAIL_COLORS.has(bg);
       const border = tone === "gold" ? "#f59e0b" : tone === "slate" ? "#94a3b8" : "#0f766e";
+      const titleColor = dark ? "#ffffff" : "#0f172a";
+      const bodyColor = dark ? "#e2e8f0" : "#475569";
       return `<tr><td style="padding:8px 24px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-left:4px solid ${border};background:${bg};border-radius:8px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${bg}" style="border-left:4px solid ${border};background-color:${bg};">
           <tr><td style="padding:14px 16px;">
-            <div style="font-size:15px;font-weight:700;color:#0f172a;">${esc(personalize(propString(props, "title")))}</div>
-            <div style="font-size:14px;color:#475569;margin-top:6px;">${esc(personalize(propString(props, "body")))}</div>
+            <div style="font-size:15px;font-weight:700;color:${titleColor};font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "title")))}</div>
+            <div style="font-size:14px;color:${bodyColor};margin-top:6px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "body")))}</div>
           </td></tr>
         </table>
       </td></tr>`;
@@ -186,10 +253,12 @@ function renderBlock(
         </div>
       </td></tr>`;
     case "disclaimer":
-      return `<tr><td style="padding:8px 24px;"><div style="font-size:11px;line-height:1.4;color:#94a3b8;">${esc(personalize(propString(props, "text")))}</div></td></tr>`;
+      return `<tr><td style="padding:8px 24px;"><div style="font-size:12px;line-height:1.5;color:#475569;">${esc(personalize(propString(props, "text")))}</div></td></tr>`;
     case "footer": {
       const footerCopy = propString(props, "text") || propString(props, "html");
-      return `<tr><td style="padding:${cellPad(props, "16")};" align="${alignOf(props, "center")}"><div style="font-size:12px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:12px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(footerCopy))}</div></td></tr>`;
+      const bg = solidBackground(props);
+      const color = bg && !LIGHT_EMAIL_COLORS.has(bg) ? "#e2e8f0" : "#64748b";
+      return `<tr><td${cellAttrs(props, "16", alignOf(props, "center"))}><div style="font-size:12px;color:${color};border-top:1px solid #e2e8f0;padding-top:12px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(footerCopy))}</div></td></tr>`;
     }
     case "columns":
       return `<tr><td style="padding:${cellPad(props)};">

@@ -49,13 +49,20 @@ export const MARKETING_CONTENT_BLOCK_LABELS: Record<MarketingContentBlockType, s
 
 /** Visual editor palette — operator labels; types are the structured schema. */
 export const MARKETING_VISUAL_EDITOR_PALETTE = [
+  { type: "logo", label: "Logo" },
   { type: "header", label: "Heading" },
+  { type: "hero_image", label: "Hero" },
   { type: "text", label: "Paragraph" },
   { type: "image", label: "Image" },
+  { type: "highlight", label: "Highlight" },
+  { type: "product_card", label: "Benefit card" },
+  { type: "offer_card", label: "Offer card" },
   { type: "cta", label: "Button" },
+  { type: "columns", label: "Columns" },
   { type: "divider", label: "Divider" },
   { type: "spacer", label: "Spacer" },
-  { type: "columns", label: "Columns" },
+  { type: "contact", label: "Contact" },
+  { type: "disclaimer", label: "Disclaimer" },
   { type: "social", label: "Social links" },
   { type: "footer", label: "Footer" },
   { type: "unsubscribe", label: "Unsubscribe block" },
@@ -70,6 +77,14 @@ export const MARKETING_EMAIL_SAFE_COLORS = [
   "#64748b",
   "#0f766e",
   "#ffffff",
+  "#0b1f33",
+  "#1e3a5f",
+  "#134e4a",
+  "#f8fafc",
+  "#f0fdfa",
+  "#ccfbf1",
+  "#fff7ed",
+  "#e2e8f0",
 ] as const;
 
 export const MARKETING_EMAIL_SAFE_FONT_STACK = "Arial, Helvetica, sans-serif" as const;
