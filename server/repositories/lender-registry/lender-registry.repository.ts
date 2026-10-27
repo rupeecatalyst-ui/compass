@@ -4,8 +4,10 @@ import { randomUUID } from "node:crypto";
 import {
   applyProgrammeGovernance,
   auditIntentsForProgrammeChange,
+  formatProgrammeKeyConflict,
   isPublishedProgramme,
   planProgrammeCreate,
+  programmeKeyOwners,
   programmeAdvisoryLockPair,
   programmeFamilyKey,
   PROGRAMME_MUST_UNPUBLISH_MESSAGE,
@@ -1193,14 +1195,6 @@ export class LenderRegistryRepository {
     ) {
       throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
     }
-    const mappedExisting = mapProgramRow(existing);
-    if (
-      isPublishedProgramme(mappedExisting) &&
-      publishedProgrammeCommercialChange(mappedExisting, input)
-    ) {
-      throw new Error(PROGRAMME_MUST_UNPUBLISH_MESSAGE);
-    }
-
     const row = await prisma.$transaction(async (tx) => {
       const fresh = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
       if (!fresh || fresh.isDeleted) throw new Error("Lender program not found.");
@@ -1234,6 +1228,13 @@ export class LenderRegistryRepository {
         siblings: siblingRows.map(mapProgramRow),
       });
       if (!plan.ok) throw new Error(plan.message);
+      const mappedFresh = mapProgramRow(fresh);
+      if (
+        isPublishedProgramme(mappedFresh) &&
+        publishedProgrammeCommercialChange(mappedFresh, input)
+      ) {
+        throw new Error(PROGRAMME_MUST_UNPUBLISH_MESSAGE);
+      }
       const written = await tx.enterpriseLenderProgram.updateMany({
         where: { id, versionNumber: fresh.versionNumber, isDeleted: false },
         data: {
@@ -1589,38 +1590,45 @@ export class LenderRegistryRepository {
     enabled?: boolean,
 
   ) {
-
-    const row = await prisma.enterpriseLenderProgram.update({
-
-      where: { id },
-
-      data: {
-
-        status,
-
-        enabled: enabled ?? status === "active",
-
-        modifiedBy: actorId,
-
-        versionNumber: { increment: 1 },
-
-        ...(status !== "active"
-          ? {
-              isLivePublished: false,
-              publicationState: "draft" as const,
-              lifecycleStatus: "inactive" as const,
-            }
-          : {}),
-
-      },
-
+    const data = {
+      status,
+      enabled: enabled ?? status === "active",
+      modifiedBy: actorId,
+      versionNumber: { increment: 1 },
+      ...(status !== "active"
+        ? {
+            isLivePublished: false,
+            publicationState: "draft" as const,
+            lifecycleStatus: "inactive" as const,
+          }
+        : {}),
+    };
+    if (status === "active") {
+      const row = await prisma.enterpriseLenderProgram.update({ where: { id }, data });
+      return mapProgramRow(row);
+    }
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!existing || existing.isDeleted) throw new Error("Lender program not found.");
+      const mapped = mapProgramRow(existing);
+      if (isPublishedProgramme(mapped)) {
+        const [left, right] = programmeAdvisoryLockPair(programmeFamilyKey(mapped));
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${left}::integer, ${right}::integer)`;
+        const siblingRows = await tx.enterpriseLenderProgram.findMany({
+          where: {
+            organizationId: existing.organizationId,
+            lenderId: existing.lenderId,
+            isDeleted: false,
+            id: { not: id },
+          },
+        });
+        const owners = programmeKeyOwners(mapped, siblingRows.map(mapProgramRow));
+        if (owners.length > 0) throw new Error(formatProgrammeKeyConflict(owners));
+      }
+      const row = await tx.enterpriseLenderProgram.update({ where: { id }, data });
+      return mapProgramRow(row);
     });
-
-    return mapProgramRow(row);
-
   }
-
-
 
   async softDeleteProgram(id: string, actorId: string, reason?: string) {
 

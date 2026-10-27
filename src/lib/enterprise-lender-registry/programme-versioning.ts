@@ -250,6 +250,14 @@ export function recommendationProgrammeIds(
   return ids;
 }
 
+/** Deal programme listing. One current published row per family. Duplicate current rows are omitted. */
+export function selectDealProgrammeListing(
+  programs: EnterpriseLenderProgramRecord[],
+): EnterpriseLenderProgramRecord[] {
+  const allowed = recommendationProgrammeIds(programs);
+  return programs.filter((program) => allowed.has(program.id));
+}
+
 export function listProgrammeFamilyConflicts(
   programs: EnterpriseLenderProgramRecord[],
 ): Array<{ familyKey: string; programmes: ProgrammeFamilyConflict[] }> {
@@ -273,6 +281,19 @@ export function listProgrammeFamilyConflicts(
     .map(([familyKey, programmes]) => ({ familyKey, programmes }));
 }
 
+/**
+ * Superseded and archived publication states are retired history.
+ * Draft, pending approval, published, and a merely inactive lifecycle still occupy the identity.
+ */
+const RETIRED_PROGRAMME_PUBLICATION_STATES = new Set(["superseded", "archived"]);
+
+export function programmeOccupiesCanonicalIdentity(
+  program: Pick<EnterpriseLenderProgramRecord, "isDeleted" | "publicationState">,
+): boolean {
+  if (program.isDeleted) return false;
+  return !RETIRED_PROGRAMME_PUBLICATION_STATES.has(program.publicationState ?? "draft");
+}
+
 export function programmeKeyOwners(
   candidate: Pick<
     EnterpriseLenderProgramRecord,
@@ -284,7 +305,7 @@ export function programmeKeyOwners(
   return siblings.filter(
     (program) =>
       program.id !== candidate.id &&
-      !program.isDeleted &&
+      programmeOccupiesCanonicalIdentity(program) &&
       programmeFamilyKey(program) === key,
   );
 }
@@ -548,6 +569,10 @@ export function applyProgrammeGovernance(input: {
         message: "This programme is already unpublished. No programme was changed.",
       };
     }
+    const owners = programmeKeyOwners(program, input.siblings);
+    if (owners.length > 0) {
+      return { ok: false, code: "PROGRAMME_KEY_CONFLICT", message: formatProgrammeKeyConflict(owners) };
+    }
     const next = unpublishedCopy(program, input.at);
     return {
       ok: true,
@@ -557,9 +582,6 @@ export function applyProgrammeGovernance(input: {
   }
 
   if (command.action === "save_draft") {
-    if (isPublishedProgramme(program) && publishedProgrammeCommercialChange(program, command.patch)) {
-      return { ok: false, code: "MUST_UNPUBLISH", message: PROGRAMME_MUST_UNPUBLISH_MESSAGE };
-    }
     const next = applyPatch(program, command.patch, input.at);
     next.status = program.status;
     next.enabled = program.enabled;
@@ -567,6 +589,9 @@ export function applyProgrammeGovernance(input: {
     const owners = programmeKeyOwners(next, input.siblings);
     if (owners.length > 0) {
       return { ok: false, code: "PROGRAMME_KEY_CONFLICT", message: formatProgrammeKeyConflict(owners) };
+    }
+    if (isPublishedProgramme(program) && publishedProgrammeCommercialChange(program, command.patch)) {
+      return { ok: false, code: "MUST_UNPUBLISH", message: PROGRAMME_MUST_UNPUBLISH_MESSAGE };
     }
     const changes = fieldChanges(program, next);
     if (changes.length === 0) return { ok: true, program, audit: [] };
@@ -607,10 +632,14 @@ export function applyProgrammeGovernance(input: {
     };
   }
 
-  if (isPublishedProgramme(program) && publishedProgrammeCommercialChange(program, command.patch)) {
-    return { ok: false, code: "MUST_UNPUBLISH", message: PROGRAMME_MUST_UNPUBLISH_MESSAGE };
-  }
   if (isPublishedProgramme(program)) {
+    const owners = programmeKeyOwners(program, input.siblings);
+    if (owners.length > 0) {
+      return { ok: false, code: "PROGRAMME_KEY_CONFLICT", message: formatProgrammeKeyConflict(owners) };
+    }
+    if (publishedProgrammeCommercialChange(program, command.patch)) {
+      return { ok: false, code: "MUST_UNPUBLISH", message: PROGRAMME_MUST_UNPUBLISH_MESSAGE };
+    }
     return { ok: true, program, audit: [] };
   }
   const merged = applyPatch(program, command.patch, input.at);

@@ -2,7 +2,7 @@
  * CO-ARCH-003 Phase 2B Sprint 2 — Lender / program clients for Deal Workspace.
  */
 import { authenticatedJsonFetch } from "@/lib/api-client";
-import { isCurrentPublishedProgramme } from "@/lib/enterprise-lender-registry/programme-versioning";
+import { selectDealProgrammeListing } from "@/lib/enterprise-lender-registry/programme-versioning";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 
@@ -62,7 +62,7 @@ export async function listLenderPrograms(opts: {
       items.push(...batch);
       if (batch.length < 200) break;
     }
-    return items.filter((program) => isCurrentPublishedProgramme(program));
+    return selectDealProgrammeListing(items);
   } catch {
     return [];
   }

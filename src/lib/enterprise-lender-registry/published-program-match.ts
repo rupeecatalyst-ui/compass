@@ -13,6 +13,10 @@ import {
   programmeEmploymentCategory,
   recommendationProgrammeIds,
 } from "@/lib/enterprise-lender-registry/programme-versioning";
+import {
+  authoritativeMinimumRoi,
+  illustrativePricingLabel,
+} from "@/lib/enterprise-lender-registry/programme-pricing";
 import { calculateMonthlyEmi } from "@/lib/loan-emi-utils";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
@@ -91,15 +95,8 @@ function inr(amount: number): string {
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
 }
 
-function rateLabel(program: EnterpriseLenderProgramRecord): string | null {
-  if (program.roiPercent != null && Number.isFinite(program.roiPercent)) {
-    return `${program.roiPercent.toFixed(2)}%`;
-  }
-  if (program.minRoiPercent != null && program.maxRoiPercent != null) {
-    return `${program.minRoiPercent.toFixed(2)}% – ${program.maxRoiPercent.toFixed(2)}%`;
-  }
-  if (program.minRoiPercent != null) return `${program.minRoiPercent.toFixed(2)}%`;
-  return null;
+function rankingMinimumRoi(program: EnterpriseLenderProgramRecord): number | null {
+  return authoritativeMinimumRoi(program).percent;
 }
 
 function programmeFitsProduct(
@@ -168,7 +165,7 @@ function evaluateProgramme(
     gates += 1;
   }
 
-  const rate = program.roiPercent ?? program.minRoiPercent ?? null;
+  const rate = rankingMinimumRoi(program);
   const tenure = program.maxTenureMonths ?? null;
   if (
     program.maxFoirPercent != null &&
@@ -198,8 +195,9 @@ function evaluateProgramme(
     gates += 1;
   }
 
-  if (rateLabel(program)) {
-    reasons.push(`Indicative rate ${rateLabel(program)}`);
+  const pricingLabel = illustrativePricingLabel(program);
+  if (pricingLabel) {
+    reasons.push(pricingLabel);
     gates += 1;
   }
 
@@ -254,13 +252,18 @@ export function rankPublishedProgrammes(input: {
     const as = matchScore(a.gates, a.candidate.priorityRank);
     const bs = matchScore(b.gates, b.candidate.priorityRank);
     if (as !== bs) return bs - as;
+    const ar = rankingMinimumRoi(a.candidate.program);
+    const br = rankingMinimumRoi(b.candidate.program);
+    if (ar != null && br != null && ar !== br) return ar - br;
+    if (ar != null && br == null) return -1;
+    if (ar == null && br != null) return 1;
     return a.candidate.lenderName.localeCompare(b.candidate.lenderName);
   });
 
   const limit = input.limit ?? 8;
   return ranked.slice(0, limit).map((row) => {
     const program = row.candidate.program;
-    const rate = program.roiPercent ?? program.minRoiPercent ?? null;
+    const rate = rankingMinimumRoi(program);
     const tenure = program.maxTenureMonths ?? null;
     const emi =
       input.profile.loanAmount != null && rate != null && tenure != null
@@ -275,7 +278,7 @@ export function rankPublishedProgrammes(input: {
       programmeLabel: program.label,
       priorityRank: row.candidate.priorityRank,
       matchScore: matchScore(row.gates, row.candidate.priorityRank),
-      interestRateLabel: rateLabel(program),
+      interestRateLabel: illustrativePricingLabel(program),
       estimatedEmiLabel: emi != null ? inr(emi) : null,
       tenureLabel: tenure != null ? `${tenure} months` : null,
       processingTimeLabel:

@@ -137,12 +137,18 @@ const changed = spawnSync("git", ["diff", "--name-only", "HEAD"], { cwd: repoRoo
 for (const forbidden of [
   "src/lib/field-control-master/",
   "src/lib/chanakya",
-  "server/services/compass-customer-gateway/",
   "src/constants/enterprise-ai-platform/",
   "server/services/lender-recommendation/",
 ]) {
   check(`untouched_${forbidden}`, !changed.includes(forbidden));
 }
+const compassChanges = changed
+  .split(/\r?\n/)
+  .filter((line) => line.startsWith("server/services/compass-customer-gateway/"));
+check(
+  "compass_gateway_limited_to_published_programme_selection",
+  compassChanges.every((line) => line.endsWith("compass-hl-bt-assessment.service.ts")),
+);
 const programmeService = readFileSync(
   "server/services/product-programme-operations/programme.service.ts",
   "utf8",

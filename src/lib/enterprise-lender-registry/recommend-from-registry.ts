@@ -13,6 +13,8 @@ import { dedupeLendersForSelection } from "@/lib/enterprise-lender-registry/pres
 import type { LoanFile } from "@/types/catalyst-one";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { recommendationProgrammeIds } from "@/lib/enterprise-lender-registry/programme-versioning";
 import {
   matchPublishedProgramme,
   type ProgrammeMatchInput,
@@ -158,7 +160,11 @@ export function recommendPublishedLendersFromOptions(
   const limit = input.limit ?? 8;
   const canonical = options.filter(isCanonicalDealLenderOption);
   if (canonical.length === 0) return [];
-  return scoreAndRank(canonical, input.file, limit, input.programmes ?? [], input.matchInput);
+  const allowed = recommendationProgrammeIds(input.programmes ?? []);
+  const programmes = (input.programmes ?? []).filter(
+    (program) => allowed.has(program.id) && isPublishedCommercialProgram(program),
+  );
+  return scoreAndRank(canonical, input.file, limit, programmes, input.matchInput);
 }
 
 function scoreAndRank(

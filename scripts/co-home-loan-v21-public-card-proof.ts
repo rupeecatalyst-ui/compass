@@ -36,6 +36,8 @@ function programme(id: string, lenderId: string, code: string): EnterpriseLender
     isDeleted: false,
     isLivePublished: true,
     publicationState: "published",
+    status: "active",
+    lifecycleStatus: "active",
     completenessState: "complete",
     employmentTypes: ["salaried"],
     propertyCategories: ["residential"],

@@ -126,7 +126,64 @@ const ranked = rankPublishedProgrammes({
   ],
 });
 assert.deepEqual(ranked.map((row) => row.programmeId), ["bom"]);
-assert.equal(ranked[0]!.interestRateLabel, "7.25%");
+assert.equal(ranked[0]!.interestRateLabel, null);
+
+const cheaperMinimum = programme({
+  id: "cheap-min",
+  lenderId: "cheap",
+  minRoiExact: "6.90",
+  maxRoiExact: "8.50",
+  roiPercent: 9,
+});
+const dearerMinimum = programme({
+  id: "dear-min",
+  lenderId: "dear",
+  minRoiExact: "7.40",
+  roiPercent: 6,
+});
+const genericOnly = programme({ id: "generic-only", lenderId: "generic", roiPercent: 5 });
+const minimumRank = rankPublishedProgrammes({
+  productCode: "HOME_LOAN",
+  profile: { employmentType: "salaried", approxCibil: 760, monthlyIncome: 100000, loanAmount: 5000000 },
+  candidates: [dearerMinimum, genericOnly, cheaperMinimum].map((program) => ({
+    program,
+    lenderId: program.lenderId,
+    lenderCode: program.lenderId.toUpperCase(),
+    lenderName: program.lenderId,
+    priorityRank: 2,
+  })),
+});
+assert.deepEqual(minimumRank.map((row) => row.programmeId), ["cheap-min", "dear-min", "generic-only"]);
+assert.equal(minimumRank[0]!.interestRateLabel, "Indicative 6.90% – 8.50%");
+assert.equal(minimumRank[2]!.interestRateLabel, null);
+
+const salariedHome = programme({ id: "hl-sal", productCode: "HOME_LOAN", employmentType: "salaried", minRoiExact: "7.00" });
+const selfEmployedHome = programme({ id: "hl-se", lenderId: "se", productCode: "HOME_LOAN", employmentType: "self employed", minRoiExact: "7.10" });
+const salariedTransfer = programme({ id: "bt-sal", lenderId: "bt", productCode: "HOME_LOAN_BT", employmentType: "salaried", minRoiExact: "6.80" });
+const mappingProfile = { employmentType: "salaried", approxCibil: 760, monthlyIncome: 100000, loanAmount: 5000000 };
+const mappingCandidates = [salariedHome, selfEmployedHome, salariedTransfer].map((program) => ({
+  program,
+  lenderId: program.lenderId,
+  lenderCode: program.lenderId.toUpperCase(),
+  lenderName: program.label,
+  priorityRank: 3,
+}));
+assert.deepEqual(
+  rankPublishedProgrammes({ productCode: "HOME_LOAN", profile: mappingProfile, candidates: mappingCandidates }).map((row) => row.programmeId),
+  ["hl-sal"],
+);
+assert.deepEqual(
+  rankPublishedProgrammes({
+    productCode: "HOME_LOAN",
+    profile: { ...mappingProfile, employmentType: "self employed" },
+    candidates: mappingCandidates,
+  }).map((row) => row.programmeId),
+  ["hl-se"],
+);
+assert.deepEqual(
+  rankPublishedProgrammes({ productCode: "HOME_LOAN_BT", profile: mappingProfile, candidates: mappingCandidates }).map((row) => row.programmeId),
+  ["bt-sal"],
+);
 
 const history = presentPolicyChangeHistory(state.audit);
 assert.ok(history.some((row) => row.event === "Unpublished"));
@@ -591,6 +648,146 @@ function createUnderLock(row: EnterpriseLenderProgramRecord) {
 }
 const firstCreate = programme({ id: "race-1", code: "RACE-1" });
 const secondCreate = programme({ id: "race-2", code: "RACE-2", roiPercent: 8.1, minCibil: 720 });
+
+const bomPublished = programme({
+  id: "289b8e13-619a-4196-8250-1c2fe1a3d824",
+  lenderId: "bom",
+  code: "BASE_BOM_HOME_LOAN_BT",
+  productCode: "HOME_LOAN_BT",
+  employmentType: "salaried",
+  versionNumber: 4,
+});
+const bomRetired = programme({
+  id: "cms8ht3lx00e5wed8b2jk2bn9",
+  lenderId: "bom",
+  code: "BASE_BOM_HOME_LOAN_BT",
+  productCode: "HOME_LOAN_BT",
+  employmentType: "salaried",
+  publicationState: "superseded",
+  isLivePublished: false,
+  versionNumber: 2,
+});
+const bomFamily = [bomPublished, bomRetired];
+assert.equal(planProgrammeCreate({ candidate: programme({ id: "bom-new", lenderId: "bom", productCode: "HOME_LOAN_BT" }), siblings: bomFamily }).ok, false);
+const bomPortal = resolvePortalProgrammeTarget({
+  organizationId: "org",
+  lenderId: "bom",
+  productCode: "HOME_LOAN_BT",
+  employmentType: "salaried",
+  programmes: bomFamily,
+});
+assert.equal(bomPortal.ok && bomPortal.programmeId, bomPublished.id);
+let bomState = step(bomFamily, [], bomPublished.id, { action: "save_draft", expectedVersionNumber: 4, patch: { roiPercent: 7.4 } }, "2026-10-28T01:00:00.000Z");
+assert.match(bomState.error ?? "", /Unpublish/);
+assert.equal(isPublishedProgramme(bomState.programs.find((row) => row.id === bomPublished.id)!), true);
+bomState = step(bomState.programs, bomState.audit, bomPublished.id, { action: "unpublish", expectedVersionNumber: 4 }, "2026-10-28T01:01:00.000Z");
+assert.equal(bomState.error, undefined);
+assert.equal(bomState.programs.find((row) => row.id === bomRetired.id)!.publicationState, "superseded");
+bomState = step(bomState.programs, bomState.audit, bomPublished.id, { action: "save_draft", expectedVersionNumber: 5, patch: { roiPercent: 7.4 } }, "2026-10-28T01:02:00.000Z");
+assert.equal(bomState.error, undefined);
+bomState = step(bomState.programs, bomState.audit, bomPublished.id, { action: "republish", expectedVersionNumber: 6 }, "2026-10-28T01:03:00.000Z");
+assert.equal(bomState.error, undefined);
+assert.equal(isPublishedProgramme(bomState.programs.find((row) => row.id === bomPublished.id)!), true);
+assert.equal(bomState.programs.filter((row) => row.id === bomRetired.id).length, 1);
+assert.deepEqual([...recommendationProgrammeIds(bomState.programs)], [bomPublished.id]);
+
+const hsbcPublished = programme({
+  id: "c0b7427a-c6ab-4b74-b6f7-6e9d4f5eca99",
+  lenderId: "hsbc",
+  code: "BASE_HSBC_HOME_LOAN",
+  productCode: "HOME_LOAN",
+  versionNumber: 3,
+});
+const hsbcFamily = [
+  hsbcPublished,
+  programme({ id: "09e9234f-0aa0-4310-b5aa-323d8f9e0845", lenderId: "hsbc", code: "BASE_HSBC_HOME_LOAN", productCode: "HOME_LOAN", publicationState: "superseded", isLivePublished: false }),
+  programme({ id: "cms8hvq3u00zbwed8r0fmxfgh", lenderId: "hsbc", code: "BASE_HSBC_HOME_LOAN", productCode: "HOME_LOAN", publicationState: "archived", isLivePublished: false }),
+];
+const hsbcRetry = resolvePortalProgrammeTarget({
+  previousProgramId: hsbcPublished.id,
+  organizationId: "org",
+  lenderId: "hsbc",
+  productCode: "HOME_LOAN",
+  employmentType: "salaried",
+  programmes: hsbcFamily,
+});
+assert.equal(hsbcRetry.ok && hsbcRetry.programmeId, hsbcPublished.id);
+let hsbcState = step(hsbcFamily, [], hsbcPublished.id, { action: "unpublish", expectedVersionNumber: 3 }, "2026-10-28T01:04:00.000Z");
+assert.equal(hsbcState.error, undefined);
+hsbcState = step(hsbcState.programs, hsbcState.audit, hsbcPublished.id, { action: "republish", expectedVersionNumber: 4 }, "2026-10-28T01:05:00.000Z");
+assert.equal(hsbcState.error, undefined);
+assert.equal(hsbcState.programs.filter((row) => row.publicationState === "superseded" || row.publicationState === "archived").length, 2);
+assert.deepEqual([...recommendationProgrammeIds(hsbcState.programs)], [hsbcPublished.id]);
+
+const cbiPublished = programme({
+  id: "a5d48536-11cd-401e-98ec-bd1d8ee1e4a4",
+  lenderId: "cbi",
+  code: "CBI_HL_SAL_001",
+  productCode: "HOME_LOAN",
+  versionNumber: 2,
+});
+const cbiPending = programme({
+  id: "e3faa669-e804-4cab-8a28-682d1fd8dffd",
+  lenderId: "cbi",
+  code: "CBI_HL_SAL_001",
+  productCode: "HOME_LOAN",
+  publicationState: "pending_approval",
+  isLivePublished: false,
+  lifecycleStatus: "inactive",
+});
+const cbiFamily = [cbiPublished, cbiPending];
+assert.equal(planProgrammeCreate({ candidate: programme({ id: "cbi-new", lenderId: "cbi", productCode: "HOME_LOAN" }), siblings: cbiFamily }).ok, false);
+const cbiAttempt = step(cbiFamily, [], cbiPublished.id, { action: "save_draft", expectedVersionNumber: 2, patch: { roiPercent: 8 } }, "2026-10-28T01:06:00.000Z");
+assert.match(cbiAttempt.error ?? "", /already owns/);
+assert.equal(cbiAttempt.programs.find((row) => row.id === cbiPublished.id)!.publicationState, "published");
+assert.equal(cbiAttempt.audit.length, 0);
+const cbiUnpublish = step(cbiFamily, [], cbiPublished.id, { action: "unpublish", expectedVersionNumber: 2 }, "2026-10-28T01:07:00.000Z");
+assert.match(cbiUnpublish.error ?? "", /already owns/);
+assert.equal(isPublishedProgramme(cbiUnpublish.programs.find((row) => row.id === cbiPublished.id)!), true);
+const cbiRepublishPending = step(cbiFamily, [], cbiPending.id, { action: "republish", expectedVersionNumber: 1 }, "2026-10-28T01:08:00.000Z");
+assert.match(cbiRepublishPending.error ?? "", /already owns/);
+assert.deepEqual([...recommendationProgrammeIds(cbiFamily)], [cbiPublished.id]);
+
+const hdfcPublished = programme({
+  id: "b8d185ff-0ff0-4080-a433-67d8f20a2f09",
+  lenderId: "hdfc",
+  code: "HDFC_HLBT_SAL_001",
+  productCode: "HOME_LOAN_BT",
+  employmentType: "salaried",
+  versionNumber: 2,
+});
+const hdfcDraft = programme({
+  id: "cms8ht6k300etwed84p1jnis5",
+  lenderId: "hdfc",
+  code: "BASE_HDFC_HOME_LOAN_BT",
+  productCode: "HOME_LOAN_BT",
+  employmentType: "",
+  publicationState: "draft",
+  isLivePublished: false,
+  status: "draft",
+  lifecycleStatus: "draft",
+});
+assert.equal(planProgrammeCreate({ candidate: programme({ id: "hdfc-se", lenderId: "hdfc", productCode: "HOME_LOAN_BT", employmentType: "self employed" }), siblings: [hdfcPublished, hdfcDraft] }).ok, true);
+const hdfcEdit = step([hdfcPublished, hdfcDraft], [], hdfcPublished.id, { action: "unpublish", expectedVersionNumber: 2 }, "2026-10-28T01:09:00.000Z");
+assert.equal(hdfcEdit.error, undefined);
+assert.equal(hdfcEdit.programs.find((row) => row.id === hdfcDraft.id)!.publicationState, "draft");
+assert.equal(recommendationProgrammeIds([hdfcPublished, hdfcDraft]).has(hdfcDraft.id), false);
+
+const duplicatePublished = [
+  programme({ id: "live-a", lenderId: "dup", productCode: "HOME_LOAN" }),
+  programme({ id: "live-b", lenderId: "dup", productCode: "HL_STD" }),
+];
+assert.equal(recommendationProgrammeIds(duplicatePublished).size, 0);
+assert.equal(selectCurrentProgramme(duplicatePublished, "salaried"), null);
+assert.equal(planProgrammeCreate({ candidate: programme({ id: "live-c", lenderId: "dup", productCode: "HOME_LOAN" }), siblings: duplicatePublished }).ok, false);
+const inactiveStillOccupies = programme({
+  id: "inactive-current",
+  lenderId: "dup2",
+  productCode: "LAP",
+  lifecycleStatus: "inactive",
+  publicationState: "published",
+});
+assert.equal(planProgrammeCreate({ candidate: programme({ id: "dup2-new", lenderId: "dup2", productCode: "LAP" }), siblings: [inactiveStillOccupies] }).ok, false);
 
 async function verifyPagination() {
   const raced = await Promise.all([createUnderLock(firstCreate), createUnderLock(secondCreate)]);

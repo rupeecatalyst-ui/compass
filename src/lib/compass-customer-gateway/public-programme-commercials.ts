@@ -1,4 +1,8 @@
 import { toIntegerRupees } from "@/constants/enterprise-product-master/requested-amount-limits";
+import {
+  authoritativeMinimumRoi,
+  illustrativePricingLabel,
+} from "@/lib/enterprise-lender-registry/programme-pricing";
 import { calculateMonthlyEmi } from "@/lib/loan-emi-utils";
 
 export type PublishedProgrammeCommercialSource = {
@@ -18,7 +22,7 @@ export type PublicProgrammeCommercials = {
   tentativeOfferLabel: string | null;
   tentativeOfferRupees: number | null;
   requestedAmountLabel: string | null;
-  rateSource: "roiPercent" | "roiRange" | "minRoiPercent" | "absent";
+  rateSource: "minRoiExact" | "minRoiPercent" | "absent";
   eligibleAmountSource: "published-ceiling-and-requested" | "absent";
   emiSource: "calculated" | "absent";
   tenureSource: "maxTenureMonths" | "absent";
@@ -71,28 +75,13 @@ export function projectPublishedProgrammeCommercials(input: {
 }): PublicProgrammeCommercials {
   const program = input.program;
   const requested = validatedRequestedAmountRupees(input.requestedAmount);
-  const roi = finite(program?.roiPercent);
-  const minRoi = finite(program?.minRoiPercent);
-  const maxRoi = finite(program?.maxRoiPercent);
+  const minimum = authoritativeMinimumRoi(program ?? {});
   const maxFunding = finite(program?.maxFundingAmount);
   const tenureMonths = finite(program?.maxTenureMonths);
   const tatDays = finite(program?.averageTatDays);
-
-  let interestRateLabel: string | null = null;
-  let rateSource: PublicProgrammeCommercials["rateSource"] = "absent";
-  let emiRate: number | null = null;
-  if (roi != null) {
-    interestRateLabel = `${roi}%`;
-    rateSource = "roiPercent";
-    emiRate = roi;
-  } else if (minRoi != null && maxRoi != null) {
-    interestRateLabel = `${minRoi}% – ${maxRoi}%`;
-    rateSource = "roiRange";
-  } else if (minRoi != null) {
-    interestRateLabel = `${minRoi}%`;
-    rateSource = "minRoiPercent";
-    emiRate = minRoi;
-  }
+  const interestRateLabel = illustrativePricingLabel(program ?? {});
+  const rateSource = minimum.source;
+  const emiRate = minimum.percent;
 
   const eligible =
     requested != null && maxFunding != null && maxFunding > 0

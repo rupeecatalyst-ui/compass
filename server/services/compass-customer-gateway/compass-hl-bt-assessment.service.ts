@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
 import { runHomeLoanRecommendationEngine, type AssessableProgramme } from "@/lib/home-loan-recommendation/engine";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { recommendationProgrammeIds } from "@/lib/enterprise-lender-registry/programme-versioning";
 import type { CompassProductCode } from "@/types/compass-customer-gateway";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import { buildBtAssessmentDisplay } from "@/lib/home-loan-recommendation/bt-assessment-display";
@@ -158,12 +159,14 @@ export async function evaluateAndPersistCompassHomeLoanAssessment(input: {
     overrides.flatMap((row) => [row.lenderId, row.programmeId].filter(Boolean) as string[]),
   );
 
-  const assessed = programs.map((row) => {
-    const mapped = mapProgram(row);
-    mapped.lenderCategory = categoryByLender.get(row.lenderId) ?? null;
-    mapped.suspendedByOverride = suspended.has(row.id) || suspended.has(row.lenderId);
-    return mapped;
+  const mapped = programs.map((row) => {
+    const program = mapProgram(row);
+    program.lenderCategory = categoryByLender.get(row.lenderId) ?? null;
+    program.suspendedByOverride = suspended.has(row.id) || suspended.has(row.lenderId);
+    return program;
   });
+  const allowed = recommendationProgrammeIds(mapped);
+  const assessed = mapped.filter((program) => allowed.has(program.id));
 
   const result = runHomeLoanRecommendationEngine({
     customer,

@@ -18,6 +18,7 @@ import {
   type HlBtJourneyKind,
 } from "./assisted-offer";
 import { calculateIndicativeBtSaving, evaluateProgrammeSeasoning } from "./bt-journey";
+import { authoritativeMinimumRoi } from "@/lib/enterprise-lender-registry/programme-pricing";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 export type AssessableProgramme = EnterpriseLenderProgramRecord & {
@@ -135,9 +136,8 @@ function bindingConstraintFromOffer(offer: TentativeOfferResult): OfferBindingCo
 }
 
 function programmeRoi(program: AssessableProgramme): { percent: number | null; indicative: boolean } {
-  const exact = toNumber(program.minRoiExact) ?? toNumber(program.roiPercent) ?? toNumber(program.minRoiPercent);
-  if (exact == null) return { percent: null, indicative: true };
-  return { percent: exact, indicative: program.maxRoiPercent != null && program.maxRoiPercent !== exact };
+  const minimum = authoritativeMinimumRoi(program);
+  return { percent: minimum.percent, indicative: true };
 }
 
 export function runHomeLoanRecommendationEngine(input: {

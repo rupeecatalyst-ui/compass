@@ -274,6 +274,8 @@ function asProgramme(row: ProgrammeShape): EnterpriseLenderProgramRecord {
     isDeleted: false,
     isLivePublished: true,
     publicationState: "published",
+    status: "active",
+    lifecycleStatus: "active",
     completenessState: "complete",
     employmentTypes: ["salaried"],
     legalConstitutions: ["individual"],

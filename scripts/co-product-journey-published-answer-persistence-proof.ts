@@ -248,6 +248,8 @@ async function main() {
     isDeleted: false,
     isLivePublished: true,
     publicationState: "published",
+    status: "active",
+    lifecycleStatus: "active",
     completenessState: "complete",
     employmentTypes: ["salaried"],
     propertyCategories: ["residential"],
