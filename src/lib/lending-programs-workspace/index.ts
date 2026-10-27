@@ -12,6 +12,7 @@ import {
 import { fetchProductMasterOptions } from "@/lib/enterprise-product-master/options";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { isCurrentPublishedProgramme } from "@/lib/enterprise-lender-registry/programme-versioning";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import {
   findOperationalEcmContactById,
@@ -116,21 +117,30 @@ export async function loadLendingProgramsSnapshot(opts?: {
     }
   }
 
-  const [lendersResult, programsResult, products] = await Promise.all([
+  const [lendersResult, products] = await Promise.all([
     lenderRegistryClient.queryLenders({
       status: "active",
       enabled: true,
       pageSize: 500,
     }),
-    lenderRegistryClient.queryPrograms({
-      publishedOnly: true,
-      pageSize: 1000,
-    }),
     fetchProductMasterOptions({ enabledOnly: true, force: opts?.force }),
   ]);
+  const programItems: EnterpriseLenderProgramRecord[] = [];
+  for (let page = 1; page <= 500; page += 1) {
+    const batch = await lenderRegistryClient.queryPrograms({
+      publishedOnly: true,
+      page,
+      pageSize: 200,
+    });
+    programItems.push(...batch.items);
+    const rawCount = "pageCount" in batch ? batch.pageCount ?? batch.items.length : batch.items.length;
+    if (rawCount < 200) break;
+  }
 
   const lenders = lendersResult.items.filter((l) => !l.isDeleted && l.enabled);
-  const publishedPrograms = programsResult.items.filter(isPublishedCommercialProgram);
+  const publishedPrograms = programItems.filter(
+    (program) => isPublishedCommercialProgram(program) && isCurrentPublishedProgramme(program),
+  );
   const { capabilityByProduct, capabilityByLender } = buildCapabilityIndexes(
     lenders,
     publishedPrograms,

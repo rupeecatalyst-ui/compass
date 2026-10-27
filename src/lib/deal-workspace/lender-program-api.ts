@@ -2,6 +2,7 @@
  * CO-ARCH-003 Phase 2B Sprint 2 — Lender / program clients for Deal Workspace.
  */
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { isCurrentPublishedProgramme } from "@/lib/enterprise-lender-registry/programme-versioning";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 
@@ -42,26 +43,26 @@ export async function listLenderPrograms(opts: {
   lenderId: string;
   productId?: string | null;
 }): Promise<EnterpriseLenderProgramRecord[]> {
-  const params = new URLSearchParams({
-    page: "1",
-    pageSize: "200",
-    lenderId: opts.lenderId,
-    lifecycleStatus: "published",
-  });
-  // Also accept active programs if published filter empty — query both via "all" and filter client-side
-  params.set("lifecycleStatus", "all");
-  if (opts.productId) params.set("productId", opts.productId);
   try {
-    const data = await apiFetch<{ items: EnterpriseLenderProgramRecord[] }>(
-      `/api/lender-registry/programs?${params}`,
-    );
-    return (data.items ?? []).filter(
-      (p) =>
-        p.enabled &&
-        p.status === "active" &&
-        !p.isDeleted &&
-        (p.lifecycleStatus === "active" || p.lifecycleStatus === "draft"),
-    );
+    const items: EnterpriseLenderProgramRecord[] = [];
+    for (let page = 1; page <= 500; page += 1) {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: "200",
+        lenderId: opts.lenderId,
+        status: "active",
+        enabled: "true",
+        lifecycleStatus: "active",
+      });
+      if (opts.productId) params.set("productId", opts.productId);
+      const data = await apiFetch<{ items: EnterpriseLenderProgramRecord[] }>(
+        `/api/lender-registry/programs?${params}`,
+      );
+      const batch = data.items ?? [];
+      items.push(...batch);
+      if (batch.length < 200) break;
+    }
+    return items.filter((program) => isCurrentPublishedProgramme(program));
   } catch {
     return [];
   }

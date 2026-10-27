@@ -22,7 +22,11 @@ export async function POST(request: Request, context: RouteContext) {
     const actor = requireAccessToken(request);
     requireLenderRegistryAdmin(actor);
     const { programId } = await context.params;
-    const body = (await request.json().catch(() => ({}))) as { action?: string; approvalReason?: string };
+    const body = (await request.json().catch(() => ({}))) as {
+      action?: string;
+      approvalReason?: string;
+      expectedVersionNumber?: number;
+    };
     const organizationId = await resolvePilotOrganizationId();
     const actorName = await resolveActorDisplayName(actor.userId);
     const base = {
@@ -31,6 +35,8 @@ export async function POST(request: Request, context: RouteContext) {
       actorRole: actor.role,
       programId,
       actorName,
+      expectedVersionNumber:
+        typeof body.expectedVersionNumber === "number" ? body.expectedVersionNumber : undefined,
     };
     if (body.action === "submit") return successResponse(await productProgrammeOperationsService.submit(base));
     if (body.action === "approve") {

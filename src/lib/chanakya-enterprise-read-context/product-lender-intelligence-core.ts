@@ -4,8 +4,9 @@
  */
 
 import { lenderSupportsProduct } from "@/lib/deal-workspace/product-lender-eligibility";
-import { resolveCanonicalProductCode } from "@/constants/enterprise-product-master";
+import { resolveCanonicalProductCode, productCodesShareSelectionFamily } from "@/constants/enterprise-product-master";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { selectCurrentProgramme } from "@/lib/enterprise-lender-registry/programme-versioning";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import type { EnterpriseProductRecord } from "@/types/enterprise-product-registry";
 import { resolveOpportunityLoanPurpose } from "@/lib/enterprise-opportunity/resolve-loan-purpose";
@@ -582,7 +583,10 @@ export function buildPotentialLenderFitAssessments(input: {
     if (!lenderSupportsProduct(lender.productsSupported, input.productCode)) continue;
 
     const programs = (input.programsByLender.get(lender.lenderId) ?? []).filter(
-      (p) => !p.isDeleted && isPublishedCommercialProgram(p),
+      (p) =>
+        !p.isDeleted &&
+        isPublishedCommercialProgram(p) &&
+        productCodesShareSelectionFamily(p.productCode, input.productCode),
     );
     const programAvailability: ChanakyaProgramAvailabilityEvidence[] = programs.map(
       (program) => ({
@@ -647,10 +651,13 @@ export function buildPotentialLenderFitAssessments(input: {
             matrixMapped: true,
           });
 
-    const legacySnapshot =
-      programsWithDepth.length > 0
-        ? programParametersToSnapshot(buildProgramParameterEvidence(programsWithDepth[0]!))
-        : null;
+    const selectedProgramme = selectCurrentProgramme(
+      programsWithDepth,
+      input.transaction.employmentTypeCode,
+    );
+    const legacySnapshot = selectedProgramme
+      ? programParametersToSnapshot(buildProgramParameterEvidence(selectedProgramme))
+      : null;
 
     rows.push({
       lenderId: lender.lenderId,

@@ -6,7 +6,6 @@ import {
 } from "@/lib/product-programme-operations/request-schema";
 import { assertFilterFieldsAreModuleScoped } from "@/lib/product-programme-operations/additional-eligibility-filters/module-fields";
 import {
-  programRecordToStructuredPayload,
   structuredPayloadToCreateInput,
   structuredPayloadToUpdateInput,
 } from "@/lib/product-programme-operations/to-registry-input";
@@ -32,6 +31,7 @@ import {
   CANONICAL_PRODUCT_CODE_PUBLICATION_REQUIRED,
   canonicalProductPublicationDecision,
 } from "@/constants/enterprise-product-master";
+import { programmeLifecycleDecision } from "@/lib/enterprise-lender-registry/programme-versioning";
 
 async function assertPublishedPolicyVersion(policyVersionId: string | null, organizationId: string): Promise<void> {
   if (policyVersionId === null) return;
@@ -85,20 +85,11 @@ export const productProgrammeOperationsService = {
     const created = await lenderRegistryRepository.createProgram(
       input.organizationId,
       structuredPayloadToCreateInput(payload, input.actorUserId),
+      { actorName: input.actorName, reason: "lender_program_created" },
     );
     if (created.organizationId !== input.organizationId) {
       throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
     }
-    await lenderRegistryRepository.recordProgramAudit({
-      organizationId: input.organizationId,
-      programId: created.id,
-      lineageId: created.lineageId ?? created.id,
-      action: "created",
-      newValue: created,
-      actorUserId: input.actorUserId,
-      actorName: input.actorName,
-      reason: "lender_program_created",
-    });
     return created;
   },
 
@@ -119,6 +110,12 @@ export const productProgrammeOperationsService = {
     const raw = input.body && typeof input.body === "object" ? (input.body as Record<string, unknown>) : {};
     parseStructuredProgrammePayload(raw, { partial: true });
     const createDraftRevision = raw.createDraftRevision === true;
+    if (createDraftRevision) {
+      throw new ProgrammeValidationError(
+        "Unpublish this programme and edit the same record. A new programme version was not created.",
+        [{ field: "createDraftRevision", message: "Unpublish the same programme before editing commercial policy." }],
+      );
+    }
     const expectedLockVersion =
       typeof raw.expectedLockVersion === "number" ? raw.expectedLockVersion : undefined;
     assertLockVersion(
@@ -134,46 +131,35 @@ export const productProgrammeOperationsService = {
         lifecycleStatus: existing.lifecycleStatus,
         isDeleted: existing.isDeleted,
       },
-      createDraftRevision,
+      false,
     );
     const revisionMetaKeys = new Set([
       "createDraftRevision",
       "expectedLockVersion",
+      "expectedVersionNumber",
+      "changeReason",
       "createdBy",
       "modifiedBy",
     ]);
     const overlay = Object.fromEntries(
       Object.entries(raw).filter(([key]) => !revisionMetaKeys.has(key)),
     );
-    const payload = parseStructuredProgrammePayload(
-      createDraftRevision
-        ? { ...programRecordToStructuredPayload(existing), ...overlay }
-        : {
-            lenderId: existing.lenderId,
-            code: existing.code,
-            label: existing.label,
-            ...raw,
-          },
-    );
+    const payload = parseStructuredProgrammePayload({
+      lenderId: existing.lenderId,
+      code: existing.code,
+      label: existing.label,
+      ...overlay,
+    });
     await assertPublishedPolicyVersion(payload.policyVersionId, input.organizationId);
     assertAdditionalFiltersAgainstProgramme(payload);
     assertModuleScopedFilters(payload);
-    const updateInput = structuredPayloadToUpdateInput(payload, input.actorUserId);
-    const updated = createDraftRevision
-      ? await lenderRegistryRepository.createDraftFromPublished(input.programId, updateInput)
-      : await lenderRegistryRepository.updateProgram(input.programId, updateInput);
-    await lenderRegistryRepository.recordProgramAudit({
-      organizationId: input.organizationId,
-      programId: updated.id,
-      lineageId: updated.lineageId ?? existing.lineageId ?? existing.id,
-      action: createDraftRevision ? "draft_revision_created" : "updated",
-      previousValue: existing,
-      newValue: updated,
-      actorUserId: input.actorUserId,
-      actorName: input.actorName,
-      reason: createDraftRevision ? "draft_revision_created" : "lender_program_updated",
-    });
-    return updated;
+    const updateInput = {
+      ...structuredPayloadToUpdateInput(payload, input.actorUserId),
+      expectedVersionNumber:
+        typeof raw.expectedVersionNumber === "number" ? raw.expectedVersionNumber : undefined,
+      changeReason: typeof raw.changeReason === "string" ? raw.changeReason : "draft_saved",
+    };
+    return lenderRegistryRepository.updateProgram(input.programId, updateInput);
   },
 
   async submit(input: {
@@ -182,27 +168,26 @@ export const productProgrammeOperationsService = {
     actorRole: string;
     programId: string;
     actorName?: string;
+    expectedVersionNumber?: number;
   }) {
-    assertAdmin(input.actorRole);
     const existing = await lenderRegistryRepository.findProgramById(input.programId);
     if (!existing) throw new Error("Lender program not found.");
     if (existing.organizationId !== input.organizationId) {
       throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
     }
-    assertRecordAdditionalFilters(existing);
-    const updated = await lenderRegistryRepository.submitProgram(input.programId, input.actorUserId);
-    await lenderRegistryRepository.recordProgramAudit({
-      organizationId: input.organizationId,
-      programId: updated.id,
-      lineageId: updated.lineageId ?? existing.id,
-      action: "submitted",
-      previousValue: existing,
-      newValue: updated,
+    const decision = programmeLifecycleDecision({
+      action: "submit",
+      actorRole: input.actorRole,
       actorUserId: input.actorUserId,
+      createdBy: existing.createdBy,
+    });
+    if (!decision.ok) throw new ProgrammePermissionError(decision.message);
+    assertRecordAdditionalFilters(existing);
+    return lenderRegistryRepository.submitProgram(input.programId, input.actorUserId, {
       actorName: input.actorName,
       reason: "submitted_for_approval",
+      expectedVersionNumber: input.expectedVersionNumber,
     });
-    return updated;
   },
 
   async approve(input: {
@@ -212,37 +197,28 @@ export const productProgrammeOperationsService = {
     programId: string;
     actorName?: string;
     approvalReason?: string;
+    expectedVersionNumber?: number;
   }) {
-    assertAdmin(input.actorRole);
     const existing = await lenderRegistryRepository.findProgramById(input.programId);
     if (!existing) throw new Error("Lender program not found.");
     if (existing.organizationId !== input.organizationId) {
       throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
     }
-    if (existing.createdBy === input.actorUserId && input.actorRole !== "SUPER_ADMIN") {
-      throw new ProgrammePermissionError("Creator cannot approve their own programme.");
-    }
-    if (existing.createdBy === input.actorUserId && input.actorRole === "SUPER_ADMIN" && !input.approvalReason?.trim()) {
-      throw new ProgrammePermissionError("Super Admin self-approval requires an audit reason.");
-    }
+    const decision = programmeLifecycleDecision({
+      action: "approve",
+      actorRole: input.actorRole,
+      actorUserId: input.actorUserId,
+      createdBy: existing.createdBy,
+      approvalReason: input.approvalReason,
+    });
+    if (!decision.ok) throw new ProgrammePermissionError(decision.message);
     assertRecordAdditionalFilters(existing);
-    const updated = await lenderRegistryRepository.approveProgram(
+    return lenderRegistryRepository.approveProgram(
       input.programId,
       input.actorUserId,
       input.approvalReason?.trim() || "approved",
+      { actorName: input.actorName, expectedVersionNumber: input.expectedVersionNumber },
     );
-    await lenderRegistryRepository.recordProgramAudit({
-      organizationId: input.organizationId,
-      programId: updated.id,
-      lineageId: updated.lineageId ?? existing.id,
-      action: "approved",
-      previousValue: existing,
-      newValue: updated,
-      actorUserId: input.actorUserId,
-      actorName: input.actorName,
-      reason: input.approvalReason?.trim() || "approved",
-    });
-    return updated;
   },
 
   async publish(input: {
@@ -349,18 +325,11 @@ export const productProgrammeOperationsService = {
         { field: "productCode", message: CANONICAL_PRODUCT_CODE_PUBLICATION_REQUIRED },
       ]);
     }
-    const updated = await lenderRegistryRepository.publishApprovedProgram(input.programId, input.actorUserId);
-    await lenderRegistryRepository.recordProgramAudit({
-      organizationId: input.organizationId,
-      programId: updated.id,
-      lineageId: updated.lineageId ?? existing.id,
-      action: "published",
-      previousValue: existing,
-      newValue: updated,
-      actorUserId: input.actorUserId,
-      actorName: input.actorName,
-      reason: "published",
-    });
+    const updated = await lenderRegistryRepository.publishApprovedProgram(
+      input.programId,
+      input.actorUserId,
+      input.actorName,
+    );
     return updated;
   },
 };

@@ -240,7 +240,12 @@ export const lenderRegistryClient = {
             canonicalizeProductCode(p.productCode) === canonicalizeProductCode(wanted),
         );
       }
-      return { items, total: items.length, source: "api" as const };
+      return {
+        items,
+        total: api.total,
+        pageCount: api.items.length,
+        source: "api" as const,
+      };
     }
     if (!allowSoftGoLive()) rejectLocalFallback("query programs");
     const local = localLenderRegistryStore.queryPrograms(query);

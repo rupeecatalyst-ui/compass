@@ -21,6 +21,13 @@ import {
 } from "@/lib/lender-program-portal/launch-closure";
 import { ProgrammePermissionError, ProgrammeValidationError } from "@/types/product-programme-operations";
 import { productProgrammeOperationsService } from "@server/services/product-programme-operations/programme.service";
+import {
+  isPublishedProgramme,
+  PROGRAMME_MUST_UNPUBLISH_MESSAGE,
+  publishedProgrammeCommercialChange,
+  resolvePortalProgrammeTarget,
+  type ProgrammePolicyPatch,
+} from "@/lib/enterprise-lender-registry/programme-versioning";
 import { sendLenderPortalEmail } from "./portal-mail";
 import {
   buildLenderProgramPortalPath,
@@ -1085,21 +1092,25 @@ export const lenderProgramPortalService = {
       payload,
       policyVersionId,
     });
+    const employmentTypes = (programmeBody as { employmentTypes?: string[] }).employmentTypes;
+    const employmentType = employmentTypes?.filter(Boolean).join(",") || null;
+    const programmes = await lenderRegistryRepository.listProgramsForLender(organizationId, row.lenderId);
+    const target = resolvePortalProgrammeTarget({
+      previousProgramId: row.previousProgramId,
+      organizationId,
+      lenderId: row.lenderId,
+      productCode: row.productCode,
+      employmentType,
+      label: row.programName,
+      programmes,
+    });
+    if (!target.ok) throw new Error(target.message);
     const intakeActorId = `portal-intake:${row.id}`;
-    let draftId: string;
     let programId: string | null = null;
+    let resumedExisting = false;
     try {
-      if (row.previousProgramId) {
-        const revision = await productProgrammeOperationsService.update({
-          organizationId,
-          actorUserId: intakeActorId,
-          actorName: "Lender programme intake",
-          actorRole: "ADMIN",
-          programId: row.previousProgramId,
-          body: { ...programmeBody, createDraftRevision: true },
-        });
-        draftId = revision.id;
-      } else {
+      let draftId = target.programmeId;
+      if (!draftId) {
         const created = await productProgrammeOperationsService.create({
           organizationId,
           actorUserId: intakeActorId,
@@ -1108,30 +1119,62 @@ export const lenderProgramPortalService = {
           body: programmeBody,
         });
         draftId = created.id;
+      } else {
+        resumedExisting = true;
+        const existing = programmes.find((program) => program.id === draftId);
+        if (!existing || existing.lenderId !== row.lenderId) {
+          throw new Error("This portal submission does not map to exactly one existing programme. No programme was created or changed.");
+        }
+        const commercialChange = publishedProgrammeCommercialChange(
+          existing,
+          programmeBody as ProgrammePolicyPatch,
+        );
+        if (isPublishedProgramme(existing) && commercialChange) {
+          throw new PortalLaunchError(409, "MUST_UNPUBLISH", PROGRAMME_MUST_UNPUBLISH_MESSAGE);
+        }
+        if (!isPublishedProgramme(existing)) {
+          const updated = await productProgrammeOperationsService.update({
+            organizationId,
+            actorUserId: intakeActorId,
+            actorName: "Lender programme intake",
+            actorRole: "ADMIN",
+            programId: existing.id,
+            body: {
+              ...programmeBody,
+              expectedVersionNumber: existing.versionNumber,
+              changeReason: "portal_draft_saved",
+            },
+          });
+          draftId = updated.id;
+        }
       }
-      await productProgrammeOperationsService.submit({
-        organizationId,
-        actorUserId: input.actorUserId,
-        actorRole: input.actorRole,
-        actorName: input.actorName,
-        programId: draftId,
-      });
-      await productProgrammeOperationsService.approve({
-        organizationId,
-        actorUserId: input.actorUserId,
-        actorRole: input.actorRole,
-        actorName: input.actorName,
-        programId: draftId,
-        approvalReason: "Approved lender portal submission published by an internal administrator.",
-      });
-      const published = await productProgrammeOperationsService.publish({
-        organizationId,
-        actorUserId: input.actorUserId,
-        actorRole: input.actorRole,
-        actorName: input.actorName,
-        programId: draftId,
-      });
-      programId = published.id;
+      if (draftId && !programmes.some((program) => program.id === draftId && isPublishedProgramme(program))) {
+        await productProgrammeOperationsService.submit({
+          organizationId,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          actorName: input.actorName,
+          programId: draftId,
+        });
+        await productProgrammeOperationsService.approve({
+          organizationId,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          actorName: input.actorName,
+          programId: draftId,
+          approvalReason: "Approved lender portal submission published by an internal administrator.",
+        });
+        const published = await productProgrammeOperationsService.publish({
+          organizationId,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole,
+          actorName: input.actorName,
+          programId: draftId,
+        });
+        programId = published.id;
+      } else {
+        programId = draftId;
+      }
     } catch (error) {
       rethrowProgramme(error);
     }
@@ -1174,11 +1217,11 @@ export const lenderProgramPortalService = {
       "Program published",
       `${input.actorName} published program version ${row.versionNumber}${programId ? ` (${programId})` : ""}. The program is now active across Catalyst One.`,
     );
-    if (row.previousProgramId) {
+    if (resumedExisting && programId) {
       await appendDialogue(
         "version_updated",
         "Program version updated",
-        `Previous program ${row.previousProgramId} remains in programme history. Version ${row.versionNumber} is the live published programme.`,
+        `Programme ${programId} was updated in place. Submission ${row.versionNumber} is recorded on the same programme id.`,
       );
     }
     const lender = await lenderRegistryRepository.findLenderById(row.lenderId);

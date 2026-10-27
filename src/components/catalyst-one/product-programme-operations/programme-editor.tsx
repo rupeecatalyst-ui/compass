@@ -37,8 +37,11 @@ import {
 import {
   LEGACY_PROGRAMME_REVIEW_LABEL,
   isLegacyProgrammeReviewRequired,
-  mustCreateDraftRevision,
 } from "@/lib/product-programme-operations/legacy-review";
+import {
+  PROGRAMME_MUST_UNPUBLISH_MESSAGE,
+  PROGRAMME_UNPUBLISH_WARNING,
+} from "@/lib/enterprise-lender-registry/programme-versioning";
 import { AdditionalEligibilityFilterBuilder } from "@/components/catalyst-one/product-programme-operations/additional-eligibility-filter-builder";
 import { toProgrammeWritePayload } from "@/lib/product-programme-operations/to-write-payload";
 import { authenticatedJsonFetch } from "@/lib/api-client";
@@ -106,7 +109,15 @@ export function ProductProgrammeEditor({
   });
   const [baseline, setBaseline] = useState(JSON.stringify(state));
   const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState<Array<{ at: string; actor: string; event: string; field: string; oldValue: string; newValue: string; reason: string }>>([]);
+  const [conflict, setConflict] = useState<string | null>(null);
   const dirty = JSON.stringify(state) !== baseline;
+  const commercialLocked =
+    Boolean(state.id) &&
+    state.isLivePublished === true &&
+    state.publicationState === "published" &&
+    state.status === "active" &&
+    state.lifecycleStatus === "active";
 
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -144,38 +155,81 @@ export function ProductProgrammeEditor({
     return true;
   });
 
+  async function loadHistory(programId: string) {
+    const res = await authenticatedJsonFetch(`/api/lender-registry/programs/${programId}/history`);
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.success && Array.isArray(body.data)) setHistory(body.data);
+  }
+
+  useEffect(() => {
+    if (state.id) void loadHistory(state.id);
+  }, [state.id]);
+
   async function saveDraft() {
+    if (commercialLocked) {
+      toast.error(PROGRAMME_MUST_UNPUBLISH_MESSAGE);
+      return;
+    }
     setSaving(true);
+    setConflict(null);
     try {
       const payload = toProgrammeWritePayload(state);
-      const needsDraftRevision = mustCreateDraftRevision({
-        isDeleted: false,
-        status: state.status,
-        lifecycleStatus: state.lifecycleStatus,
-        isLivePublished: state.isLivePublished,
-        publicationState: state.publicationState,
-      });
-      const saved =
-        state.id && needsDraftRevision
-          ? await lenderRegistryClient.updateProgram(
-              state.id,
-              { ...payload, createDraftRevision: true, expectedLockVersion: state.lockVersion },
-              actor,
-            )
-          : state.id
-            ? await lenderRegistryClient.updateProgram(
-                state.id,
-                { ...payload, expectedLockVersion: state.lockVersion },
-                actor,
-              )
-            : await lenderRegistryClient.createProgram(payload, actor);
+      const rate = state.roiPercent == null ? {} : { roiPercent: state.roiPercent };
+      const saved = state.id
+        ? await lenderRegistryClient.updateProgram(
+            state.id,
+            {
+              ...payload,
+              ...rate,
+              expectedLockVersion: state.lockVersion,
+              expectedVersionNumber: state.versionNumber,
+              changeReason: "draft_saved",
+            },
+            actor,
+          )
+        : await lenderRegistryClient.createProgram({ ...payload, ...rate }, actor);
       const next = recordToEditorState(saved);
       setState(next);
       setBaseline(JSON.stringify(next));
       toast.success("Draft saved.");
       onSaved();
+      if (saved.id) void loadHistory(saved.id);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Save failed");
+      const message = error instanceof Error ? error.message : "Save failed";
+      if (message.includes("already owns")) setConflict(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function unpublishProgramme() {
+    if (!state.id || state.versionNumber == null) return;
+    if (!window.confirm(PROGRAMME_UNPUBLISH_WARNING)) return;
+    setSaving(true);
+    setConflict(null);
+    try {
+      const res = await authenticatedJsonFetch(`/api/lender-registry/programs/${state.id}/governance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "unpublish",
+          expectedVersionNumber: state.versionNumber,
+          reason: "unpublish",
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.success) throw new Error(body?.error?.message || "Unpublish failed");
+      const next = recordToEditorState(body.data);
+      setState(next);
+      setBaseline(JSON.stringify(next));
+      toast.success("Programme unpublished. Edit this same programme id, then republish it.");
+      onSaved();
+      if (next.id) void loadHistory(next.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unpublish failed";
+      if (message.includes("already owns") || message.includes("someone else")) setConflict(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -190,7 +244,11 @@ export function ProductProgrammeEditor({
       const res = await authenticatedJsonFetch(`/api/lender-registry/programs/${state.id}/workflow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, approvalReason }),
+        body: JSON.stringify({
+          action,
+          approvalReason,
+          expectedVersionNumber: state.versionNumber,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body.success) {
@@ -206,6 +264,7 @@ export function ProductProgrammeEditor({
       }
       toast.success(`${action} succeeded.`);
       onSaved();
+      if (state.id) void loadHistory(state.id);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Workflow failed");
     } finally {
@@ -242,12 +301,33 @@ export function ProductProgrammeEditor({
               explicit republication are required before recommendation use.
             </p>
           ) : null}
+          {commercialLocked ? (
+            <p className="mt-2 text-sm text-muted-foreground" data-testid="programme-commercial-locked">
+              Published commercial fields are read-only. Unpublish this programme before changing the rate or eligibility. The programme id stays the same.
+            </p>
+          ) : null}
+          {conflict ? (
+            <p className="mt-2 text-sm text-destructive" role="alert" data-testid="programme-key-conflict">
+              {conflict}
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={requestClose}>
             Close
           </Button>
-          <Button data-testid="programme-save-draft" onClick={() => void saveDraft()} disabled={saving}>
+          {commercialLocked ? (
+            <Button
+              type="button"
+              variant="secondary"
+              data-testid="programme-unpublish"
+              disabled={saving}
+              onClick={() => void unpublishProgramme()}
+            >
+              Unpublish
+            </Button>
+          ) : null}
+          <Button data-testid="programme-save-draft" onClick={() => void saveDraft()} disabled={saving || commercialLocked}>
             Save Draft
           </Button>
         </div>
@@ -266,6 +346,10 @@ export function ProductProgrammeEditor({
         ))}
       </div>
 
+      <fieldset
+        disabled={commercialLocked}
+        className={cn("min-w-0 space-y-6 border-0 p-0", commercialLocked && "pointer-events-none opacity-80")}
+      >
       <section id="programme-identity" className="space-y-4 rounded-xl border border-border p-5" data-section="programme-identity">
         <h3 className="text-lg font-semibold">1. Programme Identity</h3>
         <div className="grid gap-4 md:grid-cols-2">
@@ -503,6 +587,15 @@ export function ProductProgrammeEditor({
       <section id="pricing-roi" className="space-y-4 rounded-xl border border-border p-5" data-section="pricing-roi">
         <h3 className="text-lg font-semibold">6. Pricing and Charges</h3>
         <div className="grid gap-4 md:grid-cols-2">
+          <Field label="ROI %">
+            <Input
+              data-testid="programme-roi"
+              type="number"
+              step="0.01"
+              value={state.roiPercent ?? ""}
+              onChange={(event) => patch({ roiPercent: event.target.value ? Number(event.target.value) : null })}
+            />
+          </Field>
           <Field label="Minimum ROI %"><Input data-testid="programme-min-roi" value={state.minRoiExact ?? ""} onChange={(event) => patch({ minRoiExact: event.target.value || null })} /></Field>
           <Field label="Maximum ROI %"><Input value={state.maxRoiExact ?? ""} onChange={(event) => patch({ maxRoiExact: event.target.value || null })} /></Field>
           <Field label="Rate type">
@@ -594,6 +687,7 @@ export function ProductProgrammeEditor({
           <Field label="Average TAT (days)"><Input type="number" value={state.averageTatDays ?? ""} onChange={(event) => patch({ averageTatDays: event.target.value ? Number(event.target.value) : null })} /></Field>
         </div>
       </section>
+      </fieldset>
 
       <section id="completeness-review" className="space-y-4 rounded-xl border border-border p-5" data-section="completeness-review">
         <h3 className="text-lg font-semibold">10. Review and Publication</h3>
@@ -606,7 +700,7 @@ export function ProductProgrammeEditor({
           ))}
         </ul>
         <div className="flex flex-wrap gap-2">
-          <Button data-testid="programme-save-draft-review" onClick={() => void saveDraft()} disabled={saving}>Save Draft</Button>
+          <Button data-testid="programme-save-draft-review" onClick={() => void saveDraft()} disabled={saving || commercialLocked}>Save Draft</Button>
           <Button
             data-testid="programme-submit"
             variant="secondary"
@@ -628,9 +722,40 @@ export function ProductProgrammeEditor({
             disabled={saving || !state.id || !completeness.complete}
             onClick={() => void runWorkflow("publish")}
           >
-            Publish
+            {state.publicationState === "draft" && (state.versionNumber ?? 1) > 1 ? "Republish" : "Publish"}
           </Button>
         </div>
+        {history.length > 0 ? (
+          <div className="overflow-x-auto" data-testid="programme-policy-history">
+            <p className="mb-2 text-sm font-medium">Policy Change History</p>
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-1 pr-3">When</th>
+                  <th className="py-1 pr-3">Actor</th>
+                  <th className="py-1 pr-3">Action</th>
+                  <th className="py-1 pr-3">Field</th>
+                  <th className="py-1 pr-3">Old</th>
+                  <th className="py-1 pr-3">New</th>
+                  <th className="py-1">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((row, index) => (
+                  <tr key={`${row.at}-${row.field}-${index}`} className="border-b border-border/60">
+                    <td className="py-1 pr-3">{row.at}</td>
+                    <td className="py-1 pr-3">{row.actor}</td>
+                    <td className="py-1 pr-3">{row.event}</td>
+                    <td className="py-1 pr-3">{row.field}</td>
+                    <td className="py-1 pr-3">{row.oldValue}</td>
+                    <td className="py-1 pr-3">{row.newValue}</td>
+                    <td className="py-1">{row.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
         {dirty ? <p className="text-sm text-muted-foreground">Unsaved changes on this programme.</p> : null}
       </section>
     </div>

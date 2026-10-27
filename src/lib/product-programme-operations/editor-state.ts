@@ -7,6 +7,8 @@ import type { ProgrammeEmploymentTypeId } from "@/constants/product-programme-op
 export type ProgrammeEditorState = StructuredProgrammePayload & {
   id?: string;
   lockVersion?: number;
+  versionNumber?: number;
+  roiPercent?: number | null;
   publicationState?: string;
   isLivePublished?: boolean;
   status?: string;
@@ -81,6 +83,8 @@ export function recordToEditorState(record: EnterpriseLenderProgramRecord): Prog
     ...emptyProgrammeEditorState(),
     id: record.id,
     lockVersion: record.lockVersion ?? 1,
+    versionNumber: record.versionNumber,
+    roiPercent: record.roiPercent ?? null,
     publicationState: record.publicationState ?? "draft",
     isLivePublished: record.isLivePublished ?? false,
     status: record.status,

@@ -1,8 +1,20 @@
 import { Prisma, type RegistryStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
+import {
+  applyProgrammeGovernance,
+  auditIntentsForProgrammeChange,
+  isPublishedProgramme,
+  planProgrammeCreate,
+  programmeAdvisoryLockPair,
+  programmeFamilyKey,
+  PROGRAMME_MUST_UNPUBLISH_MESSAGE,
+  PROGRAMME_STALE_VERSION_MESSAGE,
+  publishedProgrammeCommercialChange,
+  type ProgrammeGovernanceCommand,
+} from "@/lib/enterprise-lender-registry/programme-versioning";
 import { prisma } from "@server/lib/prisma";
-import { jsonOrUndefined, overlayDefinedCreateInput, structuredCreateData, structuredUpdateData } from "@server/repositories/lender-registry/structured-program-data";
+import { structuredCreateData, structuredUpdateData } from "@server/repositories/lender-registry/structured-program-data";
 import { classifyIncompleteStub } from "@/lib/product-programme-operations/versioning";
 import { createInputToStructuredPayload } from "@/lib/product-programme-operations/to-registry-input";
 
@@ -1030,7 +1042,11 @@ export class LenderRegistryRepository {
 
 
 
-  async createProgram(organizationId: string, input: CreateLenderProgramInput) {
+  async createProgram(
+    organizationId: string,
+    input: CreateLenderProgramInput,
+    auditContext?: { actorName?: string | null; reason?: string | null },
+  ) {
 
     const code = normalizeLenderRegistryCode(input.code);
 
@@ -1041,8 +1057,29 @@ export class LenderRegistryRepository {
     const id = randomUUID();
     const structured = structuredCreateData(input);
     const completeness = classifyIncompleteStub(createInputToStructuredPayload(input));
+    const employmentType =
+      input.employmentType?.trim() || (input.employmentTypes ?? []).join(",") || null;
 
-    const row = await prisma.enterpriseLenderProgram.create({
+    const row = await prisma.$transaction(async (tx) => {
+      const candidate = {
+        id,
+        organizationId,
+        lenderId: input.lenderId,
+        productCode: input.productCode?.trim() || null,
+        label: input.label,
+        employmentType,
+      };
+      const [left, right] = programmeAdvisoryLockPair(programmeFamilyKey(candidate));
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${left}::integer, ${right}::integer)`;
+      const siblingRows = await tx.enterpriseLenderProgram.findMany({
+        where: { organizationId, lenderId: input.lenderId, isDeleted: false },
+      });
+      const plan = planProgrammeCreate({
+        candidate: candidate as never,
+        siblings: siblingRows.map(mapProgramRow),
+      });
+      if (!plan.ok) throw new Error(plan.message);
+      const created = await tx.enterpriseLenderProgram.create({
       data: {
         id,
         lineageId: id,
@@ -1054,7 +1091,7 @@ export class LenderRegistryRepository {
         label: input.label.trim(),
         description: input.description?.trim(),
         borrowerType: input.borrowerType?.trim() || null,
-        employmentType: input.employmentType?.trim() || (input.employmentTypes ?? []).join(",") || null,
+        employmentType,
         roiPercent: input.roiPercent ?? null,
         minRoiPercent: structured.minRoiPercent ?? null,
         maxRoiPercent: structured.maxRoiPercent ?? null,
@@ -1125,6 +1162,21 @@ export class LenderRegistryRepository {
         additionalEligibilityFilters: structured.additionalEligibilityFilters,
       },
     });
+      const mapped = mapProgramRow(created);
+      await tx.enterpriseLenderProgramAuditEvent.create({
+        data: {
+          organizationId,
+          programId: created.id,
+          lineageId: created.lineageId,
+          action: "created",
+          newValue: mapped as unknown as Prisma.InputJsonValue,
+          actorUserId: input.createdBy,
+          actorName: auditContext?.actorName?.trim() || input.createdBy,
+          reason: auditContext?.reason?.trim() || "lender_program_created",
+        },
+      });
+      return created;
+    });
 
     return mapProgramRow(row);
   }
@@ -1132,175 +1184,137 @@ export class LenderRegistryRepository {
 
 
   async updateProgram(id: string, input: UpdateLenderProgramInput) {
+    const existing = await prisma.enterpriseLenderProgram.findUnique({ where: { id } });
+    if (!existing || existing.isDeleted) throw new Error("Lender program not found.");
+    if (
+      input.expectedVersionNumber != null &&
+      input.expectedVersionNumber !== existing.versionNumber &&
+      input.expectedVersionNumber !== existing.lockVersion
+    ) {
+      throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
+    }
+    const mappedExisting = mapProgramRow(existing);
+    if (
+      isPublishedProgramme(mappedExisting) &&
+      publishedProgrammeCommercialChange(mappedExisting, input)
+    ) {
+      throw new Error(PROGRAMME_MUST_UNPUBLISH_MESSAGE);
+    }
 
-    const row = await prisma.enterpriseLenderProgram.update({
-
-      where: { id },
-
-      data: {
-        label: input.label?.trim(),
-        description: input.description,
-        productId: input.productId,
-        productCode: input.productCode === undefined ? undefined : input.productCode,
-        borrowerType: input.borrowerType,
-        employmentType: input.employmentType,
-        roiPercent: input.roiPercent,
-        processingFeeLabel: input.processingFeeLabel,
-        maxTenureMonths: input.maxTenureMonths,
-        minCibil: input.minCibil,
-        minAge: input.minAge,
-        maxAge: input.maxAge,
-        creditRiskPolicyRef: input.creditRiskPolicyRef,
-        requiredDocumentTypeIds:
-          input.requiredDocumentTypeIds === undefined
-            ? undefined
-            : input.requiredDocumentTypeIds === null
-              ? Prisma.JsonNull
-              : input.requiredDocumentTypeIds,
-        eligibleStates:
-          input.eligibleStates === undefined
-            ? undefined
-            : input.eligibleStates === null
-              ? Prisma.JsonNull
-              : input.eligibleStates,
-        eligibleCities:
-          input.eligibleCities === undefined
-            ? undefined
-            : input.eligibleCities === null
-              ? Prisma.JsonNull
-              : input.eligibleCities,
-        averageTatDays: input.averageTatDays,
-        remarks: input.remarks,
-        lifecycleStatus: input.lifecycleStatus,
-        status: input.status,
-        enabled: input.enabled,
-        notes: input.notes,
-        modifiedBy: input.modifiedBy,
-        lockVersion: { increment: 1 },
-        ...structuredUpdateData(input),
-      } as Prisma.EnterpriseLenderProgramUncheckedUpdateInput,
+    const row = await prisma.$transaction(async (tx) => {
+      const fresh = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!fresh || fresh.isDeleted) throw new Error("Lender program not found.");
+      if (
+        input.expectedVersionNumber != null &&
+        input.expectedVersionNumber !== fresh.versionNumber &&
+        input.expectedVersionNumber !== fresh.lockVersion
+      ) {
+        throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
+      }
+      const candidate = {
+        id: fresh.id,
+        organizationId: fresh.organizationId,
+        lenderId: input.lenderId ?? fresh.lenderId,
+        productCode: input.productCode === undefined ? fresh.productCode : input.productCode,
+        label: input.label ?? fresh.label,
+        employmentType: input.employmentType === undefined ? fresh.employmentType : input.employmentType,
+      };
+      const [left, right] = programmeAdvisoryLockPair(programmeFamilyKey(candidate));
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${left}::integer, ${right}::integer)`;
+      const siblingRows = await tx.enterpriseLenderProgram.findMany({
+        where: {
+          organizationId: fresh.organizationId,
+          lenderId: candidate.lenderId,
+          isDeleted: false,
+          id: { not: id },
+        },
+      });
+      const plan = planProgrammeCreate({
+        candidate: candidate as never,
+        siblings: siblingRows.map(mapProgramRow),
+      });
+      if (!plan.ok) throw new Error(plan.message);
+      const written = await tx.enterpriseLenderProgram.updateMany({
+        where: { id, versionNumber: fresh.versionNumber, isDeleted: false },
+        data: {
+          label: input.label?.trim(),
+          description: input.description,
+          productId: input.productId,
+          productCode: input.productCode === undefined ? undefined : input.productCode,
+          borrowerType: input.borrowerType,
+          employmentType: input.employmentType,
+          roiPercent: input.roiPercent,
+          processingFeeLabel: input.processingFeeLabel,
+          maxTenureMonths: input.maxTenureMonths,
+          minCibil: input.minCibil,
+          minAge: input.minAge,
+          maxAge: input.maxAge,
+          creditRiskPolicyRef: input.creditRiskPolicyRef,
+          requiredDocumentTypeIds:
+            input.requiredDocumentTypeIds === undefined
+              ? undefined
+              : input.requiredDocumentTypeIds === null
+                ? Prisma.JsonNull
+                : input.requiredDocumentTypeIds,
+          eligibleStates:
+            input.eligibleStates === undefined
+              ? undefined
+              : input.eligibleStates === null
+                ? Prisma.JsonNull
+                : input.eligibleStates,
+          eligibleCities:
+            input.eligibleCities === undefined
+              ? undefined
+              : input.eligibleCities === null
+                ? Prisma.JsonNull
+                : input.eligibleCities,
+          averageTatDays: input.averageTatDays,
+          remarks: input.remarks,
+          lifecycleStatus: input.lifecycleStatus,
+          status: input.status,
+          enabled: input.enabled,
+          notes: input.notes,
+          modifiedBy: input.modifiedBy,
+          lockVersion: { increment: 1 },
+          versionNumber: { increment: 1 },
+          ...structuredUpdateData(input),
+        } as Prisma.EnterpriseLenderProgramUncheckedUpdateManyInput,
+      });
+      if (written.count !== 1) throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
+      const saved = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!saved) throw new Error("Lender program not found.");
+      const after = mapProgramRow(saved);
+      for (const entry of auditIntentsForProgrammeChange(
+        mapProgramRow(fresh),
+        after,
+        input.changeReason?.trim() || "draft_saved",
+      )) {
+        await tx.enterpriseLenderProgramAuditEvent.create({
+          data: {
+            organizationId: fresh.organizationId,
+            programId: id,
+            lineageId: fresh.lineageId,
+            action: entry.action,
+            previousValue: entry.previousValue as Prisma.InputJsonValue,
+            newValue: entry.newValue as Prisma.InputJsonValue,
+            actorUserId: input.modifiedBy,
+            actorName: input.modifiedBy,
+            reason: entry.reason,
+          },
+        });
+      }
+      return saved;
     });
 
     return mapProgramRow(row);
   }
 
-  async createDraftFromPublished(publishedId: string, input: UpdateLenderProgramInput) {
-    const published = await prisma.enterpriseLenderProgram.findUnique({ where: { id: publishedId } });
-    if (!published) throw new Error("Lender program not found.");
-    const fromPublished = publishedProgramToCreateInput(published, input.modifiedBy);
-    const merged = overlayDefinedCreateInput(fromPublished, input);
-    const completeness = classifyIncompleteStub(createInputToStructuredPayload(merged));
-    const existingDraft = await prisma.enterpriseLenderProgram.findFirst({
-      where: {
-        organizationId: published.organizationId,
-        lineageId: published.lineageId,
-        id: { not: published.id },
-        isLivePublished: false,
-        publicationState: { in: ["draft", "pending_approval"] },
-      },
-      orderBy: { versionNumber: "desc" },
-    });
-    if (existingDraft?.publicationState === "draft") {
-      const row = await prisma.enterpriseLenderProgram.update({
-        where: { id: existingDraft.id },
-        data: {
-          lenderId: merged.lenderId,
-          productId: merged.productId ?? null,
-          productCode: merged.productCode ?? null,
-          label: merged.label.trim(),
-          description: merged.description ?? null,
-          borrowerType: merged.borrowerType ?? published.borrowerType,
-          employmentType: merged.employmentType ?? published.employmentType,
-          roiPercent: merged.roiPercent ?? published.roiPercent,
-          processingFeeLabel: merged.processingFeeLabel ?? null,
-          maxTenureMonths: merged.maxTenureMonths ?? null,
-          minCibil: merged.minCibil ?? null,
-          minAge: merged.minAge ?? null,
-          maxAge: merged.maxAge ?? null,
-          creditRiskPolicyRef: merged.creditRiskPolicyRef ?? null,
-          requiredDocumentTypeIds: jsonOrUndefined(merged.requiredDocumentTypeIds ?? []),
-          eligibleStates: jsonOrUndefined(merged.eligibleStates ?? []),
-          eligibleCities: jsonOrUndefined(merged.eligibleCities ?? []),
-          averageTatDays: merged.averageTatDays ?? null,
-          remarks: merged.remarks ?? null,
-          notes: merged.notes ?? null,
-          ...structuredCreateData(merged),
-          publicationState: "draft",
-          isLivePublished: false,
-          completenessState: completeness.completenessState,
-          lifecycleStatus: "draft",
-          status: "draft",
-          approvalStatus: "none",
-          submittedByUserId: null,
-          submittedAt: null,
-          approvedBy: null,
-          approvedAt: null,
-          approvalReason: null,
-          modifiedBy: input.modifiedBy,
-          lockVersion: { increment: 1 },
-        },
-      });
-      return mapProgramRow(row);
-    }
-    if (existingDraft) {
-      return mapProgramRow(existingDraft);
-    }
-    const maxVersion = await prisma.enterpriseLenderProgram.aggregate({
-      where: {
-        organizationId: published.organizationId,
-        lineageId: published.lineageId,
-      },
-      _max: { versionNumber: true },
-    });
-    const id = randomUUID();
-    const structured = structuredCreateData(merged);
-    const row = await prisma.enterpriseLenderProgram.create({
-      data: {
-        id,
-        organizationId: published.organizationId,
-        lenderId: merged.lenderId,
-        productId: merged.productId ?? null,
-        productCode: merged.productCode ?? null,
-        code: published.code,
-        label: merged.label.trim(),
-        description: merged.description ?? null,
-        lineageId: published.lineageId,
-        versionNumber: (maxVersion._max.versionNumber ?? published.versionNumber) + 1,
-        lockVersion: 1,
-        supersedesProgramId: published.id,
-        enabled: true,
-        createdBy: input.modifiedBy,
-        modifiedBy: input.modifiedBy,
-        borrowerType: merged.borrowerType ?? published.borrowerType,
-        employmentType: merged.employmentType ?? published.employmentType,
-        roiPercent: merged.roiPercent ?? published.roiPercent,
-        processingFeeLabel: merged.processingFeeLabel ?? null,
-        maxTenureMonths: merged.maxTenureMonths ?? null,
-        minCibil: merged.minCibil ?? null,
-        minAge: merged.minAge ?? null,
-        maxAge: merged.maxAge ?? null,
-        creditRiskPolicyRef: merged.creditRiskPolicyRef ?? null,
-        requiredDocumentTypeIds: jsonOrUndefined(merged.requiredDocumentTypeIds ?? []),
-        eligibleStates: jsonOrUndefined(merged.eligibleStates ?? []),
-        eligibleCities: jsonOrUndefined(merged.eligibleCities ?? []),
-        averageTatDays: merged.averageTatDays ?? null,
-        remarks: merged.remarks ?? null,
-        notes: merged.notes ?? null,
-        ...structured,
-        publicationState: "draft",
-        isLivePublished: false,
-        completenessState: completeness.completenessState,
-        lifecycleStatus: "draft",
-        status: "draft",
-        approvalStatus: "none",
-        submittedByUserId: null,
-        submittedAt: null,
-        approvedBy: null,
-        approvedAt: null,
-        approvalReason: null,
-      },
-    });
-    return mapProgramRow(row);
+  async createDraftFromPublished(publishedId: string, input: UpdateLenderProgramInput): Promise<never> {
+    void publishedId;
+    void input;
+    throw new Error(
+      "Unpublish this programme and edit the same record. A new programme version was not created.",
+    );
   }
 
   async recordProgramAudit(input: {
@@ -1329,67 +1343,239 @@ export class LenderRegistryRepository {
     });
   }
 
-  async submitProgram(id: string, actorId: string) {
-    const row = await prisma.enterpriseLenderProgram.update({
-      where: { id },
-      data: {
-        publicationState: "pending_approval",
-        approvalStatus: "pending",
-        submittedByUserId: actorId,
-        submittedAt: new Date(),
-        modifiedBy: actorId,
-        lockVersion: { increment: 1 },
-      },
+  async submitProgram(
+    id: string,
+    actorId: string,
+    audit?: { actorName?: string | null; reason?: string | null; expectedVersionNumber?: number | null },
+  ) {
+    return this.commitProgrammeTransition(id, actorId, audit, "submitted", "submitted_for_approval", {
+      publicationState: "pending_approval",
+      approvalStatus: "pending",
+      submittedByUserId: actorId,
+      submittedAt: new Date(),
     });
-    return mapProgramRow(row);
   }
 
-  async approveProgram(id: string, actorId: string, reason: string) {
-    const row = await prisma.enterpriseLenderProgram.update({
-      where: { id },
-      data: {
+  async approveProgram(
+    id: string,
+    actorId: string,
+    reason: string,
+    audit?: { actorName?: string | null; expectedVersionNumber?: number | null },
+  ) {
+    const approvalReason = reason.trim() || "approved";
+    return this.commitProgrammeTransition(
+      id,
+      actorId,
+      { ...audit, reason: approvalReason },
+      "approved",
+      approvalReason,
+      {
         approvalStatus: "approved",
         approvedBy: actorId,
         approvedAt: new Date(),
-        approvalReason: reason,
-        modifiedBy: actorId,
-        lockVersion: { increment: 1 },
+        approvalReason,
       },
-    });
-    return mapProgramRow(row);
+    );
   }
 
-  async publishApprovedProgram(id: string, actorId: string) {
-    const current = await prisma.enterpriseLenderProgram.findUnique({ where: { id } });
-    if (!current) throw new Error("Lender program not found.");
-    await prisma.enterpriseLenderProgram.updateMany({
-      where: {
-        lineageId: current.lineageId,
-        isLivePublished: true,
-        id: { not: id },
-      },
-      data: {
-        isLivePublished: false,
-        publicationState: "superseded",
-        lifecycleStatus: "inactive",
-        status: "inactive",
-        modifiedBy: actorId,
-      },
+  async commitProgrammeTransition(
+    id: string,
+    actorId: string,
+    audit: { actorName?: string | null; reason?: string | null; expectedVersionNumber?: number | null } | undefined,
+    action: "submitted" | "approved",
+    fallbackReason: string,
+    data: Prisma.EnterpriseLenderProgramUpdateManyMutationInput,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const fresh = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!fresh || fresh.isDeleted) throw new Error("Lender program not found.");
+      if (
+        audit?.expectedVersionNumber != null &&
+        audit.expectedVersionNumber !== fresh.versionNumber &&
+        audit.expectedVersionNumber !== fresh.lockVersion
+      ) {
+        throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
+      }
+      const written = await tx.enterpriseLenderProgram.updateMany({
+        where: { id, lockVersion: fresh.lockVersion, isDeleted: false },
+        data: {
+          ...data,
+          modifiedBy: actorId,
+          lockVersion: { increment: 1 },
+        },
+      });
+      if (written.count !== 1) throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
+      const saved = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!saved) throw new Error("Lender program not found.");
+      const before = mapProgramRow(fresh);
+      const after = mapProgramRow(saved);
+      await tx.enterpriseLenderProgramAuditEvent.create({
+        data: {
+          organizationId: fresh.organizationId,
+          programId: id,
+          lineageId: fresh.lineageId,
+          action,
+          previousValue: before as unknown as Prisma.InputJsonValue,
+          newValue: after as unknown as Prisma.InputJsonValue,
+          actorUserId: actorId,
+          actorName: audit?.actorName?.trim() || actorId,
+          reason: audit?.reason?.trim() || fallbackReason,
+        },
+      });
+      return after;
     });
-    const row = await prisma.enterpriseLenderProgram.update({
-      where: { id },
-      data: {
-        publicationState: "published",
-        isLivePublished: true,
-        completenessState: "complete",
-        lifecycleStatus: "active",
-        status: "active",
-        enabled: true,
-        modifiedBy: actorId,
-        lockVersion: { increment: 1 },
-      },
+  }
+
+  async listProgramAudit(programId: string) {
+    return prisma.enterpriseLenderProgramAuditEvent.findMany({
+      where: { programId },
+      orderBy: { createdAt: "asc" },
+      take: 2000,
     });
-    return mapProgramRow(row);
+  }
+
+  async listProgramsForLender(organizationId: string, lenderId: string) {
+    const items = [];
+    for (let page = 1; page <= 500; page += 1) {
+      const batch = await this.queryPrograms(organizationId, {
+        lenderId,
+        page,
+        pageSize: 200,
+        includeDeleted: false,
+      });
+      items.push(...batch.items);
+      if (items.length >= batch.total || batch.items.length === 0) break;
+    }
+    return items;
+  }
+
+  async governProgramme(
+    id: string,
+    command: ProgrammeGovernanceCommand,
+    actor: { userId: string; name?: string },
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.enterpriseLenderProgram.findFirst({
+        where: { id, isDeleted: false },
+      });
+      if (!existing) throw new Error("Lender program not found.");
+      const [left, right] = programmeAdvisoryLockPair(programmeFamilyKey(mapProgramRow(existing)));
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${left}::integer, ${right}::integer)`;
+      const fresh = await tx.enterpriseLenderProgram.findFirst({ where: { id, isDeleted: false } });
+      if (!fresh) throw new Error("Lender program not found.");
+      const current = mapProgramRow(fresh);
+      const siblingRows = await tx.enterpriseLenderProgram.findMany({
+        where: {
+          organizationId: fresh.organizationId,
+          lenderId: fresh.lenderId,
+          isDeleted: false,
+          id: { not: id },
+        },
+      });
+      const applied = applyProgrammeGovernance({
+        program: current,
+        siblings: siblingRows.map(mapProgramRow),
+        command,
+        at: new Date().toISOString(),
+      });
+      if (!applied.ok) throw new Error(applied.message);
+      if (applied.audit.length === 0) return current;
+      const next = applied.program;
+      const written = await tx.enterpriseLenderProgram.updateMany({
+        where: { id, versionNumber: fresh.versionNumber, isDeleted: false },
+        data: {
+          status: next.status,
+          enabled: next.enabled,
+          lifecycleStatus: next.lifecycleStatus,
+          isLivePublished: next.isLivePublished === true,
+          publicationState: next.publicationState ?? "draft",
+          versionNumber: next.versionNumber,
+          roiPercent: next.roiPercent ?? null,
+          employmentType: next.employmentType ?? null,
+          productCode: next.productCode ?? null,
+          borrowerType: next.borrowerType ?? null,
+          modifiedBy: actor.userId,
+          lockVersion: { increment: 1 },
+        },
+      });
+      if (written.count !== 1) throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
+      for (const entry of applied.audit) {
+        await tx.enterpriseLenderProgramAuditEvent.create({
+          data: {
+            organizationId: fresh.organizationId,
+            programId: id,
+            lineageId: fresh.lineageId,
+            action: entry.action,
+            previousValue: entry.previousValue as Prisma.InputJsonValue,
+            newValue: entry.newValue as Prisma.InputJsonValue,
+            actorUserId: actor.userId,
+            actorName: actor.name,
+            reason: entry.reason,
+          },
+        });
+      }
+      const saved = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!saved) throw new Error("Lender program not found.");
+      return mapProgramRow(saved);
+    });
+  }
+
+  async publishApprovedProgram(id: string, actorId: string, actorName?: string) {
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!current || current.isDeleted) throw new Error("Lender program not found.");
+      const [left, right] = programmeAdvisoryLockPair(programmeFamilyKey(mapProgramRow(current)));
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${left}::integer, ${right}::integer)`;
+      const fresh = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!fresh || fresh.isDeleted) throw new Error("Lender program not found.");
+      const siblingRows = await tx.enterpriseLenderProgram.findMany({
+        where: {
+          organizationId: fresh.organizationId,
+          lenderId: fresh.lenderId,
+          isDeleted: false,
+          id: { not: id },
+        },
+      });
+      const plan = planProgrammeCreate({
+        candidate: mapProgramRow(fresh),
+        siblings: siblingRows.map(mapProgramRow),
+      });
+      if (!plan.ok) throw new Error(plan.message);
+      if (isPublishedProgramme(mapProgramRow(fresh))) {
+        throw new Error("This programme is already published. No programme was changed.");
+      }
+      const written = await tx.enterpriseLenderProgram.updateMany({
+        where: { id, versionNumber: fresh.versionNumber, isDeleted: false },
+        data: {
+          publicationState: "published",
+          isLivePublished: true,
+          completenessState: "complete",
+          lifecycleStatus: "active",
+          status: "active",
+          enabled: true,
+          modifiedBy: actorId,
+          lockVersion: { increment: 1 },
+          versionNumber: { increment: 1 },
+        },
+      });
+      if (written.count !== 1) throw new Error(PROGRAMME_STALE_VERSION_MESSAGE);
+      const saved = await tx.enterpriseLenderProgram.findUnique({ where: { id } });
+      if (!saved) throw new Error("Lender program not found.");
+      await tx.enterpriseLenderProgramAuditEvent.create({
+        data: {
+          organizationId: fresh.organizationId,
+          programId: id,
+          lineageId: fresh.lineageId,
+          action: "published",
+          previousValue: { status: fresh.status, versionNumber: fresh.versionNumber } as Prisma.InputJsonValue,
+          newValue: { status: "active", versionNumber: fresh.versionNumber + 1 } as Prisma.InputJsonValue,
+          actorUserId: actorId,
+          actorName,
+          reason: "published",
+        },
+      });
+      return mapProgramRow(saved);
+    });
   }
 
   async setProgramStatus(
@@ -1417,6 +1603,14 @@ export class LenderRegistryRepository {
         modifiedBy: actorId,
 
         versionNumber: { increment: 1 },
+
+        ...(status !== "active"
+          ? {
+              isLivePublished: false,
+              publicationState: "draft" as const,
+              lifecycleStatus: "inactive" as const,
+            }
+          : {}),
 
       },
 

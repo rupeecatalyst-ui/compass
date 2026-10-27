@@ -9,6 +9,10 @@ import {
 } from "@/constants/enterprise-product-master";
 import { isProvisionalBfLenderCode } from "@/lib/enterprise-lender-registry/published-directory";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import {
+  programmeEmploymentCategory,
+  recommendationProgrammeIds,
+} from "@/lib/enterprise-lender-registry/programme-versioning";
 import { calculateMonthlyEmi } from "@/lib/loan-emi-utils";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
@@ -61,12 +65,14 @@ export function canonicalStoredProductCode(raw: string | null | undefined): stri
 }
 
 function employmentFamily(value: string | null | undefined): "salaried" | "self_employed" | "any" | "unknown" {
-  const raw = (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const category = programmeEmploymentCategory(value);
+  if (category === "salaried" || category === "self_employed") return category;
+  const raw = (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
   if (!raw || raw === "both" || raw === "all" || raw === "any" || raw.includes("both")) return "any";
-  if (raw === "salaried" || raw.includes("salaried")) return "salaried";
-  if (raw.includes("self-employed") || raw.includes("self_employed") || raw === "professional" || raw === "business") {
-    return "self_employed";
-  }
   return "unknown";
 }
 
@@ -213,8 +219,10 @@ export function rankPublishedProgrammes(input: {
   limit?: number;
 }): RankedPublishedProgramme[] {
   const bestByLender = new Map<string, { candidate: PublishedProgrammeCandidate; gates: number; reasons: string[] }>();
+  const currentIds = recommendationProgrammeIds(input.candidates.map((row) => row.program));
 
   for (const candidate of input.candidates) {
+    if (!currentIds.has(candidate.program.id)) continue;
     if (isProvisionalBfLenderCode(candidate.lenderCode)) continue;
     if (!isPublishedCommercialProgram(candidate.program)) continue;
     if (!programmeFitsProduct(candidate.program, input.productCode)) continue;

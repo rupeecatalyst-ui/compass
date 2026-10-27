@@ -167,30 +167,18 @@ export function NewProductProgramWizard({
           ]
             .filter(Boolean)
             .join(" · ") || undefined,
-          lifecycleStatus: mode === "publish" ? "active" : "draft",
-          status: mode === "publish" ? "active" : "draft",
+          lifecycleStatus: "draft",
+          status: "draft",
           enabled: true,
         },
         actor,
       );
 
       if (mode === "publish") {
-        await lenderRegistryClient.updateProgram(
-          program.id,
-          {
-            lifecycleStatus: "active",
-            status: "active",
-            enabled: true,
-          },
-          actor,
-        );
+        toast.success(`Draft program “${label}” saved. Approve it, then publish the same programme id.`);
+      } else {
+        toast.success(`Draft program “${label}” saved.`);
       }
-
-      toast.success(
-        mode === "publish"
-          ? `Published program “${label}” — now available in comparison.`
-          : `Draft program “${label}” saved.`,
-      );
       reset();
       onOpenChange(false);
       onCompleted();

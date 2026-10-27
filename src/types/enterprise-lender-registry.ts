@@ -598,6 +598,8 @@ export interface UpdateLenderProgramInput {
   effectiveFrom?: string | null;
   effectiveUntil?: string | null;
   expectedLockVersion?: number;
+  expectedVersionNumber?: number;
+  changeReason?: string | null;
   createDraftRevision?: boolean;
   policyAssessmentJson?: unknown;
   additionalEligibilityFilters?: unknown;

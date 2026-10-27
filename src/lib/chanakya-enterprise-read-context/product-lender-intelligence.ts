@@ -12,6 +12,7 @@ import { isDatabaseAvailable } from "@server/lib/prisma";
 import { resolveProductLibraryCode } from "@/lib/deal-workspace/product-lender-eligibility";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { recommendationProgrammeIds } from "@/lib/enterprise-lender-registry/programme-versioning";
 import { productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import {
@@ -171,11 +172,19 @@ async function loadRegistryEvidence(productCode: string | null): Promise<{
     }));
 
     if (productCode) {
-      const programs = await lenderRegistryService.queryPrograms({
-        pageSize: 500,
-        enabled: true,
-      });
-      for (const program of programs.items) {
+      const collected: EnterpriseLenderProgramRecord[] = [];
+      for (let page = 1; page <= 500; page += 1) {
+        const batch = await lenderRegistryService.queryPrograms({
+          page,
+          pageSize: 200,
+          enabled: true,
+        });
+        collected.push(...batch.items);
+        if (batch.items.length < 200) break;
+      }
+      const allowed = recommendationProgrammeIds(collected);
+      for (const program of collected) {
+        if (!allowed.has(program.id)) continue;
         if (!productCodesEquivalent(program.productCode, productCode)) continue;
         if (!isPublishedCommercialProgram(program)) continue;
         const bucket = programsByLender.get(program.lenderId) ?? [];

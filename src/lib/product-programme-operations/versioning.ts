@@ -1,6 +1,5 @@
 import { evaluateProgrammeCompleteness } from "@/lib/product-programme-operations/completeness";
 import {
-  isLegacyProgrammeReviewRequired,
   mustCreateDraftRevision,
 } from "@/lib/product-programme-operations/legacy-review";
 import {
@@ -22,9 +21,7 @@ export function assertPublishedNotOverwritten(
 ): void {
   if (mustCreateDraftRevision(existing) && !createDraftRevision) {
     throw new ProgrammeConflictError(
-      isLegacyProgrammeReviewRequired(existing)
-        ? `Legacy programme ${existing.id} cannot be overwritten. Create a draft revision instead.`
-        : `Published programme ${existing.id} cannot be overwritten. Create a draft revision instead.`,
+      "This programme is published. Unpublish it before changing commercial policy. No programme was changed.",
     );
   }
 }

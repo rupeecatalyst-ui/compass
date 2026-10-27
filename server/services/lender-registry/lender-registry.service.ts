@@ -42,6 +42,10 @@ import { productRegistryRepository } from "@server/repositories/product-registry
 import { enterpriseRegistryAuditService } from "@server/services/enterprise-registry/audit.service";
 import { canonicalStoredProductCode } from "@/lib/enterprise-lender-registry/published-program-match";
 import { validateProgramCreditRiskPolicyRef } from "@/lib/enterprise-lender-registry/resolve-program-policy";
+import {
+  presentPolicyChangeHistory,
+  type ProgrammeGovernanceCommand,
+} from "@/lib/enterprise-lender-registry/programme-versioning";
 import { normalizeProgramLodRequirements } from "@/lib/document-requests/resolve-program-lod";
 
 function normalizeProgramLodInput(input: {
@@ -667,6 +671,37 @@ export class LenderRegistryService {
 
   }
 
+  async governProgramme(
+    id: string,
+    command: ProgrammeGovernanceCommand,
+    actorUserId: string,
+    actorName?: string,
+  ) {
+    const existing = await this.getProgramById(id);
+    if (!existing) throw new Error("Lender program not found.");
+    return lenderRegistryRepository.governProgramme(id, command, {
+      userId: actorUserId,
+      name: actorName,
+    });
+  }
+
+  async listProgramHistory(programId: string) {
+    const program = await this.getProgramById(programId);
+    if (!program) throw new Error("Lender program not found.");
+    const events = await lenderRegistryRepository.listProgramAudit(programId);
+    return presentPolicyChangeHistory(
+      events.map((event) => ({
+        at: event.createdAt.toISOString(),
+        actorName: event.actorName,
+        actorUserId: event.actorUserId,
+        reason: event.reason,
+        action: event.action,
+        previousValue: (event.previousValue ?? null) as Record<string, unknown> | null,
+        newValue: (event.newValue ?? null) as Record<string, unknown> | null,
+      })),
+    );
+  }
+
 
 
   async createProgram(input: CreateLenderProgramInput, actorName?: string) {
@@ -709,13 +744,17 @@ export class LenderRegistryService {
     if (!policyCheck.ok) throw new Error(policyCheck.error);
 
     const lodNorm = normalizeProgramLodInput(input);
-    const created = await lenderRegistryRepository.createProgram(organizationId, {
-      ...input,
-      ...(storedProductCode ? { productCode: storedProductCode } : {}),
-      ...lodNorm,
-      requiredDocumentTypeIds:
-        (lodNorm.requiredDocumentTypeIds as never) ?? input.requiredDocumentTypeIds,
-    });
+    const created = await lenderRegistryRepository.createProgram(
+      organizationId,
+      {
+        ...input,
+        ...(storedProductCode ? { productCode: storedProductCode } : {}),
+        ...lodNorm,
+        requiredDocumentTypeIds:
+          (lodNorm.requiredDocumentTypeIds as never) ?? input.requiredDocumentTypeIds,
+      },
+      { actorName, reason: "lender_program_created" },
+    );
 
     await enterpriseRegistryAuditService.recordChange({
 

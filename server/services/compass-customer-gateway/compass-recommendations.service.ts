@@ -12,6 +12,7 @@ import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/pub
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { recommendationProgrammeIds } from "@/lib/enterprise-lender-registry/programme-versioning";
 import {
   projectPublishedProgrammeCommercials,
   validatedRequestedAmountRupees,
@@ -184,8 +185,16 @@ export async function projectCompassRecommendations(input: {
 
   let programmes: EnterpriseLenderProgramRecord[] = [];
   try {
-    const listed = await lenderRegistryService.queryPrograms({ pageSize: 500, enabled: true });
-    programmes = listed.items.filter(isPublishedCommercialProgram);
+    const collected: EnterpriseLenderProgramRecord[] = [];
+    for (let page = 1; page <= 500; page += 1) {
+      const listed = await lenderRegistryService.queryPrograms({ page, pageSize: 200, enabled: true });
+      collected.push(...listed.items);
+      if (listed.items.length < 200) break;
+    }
+    const allowed = recommendationProgrammeIds(collected);
+    programmes = collected.filter(
+      (program) => allowed.has(program.id) && isPublishedCommercialProgram(program),
+    );
   } catch {
     programmes = [];
   }
