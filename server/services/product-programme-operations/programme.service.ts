@@ -3,6 +3,7 @@ import {
   assertAdditionalFiltersAgainstProgramme,
   assertRecordAdditionalFilters,
   parseStructuredProgrammePayload,
+  separateProgrammeUpdateControls,
 } from "@/lib/product-programme-operations/request-schema";
 import { assertFilterFieldsAreModuleScoped } from "@/lib/product-programme-operations/additional-eligibility-filters/module-fields";
 import {
@@ -108,19 +109,17 @@ export const productProgrammeOperationsService = {
       throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
     }
     const raw = input.body && typeof input.body === "object" ? (input.body as Record<string, unknown>) : {};
-    parseStructuredProgrammePayload(raw, { partial: true });
-    const createDraftRevision = raw.createDraftRevision === true;
-    if (createDraftRevision) {
+    const controls = separateProgrammeUpdateControls(raw);
+    parseStructuredProgrammePayload(controls.commercial, { partial: true });
+    if (controls.createDraftRevision) {
       throw new ProgrammeValidationError(
         "Unpublish this programme and edit the same record. A new programme version was not created.",
         [{ field: "createDraftRevision", message: "Unpublish the same programme before editing commercial policy." }],
       );
     }
-    const expectedLockVersion =
-      typeof raw.expectedLockVersion === "number" ? raw.expectedLockVersion : undefined;
     assertLockVersion(
       { id: existing.id, lockVersion: existing.lockVersion ?? 1 },
-      expectedLockVersion,
+      controls.expectedLockVersion,
     );
     assertPublishedNotOverwritten(
       {
@@ -133,31 +132,19 @@ export const productProgrammeOperationsService = {
       },
       false,
     );
-    const revisionMetaKeys = new Set([
-      "createDraftRevision",
-      "expectedLockVersion",
-      "expectedVersionNumber",
-      "changeReason",
-      "createdBy",
-      "modifiedBy",
-    ]);
-    const overlay = Object.fromEntries(
-      Object.entries(raw).filter(([key]) => !revisionMetaKeys.has(key)),
-    );
     const payload = parseStructuredProgrammePayload({
       lenderId: existing.lenderId,
       code: existing.code,
       label: existing.label,
-      ...overlay,
+      ...controls.commercial,
     });
     await assertPublishedPolicyVersion(payload.policyVersionId, input.organizationId);
     assertAdditionalFiltersAgainstProgramme(payload);
     assertModuleScopedFilters(payload);
     const updateInput = {
       ...structuredPayloadToUpdateInput(payload, input.actorUserId),
-      expectedVersionNumber:
-        typeof raw.expectedVersionNumber === "number" ? raw.expectedVersionNumber : undefined,
-      changeReason: typeof raw.changeReason === "string" ? raw.changeReason : "draft_saved",
+      expectedVersionNumber: controls.expectedVersionNumber,
+      changeReason: controls.changeReason ?? "draft_saved",
     };
     return lenderRegistryRepository.updateProgram(input.programId, updateInput);
   },

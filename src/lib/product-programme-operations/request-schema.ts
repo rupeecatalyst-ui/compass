@@ -253,6 +253,39 @@ function assertControlled(ids: string[], allowed: readonly { id: string }[], fie
   return ids;
 }
 
+/** Optimistic concurrency and audit controls. They are not commercial programme fields. */
+export const PROGRAMME_UPDATE_CONTROL_KEYS = [
+  "createDraftRevision",
+  "expectedLockVersion",
+  "expectedVersionNumber",
+  "changeReason",
+  "createdBy",
+  "modifiedBy",
+] as const;
+
+export function separateProgrammeUpdateControls(body: Record<string, unknown>): {
+  commercial: Record<string, unknown>;
+  expectedVersionNumber?: number;
+  changeReason?: string;
+  expectedLockVersion?: number;
+  createDraftRevision: boolean;
+} {
+  const controlKeys = new Set<string>(PROGRAMME_UPDATE_CONTROL_KEYS);
+  const commercial: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (!controlKeys.has(key)) commercial[key] = value;
+  }
+  return {
+    commercial,
+    expectedVersionNumber:
+      typeof body.expectedVersionNumber === "number" ? body.expectedVersionNumber : undefined,
+    changeReason: typeof body.changeReason === "string" ? body.changeReason : undefined,
+    expectedLockVersion:
+      typeof body.expectedLockVersion === "number" ? body.expectedLockVersion : undefined,
+    createDraftRevision: body.createDraftRevision === true,
+  };
+}
+
 export function rejectUnknownProgrammeFields(body: Record<string, unknown>): void {
   const unknown = Object.keys(body).filter((key) => !ALLOWED_WRITE_KEYS.has(key));
   if (unknown.length > 0) {

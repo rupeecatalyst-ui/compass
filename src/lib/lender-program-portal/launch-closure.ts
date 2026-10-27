@@ -235,7 +235,7 @@ export function mapPortalPayloadToProgrammeBody(input: {
     benchmarkCode: benchmark,
     policyVersionId: input.policyVersionId,
     requiredDocuments: documents,
-    requiredDocumentTypeIds: [],
+    requiredDocumentTypeIds: documents.map((document) => document.typeRef),
     effectiveFrom: text(input.payload, "effectiveDate") || null,
     effectiveUntil: text(input.payload, "expiryDate") || null,
     reviewAt: text(input.payload, "expiryDate") || null,

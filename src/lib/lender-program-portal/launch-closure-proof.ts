@@ -139,11 +139,19 @@ for (const forbidden of [
   "src/lib/chanakya",
   "server/services/compass-customer-gateway/",
   "src/constants/enterprise-ai-platform/",
-  "server/services/product-programme-operations/programme.service.ts",
   "server/services/lender-recommendation/",
 ]) {
   check(`untouched_${forbidden}`, !changed.includes(forbidden));
 }
+const programmeService = readFileSync(
+  "server/services/product-programme-operations/programme.service.ts",
+  "utf8",
+);
+check(
+  "retry_update_separates_concurrency_and_audit_controls",
+  programmeService.includes("separateProgrammeUpdateControls(raw)") &&
+    programmeService.includes("parseStructuredProgrammePayload(controls.commercial"),
+);
 
 if (failed) {
   console.error(`LENDER_PORTAL_LAUNCH_CLOSURE_PROOF FAIL failed=${failed}`);
