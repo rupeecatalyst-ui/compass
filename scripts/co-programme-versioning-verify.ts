@@ -2,6 +2,13 @@
  * Single-record programme governance checks. No database and no production writes.
  */
 import assert from "node:assert/strict";
+import { emptyProgrammeEditorState, type ProgrammeEditorState } from "@/lib/product-programme-operations/editor-state";
+import {
+  parseStructuredProgrammePayload,
+  separateProgrammeUpdateControls,
+} from "@/lib/product-programme-operations/request-schema";
+import { structuredPayloadToUpdateInput } from "@/lib/product-programme-operations/to-registry-input";
+import { toProgrammeWritePayload } from "@/lib/product-programme-operations/to-write-payload";
 import { rankPublishedProgrammes } from "@/lib/enterprise-lender-registry/published-program-match";
 import {
   collectPagedPrograms,
@@ -788,6 +795,94 @@ const inactiveStillOccupies = programme({
   publicationState: "published",
 });
 assert.equal(planProgrammeCreate({ candidate: programme({ id: "dup2-new", lenderId: "dup2", productCode: "LAP" }), siblings: [inactiveStillOccupies] }).ok, false);
+
+const boiPublished = programme({
+  id: "boi-hl",
+  code: "BASE_BOI_HOME_LOAN",
+  lenderId: "boi",
+  label: "Bank of India Home Loan",
+  minRoiExact: "7.100000",
+  maxRoiExact: "8.500000",
+  roiPercent: 7.1,
+  versionNumber: 3,
+});
+const boiUnpublished = step(
+  [boiPublished],
+  [],
+  boiPublished.id,
+  { action: "unpublish", expectedVersionNumber: 3 },
+  "2026-10-30T08:00:00.000Z",
+);
+assert.equal(boiUnpublished.error, undefined);
+const boiDraft = boiUnpublished.programs[0]!;
+assert.equal(boiDraft.id, boiPublished.id);
+assert.equal(boiDraft.publicationState, "draft");
+assert.equal(boiDraft.minRoiExact, "7.100000");
+const boiEditor = {
+  ...emptyProgrammeEditorState(),
+  lenderId: boiDraft.lenderId,
+  code: boiDraft.code,
+  label: boiDraft.label,
+  productCode: "HOME_LOAN",
+  employmentTypes: ["salaried"],
+  minRoiExact: "7.25",
+  maxRoiExact: "8.500000",
+  roiPercent: 7.1,
+} as ProgrammeEditorState;
+const boiSaveBody = {
+  ...toProgrammeWritePayload(boiEditor),
+  roiPercent: boiEditor.roiPercent ?? null,
+  expectedLockVersion: 1,
+  expectedVersionNumber: boiDraft.versionNumber,
+  changeReason: "draft_saved",
+};
+const boiControls = separateProgrammeUpdateControls(boiSaveBody);
+const boiParsed = parseStructuredProgrammePayload({
+  lenderId: boiDraft.lenderId,
+  code: boiDraft.code,
+  label: boiDraft.label,
+  ...boiControls.commercial,
+});
+const boiUpdate = {
+  ...structuredPayloadToUpdateInput(boiParsed, "admin"),
+  ...(boiControls.roiPercent !== undefined ? { roiPercent: boiControls.roiPercent } : {}),
+};
+assert.equal(boiParsed.minRoiExact, "7.250000");
+assert.equal(boiUpdate.minRoiExact, "7.250000");
+assert.equal(boiUpdate.maxRoiExact, "8.500000");
+assert.equal(boiUpdate.roiPercent, 7.1);
+assert.equal(boiControls.commercial.roiPercent, undefined);
+const boiSaved = {
+  ...boiDraft,
+  minRoiExact: boiUpdate.minRoiExact,
+  maxRoiExact: boiUpdate.maxRoiExact,
+  roiPercent: boiUpdate.roiPercent,
+  versionNumber: boiDraft.versionNumber + 1,
+};
+const boiRepublished = step(
+  [boiSaved],
+  [],
+  boiSaved.id,
+  { action: "republish", expectedVersionNumber: boiSaved.versionNumber },
+  "2026-10-30T08:05:00.000Z",
+);
+assert.equal(boiRepublished.error, undefined);
+assert.equal(boiRepublished.programs[0]!.id, "boi-hl");
+assert.equal(boiRepublished.programs[0]!.minRoiExact, "7.250000");
+assert.equal(boiRepublished.programs[0]!.roiPercent, 7.1);
+assert.equal(boiRepublished.programs[0]!.publicationState, "published");
+assert.equal(boiRepublished.programs.length, 1);
+const boiSubmittedWithoutSave = commitProgrammeLifecycle({
+  program: boiDraft,
+  audit: [],
+  action: "submit",
+  actorUserId: "admin",
+  actorRole: "ADMIN",
+  expectedVersionNumber: boiDraft.versionNumber,
+  at: "2026-10-30T08:02:00.000Z",
+});
+assert.equal(boiSubmittedWithoutSave.error, undefined);
+assert.equal(boiSubmittedWithoutSave.program.minRoiExact, "7.100000");
 
 async function verifyPagination() {
   const raced = await Promise.all([createUnderLock(firstCreate), createUnderLock(secondCreate)]);

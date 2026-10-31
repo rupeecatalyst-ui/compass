@@ -17,6 +17,7 @@ import {
   projectPublishedProgrammeCommercials,
   validatedRequestedAmountRupees,
 } from "@/lib/compass-customer-gateway/public-programme-commercials";
+import { authoritativeMinimumRoi } from "@/lib/enterprise-lender-registry/programme-pricing";
 import type { HomeLoanRecommendationEngineResult } from "@/lib/home-loan-recommendation/engine";
 
 function tierForRank(rank: number): CompassRecommendationCardDto["tier"] {
@@ -114,10 +115,35 @@ export function projectHlBtEngineRecommendations(
   };
 }
 
+const CUSTOMER_LENDER_CARD_LIMIT = 12;
+
+function customerMinimumRoi(
+  programmeById: Map<string, EnterpriseLenderProgramRecord>,
+  programmeId: string | null | undefined,
+): number | null {
+  if (!programmeId) return null;
+  return authoritativeMinimumRoi(programmeById.get(programmeId) ?? {}).percent;
+}
+
+/** Eligible cards already. Order is Minimum ROI, then lender name, then programme id. */
+function compareCustomerLenderCards(
+  left: CompassRecommendationCardDto,
+  right: CompassRecommendationCardDto,
+  programmeById: Map<string, EnterpriseLenderProgramRecord>,
+): number {
+  const leftRate = customerMinimumRoi(programmeById, left.programmeId);
+  const rightRate = customerMinimumRoi(programmeById, right.programmeId);
+  if (leftRate != null && rightRate != null && leftRate !== rightRate) return leftRate - rightRate;
+  if (leftRate != null && rightRate == null) return -1;
+  if (leftRate == null && rightRate != null) return 1;
+  const byName = left.displayName.localeCompare(right.displayName);
+  if (byName !== 0) return byName;
+  return (left.programmeId ?? "").localeCompare(right.programmeId ?? "");
+}
+
 /**
- * Public journey ranker. Reuses recommendPublishedLendersFromRegistry's
- * option entry and the published-programme matcher. An empty legitimate
- * match stays an empty result.
+ * Public journey ranker. Eligibility stays with the published-programme matcher.
+ * Customer order is Minimum ROI ascending. The shared registry ranker is not reordered.
  */
 export function projectRegistryProgrammeRecommendations(input: {
   detail: PartnerOpportunityDetailDto;
@@ -130,7 +156,7 @@ export function projectRegistryProgrammeRecommendations(input: {
   const ranked = recommendPublishedLendersFromOptions(input.lenders, {
     file,
     programmes: input.programs,
-    limit: 12,
+    limit: Math.max(input.lenders.length, 1),
     matchInput: projectPublicProgrammeMatchInput(input.detail),
   });
   const programmeById = new Map(input.programs.map((program) => [program.id, program]));
@@ -161,12 +187,20 @@ export function projectRegistryProgrammeRecommendations(input: {
     dtoSource: "enterprise_compass_recommendations" as const,
   };
   });
+  const presented = cards
+    .sort((left, right) => compareCustomerLenderCards(left, right, programmeById))
+    .slice(0, CUSTOMER_LENDER_CARD_LIMIT)
+    .map((card, index) => ({
+      ...card,
+      rank: index + 1,
+      tier: tierForRank(index + 1),
+    }));
   return {
     status: "ready",
-    message: cards.length
+    message: presented.length
       ? "Published programme matches for this requirement."
       : "No published programme matches this requirement.",
-    cards,
+    cards: presented,
     dtoSource: "enterprise_compass_recommendations",
   };
 }

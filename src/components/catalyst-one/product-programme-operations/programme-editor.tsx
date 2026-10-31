@@ -165,35 +165,44 @@ export function ProductProgrammeEditor({
     if (state.id) void loadHistory(state.id);
   }, [state.id]);
 
-  async function saveDraft() {
+  async function persistDraft(): Promise<ProgrammeEditorState> {
     if (commercialLocked) {
-      toast.error(PROGRAMME_MUST_UNPUBLISH_MESSAGE);
-      return;
+      throw new Error(PROGRAMME_MUST_UNPUBLISH_MESSAGE);
     }
+    const payload = toProgrammeWritePayload(state);
+    const saved = state.id
+      ? await lenderRegistryClient.updateProgram(
+          state.id,
+          {
+            ...payload,
+            roiPercent: state.roiPercent ?? null,
+            expectedLockVersion: state.lockVersion,
+            expectedVersionNumber: state.versionNumber,
+            changeReason: "draft_saved",
+          },
+          actor,
+        )
+      : await lenderRegistryClient.createProgram(
+          {
+            ...payload,
+            ...(state.roiPercent == null ? {} : { roiPercent: state.roiPercent }),
+          },
+          actor,
+        );
+    const next = recordToEditorState(saved);
+    setState(next);
+    setBaseline(JSON.stringify(next));
+    onSaved();
+    if (saved.id) void loadHistory(saved.id);
+    return next;
+  }
+
+  async function saveDraft() {
     setSaving(true);
     setConflict(null);
     try {
-      const payload = toProgrammeWritePayload(state);
-      const rate = state.roiPercent == null ? {} : { roiPercent: state.roiPercent };
-      const saved = state.id
-        ? await lenderRegistryClient.updateProgram(
-            state.id,
-            {
-              ...payload,
-              ...rate,
-              expectedLockVersion: state.lockVersion,
-              expectedVersionNumber: state.versionNumber,
-              changeReason: "draft_saved",
-            },
-            actor,
-          )
-        : await lenderRegistryClient.createProgram({ ...payload, ...rate }, actor);
-      const next = recordToEditorState(saved);
-      setState(next);
-      setBaseline(JSON.stringify(next));
+      await persistDraft();
       toast.success("Draft saved.");
-      onSaved();
-      if (saved.id) void loadHistory(saved.id);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Save failed";
       if (message.includes("already owns")) setConflict(message);
@@ -238,16 +247,26 @@ export function ProductProgrammeEditor({
   async function runWorkflow(action: "submit" | "approve" | "publish") {
     if (!state.id) return;
     setSaving(true);
+    setConflict(null);
     try {
+      let programId = state.id;
+      let versionNumber = state.versionNumber;
+      if (dirty) {
+        const saved = await persistDraft();
+        if (!saved.id) throw new Error("Save failed");
+        programId = saved.id;
+        versionNumber = saved.versionNumber;
+        toast.success("Draft saved.");
+      }
       const approvalReason =
         action === "approve" ? window.prompt("Approval reason (required for Super Admin self-approval)") ?? "" : undefined;
-      const res = await authenticatedJsonFetch(`/api/lender-registry/programs/${state.id}/workflow`, {
+      const res = await authenticatedJsonFetch(`/api/lender-registry/programs/${programId}/workflow`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
           approvalReason,
-          expectedVersionNumber: state.versionNumber,
+          expectedVersionNumber: versionNumber,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -266,7 +285,9 @@ export function ProductProgrammeEditor({
       onSaved();
       if (state.id) void loadHistory(state.id);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Workflow failed");
+      const message = error instanceof Error ? error.message : "Workflow failed";
+      if (message.includes("already owns") || message.includes("someone else")) setConflict(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

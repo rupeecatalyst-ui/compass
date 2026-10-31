@@ -79,13 +79,18 @@ export const productProgrammeOperationsService = {
     body: unknown;
   }) {
     assertAdmin(input.actorRole);
-    const payload = this.parseBody(input.body);
+    const raw = input.body && typeof input.body === "object" ? (input.body as Record<string, unknown>) : {};
+    const controls = separateProgrammeUpdateControls(raw);
+    const payload = parseStructuredProgrammePayload(controls.commercial);
     await assertPublishedPolicyVersion(payload.policyVersionId, input.organizationId);
     assertAdditionalFiltersAgainstProgramme(payload);
     assertModuleScopedFilters(payload);
     const created = await lenderRegistryRepository.createProgram(
       input.organizationId,
-      structuredPayloadToCreateInput(payload, input.actorUserId),
+      {
+        ...structuredPayloadToCreateInput(payload, input.actorUserId),
+        ...(typeof controls.roiPercent === "number" ? { roiPercent: controls.roiPercent } : {}),
+      },
       { actorName: input.actorName, reason: "lender_program_created" },
     );
     if (created.organizationId !== input.organizationId) {
@@ -143,6 +148,7 @@ export const productProgrammeOperationsService = {
     assertModuleScopedFilters(payload);
     const updateInput = {
       ...structuredPayloadToUpdateInput(payload, input.actorUserId),
+      ...(controls.roiPercent !== undefined ? { roiPercent: controls.roiPercent } : {}),
       expectedVersionNumber: controls.expectedVersionNumber,
       changeReason: controls.changeReason ?? "draft_saved",
     };

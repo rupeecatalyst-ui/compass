@@ -100,9 +100,10 @@ assert.ok(ranked.every((row) => /ZETA_HL|ALPHA_HL/.test(row.reason) && row.reaso
 const label = publicRequestedAmountLabel(10_000_000);
 assert.equal(label, "₹1,00,00,000");
 assert.ok(shown.cards.every((card) => card.requestedAmountLabel === label));
-assert.equal(publicRequestedAmountLabel("₹1,00,00,000"), null);
-assert.equal(publicRequestedAmountLabel("1,00,00,000"), null);
-assert.equal(publicRequestedAmountLabel("50 Lakh"), null);
+// Grouped rupee text keeps its digits. A scale word is not a multiplier.
+assert.equal(publicRequestedAmountLabel("₹1,00,00,000"), "₹1,00,00,000");
+assert.equal(publicRequestedAmountLabel("1,00,00,000"), "₹1,00,00,000");
+assert.equal(publicRequestedAmountLabel("50 Lakh"), "₹50");
 assert.equal(authoritativeRequestedAmountRupees({ toNumber: () => 10_000_000 }), 10_000_000);
 
 const absent = projectRegistryProgrammeRecommendations({

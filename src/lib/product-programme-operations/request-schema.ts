@@ -263,17 +263,34 @@ export const PROGRAMME_UPDATE_CONTROL_KEYS = [
   "modifiedBy",
 ] as const;
 
+/** Generic ROI % is a separate float. It must not be parsed as Minimum ROI. */
+export function readIndependentRoiPercent(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ProgrammeValidationError("Generic ROI must be a finite number", [
+      {
+        field: "roiPercent",
+        message: "ROI % is stored separately from Minimum ROI and must be a finite number.",
+      },
+    ]);
+  }
+  return value;
+}
+
 export function separateProgrammeUpdateControls(body: Record<string, unknown>): {
   commercial: Record<string, unknown>;
   expectedVersionNumber?: number;
   changeReason?: string;
   expectedLockVersion?: number;
   createDraftRevision: boolean;
+  roiPercent: number | null | undefined;
 } {
   const controlKeys = new Set<string>(PROGRAMME_UPDATE_CONTROL_KEYS);
   const commercial: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(body)) {
-    if (!controlKeys.has(key)) commercial[key] = value;
+    if (key === "roiPercent" || controlKeys.has(key)) continue;
+    commercial[key] = value;
   }
   return {
     commercial,
@@ -283,6 +300,7 @@ export function separateProgrammeUpdateControls(body: Record<string, unknown>): 
     expectedLockVersion:
       typeof body.expectedLockVersion === "number" ? body.expectedLockVersion : undefined,
     createDraftRevision: body.createDraftRevision === true,
+    roiPercent: readIndependentRoiPercent(body.roiPercent),
   };
 }
 
