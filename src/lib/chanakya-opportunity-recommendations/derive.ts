@@ -13,8 +13,11 @@
 
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
 import {
+  matchInputFromLoanFile,
   recommendPublishedLendersFromOptions,
   recommendPublishedLendersFromRegistry,
+  reportLoanFileProgrammeMatches,
+  type LoanFileOpportunityMatchFacts,
 } from "@/lib/enterprise-lender-registry/recommend-from-registry";
 import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/published-directory";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
@@ -281,6 +284,61 @@ function confidenceFromScore(score: number, signals: OpportunitySignals): number
   return pct;
 }
 
+function opportunityFactsForFile(
+  file: LoanFile,
+  explicit?: LoanFileOpportunityMatchFacts,
+): LoanFileOpportunityMatchFacts | undefined {
+  if (explicit) return explicit;
+  const opportunityId =
+    file.enterpriseOpportunityId?.trim() ||
+    (file as LoanFile & { opportunityId?: string }).opportunityId?.trim() ||
+    "";
+  if (!opportunityId) return undefined;
+  const opportunity = getCachedOpportunityRecord(opportunityId);
+  if (!opportunity) return undefined;
+  return {
+    residency: opportunity.residency ?? null,
+    borrowerLegalConstitution: opportunity.borrowerLegalConstitution ?? null,
+    state: opportunity.stateLabel ?? null,
+  };
+}
+
+function gapForMissingFact(fact: string): ChanakyaRecommendationGap {
+  if (fact === "Residency") return { id: "residency", label: "Residency", section: "customer" };
+  if (fact === "Legal constitution") return { id: "constitution", label: "Legal constitution", section: "customer" };
+  if (fact === "State") return { id: "state", label: "State", section: "customer" };
+  return { id: fact.toLowerCase().replace(/[^a-z0-9]+/g, "_"), label: fact, section: "loan" };
+}
+
+const NO_APPLICABLE_PUBLISHED_PROGRAMME =
+  "No applicable published programme matched this Opportunity. Category heuristics were not used.";
+
+function unmatchedProgrammeResult(
+  analyzedAt: string,
+  programmes: EnterpriseLenderProgramRecord[],
+  file: LoanFile,
+  facts: LoanFileOpportunityMatchFacts | undefined,
+): ChanakyaOpportunityRecommendationResult {
+  if (!facts) {
+    return {
+      ready: false,
+      missingRequirements: [],
+      guidance: [NO_APPLICABLE_PUBLISHED_PROGRAMME],
+      recommendations: [],
+      analyzedAt,
+    };
+  }
+  const report = reportLoanFileProgrammeMatches(programmes, file, facts);
+  return {
+    ready: false,
+    missingRequirements:
+      report.kind === "information_required" ? report.missingFacts.map(gapForMissingFact) : [],
+    guidance: report.reasons,
+    recommendations: [],
+    analyzedAt,
+  };
+}
+
 function starsFromRank(rank: number, confidencePct: number): number {
   if (rank === 1) return 5;
   if (rank === 2) return 4;
@@ -297,6 +355,7 @@ function starsFromRank(rank: number, confidencePct: number): number {
 export function deriveChanakyaOpportunityRecommendations(input: {
   file: LoanFile;
   stated?: EcwStatedInformationDraft;
+  opportunityFacts?: LoanFileOpportunityMatchFacts;
 }): ChanakyaOpportunityRecommendationResult {
   const analyzedAt = new Date().toISOString();
   const signals = collectSignals(input.file, input.stated);
@@ -312,10 +371,12 @@ export function deriveChanakyaOpportunityRecommendations(input: {
     };
   }
 
+  const facts = opportunityFactsForFile(input.file, input.opportunityFacts);
   // CO-LENDER-ARCH-001 — Enterprise Lender Registry (Published ∧ Active) only.
   const ranked = recommendPublishedLendersFromRegistry({
     file: input.file,
     limit: 8,
+    opportunityFacts: facts,
   }).map((row) => {
     const confidencePct = confidenceFromScore(row.score, signals);
     return {
@@ -333,15 +394,7 @@ export function deriveChanakyaOpportunityRecommendations(input: {
   });
 
   if (ranked.length === 0) {
-    return {
-      ready: false,
-      missingRequirements: [],
-      guidance: [
-        "No applicable published programme matched this Opportunity. Category heuristics were not used.",
-      ],
-      recommendations: [],
-      analyzedAt,
-    };
+    return unmatchedProgrammeResult(analyzedAt, [], input.file, facts);
   }
 
   return {
@@ -363,6 +416,7 @@ export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
   registryOptions: PublishedLenderOption[];
   programmes?: EnterpriseLenderProgramRecord[];
   limit?: number;
+  opportunityFacts?: LoanFileOpportunityMatchFacts;
 }): ChanakyaOpportunityRecommendationResult {
   const analyzedAt = new Date().toISOString();
   const signals = collectSignals(input.file, input.stated);
@@ -378,11 +432,13 @@ export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
     };
   }
 
+  const facts = opportunityFactsForFile(input.file, input.opportunityFacts);
   const limit = Math.max(1, Math.min(25, input.limit ?? 8));
   const ranked = recommendPublishedLendersFromOptions(input.registryOptions, {
     file: input.file,
     limit,
     programmes: input.programmes ?? [],
+    matchInput: facts ? matchInputFromLoanFile(input.file, facts) : undefined,
   }).map((row) => {
     const confidencePct = confidenceFromScore(row.score, signals);
     return {
@@ -400,15 +456,7 @@ export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
   });
 
   if (ranked.length === 0) {
-    return {
-      ready: false,
-      missingRequirements: [],
-      guidance: [
-        "No applicable published programme matched this Opportunity. Category heuristics were not used.",
-      ],
-      recommendations: [],
-      analyzedAt,
-    };
+    return unmatchedProgrammeResult(analyzedAt, input.programmes ?? [], input.file, facts);
   }
 
   return {

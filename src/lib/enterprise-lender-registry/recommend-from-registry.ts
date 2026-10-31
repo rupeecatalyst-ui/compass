@@ -41,8 +41,35 @@ export type RegistryLenderRecommendation = {
   unavailableReason?: string;
 };
 
-function matchInputFromLoanFile(file: LoanFile): ProgrammeMatchInput {
-  return {
+/** Customer residency values. Programme "not applicable" and contact defaults are not customer facts. */
+export type CustomerResidencyFact = "resident" | "nri" | "pio";
+
+/**
+ * Opportunity facts already on EnterpriseOpportunity.
+ * Residency is accepted only as resident, nri, or pio. State is the stored state, not a city inference.
+ */
+export type LoanFileOpportunityMatchFacts = {
+  residency?: string | null;
+  borrowerLegalConstitution?: string | null;
+  state?: string | null;
+};
+
+export function acceptedCustomerResidency(value: string | null | undefined): CustomerResidencyFact | null {
+  const raw = (value ?? "").trim().toLowerCase();
+  if (raw === "resident" || raw === "nri" || raw === "pio") return raw;
+  return null;
+}
+
+function recordedFact(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  return raw || null;
+}
+
+export function matchInputFromLoanFile(
+  file: LoanFile,
+  facts?: LoanFileOpportunityMatchFacts,
+): ProgrammeMatchInput {
+  const input: ProgrammeMatchInput = {
     productCode: canonicalizeProductCode(file.loanProduct) ?? file.loanProduct,
     employmentType: file.employmentType,
     constitution: file.businessDetails?.constitution ?? null,
@@ -55,6 +82,65 @@ function matchInputFromLoanFile(file: LoanFile): ProgrammeMatchInput {
     propertyCategory: file.propertyCategory ?? null,
     constructionStatus: file.constructionStatus ?? null,
   };
+  if (!facts) return input;
+  return {
+    ...input,
+    constitution: recordedFact(facts.borrowerLegalConstitution),
+    residency: acceptedCustomerResidency(facts.residency),
+    state: recordedFact(facts.state),
+  };
+}
+
+const UNVERIFIED_PROGRAMME_FACT = /^(.+) was not available, so this programme rule was not verified\.$/;
+
+export type LoanFileProgrammeMatchReport = {
+  kind: "information_required" | "ineligible" | "no_published_programme";
+  missingFacts: string[];
+  reasons: string[];
+};
+
+function currentMatchProgrammes(programmes: EnterpriseLenderProgramRecord[]): EnterpriseLenderProgramRecord[] {
+  const allowed = recommendationProgrammeIds(programmes);
+  return programmes.filter((program) => allowed.has(program.id) && isPublishedCommercialProgram(program));
+}
+
+/** Classify an empty loan-file result without changing match or rank rules. */
+export function reportLoanFileProgrammeMatches(
+  programmes: EnterpriseLenderProgramRecord[],
+  file: LoanFile,
+  facts: LoanFileOpportunityMatchFacts,
+): LoanFileProgrammeMatchReport {
+  const noPublished = "No applicable published programme matched this Opportunity. Category heuristics were not used.";
+  const current = currentMatchProgrammes(programmes);
+  if (current.length === 0) {
+    return { kind: "no_published_programme", missingFacts: [], reasons: [noPublished] };
+  }
+  const input = matchInputFromLoanFile(file, facts);
+  const missingFacts: string[] = [];
+  const unverified: string[] = [];
+  const other: string[] = [];
+  for (const program of current) {
+    const result = matchPublishedProgramme(program, input);
+    if (result.matched) continue;
+    const fact = UNVERIFIED_PROGRAMME_FACT.exec(result.reason);
+    if (fact?.[1]) {
+      if (!missingFacts.includes(fact[1])) missingFacts.push(fact[1]);
+      if (!unverified.includes(result.reason)) unverified.push(result.reason);
+    } else if (!other.includes(result.reason)) {
+      other.push(result.reason);
+    }
+  }
+  if (missingFacts.length > 0) {
+    return { kind: "information_required", missingFacts, reasons: unverified };
+  }
+  const ineligible = other.filter((reason) => reason.includes("outside programme"));
+  if (ineligible.length > 0) {
+    return { kind: "ineligible", missingFacts: [], reasons: ineligible };
+  }
+  if (other.length > 0) {
+    return { kind: "no_published_programme", missingFacts: [], reasons: other };
+  }
+  return { kind: "no_published_programme", missingFacts: [], reasons: [noPublished] };
 }
 
 function scoreLender(
@@ -96,6 +182,7 @@ function starsFromRank(rank: number, confidencePct: number): number {
 export function recommendPublishedLendersFromRegistry(input: {
   file: LoanFile;
   limit?: number;
+  opportunityFacts?: LoanFileOpportunityMatchFacts;
 }): RegistryLenderRecommendation[] {
   if (typeof window !== "undefined") {
     ensureLenderMasterBootstrapped();
@@ -112,7 +199,13 @@ export function recommendPublishedLendersFromRegistry(input: {
       })),
   );
   if (options.length === 0) return [];
-  return scoreAndRank(options, input.file, limit, []);
+  return scoreAndRank(
+    options,
+    input.file,
+    limit,
+    [],
+    input.opportunityFacts ? matchInputFromLoanFile(input.file, input.opportunityFacts) : undefined,
+  );
 }
 
 /** CO-LR-008 — AI / Chanakya recommendations from Prisma Registry only (browser / employee UI). */
@@ -120,6 +213,7 @@ export async function recommendPublishedLendersFromRegistryAsync(input: {
   file: LoanFile;
   limit?: number;
   programmes?: EnterpriseLenderProgramRecord[];
+  opportunityFacts?: LoanFileOpportunityMatchFacts;
 }): Promise<RegistryLenderRecommendation[]> {
   const limit = input.limit ?? 8;
   const options = await listCanonicalEnterpriseLenderOptionsAsync();
@@ -155,6 +249,8 @@ export function recommendPublishedLendersFromOptions(
     programmes?: EnterpriseLenderProgramRecord[];
     /** When supplied, this is the only matcher input. Missing facts stay missing. */
     matchInput?: ProgrammeMatchInput;
+    /** Used only when matchInput is omitted and the caller already holds the Opportunity record. */
+    opportunityFacts?: LoanFileOpportunityMatchFacts;
   },
 ): RegistryLenderRecommendation[] {
   const limit = input.limit ?? 8;
@@ -164,7 +260,10 @@ export function recommendPublishedLendersFromOptions(
   const programmes = (input.programmes ?? []).filter(
     (program) => allowed.has(program.id) && isPublishedCommercialProgram(program),
   );
-  return scoreAndRank(canonical, input.file, limit, programmes, input.matchInput);
+  const matchInput =
+    input.matchInput ??
+    (input.opportunityFacts ? matchInputFromLoanFile(input.file, input.opportunityFacts) : undefined);
+  return scoreAndRank(canonical, input.file, limit, programmes, matchInput);
 }
 
 function scoreAndRank(
