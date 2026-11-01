@@ -28,6 +28,7 @@ export function DiscoveryAdvantageStep() {
     intelligenceLoading,
     intelligenceError,
     persistencePending,
+    persistenceWaitExceeded,
     intelligenceWaitExceeded,
     goNext,
     loadIntelligence,
@@ -130,7 +131,11 @@ export function DiscoveryAdvantageStep() {
 
         <h2 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">{c.heading}</h2>
 
-        {persistencePending ? (
+        {persistencePending && persistenceWaitExceeded ? (
+          <p className="mt-8 max-w-md text-sm text-muted-foreground" aria-live="polite" aria-busy="true">
+            Saving your answers is taking longer than expected. Your calculation will start once they have been saved.
+          </p>
+        ) : persistencePending ? (
           <p className="mt-8 max-w-md text-sm text-muted-foreground" aria-live="polite">
             Saving your answers before we calculate your Advantage.
           </p>

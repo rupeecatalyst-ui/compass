@@ -1,25 +1,56 @@
 /**
  * One answer save runs at a time for each journey session.
- * A later snapshot cannot be overwritten by an earlier response.
- * A failed save rejects its own caller and still releases the next save.
+ * Snapshots that have not started are replaced by the latest snapshot,
+ * so a burst of identical full-snapshot saves cannot pile up.
+ * The save already sent to the server is never cancelled.
+ * A failed save rejects its own callers and still releases the next save.
  */
-const answerSaveTailBySession = new Map<string, Promise<void>>();
+type SaveWaiter = {
+  resolve: () => void;
+  reject: (reason: unknown) => void;
+};
+
+type PendingSave = {
+  execute: () => Promise<void>;
+  waiters: SaveWaiter[];
+};
+
+const pendingBySession = new Map<string, PendingSave>();
+const inflightBySession = new Map<string, Promise<void>>();
+
+function pumpJourneyAnswerSave(sessionToken: string) {
+  if (inflightBySession.has(sessionToken)) return;
+  const pending = pendingBySession.get(sessionToken);
+  if (!pending) return;
+  pendingBySession.delete(sessionToken);
+  const run = pending
+    .execute()
+    .then(() => {
+      pending.waiters.forEach((waiter) => waiter.resolve());
+    })
+    .catch((reason: unknown) => {
+      pending.waiters.forEach((waiter) => waiter.reject(reason));
+    })
+    .finally(() => {
+      inflightBySession.delete(sessionToken);
+      pumpJourneyAnswerSave(sessionToken);
+    });
+  inflightBySession.set(sessionToken, run);
+}
 
 export function enqueueJourneyAnswerSave(
   sessionToken: string,
   save: () => Promise<void>,
 ): Promise<void> {
-  const previous = answerSaveTailBySession.get(sessionToken) ?? Promise.resolve();
-  const current = previous.then(save, save);
-  const tail = current.then(
-    () => undefined,
-    () => undefined,
-  );
-  answerSaveTailBySession.set(sessionToken, tail);
-  void tail.finally(() => {
-    if (answerSaveTailBySession.get(sessionToken) === tail) {
-      answerSaveTailBySession.delete(sessionToken);
+  return new Promise((resolve, reject) => {
+    const waiter = { resolve, reject };
+    const pending = pendingBySession.get(sessionToken);
+    if (pending) {
+      pending.execute = save;
+      pending.waiters.push(waiter);
+      return;
     }
+    pendingBySession.set(sessionToken, { execute: save, waiters: [waiter] });
+    pumpJourneyAnswerSave(sessionToken);
   });
-  return current;
 }

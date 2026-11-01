@@ -155,6 +155,8 @@ type DiscoveryContextValue = {
   intelligenceError: string | null;
   /** True while the latest answers are being saved and analysis has not started. */
   persistencePending: boolean;
+  /** True when answer saving is still running after the customer wait. */
+  persistenceWaitExceeded: boolean;
   /** True when the analysis request is still running after the customer wait. */
   intelligenceWaitExceeded: boolean;
   lod: CompassLodDto | null;
@@ -236,8 +238,10 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
   const [persistencePending, setPersistencePending] = useState(false);
+  const [persistenceWaitExceeded, setPersistenceWaitExceeded] = useState(false);
   const [intelligenceWaitExceeded, setIntelligenceWaitExceeded] = useState(false);
   const analysisWaitTimer = useRef<number | null>(null);
+  const persistenceWaitTimer = useRef<number | null>(null);
   const [lod, setLod] = useState<CompassLodDto | null>(null);
   const [lodLoading, setLodLoading] = useState(false);
   const [lodError, setLodError] = useState<string | null>(null);
@@ -538,6 +542,13 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const clearPersistenceWait = useCallback(() => {
+    if (persistenceWaitTimer.current != null) {
+      window.clearTimeout(persistenceWaitTimer.current);
+      persistenceWaitTimer.current = null;
+    }
+  }, []);
+
   const loadIntelligence = useCallback(async () => {
     if (intelligenceRequest.current) return intelligenceRequest.current;
     const request = (async () => {
@@ -546,17 +557,24 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       setPersistencePending(true);
+      setPersistenceWaitExceeded(false);
       setIntelligenceLoading(false);
       setIntelligenceWaitExceeded(false);
       setIntelligenceError(null);
       clearAnalysisWait();
+      clearPersistenceWait();
+      persistenceWaitTimer.current = window.setTimeout(() => {
+        setPersistenceWaitExceeded(true);
+      }, ANALYSIS_CUSTOMER_WAIT_MS);
       try {
         const result = await fetchDiscoveryIntelligence({
           product: productCode,
           answers,
           journeySessionToken,
           onAnalysisRequestStarted: () => {
+            clearPersistenceWait();
             setPersistencePending(false);
+            setPersistenceWaitExceeded(false);
             setIntelligenceLoading(true);
             setIntelligenceWaitExceeded(false);
             clearAnalysisWait();
@@ -567,14 +585,21 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         });
         setIntelligence(result);
         return true;
-      } catch {
+      } catch (err) {
+        const analysisFailed =
+          err instanceof Error &&
+          err.message === "Analysis is temporarily unavailable. Please try again shortly.";
         setIntelligenceError(
-          "We could not complete analysis right now. Your details are saved — please try again shortly.",
+          analysisFailed
+            ? "We could not complete analysis right now. Your details are saved — please try again shortly."
+            : "We could not save your answers, so your calculation has not started. Please try again.",
         );
         return false;
       } finally {
         clearAnalysisWait();
+        clearPersistenceWait();
         setPersistencePending(false);
+        setPersistenceWaitExceeded(false);
         setIntelligenceLoading(false);
         setIntelligenceWaitExceeded(false);
       }
@@ -585,7 +610,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     } finally {
       intelligenceRequest.current = null;
     }
-  }, [answers, clearAnalysisWait, journeySessionToken, productCode]);
+  }, [answers, clearAnalysisWait, clearPersistenceWait, journeySessionToken, productCode]);
 
   const loadLod = useCallback(async () => {
     if (!journeySessionToken) {
@@ -699,6 +724,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       intelligenceLoading,
       intelligenceError,
       persistencePending,
+      persistenceWaitExceeded,
       intelligenceWaitExceeded,
       lod,
       lodLoading,
@@ -743,6 +769,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       intelligenceLoading,
       intelligenceError,
       persistencePending,
+      persistenceWaitExceeded,
       intelligenceWaitExceeded,
       lod,
       lodLoading,
