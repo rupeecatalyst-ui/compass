@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, LoaderCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { OrbitalIntelligence } from "@/components/analysis/orbital-intelligence";
 import { DiscoveryCompass } from "@/components/home-loan-experience/discovery/discovery-compass";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { discoveryCopy } from "@/config/home-loan-discovery";
@@ -106,8 +107,8 @@ export function DiscoveryAdvantageStep() {
         <h2 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">{c.heading}</h2>
 
         {intelligenceLoading ? (
-          <div className="mt-8 flex flex-col items-center" aria-live="polite" aria-busy="true">
-            <LoaderCircle className={`h-6 w-6 text-primary ${reduceMotion ? "" : "animate-spin"}`} />
+          <div className="mt-8 flex w-full flex-col items-center" aria-live="polite" aria-busy="true">
+            <OrbitalIntelligence />
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
               {LENDER_MATCH_LOADING_MESSAGES[messageIndex]}
             </p>

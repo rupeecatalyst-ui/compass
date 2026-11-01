@@ -1,0 +1,62 @@
+.orbital-intelligence {
+  position: relative;
+  width: min(18rem, 72vw);
+  aspect-ratio: 1;
+  margin-inline: auto;
+}
+
+.orbital-intelligence svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.orbital-spin,
+.orbital-spin-reverse,
+.orbital-spin-slow {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+.orbital-spin {
+  animation: orbital-spin 18s linear infinite;
+}
+
+.orbital-spin-reverse {
+  animation: orbital-spin-reverse 24s linear infinite;
+}
+
+.orbital-spin-slow {
+  animation: orbital-spin 32s linear infinite;
+}
+
+.orbital-core {
+  position: absolute;
+  inset: 32%;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(8, 18, 24, 0.95), rgba(5, 7, 12, 0.4) 70%);
+  box-shadow: 0 0 28px -8px rgba(45, 212, 191, 0.85);
+}
+
+@keyframes orbital-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbital-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbital-spin,
+  .orbital-spin-reverse,
+  .orbital-spin-slow {
+    animation: none;
+  }
+}
