@@ -1,3 +1,9 @@
+/**
+ * How long the customer waits on the analysis animation.
+ * The browser does not cancel the request when this elapses.
+ */
+export const ANALYSIS_CUSTOMER_WAIT_MS = 45_000;
+
 /** Informational copy while the existing recommendation request is in flight. */
 export const LENDER_MATCH_LOADING_MESSAGES = [
   "Understanding your financial profile…",

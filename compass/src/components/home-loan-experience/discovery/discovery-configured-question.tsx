@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { GovernedMonetaryQuestion } from "@/components/home-loan-experience/discovery/governed-monetary-question";
 import {
@@ -14,9 +14,7 @@ import {
   resolveRequestedAmountBounds,
   type CompassJourneyConfigField,
 } from "@/lib/journey-config";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
 
 function visible(field: CompassJourneyConfigField, answers: Record<string, string>): boolean {
   if (!field.visibleWhenField) return true;
@@ -60,6 +58,7 @@ export function DiscoveryConfiguredQuestions({
     return all.filter((item) => item.purpose === purpose);
   }, [journeyConfig?.fields, purpose, stageId]);
 
+  const advancedEmptyStage = useRef<string | null>(null);
   const field =
     fields.find((item) => {
       if (!visible(item, bag) || (bag[item.fieldId] ?? "").trim()) return false;
@@ -70,6 +69,14 @@ export function DiscoveryConfiguredQuestions({
         (monetaryControl && isGovernedMonetaryField(item.fieldId))
       );
     }) ?? null;
+
+  useLayoutEffect(() => {
+    if (field) return;
+    const key = `${stageId ?? ""}:${purpose ?? ""}`;
+    if (advancedEmptyStage.current === key) return;
+    advancedEmptyStage.current = key;
+    goNext();
+  }, [field, goNext, purpose, stageId]);
 
   useEffect(() => {
     setSkipped([]);
@@ -96,17 +103,7 @@ export function DiscoveryConfiguredQuestions({
     return () => window.clearTimeout(handle);
   }, [draft, field]);
 
-  if (!field) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <p className="text-sm text-muted-foreground">These details are saved.</p>
-        <Button size="lg" className="mt-8 h-12 w-full max-w-md" onClick={goNext}>
-          Continue
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  }
+  if (!field) return null;
 
   const withinBounds = (value: string) => {
     if (field.min == null && field.max == null) return true;

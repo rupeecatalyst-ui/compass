@@ -27,6 +27,8 @@ export function DiscoveryAdvantageStep() {
     intelligence,
     intelligenceLoading,
     intelligenceError,
+    persistencePending,
+    intelligenceWaitExceeded,
     goNext,
     loadIntelligence,
     completeJourney,
@@ -47,7 +49,7 @@ export function DiscoveryAdvantageStep() {
     Math.round(Number(requestedLoanAmount)) === requestedFromAnswersAmount;
   const displayable =
     compassAdvantageIsDisplayable(advantage) && calculationMatchesCurrentAmount;
-  const ready = Boolean(intelligence) && !intelligenceError;
+  const analysisInFlight = persistencePending || intelligenceLoading;
   const [messageIndex, setMessageIndex] = useState(0);
   const opened = useRef(false);
   const mounted = useRef(true);
@@ -62,7 +64,7 @@ export function DiscoveryAdvantageStep() {
   }, []);
 
   useEffect(() => {
-    if (!journeySessionToken || intelligenceLoading || intelligenceError) return;
+    if (!journeySessionToken || analysisInFlight || intelligenceError) return;
     if (intelligence && calculationMatchesCurrentAmount) {
       attemptedKey.current = analysisKey;
       return;
@@ -74,8 +76,8 @@ export function DiscoveryAdvantageStep() {
     analysisKey,
     calculationMatchesCurrentAmount,
     intelligence,
+    analysisInFlight,
     intelligenceError,
-    intelligenceLoading,
     journeySessionToken,
     loadIntelligence,
   ]);
@@ -85,12 +87,12 @@ export function DiscoveryAdvantageStep() {
   }, [completeJourney, intelligence, intelligenceError]);
 
   useEffect(() => {
-    if (!intelligenceLoading || reduceMotion) return;
+    if (!intelligenceLoading || intelligenceWaitExceeded || reduceMotion) return;
     const timer = window.setInterval(() => {
       setMessageIndex((index) => (index + 1) % LENDER_MATCH_LOADING_MESSAGES.length);
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [intelligenceLoading, reduceMotion]);
+  }, [intelligenceLoading, intelligenceWaitExceeded, reduceMotion]);
 
   const openMatches = () => {
     if (!mounted.current || opened.current) return;
@@ -100,15 +102,16 @@ export function DiscoveryAdvantageStep() {
 
   const onBestLenderMatch = () => {
     const action = lenderMatchAction({
-      loading: intelligenceLoading,
+      loading: analysisInFlight,
       failed: Boolean(intelligenceError),
-      ready,
+      ready: displayable,
     });
     if (action === "wait") return;
     if (action === "open") {
       openMatches();
       return;
     }
+    if (action !== "retry") return;
     attemptedKey.current = analysisKey;
     void loadIntelligence();
   };
@@ -127,7 +130,15 @@ export function DiscoveryAdvantageStep() {
 
         <h2 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">{c.heading}</h2>
 
-        {intelligenceLoading ? (
+        {persistencePending ? (
+          <p className="mt-8 max-w-md text-sm text-muted-foreground" aria-live="polite">
+            Saving your answers before we calculate your Advantage.
+          </p>
+        ) : intelligenceLoading && intelligenceWaitExceeded ? (
+          <p className="mt-8 max-w-md text-sm text-muted-foreground" aria-live="polite" aria-busy="true">
+            This is taking longer than expected. Your calculation is still running and will appear here when it finishes.
+          </p>
+        ) : intelligenceLoading ? (
           <div className="mt-8 flex w-full flex-col items-center" aria-live="polite" aria-busy="true">
             <OrbitalIntelligence />
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
@@ -136,20 +147,7 @@ export function DiscoveryAdvantageStep() {
           </div>
         ) : intelligenceError ? (
           <p className="mt-8 max-w-md text-sm text-muted-foreground">{intelligenceError}</p>
-        ) : !ready ? (
-          <p className="mt-6 text-sm text-muted-foreground">
-            Your COMPASS Advantage is ready to calculate from the details you have shared.
-          </p>
-        ) : advantage?.status === "not_available" || !advantage?.eligible ? (
-          <div className="mx-auto mt-10 max-w-lg space-y-4">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              COMPASS Advantage is not available for this request yet.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              You can continue — lender guidance and document collection are not affected.
-            </p>
-          </div>
-        ) : displayable ? (
+        ) : displayable && advantage ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -172,21 +170,26 @@ export function DiscoveryAdvantageStep() {
               {c.eligibilityNote}
             </p>
           </motion.div>
+        ) : intelligence ? (
+          <p className="mt-8 max-w-md text-sm leading-relaxed text-muted-foreground">
+            COMPASS Advantage is not available for this request yet.
+          </p>
         ) : (
-          <p className="mt-8 max-w-md text-sm text-muted-foreground">
-            We need a little more information before we can estimate your COMPASS Advantage.
+          <p className="mt-6 text-sm text-muted-foreground">
+            Your COMPASS Advantage is ready to calculate from the details you have shared.
           </p>
         )}
 
-        <Button
-          size="lg"
-          className="mt-10 h-12 w-full max-w-md sm:w-auto sm:px-10"
-          disabled={intelligenceLoading}
-          onClick={onBestLenderMatch}
-        >
-          {intelligenceError ? "Try again" : c.showMatches}
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        {displayable || (intelligenceError && !analysisInFlight) ? (
+          <Button
+            size="lg"
+            className="mt-10 h-12 w-full max-w-md sm:w-auto sm:px-10"
+            onClick={onBestLenderMatch}
+          >
+            {intelligenceError ? "Try again" : c.showMatches}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        ) : null}
       </div>
     </motion.div>
   );

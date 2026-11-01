@@ -16,6 +16,8 @@ import {
   type LenderPreference,
 } from "@/lib/lender-preferences";
 import { persistDiscoveryAnswers, persistJourneyToken, restoreDiscoveryAnswers, restoreJourneyToken } from "@/lib/discovery-session";
+import { shouldBypassEmptyConfiguredStage } from "@/lib/configured-stage-questions";
+import { ANALYSIS_CUSTOMER_WAIT_MS } from "@/lib/lender-match-request";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
 import {
   governedDiscoveryStepOrder,
@@ -151,6 +153,10 @@ type DiscoveryContextValue = {
   intelligence: DiscoveryIntelligenceResult | null;
   intelligenceLoading: boolean;
   intelligenceError: string | null;
+  /** True while the latest answers are being saved and analysis has not started. */
+  persistencePending: boolean;
+  /** True when the analysis request is still running after the customer wait. */
+  intelligenceWaitExceeded: boolean;
   lod: CompassLodDto | null;
   lodLoading: boolean;
   lodError: string | null;
@@ -229,6 +235,9 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [intelligence, setIntelligence] = useState<DiscoveryIntelligenceResult | null>(null);
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
+  const [persistencePending, setPersistencePending] = useState(false);
+  const [intelligenceWaitExceeded, setIntelligenceWaitExceeded] = useState(false);
+  const analysisWaitTimer = useRef<number | null>(null);
   const [lod, setLod] = useState<CompassLodDto | null>(null);
   const [lodLoading, setLodLoading] = useState(false);
   const [lodError, setLodError] = useState<string | null>(null);
@@ -449,6 +458,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         const candidate = order[i];
         if (shouldSkipAnsweredStage(candidate, merged, mobileVerified)) continue;
         if (isVacantApplicationStage(candidate, journeyConfig)) continue;
+        if (shouldBypassEmptyConfiguredStage(candidate, journeyConfig, merged.fieldAnswers)) continue;
         if (
           candidate === "monthlyIncome" &&
           !isMonthlyIncomeStepRequired(journeyConfig, {
@@ -474,6 +484,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         const candidate = order[i];
         if (shouldSkipAnsweredStage(candidate, answers, mobileVerified)) continue;
         if (isVacantApplicationStage(candidate, journeyConfig)) continue;
+        if (shouldBypassEmptyConfiguredStage(candidate, journeyConfig, answers.fieldAnswers)) continue;
         if (
           candidate === "monthlyIncome" &&
           !isMonthlyIncomeStepRequired(journeyConfig, {
@@ -520,6 +531,13 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
 
   const intelligenceRequest = useRef<Promise<boolean> | null>(null);
 
+  const clearAnalysisWait = useCallback(() => {
+    if (analysisWaitTimer.current != null) {
+      window.clearTimeout(analysisWaitTimer.current);
+      analysisWaitTimer.current = null;
+    }
+  }, []);
+
   const loadIntelligence = useCallback(async () => {
     if (intelligenceRequest.current) return intelligenceRequest.current;
     const request = (async () => {
@@ -527,13 +545,25 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         setIntelligenceError("Your session could not be verified. Please restart the journey.");
         return false;
       }
-      setIntelligenceLoading(true);
+      setPersistencePending(true);
+      setIntelligenceLoading(false);
+      setIntelligenceWaitExceeded(false);
       setIntelligenceError(null);
+      clearAnalysisWait();
       try {
         const result = await fetchDiscoveryIntelligence({
           product: productCode,
           answers,
           journeySessionToken,
+          onAnalysisRequestStarted: () => {
+            setPersistencePending(false);
+            setIntelligenceLoading(true);
+            setIntelligenceWaitExceeded(false);
+            clearAnalysisWait();
+            analysisWaitTimer.current = window.setTimeout(() => {
+              setIntelligenceWaitExceeded(true);
+            }, ANALYSIS_CUSTOMER_WAIT_MS);
+          },
         });
         setIntelligence(result);
         return true;
@@ -543,7 +573,10 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         );
         return false;
       } finally {
+        clearAnalysisWait();
+        setPersistencePending(false);
         setIntelligenceLoading(false);
+        setIntelligenceWaitExceeded(false);
       }
     })();
     intelligenceRequest.current = request;
@@ -552,7 +585,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     } finally {
       intelligenceRequest.current = null;
     }
-  }, [answers, journeySessionToken, productCode]);
+  }, [answers, clearAnalysisWait, journeySessionToken, productCode]);
 
   const loadLod = useCallback(async () => {
     if (!journeySessionToken) {
@@ -665,6 +698,8 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       intelligence,
       intelligenceLoading,
       intelligenceError,
+      persistencePending,
+      intelligenceWaitExceeded,
       lod,
       lodLoading,
       lodError,
@@ -707,6 +742,8 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       intelligence,
       intelligenceLoading,
       intelligenceError,
+      persistencePending,
+      intelligenceWaitExceeded,
       lod,
       lodLoading,
       lodError,

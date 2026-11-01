@@ -141,8 +141,10 @@ export async function fetchDiscoveryIntelligence(input: {
   product: string;
   answers: DiscoveryAnswers;
   journeySessionToken: string;
+  onAnalysisRequestStarted?: () => void;
 }): Promise<DiscoveryIntelligenceResult> {
   await patchAnswers(input.journeySessionToken, input.product, input.answers);
+  input.onAnalysisRequestStarted?.();
 
   const response = await fetch("/api/journey/analyze", {
     method: "POST",
