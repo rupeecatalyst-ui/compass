@@ -11,6 +11,7 @@ import type {
   JourneyStartResponse,
 } from "@/services/catalyst-one/types";
 import { buildCompassAnswersPayload, compassSubmitDeclarationBody } from "@/lib/declarable-journey-answers";
+import { enqueueJourneyAnswerSave } from "@/services/catalyst-one/answer-save-queue";
 import { recallCampaignToken, rememberCampaignToken } from "@/lib/campaign-entry";
 import { readProductCodeFromPathname } from "@/config/compass-lending-products";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
@@ -33,18 +34,21 @@ function answersPayload(productCode: string, answers: DiscoveryAnswers) {
 }
 
 async function patchAnswers(token: string, productCode: string, answers: DiscoveryAnswers) {
-  const response = await fetch("/api/journey/answers", {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ answers: answersPayload(productCode, answers) }),
+  const body = JSON.stringify({ answers: answersPayload(productCode, answers) });
+  await enqueueJourneyAnswerSave(token, async () => {
+    const response = await fetch("/api/journey/answers", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body,
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(payload?.error || "Unable to save your answers.");
+    }
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error || "Unable to save your answers.");
-  }
 }
 
 export async function persistCompassAnswers(

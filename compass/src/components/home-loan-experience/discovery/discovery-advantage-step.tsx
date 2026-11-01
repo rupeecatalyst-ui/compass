@@ -30,6 +30,7 @@ export function DiscoveryAdvantageStep() {
     goNext,
     loadIntelligence,
     completeJourney,
+    journeySessionToken,
   } = useDiscovery();
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.advantage;
@@ -50,15 +51,38 @@ export function DiscoveryAdvantageStep() {
   const [messageIndex, setMessageIndex] = useState(0);
   const opened = useRef(false);
   const mounted = useRef(true);
-  const advanceTimer = useRef<number | null>(null);
+  const attemptedKey = useRef<string | null>(null);
+  const analysisKey = `${journeySessionToken ?? ""}:${requestedFromAnswersAmount ?? "none"}`;
 
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (advanceTimer.current != null) window.clearTimeout(advanceTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!journeySessionToken || intelligenceLoading || intelligenceError) return;
+    if (intelligence && calculationMatchesCurrentAmount) {
+      attemptedKey.current = analysisKey;
+      return;
+    }
+    if (attemptedKey.current === analysisKey) return;
+    attemptedKey.current = analysisKey;
+    void loadIntelligence();
+  }, [
+    analysisKey,
+    calculationMatchesCurrentAmount,
+    intelligence,
+    intelligenceError,
+    intelligenceLoading,
+    journeySessionToken,
+    loadIntelligence,
+  ]);
+
+  useEffect(() => {
+    if (intelligence && !intelligenceError) completeJourney();
+  }, [completeJourney, intelligence, intelligenceError]);
 
   useEffect(() => {
     if (!intelligenceLoading || reduceMotion) return;
@@ -85,11 +109,8 @@ export function DiscoveryAdvantageStep() {
       openMatches();
       return;
     }
-    void loadIntelligence().then((ok) => {
-      if (!ok || !mounted.current) return;
-      completeJourney();
-      advanceTimer.current = window.setTimeout(openMatches, 2400);
-    });
+    attemptedKey.current = analysisKey;
+    void loadIntelligence();
   };
 
   return (
