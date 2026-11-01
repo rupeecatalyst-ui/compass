@@ -7,20 +7,14 @@ import { HeroCompass, PremiumHomeVisual } from "@/components/home-loan-experienc
 import { HlBody, HlHeadline } from "@/components/home-loan-experience/hl-chapter";
 import { Button } from "@/components/ui/button";
 import { homeLoanExperience } from "@/config/home-loan-experience";
+import { publicWhatsAppHref } from "@/config/site";
 import { smoothEase } from "@/lib/animations";
+import { PUBLIC_WHATSAPP_LINK_REL, PUBLIC_WHATSAPP_LINK_TARGET } from "@/lib/public-whatsapp";
 
 export function HlHero() {
   const { hero } = homeLoanExperience;
   const { launchDiscovery, isOpen } = useDiscovery();
   const reduceMotion = useReducedMotion();
-
-  const handleSarathiCta = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    document.getElementById("advantage-conversation")?.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "start",
-    });
-  };
 
   return (
     <section
@@ -65,7 +59,11 @@ export function HlHero() {
                 className="h-12 border-white/10 bg-white/[0.02] px-8 text-base hover:bg-white/[0.05]"
                 asChild
               >
-                <a href="#advantage-conversation" onClick={handleSarathiCta}>
+                <a
+                  href={publicWhatsAppHref}
+                  target={PUBLIC_WHATSAPP_LINK_TARGET}
+                  rel={PUBLIC_WHATSAPP_LINK_REL}
+                >
                   <MessageCircle className="h-4 w-4" />
                   {hero.secondaryCta}
                 </a>

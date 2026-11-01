@@ -4,12 +4,13 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { discoveryCopy } from "@/config/home-loan-discovery";
-import { siteConfig } from "@/config/site";
+import { publicWhatsAppHref, siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
+import { PUBLIC_WHATSAPP_LINK_REL, PUBLIC_WHATSAPP_LINK_TARGET } from "@/lib/public-whatsapp";
 
 export function DiscoveryConfirmationStep() {
-  const { submissionResult, closeDiscovery, activateSarathi } = useDiscovery();
+  const { submissionResult, closeDiscovery } = useDiscovery();
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.confirmation;
 
@@ -72,9 +73,15 @@ export function DiscoveryConfirmationStep() {
         <Button size="lg" className="h-12 px-10" onClick={closeDiscovery}>
           {c.doneCta}
         </Button>
-        <Button size="lg" variant="outline" className="h-12 bg-transparent px-10" onClick={activateSarathi}>
-          {c.sarathiCta}
-          <ArrowRight className="h-4 w-4" />
+        <Button size="lg" variant="outline" className="h-12 bg-transparent px-10" asChild>
+          <a
+            href={publicWhatsAppHref}
+            target={PUBLIC_WHATSAPP_LINK_TARGET}
+            rel={PUBLIC_WHATSAPP_LINK_REL}
+          >
+            {c.sarathiCta}
+            <ArrowRight className="h-4 w-4" />
+          </a>
         </Button>
       </div>
     </motion.div>
