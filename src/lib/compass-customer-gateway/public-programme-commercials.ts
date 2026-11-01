@@ -1,8 +1,5 @@
 import { toIntegerRupees } from "@/constants/enterprise-product-master/requested-amount-limits";
-import {
-  authoritativeMinimumRoi,
-  illustrativePricingLabel,
-} from "@/lib/enterprise-lender-registry/programme-pricing";
+import { authoritativeMinimumRoi } from "@/lib/enterprise-lender-registry/programme-pricing";
 import { calculateMonthlyEmi } from "@/lib/loan-emi-utils";
 
 export type PublishedProgrammeCommercialSource = {
@@ -79,7 +76,8 @@ export function projectPublishedProgrammeCommercials(input: {
   const maxFunding = finite(program?.maxFundingAmount);
   const tenureMonths = finite(program?.maxTenureMonths);
   const tatDays = finite(program?.averageTatDays);
-  const interestRateLabel = illustrativePricingLabel(program ?? {});
+  const interestRateLabel =
+    minimum.percent == null ? null : `Indicative ${minimum.percent.toFixed(2)}%`;
   const rateSource = minimum.source;
   const emiRate = minimum.percent;
 
