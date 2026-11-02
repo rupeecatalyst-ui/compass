@@ -23,6 +23,7 @@ import {
 import { OperationalEmailActivationPanel } from "@/components/catalyst-one/admin/enterprise-communication/operational-email-activation-panel";
 import { IncomingEmailServerPanel } from "@/components/catalyst-one/admin/enterprise-communication/incoming-email-server-panel";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { smtpSecretEnvName } from "@/lib/enterprise-communication-center/smtp-secret-resolver";
 import type {
   EnterpriseCommunicationEventMapping,
   EnterpriseCommunicationProfileRecord,
@@ -338,9 +339,14 @@ export function EnterpriseCommunicationCenterAdmin() {
               <div className="space-y-1.5 sm:col-span-2 rounded-md border border-border/70 bg-muted/30 px-3 py-2">
                 <Label>Provider credential</Label>
                 <p className="text-xs text-muted-foreground">
-                  {draft.smtpCredentialConfigured
-                    ? "Server environment credential is configured. The secret is never returned to this UI."
-                    : "Configure ECC_CUSTOMERS_SMTP_PASSWORD on the Hostinger server environment. Passwords are not stored in Git or the browser."}
+                  {(() => {
+                    const credentialEnv =
+                      smtpSecretEnvName(draft.profileCode || "") ??
+                      "the server environment variable for this profile";
+                    return draft.smtpCredentialConfigured
+                      ? `This profile uses ${credentialEnv}. The secret is never returned to this UI.`
+                      : `Configure ${credentialEnv} on the Hostinger server environment. Passwords are not stored in Git or the browser.`;
+                  })()}
                 </p>
               </div>
             </CardContent>

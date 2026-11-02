@@ -97,8 +97,10 @@ export const enterpriseCommunicationCenterService = {
       throw new EccError("Display name is required", "DISPLAY_NAME_REQUIRED");
     }
     if (input.smtpPassword !== undefined) {
+      const credentialEnv =
+        smtpSecretEnvName(profileCode) ?? "the server environment variable for this profile";
       throw new EccError(
-        "SMTP credentials must be configured via server environment secrets (ECC_CUSTOMERS_SMTP_PASSWORD).",
+        `SMTP credentials must be configured via server environment secrets (${credentialEnv}).`,
         "SMTP_SECRET_ENV_ONLY",
         400,
       );

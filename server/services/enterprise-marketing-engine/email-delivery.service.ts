@@ -77,28 +77,17 @@ async function resolvePort(request?: MarketingEmailDeliveryRequest): Promise<Mar
         controlledTestSendEnabled: false,
       };
       const projected = request.sender ? await projectSenderSmtpEnv(request.sender) : null;
-      if (request.sender && projected) {
-        const senderMatch = {
-          fromEmail: request.sender.fromAddress,
-          fromName: request.sender.displayName,
-          replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
-        };
-        return createHostingerSmtpEmailDeliveryPort({
-          transport: createHostingerSmtpTransport({ env: projected, gates: productionGates, senderMatch }),
-          gates: productionGates,
-          smtpEnv: projected,
-          senderMatch,
-        });
-      }
       if (request.sender) {
+        const smtpEnv = projected ?? {};
         const senderMatch = {
           fromEmail: request.sender.fromAddress,
           fromName: request.sender.displayName,
           replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
         };
         return createHostingerSmtpEmailDeliveryPort({
-          transport: createHostingerSmtpTransport({ gates: productionGates, senderMatch }),
+          transport: createHostingerSmtpTransport({ env: smtpEnv, gates: productionGates, senderMatch }),
           gates: productionGates,
+          smtpEnv,
           senderMatch,
         });
       }
@@ -117,28 +106,17 @@ async function resolvePort(request?: MarketingEmailDeliveryRequest): Promise<Mar
         controlledTestSendEnabled: true,
       };
       const projected = request.sender ? await projectSenderSmtpEnv(request.sender) : null;
-      if (request.sender && projected) {
-        const senderMatch = {
-          fromEmail: request.sender.fromAddress,
-          fromName: request.sender.displayName,
-          replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
-        };
-        return createHostingerSmtpEmailDeliveryPort({
-          transport: createHostingerSmtpTransport({ env: projected, gates: controlledGates, senderMatch }),
-          gates: controlledGates,
-          smtpEnv: projected,
-          senderMatch,
-        });
-      }
       if (request.sender) {
+        const smtpEnv = projected ?? {};
         const senderMatch = {
           fromEmail: request.sender.fromAddress,
           fromName: request.sender.displayName,
           replyTo: request.sender.replyTo?.trim() || request.sender.fromAddress,
         };
         return createHostingerSmtpEmailDeliveryPort({
-          transport: createHostingerSmtpTransport({ gates: controlledGates, senderMatch }),
+          transport: createHostingerSmtpTransport({ env: smtpEnv, gates: controlledGates, senderMatch }),
           gates: controlledGates,
+          smtpEnv,
           senderMatch,
         });
       }
