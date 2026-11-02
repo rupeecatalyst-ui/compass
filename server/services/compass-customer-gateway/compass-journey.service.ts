@@ -115,8 +115,7 @@ import {
   attachPublicSelectionIdentities,
   compassPreferenceSubmission,
   preferenceAnswers,
-  readCompassSelectedLenders,
-  resolveCompassLenderPreferences,
+  resolveAnswerSaveLenderSelection,
 } from "@/lib/compass-customer-gateway/borrower-lender-selection";
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
@@ -857,28 +856,24 @@ export const compassJourneyService = {
       }
     }
 
-    const requestedForSelection =
-      validatedRequestedAmountRupees(sanitizedAnswers.loanAmount) ??
-      validatedRequestedAmountRupees(sanitizedAnswers.requestedAmountLabel) ??
-      validatedRequestedAmountRupees(row.requestedAmount);
-    let selectedLenders = readCompassSelectedLenders(row.snapshot);
-    try {
-      const eligible = await loadRegistryRecommendationCards({
-        organizationId,
-        opportunityId: row.id,
-        requestedAmount: requestedForSelection,
-      });
-      if (compassPreferenceSubmission(patch.answers) !== "absent") {
-        selectedLenders = resolveCompassLenderPreferences({
-          previous: selectedLenders,
-          submitted: patch.answers,
-          eligible: eligible.cards,
+    const preferenceSubmission = compassPreferenceSubmission(patch.answers);
+    const selectedLenders = await resolveAnswerSaveLenderSelection({
+      snapshot: row.snapshot,
+      submitted: patch.answers,
+      loadEligible: async () => {
+        const requestedForSelection =
+          validatedRequestedAmountRupees(sanitizedAnswers.loanAmount) ??
+          validatedRequestedAmountRupees(sanitizedAnswers.requestedAmountLabel) ??
+          validatedRequestedAmountRupees(row.requestedAmount);
+        const eligible = await loadRegistryRecommendationCards({
+          organizationId,
+          opportunityId: row.id,
+          requestedAmount: requestedForSelection,
         });
-      }
-    } catch {
-      selectedLenders = readCompassSelectedLenders(row.snapshot);
-    }
-    if (compassPreferenceSubmission(patch.answers) !== "absent" || selectedLenders.length > 0) {
+        return eligible.cards;
+      },
+    });
+    if (preferenceSubmission !== "absent" || selectedLenders.length > 0) {
       Object.assign(sanitizedAnswers, preferenceAnswers(selectedLenders));
     }
     const selectedLender = selectedLenders[0] ?? null;

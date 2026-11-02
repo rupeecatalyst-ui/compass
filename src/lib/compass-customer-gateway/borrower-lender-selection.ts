@@ -251,6 +251,31 @@ export function resolveCompassLenderPreferences(input: {
   return lenders.length > 0 ? lenders : [...input.previous];
 }
 
+/**
+ * Ordinary answer saves do not submit a lender preference.
+ * The stored selection is kept and the programme catalogue is not loaded.
+ * An explicit preference still validates against the supplied catalogue.
+ * A catalogue failure keeps the stored selection.
+ */
+export async function resolveAnswerSaveLenderSelection(input: {
+  snapshot: unknown;
+  submitted: Record<string, unknown> | null | undefined;
+  loadEligible: () => Promise<readonly EligiblePublishedMatch[]>;
+}): Promise<CompassSelectedLender[]> {
+  const previous = readCompassSelectedLenders(input.snapshot);
+  if (compassPreferenceSubmission(input.submitted) === "absent") return previous;
+  try {
+    const eligible = await input.loadEligible();
+    return resolveCompassLenderPreferences({
+      previous,
+      submitted: input.submitted,
+      eligible,
+    });
+  } catch {
+    return readCompassSelectedLenders(input.snapshot);
+  }
+}
+
 export function preferenceAnswers(selections: readonly CompassSelectedLender[]): Record<string, string> {
   const first = selections[0];
   return {
