@@ -116,8 +116,13 @@ export async function freezeApprovedAudienceSnapshot(input: {
           lookups: input.lookups,
         });
   if (!isCompleteFreezeWorkingSet(scan)) {
+    const stoppedEarly = scan.scanComplete === false && scan.audienceLimitStatus === "over_limit";
     throw Object.assign(
-      new Error("Freeze requires a complete approval scan. A capped eligibility preview cannot be frozen."),
+      new Error(
+        stoppedEarly
+          ? "Approval scan stopped because the audience exceeds 2,000 recipients. The final eligible count was not calculated."
+          : "Freeze requires a complete approval scan. A capped eligibility preview cannot be frozen.",
+      ),
       { statusCode: 409, code: "INCOMPLETE_AUDIENCE_SCAN" },
     );
   }

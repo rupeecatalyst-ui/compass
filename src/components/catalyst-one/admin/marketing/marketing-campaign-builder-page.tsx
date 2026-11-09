@@ -86,6 +86,7 @@ import {
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { MarketingCampaign, MarketingCampaignVersion, MarketingContentDocument, MarketingContentTemplate, MarketingPrePublishCheckResult } from "@/types/enterprise-marketing-campaign";
 import type { MarketingAudienceDefinition, MarketingAudiencePreviewResult, MarketingFilterDefinition } from "@/types/enterprise-marketing-audience";
+import { marketingAudienceEligibleLabel } from "@/lib/enterprise-marketing-engine/eligibility-scan";
 import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability";
 import type { MarketingExecutionSummary } from "@/types/enterprise-marketing-execution";
 import { toast } from "sonner";
@@ -662,7 +663,11 @@ export function MarketingCampaignBuilderPage({
       }
       setPreview(nextPreview);
       setAudienceCounts(nextPreview.counts);
-      setEligibleCount(nextPreview.counts.eligible);
+      setEligibleCount(
+        nextPreview.scanComplete === false && nextPreview.audienceLimitStatus === "over_limit"
+          ? null
+          : nextPreview.counts.eligible,
+      );
       const samples = nextPreview.sampleRecipients ?? [];
       setSampleRecipients(samples);
       setSelectedSampleId(samples[0]?.id ?? null);
@@ -1427,13 +1432,27 @@ export function MarketingCampaignBuilderPage({
                 className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4"
                 data-mkt-eligibility-result={preview ? "ready" : "unavailable"}
               >
-                <p>Eligible: {preview ? preview.counts.eligible : "Unavailable"}</p>
+                <p>
+                  Eligible:{" "}
+                  {preview
+                    ? marketingAudienceEligibleLabel({
+                        scanComplete: preview.scanComplete,
+                        audienceLimitStatus: preview.audienceLimitStatus,
+                        eligible: preview.counts.eligible,
+                      })
+                    : "Unavailable"}
+                </p>
                 <p>Snapshot: {snapshotStatus}</p>
                 {preview ? (
                   <>
                     <p>Source rows: {preview.counts.totalRows}</p>
-                    <p>Scanned: {preview.counts.scanned}</p>
-                    <p>Ineligible: {Math.max(0, preview.counts.scanned - preview.counts.eligible)}</p>
+                    <p>Rows examined: {preview.counts.scanned}</p>
+                    <p>
+                      Ineligible:{" "}
+                      {preview.counts.eligible == null
+                        ? "Not calculated"
+                        : Math.max(0, preview.counts.scanned - preview.counts.eligible)}
+                    </p>
                     <p>Invalid or missing email: {preview.counts.invalid}</p>
                     <p>Duplicates: {preview.counts.duplicate}</p>
                     <p>Suppressed or unsubscribed: {preview.counts.suppressed}</p>

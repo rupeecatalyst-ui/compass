@@ -16,6 +16,7 @@ function ts(rel) {
   return pathToFileURL(resolve(root, rel)).href;
 }
 
+const consentMod = await import(ts("src/lib/enterprise-marketing-engine/consent-policy.ts"));
 const cacheMod = await import(ts("server/services/enterprise-marketing-engine/adapters/google-sheets-read-cache.ts"));
 const quotaMod = await import(ts("server/services/enterprise-marketing-engine/adapters/google-sheets-quota.ts"));
 const workingMod = await import(ts("src/lib/enterprise-marketing-engine/audience-working-set.ts"));
@@ -32,6 +33,28 @@ const builder = readFileSync(
 assert.match(builder, /data-mkt-sheets-quota-retry/);
 assert.match(builder, /SHEETS_QUOTA_EXCEEDED/);
 assert.match(builder, /refreshSource/);
+assert.equal(consentMod.marketingMissingConsentIsGranted(), false);
+const panel = readFileSync(
+  join(root, "src/components/catalyst-one/admin/marketing/marketing-audiences-panel.tsx"),
+  "utf8",
+);
+const review = readFileSync(
+  join(root, "src/lib/enterprise-marketing-engine/readiness-review.ts"),
+  "utf8",
+);
+assert.match(builder, /marketingAudienceEligibleLabel/);
+assert.match(panel, /marketingAudienceEligibleLabel/);
+assert.match(review, /isIncompleteOverLimitAudienceScan/);
+assert.match(review, /Eligible audience/);
+assert.equal(
+  scanMod.marketingAudienceEligibleLabel({
+    scanComplete: false,
+    audienceLimitStatus: "over_limit",
+    eligible: null,
+  }),
+  "Exceeds the 2,000 limit. The final eligible count was not calculated.",
+);
+assert.doesNotMatch(scanMod.MARKETING_INCOMPLETE_AUDIENCE_COUNT_LABEL, /2001|2,001/);
 
 cacheMod.resetGoogleSheetsReadCache();
 workingMod.resetAudienceWorkingSets();
@@ -388,6 +411,246 @@ await assert.rejects(
 const snapshotsAfterCeiling = await ports.snapshots.listByCampaign(keyInput.organizationId, "camp-oversize");
 assert.equal(snapshotsBeforeCeiling.length, 0);
 assert.equal(snapshotsAfterCeiling.length, 0);
+const completeOversize = await scanMod.scanMarketingAudienceEligibility({
+  port: oversizePort,
+  bindingId: keyInput.bindingId,
+  datasetId: "tab-oversize",
+  columnMap: keyInput.columnMap,
+  mapping: { confirmed: true, map: keyInput.columnMap, confirmedAt: new Date().toISOString(), confirmedByUserId: "u1" },
+  inclusion: keyInput.inclusion,
+  exclusion: keyInput.exclusion,
+  eligibilityRules: keyInput.eligibilityRules,
+  purpose: "approval",
+});
+assert.equal(completeOversize.scanComplete, true);
+assert.equal(completeOversize.audienceLimitStatus, "over_limit");
+assert.equal(completeOversize.counts.eligible, 2001);
+assert.equal(completeOversize.counts.scannedRows, 2001);
+
+const exactRows = Array.from({ length: 2000 }, (_, i) => ({
+  Email: `exact${i + 1}@example.com`,
+  Name: `Exact ${i + 1}`,
+}));
+const exactPort = {
+  providerType: "GOOGLE_SHEETS",
+  async getSchema() {
+    return {
+      headers: ["Email", "Name"],
+      schemaFingerprint: "fp-exact",
+      detectedEmailColumn: "Email",
+      detectedPhoneColumn: null,
+      detectedExternalKeyColumn: null,
+    };
+  },
+  async streamRows({ cursor, limit }) {
+    const start = cursor ? Number.parseInt(cursor, 10) : 0;
+    const page = exactRows.slice(start, start + limit);
+    const next = start + page.length;
+    return {
+      rows: page,
+      sourceRowNumbers: page.map((_, i) => start + i + 2),
+      headers: ["Email", "Name"],
+      nextCursor: next < exactRows.length ? String(next) : undefined,
+    };
+  },
+};
+const exactFrozen = await freezeMod.freezeApprovedAudienceSnapshot({
+  ports,
+  port: exactPort,
+  organizationId: keyInput.organizationId,
+  campaignId: "camp-exact",
+  campaignVersionId: "ver-exact",
+  audienceDefinitionId: "aud-exact",
+  sourceBindingId: keyInput.bindingId,
+  sourceWorkbookId: "wb-1",
+  sourceTabId: "exact",
+  sourceTabName: "Exact",
+  mapping: { confirmed: true, map: keyInput.columnMap, confirmedAt: new Date().toISOString(), confirmedByUserId: "u1" },
+  headers: ["Email", "Name"],
+  inclusion: keyInput.inclusion,
+  exclusion: keyInput.exclusion,
+  eligibilityRules: keyInput.eligibilityRules,
+});
+assert.equal(exactFrozen.eligibleCount, 2000);
+assert.equal((await ports.snapshots.listByCampaign(keyInput.organizationId, "camp-exact")).length, 1);
+
+const wideRows = Array.from({ length: 6000 }, (_, i) => ({
+  Email: `wide${i + 1}@example.com`,
+  Name: `Wide ${i + 1}`,
+}));
+let wideCalls = 0;
+const widePort = {
+  providerType: "GOOGLE_SHEETS",
+  async getSchema() {
+    return {
+      headers: ["Email", "Name"],
+      schemaFingerprint: "fp-wide",
+      detectedEmailColumn: "Email",
+      detectedPhoneColumn: null,
+      detectedExternalKeyColumn: null,
+    };
+  },
+  async estimateAudience() {
+    return { approximateRowCount: 6001, dataRowEstimate: 6000, method: "fixture", note: "mock" };
+  },
+  async streamRows({ cursor, limit }) {
+    wideCalls += 1;
+    const start = cursor ? Number.parseInt(cursor, 10) : 0;
+    const page = wideRows.slice(start, start + limit);
+    const next = start + page.length;
+    return {
+      rows: page,
+      sourceRowNumbers: page.map((_, i) => start + i + 2),
+      headers: ["Email", "Name"],
+      nextCursor: next < wideRows.length ? String(next) : undefined,
+    };
+  },
+};
+const wideScan = await scanMod.scanMarketingAudienceEligibility({
+  port: widePort,
+  bindingId: keyInput.bindingId,
+  datasetId: "wide",
+  columnMap: keyInput.columnMap,
+  mapping: { confirmed: true, map: keyInput.columnMap, confirmedAt: new Date().toISOString(), confirmedByUserId: "u1" },
+  inclusion: keyInput.inclusion,
+  exclusion: keyInput.exclusion,
+  eligibilityRules: keyInput.eligibilityRules,
+  purpose: "approval",
+});
+assert.equal(wideScan.counts.eligible, 2001);
+assert.equal(wideScan.counts.scannedRows, 2001);
+assert.equal(wideScan.scanComplete, false);
+assert.equal(wideScan.audienceLimitStatus, "over_limit");
+assert.equal(wideScan.eligibleRecipients.length, 0);
+assert.equal(wideCalls, 21);
+assert.ok(wideCalls < 60, "approval must not page through the unread remainder");
+await assert.rejects(
+  () =>
+    freezeMod.freezeApprovedAudienceSnapshot({
+      ports,
+      port: widePort,
+      organizationId: keyInput.organizationId,
+      campaignId: "camp-wide",
+      campaignVersionId: "ver-wide",
+      sourceBindingId: keyInput.bindingId,
+      sourceWorkbookId: "wb-1",
+      sourceTabId: "wide",
+      sourceTabName: "Wide",
+      mapping: { confirmed: true, map: keyInput.columnMap, confirmedAt: new Date().toISOString(), confirmedByUserId: "u1" },
+      headers: ["Email", "Name"],
+      inclusion: keyInput.inclusion,
+      exclusion: keyInput.exclusion,
+      eligibilityRules: keyInput.eligibilityRules,
+      completeScan: wideScan,
+    }),
+  (err) => err.code === "INCOMPLETE_AUDIENCE_SCAN" && err.statusCode === 409 && err.recipientCount == null,
+);
+assert.equal((await ports.snapshots.listByCampaign(keyInput.organizationId, "camp-wide")).length, 0);
+
+let quotaPages = 0;
+const quotaPort = {
+  providerType: "GOOGLE_SHEETS",
+  async getSchema() {
+    return {
+      headers: ["Email", "Name"],
+      schemaFingerprint: "fp-quota",
+      detectedEmailColumn: "Email",
+      detectedPhoneColumn: null,
+      detectedExternalKeyColumn: null,
+    };
+  },
+  async streamRows() {
+    quotaPages += 1;
+    if (quotaPages > 1) {
+      throw Object.assign(new Error("quota"), { code: "SHEETS_QUOTA_EXCEEDED", statusCode: 429 });
+    }
+    return {
+      rows: wideRows.slice(0, 500),
+      sourceRowNumbers: wideRows.slice(0, 500).map((_, i) => i + 2),
+      headers: ["Email", "Name"],
+      nextCursor: "500",
+    };
+  },
+};
+const beforeQuota = await ports.snapshots.listByCampaign(keyInput.organizationId, "camp-quota");
+await assert.rejects(
+  () =>
+    freezeMod.freezeApprovedAudienceSnapshot({
+      ports,
+      port: quotaPort,
+      organizationId: keyInput.organizationId,
+      campaignId: "camp-quota",
+      campaignVersionId: "ver-quota",
+      sourceBindingId: keyInput.bindingId,
+      sourceWorkbookId: "wb-1",
+      sourceTabId: "quota",
+      sourceTabName: "Quota",
+      mapping: { confirmed: true, map: keyInput.columnMap, confirmedAt: new Date().toISOString(), confirmedByUserId: "u1" },
+      headers: ["Email", "Name"],
+      inclusion: keyInput.inclusion,
+      exclusion: keyInput.exclusion,
+      eligibilityRules: keyInput.eligibilityRules,
+    }),
+  (err) => err.code === "SHEETS_QUOTA_EXCEEDED",
+);
+assert.equal((await ports.snapshots.listByCampaign(keyInput.organizationId, "camp-quota")).length, beforeQuota.length);
+
+const mixedRows = [
+  { Email: "one@example.com", Name: "One" },
+  { Email: "one@example.com", Name: "One again" },
+  { Email: "held@example.com", Name: "Held" },
+  { Email: "two@example.com", Name: "Two" },
+];
+const mixedPort = {
+  providerType: "GOOGLE_SHEETS",
+  async getSchema() {
+    return {
+      headers: ["Email", "Name"],
+      schemaFingerprint: "fp-mixed",
+      detectedEmailColumn: "Email",
+      detectedPhoneColumn: null,
+      detectedExternalKeyColumn: null,
+    };
+  },
+  async streamRows() {
+    return {
+      rows: mixedRows,
+      sourceRowNumbers: [2, 3, 4, 5],
+      headers: ["Email", "Name"],
+    };
+  },
+};
+const mixedFrozen = await freezeMod.freezeApprovedAudienceSnapshot({
+  ports,
+  port: mixedPort,
+  organizationId: keyInput.organizationId,
+  campaignId: "camp-mixed",
+  campaignVersionId: "ver-mixed",
+  audienceDefinitionId: "aud-mixed",
+  sourceBindingId: keyInput.bindingId,
+  sourceWorkbookId: "wb-1",
+  sourceTabId: "mixed",
+  sourceTabName: "Mixed",
+  mapping: { confirmed: true, map: keyInput.columnMap, confirmedAt: new Date().toISOString(), confirmedByUserId: "u1" },
+  headers: ["Email", "Name"],
+  inclusion: keyInput.inclusion,
+  exclusion: keyInput.exclusion,
+  eligibilityRules: keyInput.eligibilityRules,
+  lookups: {
+    isSuppressed: (input) => input.normalizedEmail === "held@example.com",
+    isPreviouslyContacted: () => false,
+  },
+});
+assert.equal(mixedFrozen.snapshot.duplicateCount, 1);
+assert.equal(mixedFrozen.snapshot.suppressedCount, 1);
+assert.equal(mixedFrozen.eligibleCount, 2);
+assert.equal(mixedFrozen.snapshot.campaignId, "camp-mixed");
+assert.equal(mixedFrozen.snapshot.campaignVersionId, "ver-mixed");
+assert.equal(mixedFrozen.snapshot.audienceDefinitionId, "aud-mixed");
+assert.deepEqual(
+  mixedFrozen.recipients.map((row) => row.normalizedEmail),
+  ["one@example.com", "two@example.com"],
+);
 
 adapterMod.setGoogleSheetsApiClientForTests(null);
 durabilityMod.resetMarketingDurabilityComposition();

@@ -4,8 +4,9 @@
  */
 
 /**
- * Max rows for paginated *preview diagnostics* only.
- * Approval / freeze scans the complete selected dataset with no row cap.
+ * Max rows for paginated preview diagnostics only.
+ * Approval reads until the dataset ends, or until the phase-1 ceiling is exceeded.
+ * Stopping at the ceiling before the dataset ends is an incomplete scan.
  */
 export const MARKETING_AUDIENCE_SCAN_MAX_ROWS = 2000 as const;
 

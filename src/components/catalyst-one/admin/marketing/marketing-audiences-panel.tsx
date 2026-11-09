@@ -44,6 +44,7 @@ import type {
 } from "@/types/enterprise-marketing-audience";
 import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability";
 import { suggestMarketingColumnMap } from "@/lib/enterprise-marketing-engine/column-mapping";
+import { marketingAudienceEligibleLabel } from "@/lib/enterprise-marketing-engine/eligibility-scan";
 import { MarketingModuleNav } from "./marketing-module-nav";
 import { toast } from "sonner";
 
@@ -755,8 +756,18 @@ export function MarketingAudiencesPanel() {
                     </div>
                     <div>
                       <dt className="text-xs uppercase text-muted-foreground">Eligible</dt>
-                      <dd className="font-medium text-emerald-700 dark:text-emerald-400">
-                        {preview.counts.eligible}
+                      <dd
+                        className={
+                          preview.counts.eligible == null
+                            ? "font-medium"
+                            : "font-medium text-emerald-700 dark:text-emerald-400"
+                        }
+                      >
+                        {marketingAudienceEligibleLabel({
+                          scanComplete: preview.scanComplete,
+                          audienceLimitStatus: preview.audienceLimitStatus,
+                          eligible: preview.counts.eligible,
+                        })}
                       </dd>
                     </div>
                     <div>

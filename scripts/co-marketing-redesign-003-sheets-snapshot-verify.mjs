@@ -287,10 +287,10 @@ const oversizeScan = await eligibility.scanMarketingAudienceEligibility({
     isPreviouslyContacted: (email) => email === "already.sent@example.com",
   },
 });
-assert.ok(
-  oversizeScan.counts.eligible > 2000,
-  `2,505-row fixture must still scan past the Phase-1 freeze ceiling, got ${oversizeScan.counts.eligible}`,
-);
+assert.equal(oversizeScan.counts.eligible, 2001);
+assert.equal(oversizeScan.counts.scannedRows, 2001);
+assert.equal(oversizeScan.scanComplete, false);
+assert.equal(oversizeScan.audienceLimitStatus, "over_limit");
 assert.equal(oversizeScan.scanCapped, false);
 assert.equal(oversizeScan.scanMaxRows, null);
 
@@ -327,11 +327,10 @@ try {
   oversizeFreezeError = error;
 }
 assert.ok(oversizeFreezeError, "oversize audience must not freeze");
-assert.equal(oversizeFreezeError.code, "marketing.phase1.audience_limit_exceeded");
-assert.equal(oversizeFreezeError.statusCode, 403);
-assert.equal(oversizeFreezeError.ceiling, 2000);
-assert.ok(oversizeFreezeError.recipientCount > 2000);
-assert.match(oversizeFreezeError.message, /cannot exceed 2000 frozen recipients/);
+assert.equal(oversizeFreezeError.code, "INCOMPLETE_AUDIENCE_SCAN");
+assert.equal(oversizeFreezeError.statusCode, 409);
+assert.equal(oversizeFreezeError.recipientCount, undefined);
+assert.match(oversizeFreezeError.message, /final eligible count was not calculated/);
 const snapshotsAfterOversize = await ports.snapshots.listByCampaign(orgId, "camp-003-oversize");
 assert.equal(snapshotsBeforeOversize.length, 0);
 assert.equal(snapshotsAfterOversize.length, 0, "oversize freeze must not persist a partial snapshot");
@@ -532,7 +531,9 @@ console.log(
       previewCapped: preview.scanCapped,
       previewScanned: preview.counts.scannedRows,
       frozenEligible: frozen.eligibleCount,
-      oversizeEligibleScanned: oversizeScan.counts.eligible,
+      oversizeStoppedAtEligible: oversizeScan.counts.eligible,
+      oversizeScanComplete: oversizeScan.scanComplete,
+      oversizeFreezeCode: oversizeFreezeError.code,
       oversizeFreezeRejected: true,
       oversizeSnapshotPersisted: snapshotsAfterOversize.length,
       frozenHash: frozen.snapshotHash,

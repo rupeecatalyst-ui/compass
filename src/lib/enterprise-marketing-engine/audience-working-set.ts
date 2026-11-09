@@ -45,7 +45,12 @@ export function isCompleteFreezeWorkingSet(
   scan: MarketingEligibilityScanResult | null | undefined,
 ): scan is MarketingEligibilityScanResult {
   if (!scan) return false;
-  return scan.purpose === "approval" && scan.scanCapped === false && scan.scanMaxRows == null;
+  return (
+    scan.purpose === "approval" &&
+    scan.scanComplete === true &&
+    scan.scanCapped === false &&
+    scan.scanMaxRows == null
+  );
 }
 
 export function rememberCompleteAudienceWorkingSet(

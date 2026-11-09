@@ -8,6 +8,7 @@ import {
   MARKETING_AUDIENCE_SCAN_MAX_ROWS,
   MARKETING_AUDIENCE_SCAN_PAGE_SIZE,
 } from "@/constants/enterprise-marketing-engine/audience";
+import { MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 import { evaluateFilterDefinition } from "@/lib/enterprise-marketing-engine/audience-filters";
 import {
   extractMappedRowIdentity,
@@ -34,6 +35,27 @@ import {
 
 export type MarketingEligibilityScanPurpose = "preview" | "approval";
 
+export type MarketingAudienceLimitStatus = "within_limit" | "over_limit";
+
+/** Shown wherever an early ceiling stop must not be treated as the eligible audience. */
+export const MARKETING_INCOMPLETE_AUDIENCE_COUNT_LABEL =
+  "Exceeds the 2,000 limit. The final eligible count was not calculated.";
+
+export function isIncompleteOverLimitAudienceScan(
+  scan: { scanComplete?: boolean; audienceLimitStatus?: string } | null | undefined,
+): boolean {
+  return scan?.scanComplete === false && scan?.audienceLimitStatus === "over_limit";
+}
+
+export function marketingAudienceEligibleLabel(input: {
+  scanComplete: boolean;
+  audienceLimitStatus: MarketingAudienceLimitStatus;
+  eligible: number | null;
+}): string {
+  if (isIncompleteOverLimitAudienceScan(input)) return MARKETING_INCOMPLETE_AUDIENCE_COUNT_LABEL;
+  return input.eligible == null ? "Unavailable" : String(input.eligible);
+}
+
 export type MarketingEligibleRecipientDraft = {
   sourceRowNumber: number | null;
   sourceStableKey: string;
@@ -58,6 +80,9 @@ export type MarketingEligibilityCounts = {
 
 export type MarketingEligibilityScanResult = {
   purpose: MarketingEligibilityScanPurpose;
+  /** False when the approval scan stopped before the source dataset was exhausted. */
+  scanComplete: boolean;
+  audienceLimitStatus: MarketingAudienceLimitStatus;
   scanCapped: boolean;
   scanMaxRows: number | null;
   availableFields: string[];
@@ -175,6 +200,8 @@ export async function scanMarketingAudienceEligibility(input: {
   const sampleDiagnostics: MarketingEligibilityScanResult["sampleDiagnostics"] = [];
   let cursor: string | undefined;
   let scanCapped = false;
+  let ceilingExceeded = false;
+  let sourceRemainder = false;
 
   const pushDiagnostic = (
     sourceRowNumber: number | undefined,
@@ -185,7 +212,7 @@ export async function scanMarketingAudienceEligibility(input: {
     sampleDiagnostics.push({ sourceRowNumber, disposition, issues });
   };
 
-  while (counts.scannedRows < scanCap) {
+  while (counts.scannedRows < scanCap && !ceilingExceeded) {
     const remaining = unlimited
       ? MARKETING_AUDIENCE_SCAN_PAGE_SIZE
       : Math.min(MARKETING_AUDIENCE_SCAN_PAGE_SIZE, scanCap - counts.scannedRows);
@@ -319,9 +346,14 @@ export async function scanMarketingAudienceEligibility(input: {
           },
         });
       }
+      if (unlimited && counts.eligible > MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING) {
+        ceilingExceeded = true;
+        if (i + 1 < page.rows.length || page.nextCursor) sourceRemainder = true;
+        break;
+      }
     }
 
-    if (!page.nextCursor) break;
+    if (ceilingExceeded || !page.nextCursor) break;
     cursor = page.nextCursor;
     if (!unlimited && counts.scannedRows >= scanCap) {
       scanCapped = true;
@@ -335,8 +367,17 @@ export async function scanMarketingAudienceEligibility(input: {
   }
   if (counts.totalRows < counts.scannedRows) counts.totalRows = counts.scannedRows;
 
+  const scanComplete = unlimited && !scanCapped && !sourceRemainder;
+  const audienceLimitStatus: MarketingAudienceLimitStatus =
+    unlimited && (ceilingExceeded || counts.eligible > MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING)
+      ? "over_limit"
+      : "within_limit";
+  if (!scanComplete) eligibleRecipients.length = 0;
+
   return {
     purpose: input.purpose,
+    scanComplete,
+    audienceLimitStatus,
     scanCapped,
     scanMaxRows: unlimited ? null : MARKETING_AUDIENCE_SCAN_MAX_ROWS,
     availableFields: schema.headers,
@@ -345,7 +386,9 @@ export async function scanMarketingAudienceEligibility(input: {
     sampleRecipients,
     sampleDiagnostics,
     notice: unlimited
-      ? "Approval scan covered the complete selected dataset. No Contacts or Opportunities were created. Personal fields are not returned to the browser."
+      ? sourceRemainder
+        ? "Approval scan stopped once the phase-1 audience ceiling was exceeded. The remainder of the sheet was not read, the final eligible count was not calculated, and this result cannot be frozen."
+        : "Approval scan covered the selected dataset through the phase-1 ceiling check. No Contacts or Opportunities were created. Personal fields are not returned to the browser."
       : mappingConfirmed
         ? "Preview diagnostics may be paginated. Confirm mapping, then run a full eligibility / freeze scan for approval."
         : "Using an unconfirmed mapping suggestion. Confirm the column mapping before freeze or campaign approval.",

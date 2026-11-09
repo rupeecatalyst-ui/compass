@@ -11,6 +11,10 @@ import type { MarketingReconstructedExecutionState } from "@/lib/enterprise-mark
 import { hasMarketingUnsubscribeBlock } from "@/lib/enterprise-marketing-engine/visual-editor";
 import { estimateMarketingDeliveryPlan } from "@/lib/enterprise-marketing-engine/campaign-builder-shell";
 import {
+  isIncompleteOverLimitAudienceScan,
+  MARKETING_INCOMPLETE_AUDIENCE_COUNT_LABEL,
+} from "@/lib/enterprise-marketing-engine/eligibility-scan";
+import {
   MARKETING_DEFAULT_BATCH_INTERVAL_MS,
   MARKETING_DEFAULT_BATCH_POLICY,
   MARKETING_DEFAULT_BATCH_SIZE,
@@ -121,13 +125,17 @@ export function composeMarketingReadinessReview(input: {
   const policy = input.batchPolicy ?? input.campaign.batchPolicy ?? MARKETING_DEFAULT_BATCH_POLICY;
   const counts = input.preview?.counts;
   const snapshot = input.snapshot;
-  const eligible = snapshot?.eligibleCount ?? counts?.eligible ?? null;
+  const incompleteOverLimit = isIncompleteOverLimitAudienceScan(input.preview);
+  const frozenEligible = snapshot?.eligibleCount ?? null;
+  const deliveryEligible =
+    frozenEligible ??
+    (incompleteOverLimit || input.preview?.scanComplete === false ? null : counts?.eligible ?? null);
   const delivery = estimateMarketingDeliveryPlan({
     startAt: policy.startAt ?? input.campaign.schedulePlaceholder.startAt ?? "",
     batchSize: policy.batchSize,
     intervalMs: policy.intervalMs,
     dailyMax: policy.dailyMax,
-    eligibleCount: eligible,
+    eligibleCount: deliveryEligible,
   });
   const mapped = input.columnMap
     ? Object.entries(input.columnMap)
@@ -159,7 +167,14 @@ export function composeMarketingReadinessReview(input: {
     { label: "Suppressions", value: display(snapshot?.suppressedCount ?? counts?.suppressed) },
     { label: "Exclusions", value: display(input.excludedCount ?? counts?.excludedByFilter) },
     { label: "Previously contacted", value: display(snapshot?.previouslyContactedCount ?? counts?.previouslyContacted) },
-    { label: "Final frozen eligible count", value: display(snapshot?.eligibleCount ?? eligible) },
+    {
+      label: incompleteOverLimit ? "Eligible audience" : "Final frozen eligible count",
+      value: incompleteOverLimit
+        ? MARKETING_INCOMPLETE_AUDIENCE_COUNT_LABEL
+        : frozenEligible != null
+          ? display(frozenEligible)
+          : "Not frozen",
+    },
     { label: "Snapshot ID", value: display(snapshot?.id) },
     { label: "Snapshot hash", value: display(snapshot?.snapshotHash) },
     { label: "Snapshot time", value: display(snapshot?.frozenAt ?? snapshot?.extractedAt) },

@@ -79,6 +79,9 @@ export type MarketingAudiencePreviewResult = {
     externalKeyColumn: string | null;
   };
   scannedRows: number;
+  /** False when an approval scan stopped before the source dataset was exhausted. */
+  scanComplete: boolean;
+  audienceLimitStatus: "within_limit" | "over_limit";
   scanCapped: boolean;
 /** Preview diagnostics may paginate; 0 means the approval/full scan had no cap. */
   scanMaxRows: number;
@@ -90,7 +93,8 @@ export type MarketingAudiencePreviewResult = {
     scanned: number;
     validEmails: number;
     invalidEmails: number;
-    eligible: number;
+    /** Null when the scan stopped early and the eligible audience was not calculated. */
+    eligible: number | null;
     excludedByFilter: number;
     invalid: number;
     duplicate: number;

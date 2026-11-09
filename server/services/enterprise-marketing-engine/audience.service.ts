@@ -165,6 +165,8 @@ async function evaluateAudiencePreview(input: {
       externalKeyColumn: columnMap.sourceStableKey || null,
     },
     scannedRows: scan.counts.scannedRows,
+    scanComplete: scan.scanComplete,
+    audienceLimitStatus: scan.audienceLimitStatus,
     scanCapped: scan.scanCapped,
     scanMaxRows: scan.scanMaxRows ?? 0,
     estimatedSourceRows: scan.counts.totalRows,
@@ -175,7 +177,10 @@ async function evaluateAudiencePreview(input: {
       scanned: scan.counts.scannedRows,
       validEmails: scan.counts.validEmails,
       invalidEmails: scan.counts.invalidEmails,
-      eligible: scan.counts.eligible,
+      eligible:
+        scan.scanComplete === false && scan.audienceLimitStatus === "over_limit"
+          ? null
+          : scan.counts.eligible,
       excludedByFilter: scan.counts.excludedByFilter,
       invalid: scan.counts.invalidEmails,
       duplicate: scan.counts.duplicates,
