@@ -66,6 +66,9 @@ function nowIso() {
 }
 
 async function resolvePort(request?: MarketingEmailDeliveryRequest): Promise<MarketingEmailDeliveryPort> {
+  if (request?.builderDryRun) {
+    return createDryRunEmailDeliveryPort();
+  }
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {
     throw new EnterpriseMarketingSafetyError("email.delivery.mode_off");
   }
@@ -329,10 +332,16 @@ export const marketingEmailDeliveryService = {
   },
 
   async deliver(request: MarketingEmailDeliveryRequest): Promise<MarketingEmailDeliveryResult> {
-    assertEmailDeliveryAllowed(
-      request.controlledTestSend ? "email.controlled_test_send" : "email.deliver",
-      { productionLiveSend: request.productionLiveSend === true },
-    );
+    if (request.builderDryRun) {
+      if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {
+        throw new EnterpriseMarketingSafetyError("email.builder_dry_run:mode_off");
+      }
+    } else {
+      assertEmailDeliveryAllowed(
+        request.controlledTestSend ? "email.controlled_test_send" : "email.deliver",
+        { productionLiveSend: request.productionLiveSend === true },
+      );
+    }
 
     const existing = marketingEmailDeliveryRecordStore.getByIdempotencyKey(request.idempotencyKey);
     if (existing) {
@@ -466,13 +475,16 @@ export const marketingEmailDeliveryService = {
     campaignName?: string | null;
     controlledTestSend?: boolean;
     productionLiveSend?: boolean;
+    builderDryRun?: boolean;
   }): Promise<{
     delivery: MarketingEmailDeliveryResult;
     ledgerStatus: ReturnType<typeof mapDeliveryOutcomeToLedgerStatus>;
     countsAsProcessed: boolean;
     countsAsFailed: boolean;
   }> {
+    const builderDryRun = input.builderDryRun === true;
     const liveSmtp =
+      !builderDryRun &&
       ENTERPRISE_MARKETING_EMAIL_MODE === "live" &&
       (Boolean(input.productionLiveSend) ||
         Boolean(input.controlledTestSend && isMarketingControlledTestSendEnabled()) ||
@@ -621,6 +633,7 @@ export const marketingEmailDeliveryService = {
       },
       controlledTestSend: input.controlledTestSend === true,
       productionLiveSend: input.productionLiveSend === true,
+      builderDryRun,
     };
 
     const delivery = await this.deliver(request);

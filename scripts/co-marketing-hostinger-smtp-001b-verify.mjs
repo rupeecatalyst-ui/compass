@@ -43,7 +43,8 @@ assert.equal(delivSrc.includes("verifySmtp") && panelSrc.includes("verify_smtp")
 assert.ok(panelSrc.includes("void load()"));
 assert.ok(panelSrc.includes("Verify SMTP connection"));
 const campaignSrc = read("server/services/enterprise-marketing-engine/campaign.service.ts");
-assert.ok(campaignSrc.includes("assertMarketingLiveTestSendAllowlistIfLive"));
+assert.ok(campaignSrc.includes("assertMarketingBuilderDryRunRecipient"));
+assert.ok(campaignSrc.includes("builderDryRun: true"));
 assert.ok(!campaignSrc.includes("ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST"));
 assert.ok(campaignSrc.includes("controlledTestSend: true"));
 assert.ok(campaignSrc.includes("buildMarketingControlledTestSendIdempotencyKey"));

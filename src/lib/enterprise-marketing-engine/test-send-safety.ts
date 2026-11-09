@@ -93,7 +93,8 @@ export function buildMarketingControlledTestSendIdempotencyKey(input: {
 }
 
 /**
- * Live test-send: env ∩ frozen three-address list. Dry-run keeps the internal 008 allowlist.
+ * Live isolated test-send: env ∩ frozen three-address list.
+ * The Campaign Builder dry-run does not call this. It uses assertMarketingBuilderDryRunRecipient.
  * Campaign audiences never read this env list.
  */
 export function assertMarketingLiveTestSendAllowlistIfLive(email?: string): string {
@@ -101,6 +102,14 @@ export function assertMarketingLiveTestSendAllowlistIfLive(email?: string): stri
     return assertMarketingInternalTestRecipient(email ?? "");
   }
   return resolveExactMarketingLiveTestRecipient(email);
+}
+
+/**
+ * Campaign Builder "Run dry-run test" allowlist.
+ * Same internal list the panel displays. Live email mode does not switch this to the frozen SMTP list.
+ */
+export function assertMarketingBuilderDryRunRecipient(email: string): string {
+  return assertMarketingInternalTestRecipient(email);
 }
 
 export function assertMarketingTestSendDryRunOnly(input: { dryRun?: boolean }): void {

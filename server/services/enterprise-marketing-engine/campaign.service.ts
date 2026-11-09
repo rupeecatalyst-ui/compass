@@ -44,9 +44,8 @@ import {
   pickAudiencePreviewSample,
 } from "@/lib/enterprise-marketing-engine/preview-workspace";
 import {
-  assertMarketingLiveTestSendAllowlistIfLive,
+  assertMarketingBuilderDryRunRecipient,
   assertMarketingTestSendConfirmed,
-  assertMarketingTestSendDryRunOnly,
   buildMarketingControlledTestSendIdempotencyKey,
   forceMarketingTestSendNotActuallySent,
   listMarketingTestSendHistory,
@@ -964,7 +963,7 @@ export const marketingCampaignService = {
       confirmed: input.confirmed,
       confirmationPhrase: input.confirmationPhrase,
     });
-    const recipientEmail = assertMarketingLiveTestSendAllowlistIfLive(input.recipientEmail);
+    const recipientEmail = assertMarketingBuilderDryRunRecipient(input.recipientEmail);
     const preview = await this.preview(actor, campaignId, input.personalization, {
       sampleRecipientId: input.sampleRecipientId,
     });
@@ -999,10 +998,16 @@ export const marketingCampaignService = {
       product: campaign.product || "home-loan",
       campaignName: campaign.name,
       controlledTestSend: true,
+      builderDryRun: true,
     });
     const delivery = claimed.delivery;
 
-    assertMarketingTestSendDryRunOnly({ dryRun: delivery.dryRun });
+    if (delivery.dryRun !== true) {
+      throw Object.assign(new Error("Test send adapter must remain dry-run. No provider call is authorised."), {
+        statusCode: 403,
+        code: "TEST_SEND_PROVIDER_FORBIDDEN",
+      });
+    }
     const liveAccepted =
       delivery.dryRun !== true && (delivery.outcome === "ACCEPTED" || delivery.outcome === "SENT");
     const actuallySent = forceMarketingTestSendNotActuallySent(liveAccepted);

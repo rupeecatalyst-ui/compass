@@ -93,6 +93,8 @@ export type MarketingEmailDeliveryRequest = {
   tracking?: MarketingEmailDeliveryTrackingMeta;
   /** Isolated test_send only. Never set on campaign audience delivery. */
   controlledTestSend?: boolean;
+  /** Campaign Builder dry-run. Stays on the dry-run port and never opens SMTP. */
+  builderDryRun?: boolean;
   /** Approved campaign launch while durable production mode is on. Does not enable organisation-wide env flags. */
   productionLiveSend?: boolean;
 };
