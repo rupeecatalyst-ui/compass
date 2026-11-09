@@ -104,7 +104,10 @@ export function composeMarketingReadinessReview(input: {
   workbookName?: string | null;
   tabName?: string | null;
   columnMap?: MarketingColumnMap | null;
-  preview?: Pick<MarketingAudiencePreviewResult, "counts"> | null;
+  preview?:
+    | (Pick<MarketingAudiencePreviewResult, "counts"> &
+        Partial<Pick<MarketingAudiencePreviewResult, "scanComplete" | "audienceLimitStatus">>)
+    | null;
   snapshot?: (MarketingDurableAudienceSnapshotRecord & {
     snapshotHash?: string;
     sourceRowCount?: number;

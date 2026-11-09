@@ -115,8 +115,8 @@ export async function freezeApprovedAudienceSnapshot(input: {
           purpose: "approval",
           lookups: input.lookups,
         });
+  const stoppedEarly = scan.scanComplete === false && scan.audienceLimitStatus === "over_limit";
   if (!isCompleteFreezeWorkingSet(scan)) {
-    const stoppedEarly = scan.scanComplete === false && scan.audienceLimitStatus === "over_limit";
     throw Object.assign(
       new Error(
         stoppedEarly
