@@ -96,6 +96,8 @@ const deliveryService = readFileSync(
 );
 assert.match(campaignService, /assertMarketingBuilderDryRunRecipient\(input\.recipientEmail\)/);
 assert.match(campaignService, /builderDryRun: true/);
+assert.match(campaignService, /outcome:\s*delivery\.outcome/);
+assert.match(campaignService, /errorMessage:\s*failureReason/);
 assert.doesNotMatch(campaignService, /assertMarketingLiveTestSendAllowlistIfLive\(/);
 assert.match(deliveryService, /if \(request\?\.builderDryRun\) \{\s*return createDryRunEmailDeliveryPort\(\);/);
 assert.match(deliveryService, /const builderDryRun = input\.builderDryRun === true;/);

@@ -244,8 +244,12 @@ export type MarketingDurableTestSendRecord = {
   testRecipientEmail: string;
   dryRun: boolean;
   actuallySent: boolean;
+  /** Required Prisma column `outcome` (unmapped text). Delivery result, not an enum. */
+  outcome: string;
   idempotencyKey: string;
   providerMessageId: string | null;
+  /** Nullable Prisma column `error_message`. Null when the dry-run was accepted. */
+  errorMessage: string | null;
   createdByUserId: string | null;
   createdAt: string;
   updatedAt: string;
