@@ -407,6 +407,13 @@ export async function POST(request: Request) {
           confirmationPhrase: body.confirmationPhrase,
         });
         const tick = await marketingExecutionService.runNextBatch(body.campaignId, org);
+        if (tick.liveProviderInvoked || tick.dryRun !== true || tick.processed > 0 || tick.claimed > 0) {
+          return errorResponse(
+            500,
+            "LIVE_PROVIDER_FORBIDDEN",
+            "Run Next Batch is simulated and must not deliver or advance recipient state.",
+          );
+        }
         return successResponse({
           tick,
           execution: marketingExecutionService.getSummary(body.campaignId),

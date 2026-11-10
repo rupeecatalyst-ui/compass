@@ -847,11 +847,24 @@ export const marketingExecutionService = {
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
-    return tickBatchInternal(campaignId, {
-      forceRun: true,
-      adminTriggered: true,
-      holderId: `admin-${Date.now()}`,
+    recordMarketingAuditEvent({
+      kind: "execution.batch.dry_run",
+      organizationId,
+      action: "run_next_batch",
+      objectType: "campaign",
+      objectId: campaignId,
+      detail: {
+        campaignId,
+        simulated: true,
+        actuallySent: false,
+        liveProviderInvoked: false,
+        skippedReason: "simulated_action_does_not_deliver",
+      },
     });
+    return {
+      ...emptyTick(campaignId, "simulated_action_does_not_deliver"),
+      liveProviderInvoked: false,
+    };
   },
 
   /**

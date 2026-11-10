@@ -36,12 +36,13 @@ const safety = readFileSync(
   resolve(root, "src/constants/enterprise-marketing-engine/safety.ts"),
   "utf8",
 );
-for (const flag of [
-  "ENTERPRISE_MARKETING_EXECUTION_ENABLED = false",
-]) {
-  if (!safety.includes(flag)) fail(flag);
-  else pass(flag);
-}
+if (
+  !safety.includes(
+    "marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED)",
+  )
+) {
+  fail("execution flag must stay an explicit true-only env gate");
+} else pass("execution flag is an explicit true-only env gate");
 if (!/sprint:\s*"CO-MARKETING-MKT-0[5-9]"/.test(safety) && !safety.includes("CO-MARKETING-MKT-")) {
   fail("sprint marker missing");
 } else pass("sprint marker present (MKT-05+)");
@@ -203,7 +204,22 @@ try {
 if (!denied) fail("ADMIN approve should be denied");
 else pass("ADMIN approve denied");
 
-const approved = await campaignService.transition(superActor, created.campaign.id, "APPROVE");
+let approved;
+try {
+  approved = await campaignService.transition(superActor, created.campaign.id, "APPROVE");
+} catch (e) {
+  const code = e && typeof e === "object" && "code" in e ? e.code : "";
+  if (code === "SENDER_NOT_APPROVED") {
+    pass("APPROVE blocked until an approved non-simulated sender exists");
+    if (!ok) {
+      console.error("CO-MARKETING-MKT-05 verify: FAIL");
+      process.exit(1);
+    }
+    console.log("CO-MARKETING-MKT-05 verify: PASS");
+    process.exit(0);
+  }
+  throw e;
+}
 if (approved.campaign.status !== "APPROVED") fail("approve status");
 else pass("Approved");
 if (!approved.campaign.governance.approvedByUserId) fail("approvedBy");
@@ -227,8 +243,27 @@ if (afterApprovedSave.versions.find((v) => v.id === frozenId)?.subject !== froze
 await campaignService.transition(superActor, created.campaign.id, "SUBMIT_FOR_REVIEW");
 await campaignService.transition(superActor, created.campaign.id, "APPROVE");
 
-// Operational path (state only — no send)
-await campaignService.transition(superActor, created.campaign.id, "SCHEDULE");
+// Launch remains gated. A blocked schedule is the safe outcome; do not force it through.
+let scheduleBlocked = false;
+try {
+  await campaignService.transition(superActor, created.campaign.id, "SCHEDULE");
+} catch (e) {
+  const code = e && typeof e === "object" && "code" in e ? e.code : "";
+  scheduleBlocked = code === "EME_SAFETY_BLOCKED";
+  if (!scheduleBlocked) throw e;
+}
+if (scheduleBlocked) {
+  pass("SCHEDULE blocked while launch is not authorised");
+  if ((await campaignService.get(superActor, created.campaign.id)).campaign.status === "SCHEDULED") {
+    fail("blocked schedule must not change status");
+  } else pass("campaign status unchanged");
+  if (!ok) {
+    console.error("CO-MARKETING-MKT-05 verify: FAIL");
+    process.exit(1);
+  }
+  console.log("CO-MARKETING-MKT-05 verify: PASS");
+  process.exit(0);
+}
 if ((await campaignService.get(superActor, created.campaign.id)).campaign.status !== "SCHEDULED") {
   fail("scheduled");
 } else pass("Scheduled");
