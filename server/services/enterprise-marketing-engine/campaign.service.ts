@@ -995,7 +995,7 @@ export const marketingCampaignService = {
       version: draft,
       row: { Email: recipientEmail, ...(input.personalization ?? {}) },
       trackingEnabled: draft.trackingEnabled,
-      product: campaign.product || "home-loan",
+      product: campaign.product,
       campaignName: campaign.name,
       controlledTestSend: true,
       builderDryRun: true,

@@ -140,6 +140,7 @@ if (!permMod.hasMarketingPermission(superActor, "admin.marketing.campaign.approv
 const created = await campaignService.create(superActor, {
   name: "MKT-05 Lifecycle",
   channel: "EMAIL",
+  product: "home-loan",
 });
 pass(`created=${created.campaign.id}`);
 

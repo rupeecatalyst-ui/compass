@@ -11,6 +11,11 @@ import {
 
 export const MARKETING_HOME_LOAN_PRODUCT = "home-loan" as const;
 
+/** True when a stored campaign product is the canonical Home Loan identifier. */
+export function isCanonicalHomeLoanCampaignProduct(value: string | null | undefined): boolean {
+  return resolveCompassCampaignProduct(value) === MARKETING_HOME_LOAN_PRODUCT;
+}
+
 export type MarketingCampaignEntryDecision = {
   ok: boolean;
   url: string | null;

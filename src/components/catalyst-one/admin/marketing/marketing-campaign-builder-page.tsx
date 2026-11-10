@@ -77,6 +77,7 @@ import {
   validateMarketingBuilderStep,
   type MarketingBuilderDraft,
 } from "@/lib/enterprise-marketing-engine/campaign-builder-shell";
+import { isCanonicalHomeLoanCampaignProduct } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
 import { composeMarketingReadinessReview, projectMarketingDeliveryOperations } from "@/lib/enterprise-marketing-engine/readiness-review";
 import { canWithdrawMarketingCampaignToDraft } from "@/lib/enterprise-marketing-engine/campaign-registry";
 import {
@@ -136,6 +137,7 @@ export function MarketingCampaignBuilderPage({
   const [name, setName] = useState("");
   const [internalDescription, setInternalDescription] = useState("");
   const [objective, setObjective] = useState("");
+  const [product, setProduct] = useState("");
   const [channel, setChannel] = useState<(typeof MARKETING_CHANNELS)[number]>("EMAIL");
   const [ownerUserId, setOwnerUserId] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -210,6 +212,7 @@ export function MarketingCampaignBuilderPage({
       name,
       internalDescription,
       objective,
+      product,
       channel,
       ownerUserId,
       tags: parseTags(tagsText),
@@ -242,6 +245,7 @@ export function MarketingCampaignBuilderPage({
       name,
       internalDescription,
       objective,
+      product,
       channel,
       ownerUserId,
       tagsText,
@@ -279,6 +283,9 @@ export function MarketingCampaignBuilderPage({
     setName(campaignRow.name);
     setInternalDescription(campaignRow.internalDescription ?? "");
     setObjective(campaignRow.objective ?? "");
+    setProduct(
+      isCanonicalHomeLoanCampaignProduct(campaignRow.product) ? "home-loan" : (campaignRow.product ?? ""),
+    );
     setChannel(campaignRow.channel);
     setOwnerUserId(campaignRow.routingPlaceholder.ownerUserId ?? campaignRow.governance.createdByUserId ?? "");
     setTagsText((campaignRow.routingPlaceholder.tags ?? []).join(", "));
@@ -1108,6 +1115,17 @@ export function MarketingCampaignBuilderPage({
                         {item}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Product</Label>
+                <Select value={product || undefined} onValueChange={setProduct}>
+                  <SelectTrigger id="mkt-builder-product">
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="home-loan">Home Loan</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

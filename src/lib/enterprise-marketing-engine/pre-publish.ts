@@ -9,6 +9,7 @@ import type {
 import type { MarketingPrePublishCheckResult } from "@/types/enterprise-marketing-campaign";
 import type { MarketingColumnMap, MarketingDurableAudienceSnapshotRecord } from "@/types/enterprise-marketing-durability";
 import type { MarketingSenderIdentity } from "@/types/enterprise-marketing-email-delivery";
+import { isCanonicalHomeLoanCampaignProduct } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
 import { inspectMarketingPersonalisationUsage } from "@/lib/enterprise-marketing-engine/personalisation-catalogue";
 import { hasMarketingUnsubscribeBlock } from "@/lib/enterprise-marketing-engine/visual-editor";
 import { collectMarketingImageBlocksMissingAlt } from "@/lib/enterprise-marketing-engine/asset-alt-text";
@@ -75,6 +76,15 @@ export function runMarketingPrePublishChecks(input: {
     severity: "error",
     passed: audienceOk,
     message: audienceOk ? "Audience linked" : "Link an audience before approval",
+  });
+
+  const productOk = isCanonicalHomeLoanCampaignProduct(campaign.product);
+  checks.push({
+    id: "product",
+    label: "Home Loan product",
+    severity: "error",
+    passed: productOk,
+    message: productOk ? "Product is Home Loan" : "Select the Home Loan product before approval",
   });
 
   const contentOk =

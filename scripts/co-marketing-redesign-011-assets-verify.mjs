@@ -358,6 +358,7 @@ const missingAlt = altMod.collectMarketingImageBlocksMissingAlt({
 assert.deepEqual(missingAlt, ["img-empty"]);
 
 const campaignStub = {
+  product: "home-loan",
   audienceId: "aud-011",
   sender: { fromName: "RC", fromAddress: "campaigns@example.com" },
   schedulePlaceholder: { enabled: false, notes: "" },

@@ -48,6 +48,8 @@ mustInclude(stepsSrc, "Unsaved changes");
 mustInclude(builderPage, "Restoring campaign draft");
 mustInclude(builderPage, "mkt-builder-rail");
 mustInclude(builderPage, "Campaign name");
+mustInclude(builderPage, "mkt-builder-product");
+mustInclude(builderPage, "value=\"home-loan\"");
 mustInclude(builderPage, "Internal description");
 mustInclude(builderPage, "Authorised workbook");
 mustInclude(builderPage, "Worksheet tab");
@@ -107,6 +109,7 @@ const blank = {
   name: "",
   internalDescription: "",
   objective: "",
+  product: "",
   channel: "EMAIL",
   ownerUserId: "",
   tags: [],
@@ -136,7 +139,9 @@ const blank = {
 };
 
 assert.equal(shell.validateMarketingBuilderStep(1, blank).ok, false);
-const named = { ...blank, name: "Professionals nurture" };
+const named = { ...blank, name: "Professionals nurture", product: "home-loan" };
+assert.equal(shell.validateMarketingBuilderStep(1, { ...named, product: "" }).ok, false);
+assert.equal(shell.validateMarketingBuilderStep(1, { ...named, product: "personal-loan" }).ok, false);
 assert.equal(shell.validateMarketingBuilderStep(1, named).ok, true);
 assert.equal(shell.validateMarketingBuilderStep(2, named).ok, false);
 
@@ -161,6 +166,7 @@ assert.equal(shell.validateMarketingBuilderStep(3, readyMessage).ok, true);
 assert.equal(shell.validateMarketingBuilderStep(5, readyMessage).ok, true);
 
 const payload = shell.marketingBuilderDraftSavePayload("c1", readyMessage);
+assert.equal(payload.product, "home-loan");
 assert.equal(payload.action, "save");
 assert.equal(payload.campaignId, "c1");
 assert.equal("status" in payload, false);

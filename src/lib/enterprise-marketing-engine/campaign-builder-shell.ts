@@ -21,12 +21,15 @@ import {
 import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability";
 import type { MarketingFilterDefinition } from "@/types/enterprise-marketing-audience";
 import type { MarketingPrePublishCheckResult } from "@/types/enterprise-marketing-campaign";
+import { isCanonicalHomeLoanCampaignProduct } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
 import { hasMarketingUnsubscribeBlock, paragraphTextFromDocument } from "@/lib/enterprise-marketing-engine/visual-editor";
 
 export type MarketingBuilderDraft = {
   name: string;
   internalDescription: string;
   objective: string;
+  /** Canonical product identifier. Home Loan is `home-loan`. */
+  product: string;
   channel: MarketingChannel;
   ownerUserId: string;
   tags: string[];
@@ -74,6 +77,7 @@ export function marketingBuilderDraftSavePayload(campaignId: string, draft: Mark
     campaignId,
     name: draft.name,
     objective: draft.objective || null,
+    product: draft.product.trim() || null,
     internalDescription: draft.internalDescription || null,
     audienceId: draft.audienceId || null,
     channel: draft.channel,
@@ -151,6 +155,9 @@ export function validateMarketingBuilderStep(
           ok: false,
           message: "This channel is Not configured. Email remains the operational channel.",
         };
+      }
+      if (!isCanonicalHomeLoanCampaignProduct(draft.product)) {
+        return { ok: false, message: "Select Home Loan before continuing." };
       }
       return { ok: true };
     case 2:

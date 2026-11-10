@@ -23,7 +23,11 @@ import {
   renderMarketingEmailHtml,
   renderMarketingEmailPlaintext,
 } from "@/lib/enterprise-marketing-engine/email-render";
-import { attributeHomeLoanCampaignDestination } from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
+import { MARKETING_SMTP_BLOCK } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
+import {
+  attributeHomeLoanCampaignDestination,
+  isCanonicalHomeLoanCampaignProduct,
+} from "@/lib/enterprise-marketing-engine/campaign-entry-gate";
 import { assessMarketingLiveSenderLink } from "@/lib/enterprise-marketing-engine/controlled-five-send";
 import { issueCampaignRecipientToken } from "@/lib/product-journey/campaign-link";
 import { classifyCampaignRecipientRef } from "@/lib/product-journey/campaign-recipient-binding";
@@ -483,6 +487,33 @@ export const marketingEmailDeliveryService = {
     countsAsFailed: boolean;
   }> {
     const builderDryRun = input.builderDryRun === true;
+    if (!isCanonicalHomeLoanCampaignProduct(input.product)) {
+      const delivery: MarketingEmailDeliveryResult = {
+        idempotencyKey: input.idempotencyKey,
+        outcome: "FAILED",
+        errorCode: MARKETING_SMTP_BLOCK.campaignProductInvalid,
+        errorMessage: "Delivery requires the Home Loan product",
+        providerMessageId: null,
+        dryRun: true,
+      };
+      await emitMarketingEngagementEvent({
+        organizationId: input.organizationId,
+        campaignId: input.campaignId,
+        campaignVersionId: input.campaignVersionId,
+        channel: "EMAIL",
+        type: "FAILED",
+        recipientFingerprint: input.recipientFingerprint,
+        idempotencyKey: input.idempotencyKey,
+        batchId: input.batchId,
+        errorCode: MARKETING_SMTP_BLOCK.campaignProductInvalid,
+      });
+      return {
+        delivery,
+        ledgerStatus: "failed",
+        countsAsProcessed: false,
+        countsAsFailed: true,
+      };
+    }
     const liveSmtp =
       !builderDryRun &&
       ENTERPRISE_MARKETING_EMAIL_MODE === "live" &&

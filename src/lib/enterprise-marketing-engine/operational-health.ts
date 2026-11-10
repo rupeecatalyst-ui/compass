@@ -60,16 +60,23 @@ export async function composeMarketingOperationalHealth(input: {
   ports?: MarketingDurabilityPorts | null;
   recovery?: MarketingRecoveryStore | null;
   now?: Date;
+  /** Read-only. Does not enable delivery. */
+  productionLiveEnabled?: boolean;
 }): Promise<MarketingOperationalHealthSnapshot> {
   const now = input.now ?? new Date();
   const nowMs = now.getTime();
   const base = createSimulatedMarketingOperationalHealth(input.organizationId, input.campaignId ?? null, now);
   void ENTERPRISE_MARKETING_EXECUTION_ENABLED;
+  const providerNote = ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED
+    ? "Provider-connect flag is on. This indicator is the feature flag, not campaign delivery readiness."
+    : input.productionLiveEnabled === true
+      ? "Provider-connect flag is off. Production Marketing mode is on and can still authorise a live send. This indicator is not delivery readiness."
+      : "Provider-connect flag is off. This indicator is a feature flag, not sender or delivery readiness.";
 
   base.providerAvailability = field(
     ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED ? "fixture" : "unavailable",
     "durable",
-    "Provider connect remains off. Fixture adapters only.",
+    providerNote,
   );
   base.schedulerStatus = field(
     MARKETING_PACING_CRON_REGISTERED ? "idle" : "unregistered",
