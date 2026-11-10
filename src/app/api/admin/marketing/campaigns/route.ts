@@ -430,11 +430,24 @@ export async function POST(request: Request) {
         org,
         testBatchSize,
       );
+      if (
+        tick.liveProviderInvoked ||
+        tick.dryRun !== true ||
+        tick.processed > 0 ||
+        tick.claimed > 0 ||
+        tick.actuallySent === true
+      ) {
+        return errorResponse(
+          500,
+          "LIVE_PROVIDER_FORBIDDEN",
+          "Run Test Batch is simulated and must not deliver or advance recipient state.",
+        );
+      }
       return successResponse({
         tick,
         execution: marketingExecutionService.getSummary(body.campaignId),
-        deliveryLabel: tick.deliveryLabel,
-        actuallySent: tick.actuallySent,
+        deliveryLabel: "SIMULATED",
+        actuallySent: false,
       });
     }
 

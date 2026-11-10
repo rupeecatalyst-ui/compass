@@ -875,47 +875,45 @@ export const marketingExecutionService = {
     campaignId: string,
     organizationId: string,
     testBatchSize: number,
-  ) {
+  ): Promise<
+    MarketingExecutionTickResult & {
+      controlledTest: true;
+      testBatchSize: number;
+      deliveryLabel: "SIMULATED";
+      actuallySent: boolean;
+    }
+  > {
     assertDryRunExecutionAllowed("execution.controlledTest");
     const size = Math.max(1, Math.min(20, Math.floor(testBatchSize)));
     const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
-    const base = resolveBatchPolicy(campaign.batchPolicy);
-    const scheduleStart = campaign.schedulePlaceholder?.startAt ?? base.startAt;
-    const policy: MarketingBatchPolicy = {
-      ...base,
-      batchSize: size,
-      dailyMax: Math.max(base.dailyMax, size),
-      startAt: scheduleStart ?? base.startAt,
-    };
-    await this.configure(campaignId, organizationId, policy, { resetCursor: false });
-    const tick = await tickBatchInternal(campaignId, {
-      forceRun: true,
-      adminTriggered: true,
-      holderId: `test-${Date.now()}`,
-    });
     recordMarketingAuditEvent({
       kind: "execution.batch.dry_run",
       organizationId,
+      action: "run_test_batch",
+      objectType: "campaign",
+      objectId: campaignId,
       detail: {
         campaignId,
         controlledTest: true,
         testBatchSize: size,
         simulated: true,
         actuallySent: false,
-        claimed: tick.claimed,
-        processed: tick.processed,
-        skippedReason: tick.skippedReason ?? null,
+        liveProviderInvoked: false,
+        claimed: 0,
+        processed: 0,
+        skippedReason: "simulated_action_does_not_deliver",
       },
     });
     return {
-      ...tick,
-      controlledTest: true as const,
+      ...emptyTick(campaignId, "simulated_action_does_not_deliver"),
+      liveProviderInvoked: false,
+      controlledTest: true,
       testBatchSize: size,
-      deliveryLabel: "SIMULATED" as const,
-      actuallySent: false as const,
+      deliveryLabel: "SIMULATED",
+      actuallySent: false,
     };
   },
 
