@@ -16,7 +16,10 @@ export type MarketingPrismaDelegate = {
 };
 
 export type MarketingDurabilityPrismaSurface = {
-  $transaction: <T>(fn: (tx: MarketingDurabilityPrismaSurface) => Promise<T>) => Promise<T>;
+  $transaction: <T>(
+    fn: (tx: MarketingDurabilityPrismaSurface) => Promise<T>,
+    options?: { maxWait?: number; timeout?: number },
+  ) => Promise<T>;
   enterpriseMarketingSheetBinding: MarketingPrismaDelegate;
   enterpriseMarketingAudienceDefinition: MarketingPrismaDelegate;
   enterpriseMarketingAudienceSnapshot: MarketingPrismaDelegate;

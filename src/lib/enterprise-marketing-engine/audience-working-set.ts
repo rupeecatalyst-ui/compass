@@ -49,7 +49,8 @@ export function isCompleteFreezeWorkingSet(
     scan.purpose === "approval" &&
     scan.scanComplete === true &&
     scan.scanCapped === false &&
-    scan.scanMaxRows == null
+    scan.scanMaxRows == null &&
+    scan.segmentAllocation == null
   );
 }
 

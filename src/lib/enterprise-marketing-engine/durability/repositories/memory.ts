@@ -86,6 +86,23 @@ async function withKeyLock(
   }
 }
 
+function assignedEmailsFor(
+  rows: Iterable<MarketingDurableSnapshotRecipientRecord>,
+  query: { organizationId: string; sourceWorkbookId: string; sourceTabId: string },
+): string[] {
+  const emails: string[] = [];
+  for (const row of rows) {
+    if (
+      row.organizationId === query.organizationId &&
+      row.sourceWorkbookId === query.sourceWorkbookId &&
+      row.sourceTabId === query.sourceTabId
+    ) {
+      emails.push(row.normalizedEmail);
+    }
+  }
+  return emails;
+}
+
 export function createMemoryMarketingDurabilityPorts(
   seed?: Partial<MarketingDurabilitySerializedState>,
 ): MarketingDurabilityMemoryFixture {
@@ -104,6 +121,7 @@ export function createMemoryMarketingDurabilityPorts(
   const claimLocks = new Map<string, Promise<void>>();
   const batchLocks = new Map<string, Promise<void>>();
   const leaseLocks = new Map<string, Promise<void>>();
+  const allocationLocks = new Map<string, Promise<void>>();
   let seq = 0;
 
   const load = <T extends { id: string }>(rows: T[] | undefined, map: Map<string, T>) => {
@@ -129,6 +147,29 @@ export function createMemoryMarketingDurabilityPorts(
 
   const fixture: MarketingDurabilityMemoryFixture = {
     kind: MARKETING_MEMORY_FIXTURE_KIND,
+    async allocateSourceSegment(input, allocate) {
+      const key = `${input.organizationId}:${input.sourceWorkbookId}`;
+      return withKeyLock(allocationLocks, key, async () => {
+        const assignedEmails = new Set(
+          assignedEmailsFor(snapshotRecipients.values(), input).map((email) => email.trim().toLowerCase()),
+        );
+        return allocate({
+          assignedEmails,
+          persist: async (snapshot, recipients) => {
+            indexPut(snapshots, snapshot);
+            for (const record of recipients) {
+              const duplicate = [...snapshotRecipients.values()].some(
+                (row) =>
+                  row.snapshotId === record.snapshotId &&
+                  (row.normalizedEmail === record.normalizedEmail ||
+                    row.sourceStableKey === record.sourceStableKey),
+              );
+              if (!duplicate) indexPut(snapshotRecipients, record);
+            }
+          },
+        });
+      }) as ReturnType<typeof allocate>;
+    },
     bindings: {
       async upsert(record) {
         if (record.organizationId !== record.organizationId.trim()) {
@@ -216,6 +257,9 @@ export function createMemoryMarketingDurabilityPorts(
               !completedRecipientIds.has(row.id),
           )
           .map(clone);
+      },
+      async listAssignedEmails(query) {
+        return assignedEmailsFor(snapshotRecipients.values(), query);
       },
     },
     batches: {

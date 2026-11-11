@@ -78,6 +78,60 @@ function audienceSnapshotFromRow(row: Record<string, unknown>): MarketingDurable
   };
 }
 
+function audienceSnapshotCreateData(record: MarketingDurableAudienceSnapshotRecord) {
+  return {
+    id: record.id,
+    organizationId: record.organizationId,
+    campaignId: record.campaignId,
+    campaignVersionId: record.campaignVersionId,
+    audienceDefinitionId: record.audienceDefinitionId ?? null,
+    sourceBindingId: record.sourceBindingId,
+    sourceWorkbookId: record.sourceWorkbookId,
+    sourceTabId: record.sourceTabId,
+    sourceTabName: record.sourceTabName,
+    extractedAt: requireDate(record.extractedAt),
+    frozenAt: requireDate(record.frozenAt),
+    frozenByUserId: record.frozenByUserId,
+    eligibleCount: record.eligibleCount,
+    estimatedBatchCount: record.estimatedBatchCount,
+    columnMapJson: { ...record.columnMap, _snapshotHash: record.snapshotHash ?? null },
+    filterSnapshotJson: record.filterSnapshot ?? {},
+    exclusionSnapshotJson: record.exclusionSnapshot ?? null,
+    sourceRowCount: record.sourceRowCount ?? 0,
+    validEmailCount: record.validEmailCount ?? 0,
+    duplicateCount: record.duplicateCount ?? 0,
+    invalidCount: record.invalidCount ?? 0,
+    suppressedCount: record.suppressedCount ?? 0,
+    previouslyContactedCount: record.previouslyContactedCount ?? 0,
+    createdByUserId: record.createdByUserId,
+    updatedByUserId: record.updatedByUserId,
+    createdAt: requireDate(record.createdAt),
+    updatedAt: requireDate(record.updatedAt),
+  };
+}
+
+function snapshotRecipientCreateData(record: MarketingDurableSnapshotRecipientRecord) {
+  return {
+    id: record.id,
+    organizationId: record.organizationId,
+    snapshotId: record.snapshotId,
+    campaignId: record.campaignId,
+    sourceWorkbookId: record.sourceWorkbookId,
+    sourceTabId: record.sourceTabId,
+    sourceTabName: record.sourceTabName,
+    sourceRowNumber: record.sourceRowNumber,
+    sourceStableKey: record.sourceStableKey,
+    recipientFingerprint: record.recipientFingerprint,
+    normalizedEmail: record.normalizedEmail,
+    displayName: record.displayName ?? null,
+    normalizedMobile: record.normalizedMobile ?? null,
+    mappedAttributesJson: record.mappedAttributesJson ?? {},
+    assignedBatchNumber: record.assignedBatchNumber,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
 export function createPrismaMarketingDurabilityPorts(
   client: MarketingDurabilityPrismaSurface,
 ): MarketingDurabilityPorts {
@@ -88,6 +142,56 @@ export function createPrismaMarketingDurabilityPorts(
 
   return {
     kind: MARKETING_PRISMA_ADAPTER_KIND,
+    async allocateSourceSegment(input, allocate) {
+      return db.$transaction(async (tx) => {
+        // Lock the one binding row, re-read assignments, then insert the
+        // snapshot on this same transaction. A second freeze waits, then
+        // sees every email or sees none if this transaction rolls back.
+        const locked = await tx.enterpriseMarketingSheetBinding.updateMany({
+          where: {
+            id: input.sourceBindingId,
+            organizationId: input.organizationId,
+            spreadsheetId: input.sourceWorkbookId,
+          },
+          data: { updatedAt: new Date() },
+        });
+        if (locked.count !== 1) {
+          throw Object.assign(new Error("Authorised workbook binding could not be locked"), {
+            statusCode: 409,
+            code: "SOURCE_LOCK_UNAVAILABLE",
+          });
+        }
+        const rows = (await tx.enterpriseMarketingSnapshotRecipient.findMany({
+          where: {
+            organizationId: input.organizationId,
+            sourceWorkbookId: input.sourceWorkbookId,
+            sourceTabId: input.sourceTabId,
+          },
+        })) as Array<{ normalizedEmail?: string }>;
+        const assignedEmails = new Set(
+          rows
+            .map((row) => (row.normalizedEmail ?? "").trim().toLowerCase())
+            .filter((email) => email.length > 0),
+        );
+        return allocate({
+          assignedEmails,
+          persist: async (snapshot, recipients) => {
+            await tx.enterpriseMarketingAudienceSnapshot.create({
+              data: audienceSnapshotCreateData(snapshot),
+            });
+            for (const record of recipients) {
+              try {
+                await tx.enterpriseMarketingSnapshotRecipient.create({
+                  data: snapshotRecipientCreateData(record),
+                });
+              } catch (error) {
+                if (!isPrismaUniqueConflict(error)) throw error;
+              }
+            }
+          },
+        });
+      }, { maxWait: 10000, timeout: 20000 });
+    },
     bindings: {
       async upsert(record) {
         const data = {
@@ -179,35 +283,7 @@ export function createPrismaMarketingDurabilityPorts(
     snapshots: {
       async insert(record) {
         const row = (await db.enterpriseMarketingAudienceSnapshot.create({
-          data: {
-            id: record.id,
-            organizationId: record.organizationId,
-            campaignId: record.campaignId,
-            campaignVersionId: record.campaignVersionId,
-            audienceDefinitionId: record.audienceDefinitionId ?? null,
-            sourceBindingId: record.sourceBindingId,
-            sourceWorkbookId: record.sourceWorkbookId,
-            sourceTabId: record.sourceTabId,
-            sourceTabName: record.sourceTabName,
-            extractedAt: requireDate(record.extractedAt),
-            frozenAt: requireDate(record.frozenAt),
-            frozenByUserId: record.frozenByUserId,
-            eligibleCount: record.eligibleCount,
-            estimatedBatchCount: record.estimatedBatchCount,
-            columnMapJson: { ...record.columnMap, _snapshotHash: record.snapshotHash ?? null },
-            filterSnapshotJson: record.filterSnapshot ?? {},
-            exclusionSnapshotJson: record.exclusionSnapshot ?? null,
-            sourceRowCount: record.sourceRowCount ?? 0,
-            validEmailCount: record.validEmailCount ?? 0,
-            duplicateCount: record.duplicateCount ?? 0,
-            invalidCount: record.invalidCount ?? 0,
-            suppressedCount: record.suppressedCount ?? 0,
-            previouslyContactedCount: record.previouslyContactedCount ?? 0,
-            createdByUserId: record.createdByUserId,
-            updatedByUserId: record.updatedByUserId,
-            createdAt: requireDate(record.createdAt),
-            updatedAt: requireDate(record.updatedAt),
-          },
+          data: audienceSnapshotCreateData(record),
         })) as Record<string, unknown>;
         return audienceSnapshotFromRow(row);
       },
@@ -230,25 +306,7 @@ export function createPrismaMarketingDurabilityPorts(
         for (const record of records) {
           try {
             await db.enterpriseMarketingSnapshotRecipient.create({
-              data: {
-                id: record.id,
-                organizationId: record.organizationId,
-                snapshotId: record.snapshotId,
-                campaignId: record.campaignId,
-                sourceWorkbookId: record.sourceWorkbookId,
-                sourceTabId: record.sourceTabId,
-                sourceTabName: record.sourceTabName,
-                sourceRowNumber: record.sourceRowNumber,
-                sourceStableKey: record.sourceStableKey,
-                recipientFingerprint: record.recipientFingerprint,
-                normalizedEmail: record.normalizedEmail,
-                displayName: record.displayName ?? null,
-                normalizedMobile: record.normalizedMobile ?? null,
-                mappedAttributesJson: record.mappedAttributesJson ?? {},
-                assignedBatchNumber: record.assignedBatchNumber,
-                createdAt: record.createdAt,
-                updatedAt: record.updatedAt,
-              },
+              data: snapshotRecipientCreateData(record),
             });
             inserted += 1;
           } catch (error) {
@@ -267,6 +325,18 @@ export function createPrismaMarketingDurabilityPorts(
           where: { organizationId, snapshotId },
         })) as MarketingDurableSnapshotRecipientRecord[];
         return rows.filter((row) => !completedRecipientIds.has(row.id));
+      },
+      async listAssignedEmails(query) {
+        const rows = (await db.enterpriseMarketingSnapshotRecipient.findMany({
+          where: {
+            organizationId: query.organizationId,
+            sourceWorkbookId: query.sourceWorkbookId,
+            sourceTabId: query.sourceTabId,
+          },
+        })) as Array<{ normalizedEmail?: string }>;
+        return rows
+          .map((row) => (row.normalizedEmail ?? "").trim().toLowerCase())
+          .filter((email) => email.length > 0);
       },
     },
     batches: {

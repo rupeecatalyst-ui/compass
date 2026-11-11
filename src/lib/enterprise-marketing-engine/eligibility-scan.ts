@@ -10,6 +10,7 @@ import {
 } from "@/constants/enterprise-marketing-engine/audience";
 import { MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 import { evaluateFilterDefinition } from "@/lib/enterprise-marketing-engine/audience-filters";
+import { readMarketingAudienceSegment } from "@/lib/enterprise-marketing-engine/audience-segment";
 import {
   extractMappedRowIdentity,
   type MarketingConfirmedColumnMapping,
@@ -98,9 +99,18 @@ export type MarketingEligibilityScanResult = {
       | "invalid"
       | "duplicate"
       | "suppressed"
-      | "previously_contacted";
+      | "previously_contacted"
+      | "already_assigned";
     issues: string[];
   }>;
+  /** Set only for an approval scan of a governed segment. A preview never fills this. */
+  segmentAllocation?: {
+    mode: "next_unassigned";
+    eligibleCap: number;
+    complete: boolean;
+    lastSourceRowNumber: number | null;
+    excludedAssigned: number;
+  } | null;
   notice: string;
 };
 
@@ -149,6 +159,8 @@ export async function scanMarketingAudienceEligibility(input: {
   schema?: MarketingDatasetSchema;
   estimate?: MarketingAudienceEstimate | null;
   bypassCache?: boolean;
+  /** Normalised emails already frozen for this workbook tab. Used only by a governed segment. */
+  assignedEmails?: ReadonlySet<string>;
 }): Promise<MarketingEligibilityScanResult> {
   if (!input.port.getSchema || !input.port.streamRows) {
     throw Object.assign(new Error("Data source port cannot stream rows"), {
@@ -180,6 +192,8 @@ export async function scanMarketingAudienceEligibility(input: {
   const lookups = input.lookups ?? defaultLookups();
   const diagnosticLimit = input.diagnosticLimit ?? 25;
   const unlimited = input.purpose === "approval";
+  const segment = unlimited ? readMarketingAudienceSegment(input.inclusion) : null;
+  const segmentMode = segment != null;
   const scanCap = unlimited ? Number.POSITIVE_INFINITY : MARKETING_AUDIENCE_SCAN_MAX_ROWS;
 
   const counts: MarketingEligibilityCounts = {
@@ -202,6 +216,9 @@ export async function scanMarketingAudienceEligibility(input: {
   let scanCapped = false;
   let ceilingExceeded = false;
   let sourceRemainder = false;
+  let segmentFilled = false;
+  let excludedAssigned = 0;
+  let lastSourceRowNumber: number | null = null;
 
   const pushDiagnostic = (
     sourceRowNumber: number | undefined,
@@ -212,7 +229,7 @@ export async function scanMarketingAudienceEligibility(input: {
     sampleDiagnostics.push({ sourceRowNumber, disposition, issues });
   };
 
-  while (counts.scannedRows < scanCap && !ceilingExceeded) {
+  while (counts.scannedRows < scanCap && !ceilingExceeded && !segmentFilled) {
     const remaining = unlimited
       ? MARKETING_AUDIENCE_SCAN_PAGE_SIZE
       : Math.min(MARKETING_AUDIENCE_SCAN_PAGE_SIZE, scanCap - counts.scannedRows);
@@ -233,6 +250,7 @@ export async function scanMarketingAudienceEligibility(input: {
       const row = page.rows[i]!;
       const sourceRowNumber = page.sourceRowNumbers?.[i] ?? null;
       counts.scannedRows += 1;
+      if (sourceRowNumber != null) lastSourceRowNumber = sourceRowNumber;
 
       const included = evaluateFilterDefinition(row, input.inclusion, columns);
       const excluded = input.exclusion.rules.length
@@ -303,6 +321,12 @@ export async function scanMarketingAudienceEligibility(input: {
         continue;
       }
 
+      if (segmentMode && input.assignedEmails?.has(normalizeMarketingLedgerEmail(email))) {
+        excludedAssigned += 1;
+        pushDiagnostic(sourceRowNumber ?? undefined, "already_assigned", ["already_assigned"]);
+        continue;
+      }
+
       if (validEmail) {
         seenEmails.add(email);
         if (identity.sourceStableKey) seenKeys.add(identity.sourceStableKey);
@@ -346,14 +370,19 @@ export async function scanMarketingAudienceEligibility(input: {
           },
         });
       }
-      if (unlimited && counts.eligible > MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING) {
+      if (segmentMode && segment && counts.eligible >= segment.eligibleCap) {
+        segmentFilled = true;
+        if (i + 1 < page.rows.length || page.nextCursor) sourceRemainder = true;
+        break;
+      }
+      if (!segmentMode && unlimited && counts.eligible > MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING) {
         ceilingExceeded = true;
         if (i + 1 < page.rows.length || page.nextCursor) sourceRemainder = true;
         break;
       }
     }
 
-    if (ceilingExceeded || !page.nextCursor) break;
+    if (segmentFilled || ceilingExceeded || !page.nextCursor) break;
     cursor = page.nextCursor;
     if (!unlimited && counts.scannedRows >= scanCap) {
       scanCapped = true;
@@ -367,9 +396,14 @@ export async function scanMarketingAudienceEligibility(input: {
   }
   if (counts.totalRows < counts.scannedRows) counts.totalRows = counts.scannedRows;
 
-  const scanComplete = unlimited && !scanCapped && !sourceRemainder;
+  const segmentComplete = segmentMode && (segmentFilled || (!sourceRemainder && !scanCapped));
+  const scanComplete = segmentMode
+    ? segmentComplete
+    : unlimited && !scanCapped && !sourceRemainder;
   const audienceLimitStatus: MarketingAudienceLimitStatus =
-    unlimited && (ceilingExceeded || counts.eligible > MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING)
+    !segmentMode &&
+    unlimited &&
+    (ceilingExceeded || counts.eligible > MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING)
       ? "over_limit"
       : "within_limit";
   if (!scanComplete) eligibleRecipients.length = 0;
@@ -385,7 +419,20 @@ export async function scanMarketingAudienceEligibility(input: {
     eligibleRecipients,
     sampleRecipients,
     sampleDiagnostics,
-    notice: unlimited
+    segmentAllocation: segment
+      ? {
+          mode: "next_unassigned",
+          eligibleCap: segment.eligibleCap,
+          complete: segmentComplete,
+          lastSourceRowNumber,
+          excludedAssigned,
+        }
+      : null,
+    notice: segmentMode
+      ? segmentComplete
+        ? "Governed segment scan finished. Preview is not a frozen segment. Missing marketing permission is not consent."
+        : "Governed segment scan did not finish. This result cannot be frozen."
+      : unlimited
       ? sourceRemainder
         ? "Approval scan stopped once the phase-1 audience ceiling was exceeded. The remainder of the sheet was not read, the final eligible count was not calculated, and this result cannot be frozen."
         : "Approval scan covered the selected dataset through the phase-1 ceiling check. No Contacts or Opportunities were created. Personal fields are not returned to the browser."

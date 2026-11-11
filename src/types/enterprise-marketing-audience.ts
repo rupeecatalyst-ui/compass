@@ -22,10 +22,18 @@ export type MarketingFilterRule = {
   value?: string | string[];
 };
 
+/** Next unassigned eligible recipients from one workbook tab. Absent means the full selected dataset. */
+export type MarketingAudienceSegmentClause = {
+  mode: "next_unassigned";
+  /** Capped by the phase-1 audience ceiling at scan time. */
+  eligibleCap: number;
+};
+
 export type MarketingFilterDefinition = {
   version: 1;
   logic: "AND" | "OR";
   rules: MarketingFilterRule[];
+  segment?: MarketingAudienceSegmentClause | null;
 };
 
 export type MarketingSuppressionPolicy = {
@@ -110,7 +118,8 @@ export type MarketingAudiencePreviewResult = {
       | "invalid"
       | "duplicate"
       | "suppressed"
-      | "previously_contacted";
+      | "previously_contacted"
+      | "already_assigned";
     issues: string[];
   }>;
   /** Allowlisted mapped fields from eligible preview rows — never mobile/consent/email. */

@@ -17,7 +17,12 @@ import {
   resolveCompleteAudienceWorkingSet,
 } from "@/lib/enterprise-marketing-engine/audience-working-set";
 import { freezeApprovedAudienceSnapshot } from "@/lib/enterprise-marketing-engine/freeze-audience";
+import {
+  normalizeAssignedEmailSet,
+  readMarketingAudienceSegment,
+} from "@/lib/enterprise-marketing-engine/audience-segment";
 import { getConfiguredMarketingDurabilityPorts } from "@/lib/enterprise-marketing-engine/durability/composition";
+import { marketingDataSourceBindingStore } from "./binding-store";
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import type {
   MarketingAudienceDefinition,
@@ -123,6 +128,24 @@ async function evaluateAudiencePreview(input: {
   const columnMap = input.mapping?.map ?? input.columnMap ?? suggestion.suggested;
   const purpose = input.purpose ?? "preview";
   const exclusion = input.exclusionDefinition ?? emptyFilterDefinition();
+  let assignedEmails: ReadonlySet<string> | undefined;
+  if (readMarketingAudienceSegment(input.filterDefinition) && purpose === "approval") {
+    const ports = getConfiguredMarketingDurabilityPorts();
+    const binding = marketingDataSourceBindingStore.getForOrg(input.bindingId, input.organizationId);
+    if (!ports || !binding) {
+      throw Object.assign(
+        new Error("A governed segment requires the authorised workbook and durable snapshots"),
+        { statusCode: 503, code: "DURABLE_PERSISTENCE_UNAVAILABLE" },
+      );
+    }
+    assignedEmails = normalizeAssignedEmailSet(
+      await ports.snapshotRecipients.listAssignedEmails({
+        organizationId: input.organizationId,
+        sourceWorkbookId: binding.spreadsheetId,
+        sourceTabId: input.datasetId,
+      }),
+    );
+  }
 
   const scan = await scanMarketingAudienceEligibility({
     port,
@@ -138,6 +161,7 @@ async function evaluateAudiencePreview(input: {
     schema,
     estimate,
     bypassCache: input.bypassCache,
+    assignedEmails,
   });
   if (isCompleteFreezeWorkingSet(scan)) {
     rememberCompleteAudienceWorkingSet(

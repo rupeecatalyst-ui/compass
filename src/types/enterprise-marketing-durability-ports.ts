@@ -95,6 +95,25 @@ export interface MarketingAudienceSnapshotRepository {
   listByCampaign(organizationId: string, campaignId: string): Promise<MarketingDurableAudienceSnapshotRecord[]>;
 }
 
+export type MarketingAssignedRecipientQuery = {
+  organizationId: string;
+  sourceWorkbookId: string;
+  sourceTabId: string;
+};
+
+export type MarketingSourceAllocationInput = MarketingAssignedRecipientQuery & {
+  sourceBindingId: string;
+};
+
+export type MarketingSourceAllocation = {
+  assignedEmails: ReadonlySet<string>;
+  /** Writes the frozen segment on the same lock or database transaction as the assignment check. */
+  persist: (
+    snapshot: MarketingDurableAudienceSnapshotRecord,
+    recipients: MarketingDurableSnapshotRecipientRecord[],
+  ) => Promise<void>;
+};
+
 export interface MarketingSnapshotRecipientRepository {
   insertMany(records: MarketingDurableSnapshotRecipientRecord[]): Promise<number>;
   listBySnapshot(organizationId: string, snapshotId: string): Promise<MarketingDurableSnapshotRecipientRecord[]>;
@@ -103,6 +122,8 @@ export interface MarketingSnapshotRecipientRepository {
     snapshotId: string,
     completedRecipientIds: ReadonlySet<string>,
   ): Promise<MarketingDurableSnapshotRecipientRecord[]>;
+  /** Emails already stored on a frozen snapshot for this workbook tab. */
+  listAssignedEmails(query: MarketingAssignedRecipientQuery): Promise<string[]>;
 }
 
 export interface MarketingDeliveryBatchRepository {
@@ -189,6 +210,15 @@ export interface MarketingAuditEventRepository {
 
 export type MarketingDurabilityPorts = {
   kind: "prisma" | "memory-test-fixture";
+  /**
+   * Serializes segment allocation for one authorised workbook.
+   * The critical section re-reads assigned emails and inserts the snapshot.
+   * It must not read the worksheet.
+   */
+  allocateSourceSegment<T>(
+    input: MarketingSourceAllocationInput,
+    allocate: (allocation: MarketingSourceAllocation) => Promise<T>,
+  ): Promise<T>;
   bindings: MarketingSheetBindingRepository;
   audienceDefinitions: MarketingAudienceDefinitionRepository;
   snapshots: MarketingAudienceSnapshotRepository;
