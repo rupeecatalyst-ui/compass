@@ -179,18 +179,28 @@ export function createPrismaMarketingDurabilityPorts(
             await tx.enterpriseMarketingAudienceSnapshot.create({
               data: audienceSnapshotCreateData(snapshot),
             });
-            for (const record of recipients) {
-              try {
-                await tx.enterpriseMarketingSnapshotRecipient.create({
-                  data: snapshotRecipientCreateData(record),
+            const recipientDelegate = tx.enterpriseMarketingSnapshotRecipient;
+            const payload = recipients.map(snapshotRecipientCreateData);
+            if (recipientDelegate.createMany) {
+              const CHUNK = 1000;
+              for (let i = 0; i < payload.length; i += CHUNK) {
+                await recipientDelegate.createMany({
+                  data: payload.slice(i, i + CHUNK),
+                  skipDuplicates: true,
                 });
-              } catch (error) {
-                if (!isPrismaUniqueConflict(error)) throw error;
+              }
+            } else {
+              for (const data of payload) {
+                try {
+                  await recipientDelegate.create({ data });
+                } catch (error) {
+                  if (!isPrismaUniqueConflict(error)) throw error;
+                }
               }
             }
           },
         });
-      }, { maxWait: 10000, timeout: 20000 });
+      }, { maxWait: 20000, timeout: 180000 });
     },
     bindings: {
       async upsert(record) {

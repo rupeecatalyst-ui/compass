@@ -5,6 +5,7 @@
  */
 
 import { hashMarketingAudienceSnapshot } from "@/lib/enterprise-marketing-engine/snapshot-hash";
+import { MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 import { assertMarketingPhase1CampaignAudienceCeiling } from "@/lib/enterprise-marketing-engine/phase1-live-ceiling";
 import {
   scanMarketingAudienceEligibility,
@@ -128,7 +129,7 @@ export async function freezeApprovedAudienceSnapshot(input: {
     throw Object.assign(
       new Error(
         stoppedEarly
-          ? "Approval scan stopped because the audience exceeds 2,000 recipients. The final eligible count was not calculated."
+          ? `Approval scan stopped because the audience exceeds ${MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING.toLocaleString("en-US")} recipients. The final eligible count was not calculated.`
           : "Freeze requires a complete approval scan. A capped eligibility preview cannot be frozen.",
       ),
       { statusCode: 409, code: "INCOMPLETE_AUDIENCE_SCAN" },

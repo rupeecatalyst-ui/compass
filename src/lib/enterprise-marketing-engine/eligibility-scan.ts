@@ -17,6 +17,10 @@ import {
 } from "@/lib/enterprise-marketing-engine/column-mapping";
 import { isValidMarketingEmail } from "@/lib/enterprise-marketing-engine/data-quality";
 import { normalizeMarketingLedgerEmail } from "@/lib/enterprise-marketing-engine/durability/identity";
+import {
+  defaultMarketingConsentPolicy,
+  interpretMarketingConsentValue,
+} from "@/lib/enterprise-marketing-engine/consent-policy";
 import type {
   MarketingAudienceEstimate,
   MarketingDataSourcePort,
@@ -40,7 +44,7 @@ export type MarketingAudienceLimitStatus = "within_limit" | "over_limit";
 
 /** Shown wherever an early ceiling stop must not be treated as the eligible audience. */
 export const MARKETING_INCOMPLETE_AUDIENCE_COUNT_LABEL =
-  "Exceeds the 2,000 limit. The final eligible count was not calculated.";
+  `Exceeds the ${MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING.toLocaleString("en-US")} limit. The final eligible count was not calculated.`;
 
 export function isIncompleteOverLimitAudienceScan(
   scan: { scanComplete?: boolean; audienceLimitStatus?: string } | null | undefined,
@@ -134,7 +138,7 @@ function defaultLookups(): MarketingEligibilityLookups {
   };
 }
 
-function columnsFromMap(map: MarketingColumnMap): {
+export function columnsFromMap(map: MarketingColumnMap): {
   emailColumn: string | null;
   phoneColumn: string | null;
 } {
@@ -190,6 +194,7 @@ export async function scanMarketingAudienceEligibility(input: {
         : null;
   const columns = columnsFromMap(input.columnMap);
   const lookups = input.lookups ?? defaultLookups();
+  const consentPolicy = defaultMarketingConsentPolicy(input.bindingId);
   const diagnosticLimit = input.diagnosticLimit ?? 25;
   const unlimited = input.purpose === "approval";
   const segment = unlimited ? readMarketingAudienceSegment(input.inclusion) : null;
@@ -319,6 +324,15 @@ export async function scanMarketingAudienceEligibility(input: {
         counts.previouslyContacted += 1;
         pushDiagnostic(sourceRowNumber ?? undefined, "previously_contacted", ["previously_contacted"]);
         continue;
+      }
+
+      if (input.eligibilityRules.requireVerifiableMarketingPermission === true) {
+        const permission = interpretMarketingConsentValue(identity.consent, consentPolicy);
+        if (permission !== "granted") {
+          counts.excludedByFilter += 1;
+          pushDiagnostic(sourceRowNumber ?? undefined, "excluded", ["permission_not_verified"]);
+          continue;
+        }
       }
 
       if (segmentMode && input.assignedEmails?.has(normalizeMarketingLedgerEmail(email))) {

@@ -151,7 +151,7 @@ function extrasFor(base) {
 }
 
 const largeRows = [];
-for (let i = 1; i <= 2505; i += 1) largeRows.push(row(i));
+for (let i = 1; i <= 15005; i += 1) largeRows.push(row(i));
 largeRows.push(...extrasFor(1));
 
 const phase1Rows = [];
@@ -287,8 +287,8 @@ const oversizeScan = await eligibility.scanMarketingAudienceEligibility({
     isPreviouslyContacted: (email) => email === "already.sent@example.com",
   },
 });
-assert.equal(oversizeScan.counts.eligible, 2001);
-assert.equal(oversizeScan.counts.scannedRows, 2001);
+assert.equal(oversizeScan.counts.eligible, 15001);
+assert.equal(oversizeScan.counts.scannedRows, 15001);
 assert.equal(oversizeScan.scanComplete, false);
 assert.equal(oversizeScan.audienceLimitStatus, "over_limit");
 assert.equal(oversizeScan.scanCapped, false);
@@ -362,7 +362,7 @@ const frozen = await freeze.freezeApprovedAudienceSnapshot({
   actorUserId: actor.userId,
 });
 
-assert.equal(frozen.eligibleCount, 2000, "Phase-1 freeze must succeed at the 2,000-recipient ceiling");
+assert.equal(frozen.eligibleCount, 2000, "A complete audience under the 15,000 ceiling still freezes");
 assert.equal(frozen.snapshot.snapshotHash, frozen.snapshotHash);
 assert.ok(frozen.snapshotHash.length === 64);
 assert.equal(frozen.snapshot.sourceWorkbookId, "fixture-marketing-master");

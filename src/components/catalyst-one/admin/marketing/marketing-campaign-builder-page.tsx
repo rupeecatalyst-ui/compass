@@ -32,6 +32,7 @@ import {
   MARKETING_CHANNEL_CONTRACTS,
   MARKETING_CHANNEL_NOT_CONFIGURED_LABEL,
   MARKETING_DEFAULT_BATCH_POLICY,
+  MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING,
   MARKETING_FILTER_OPS,
   MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL,
   MARKETING_PERMISSIONS,
@@ -154,6 +155,28 @@ export function MarketingCampaignBuilderPage({
   const [preview, setPreview] = useState<MarketingAudiencePreviewResult | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewPending, setPreviewPending] = useState(false);
+  const [audienceSelection, setAudienceSelection] = useState<"dataset" | "segment">("dataset");
+  const [segmentCap, setSegmentCap] = useState<number>(MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING);
+  const [requireVerifiedPermission, setRequireVerifiedPermission] = useState(true);
+  const [inventory, setInventory] = useState<{
+    complete: boolean;
+    notice: string;
+    code: string | null;
+    counts: {
+      sourceRecordsExamined: number;
+      uniqueEmails: number;
+      duplicates: number;
+      missingOrInvalidEmail: number;
+      suppressedOrUnsubscribed: number;
+      permissionGranted: number;
+      permissionMissing: number;
+      permissionUnknown: number;
+      permissionWithdrawn: number;
+      technicallyEligible: number;
+      authorisedForSending: number;
+      excludedByFilter: number;
+    };
+  } | null>(null);
   const [executionSummary, setExecutionSummary] = useState<MarketingExecutionSummary | null>(null);
   const [snapshotStatus, setSnapshotStatus] = useState<MarketingBuilderDraft["snapshotStatus"]>("Unavailable");
   const [senderName, setSenderName] = useState("");
@@ -522,6 +545,20 @@ export function MarketingCampaignBuilderPage({
     setSnapshotStatus((current) => (current === "Frozen" ? current : "Unavailable"));
   }, [previewScope]);
 
+  function audienceDefinitionFilters(): MarketingFilterDefinition {
+    const cap = Math.min(
+      MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING,
+      Math.max(1, Math.floor(Number(segmentCap) || MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING)),
+    );
+    if (audienceSelection !== "segment") {
+      return { ...filters, segment: null };
+    }
+    return {
+      ...filters,
+      segment: { mode: "next_unassigned", eligibleCap: cap },
+    };
+  }
+
   async function persistAudience(): Promise<string | null> {
     if (!bindingId || !datasetId || !columnMap.email) return audienceId || null;
     const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
@@ -534,8 +571,14 @@ export function MarketingCampaignBuilderPage({
         bindingId,
         datasetId,
         campaignId,
-        filterDefinition: filters,
+        filterDefinition: audienceDefinitionFilters(),
         exclusionDefinition: exclusions,
+        eligibilityRules: {
+          requireIdentity: true,
+          requireValidEmailIfPresent: true,
+          excludeDuplicatesInScan: true,
+          requireVerifiableMarketingPermission: requireVerifiedPermission,
+        },
         columnMap,
         mappingConfirmed,
         confirmMapping: mappingConfirmed,
@@ -622,6 +665,42 @@ export function MarketingCampaignBuilderPage({
     }
   }
 
+  async function runMasterAnalysis() {
+    if (!bindingId || !datasetId || !columnMap.email) {
+      toast.error("Select the worksheet and email column before analysing the master.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "analyse_master",
+          bindingId,
+          datasetId,
+          filterDefinition: { ...filters, segment: null },
+          exclusionDefinition: exclusions,
+          columnMap,
+          mappingConfirmed,
+          refreshSource: true,
+        }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{ inventory: NonNullable<typeof inventory> }>;
+      if (!res.ok || !body.success || !body.data?.inventory) {
+        throw new Error(body.error?.message || "Master analysis failed");
+      }
+      setInventory(body.data.inventory);
+      if (!body.data.inventory.complete) {
+        toast.error("Master analysis is incomplete. It cannot approve a segment.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Master analysis failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runPreviewEligibility(opts?: { refreshSource?: boolean }) {
     if (!bindingId || !datasetId) {
       const message = "Select the authorised workbook and worksheet tab before running eligibility preview.";
@@ -646,7 +725,7 @@ export function MarketingCampaignBuilderPage({
           action: "preview",
           bindingId,
           datasetId,
-          filterDefinition: filters,
+          filterDefinition: audienceDefinitionFilters(),
           exclusionDefinition: exclusions,
           columnMap,
           mappingConfirmed,
@@ -1406,6 +1485,68 @@ export function MarketingCampaignBuilderPage({
                   ))}
                 </div>
               </div>
+              <h3 className="font-semibold">Master worksheet</h3>
+              <p className="text-sm text-muted-foreground">
+                Full-worksheet analysis is separate from the eligibility preview and from a frozen segment.
+                The campaign ceiling is {MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING.toLocaleString("en-US")} recipients.
+                Missing permission is not consent.
+              </p>
+              <div className="flex flex-wrap items-end gap-3">
+                <Button type="button" variant="outline" disabled={busy || !columnMap.email} onClick={() => void runMasterAnalysis()}>
+                  Analyse entire worksheet
+                </Button>
+                <div className="space-y-1">
+                  <Label htmlFor="mkt-audience-selection">Audience selection</Label>
+                  <Select value={audienceSelection} onValueChange={(value) => setAudienceSelection(value as "dataset" | "segment")}>
+                    <SelectTrigger id="mkt-audience-selection" className="w-[240px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dataset">Full selected dataset</SelectItem>
+                      <SelectItem value="segment">Next unassigned segment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {audienceSelection === "segment" ? (
+                  <div className="space-y-1">
+                    <Label htmlFor="mkt-segment-cap">Segment size</Label>
+                    <Input
+                      id="mkt-segment-cap"
+                      type="number"
+                      min={1}
+                      max={MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING}
+                      value={segmentCap}
+                      onChange={(event) => setSegmentCap(Number(event.target.value))}
+                      className="w-[140px]"
+                    />
+                  </div>
+                ) : null}
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={requireVerifiedPermission}
+                    onChange={(event) => setRequireVerifiedPermission(event.target.checked)}
+                  />
+                  Only verifiable marketing permission
+                </label>
+              </div>
+              {inventory ? (
+                <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4" data-mkt-master-inventory={inventory.complete ? "complete" : "incomplete"}>
+                  <p>Scan: {inventory.complete ? "Complete" : "Incomplete"}</p>
+                  <p>Source records: {inventory.counts.sourceRecordsExamined}</p>
+                  <p>Unique emails: {inventory.counts.uniqueEmails}</p>
+                  <p>Duplicates: {inventory.counts.duplicates}</p>
+                  <p>Missing or invalid email: {inventory.counts.missingOrInvalidEmail}</p>
+                  <p>Suppressed or unsubscribed: {inventory.counts.suppressedOrUnsubscribed}</p>
+                  <p>Permission granted: {inventory.counts.permissionGranted}</p>
+                  <p>Permission missing: {inventory.counts.permissionMissing}</p>
+                  <p>Permission unknown: {inventory.counts.permissionUnknown}</p>
+                  <p>Permission withdrawn: {inventory.counts.permissionWithdrawn}</p>
+                  <p>Technically eligible: {inventory.complete ? inventory.counts.technicallyEligible : "Incomplete"}</p>
+                  <p>Authorised to send: {inventory.complete ? inventory.counts.authorisedForSending : "Incomplete"}</p>
+                  <p className="sm:col-span-2 lg:col-span-4 text-muted-foreground">{inventory.notice}</p>
+                </div>
+              ) : null}
               <h3 className="font-semibold">Eligibility preview</h3>
               <div className="flex flex-wrap items-center gap-3">
                 <Button type="button" variant="outline" disabled={busy} onClick={() => void runPreviewEligibility()} data-mkt-eligibility-preview="true">

@@ -47,7 +47,7 @@ const consent = await import(
   pathToFileURL(resolve(root, "src/lib/enterprise-marketing-engine/consent-policy.ts")).href
 );
 
-assert.equal(ceilings.MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 2000);
+assert.equal(ceilings.MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 15000);
 assert.equal(batch.MARKETING_DEFAULT_BATCH_POLICY.batchSize, 100);
 assert.equal(batch.MARKETING_DEFAULT_BATCH_POLICY.dailyMax, 500);
 assert.equal(consent.defaultMarketingConsentPolicy("org-next").requireExplicitConsent, false);

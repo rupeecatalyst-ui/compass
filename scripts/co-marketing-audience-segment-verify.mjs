@@ -14,6 +14,7 @@ import {
 import { freezeApprovedAudienceSnapshot } from "../src/lib/enterprise-marketing-engine/freeze-audience.ts";
 import { scanMarketingAudienceEligibility } from "../src/lib/enterprise-marketing-engine/eligibility-scan.ts";
 import { isCompleteFreezeWorkingSet } from "../src/lib/enterprise-marketing-engine/audience-working-set.ts";
+import { analyseMarketingMasterSource } from "../src/lib/enterprise-marketing-engine/master-inventory.ts";
 import { createMemoryMarketingDurabilityPorts } from "../src/lib/enterprise-marketing-engine/durability/repositories/memory.ts";
 import { createPrismaMarketingDurabilityPorts } from "../src/lib/enterprise-marketing-engine/durability/repositories/prisma.ts";
 
@@ -26,7 +27,7 @@ const consentSource = fs.readFileSync(
 assert.match(consentSource, /requireExplicitConsent:\s*false/);
 assert.equal(marketingMissingConsentIsGranted(), false);
 assert.equal(interpretMarketingConsentValue("", defaultMarketingConsentPolicy("org-segment")), "missing");
-assert.equal(MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 2000);
+assert.equal(MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 15000);
 
 const mapping = {
   confirmed: true,
@@ -39,7 +40,7 @@ const headers = ["Customer Name", "MAILINGEMAIL"];
 const inclusion = { version: 1, logic: "AND", rules: [] };
 const segmentInclusion = {
   ...inclusion,
-  segment: { mode: "next_unassigned", eligibleCap: 2000 },
+  segment: { mode: "next_unassigned", eligibleCap: 15000 },
 };
 
 function people(count, prefix = "person") {
@@ -142,7 +143,7 @@ async function emailsOf(ports, campaignId) {
   return all;
 }
 
-const unfilteredPort = sheetPort(people(2500, "full"));
+const unfilteredPort = sheetPort(people(15100, "full"));
 const unfilteredPorts = createMemoryMarketingDurabilityPorts();
 const unfilteredScan = await scanMarketingAudienceEligibility({
   port: unfilteredPort,
@@ -170,20 +171,20 @@ await assert.rejects(
 assert.equal((await unfilteredPorts.snapshots.listByCampaign("org-segment", "camp-full")).length, 0);
 assert.equal(JSON.stringify(unfilteredPort.rows), unfilteredPort.master);
 
-const segmentRows = people(2100, "seg");
+const segmentRows = people(15100, "seg");
 const segmentPort = sheetPort(segmentRows);
 const segmentPorts = createMemoryMarketingDurabilityPorts();
 const beforeMaster = JSON.stringify(segmentRows);
 const segmentA = await freezeApprovedAudienceSnapshot(
   freezeInput(segmentPorts, segmentPort, "camp-a", segmentInclusion),
 );
-assert.equal(segmentA.eligibleCount, 2000);
-assert.equal(segmentA.recipients.length, 2000);
-assert.equal(new Set(segmentA.recipients.map((row) => row.normalizedEmail)).size, 2000);
+assert.equal(segmentA.eligibleCount, 15000);
+assert.equal(segmentA.recipients.length, 15000);
+assert.equal(new Set(segmentA.recipients.map((row) => row.normalizedEmail)).size, 15000);
 const boundary = segmentA.snapshot.filterSnapshot.segmentResult;
 assert.equal(boundary.complete, true);
 assert.equal(boundary.mode, "next_unassigned");
-assert.equal(boundary.eligibleCap, 2000);
+assert.equal(boundary.eligibleCap, 15000);
 assert.ok(boundary.lastSourceRowNumber > 1);
 
 const segmentB = await freezeApprovedAudienceSnapshot(
@@ -195,12 +196,12 @@ assert.equal(segmentB.recipients.filter((row) => setA.has(row.normalizedEmail)).
 assert.equal(JSON.stringify(segmentRows), beforeMaster);
 
 const clamped = await freezeApprovedAudienceSnapshot(
-  freezeInput(createMemoryMarketingDurabilityPorts(), sheetPort(people(2100, "cap")), "camp-cap", {
+  freezeInput(createMemoryMarketingDurabilityPorts(), sheetPort(people(15100, "cap")), "camp-cap", {
     ...inclusion,
-    segment: { mode: "next_unassigned", eligibleCap: 5000 },
+    segment: { mode: "next_unassigned", eligibleCap: 50000 },
   }),
 );
-assert.equal(clamped.eligibleCount, 2000);
+assert.equal(clamped.eligibleCount, 15000);
 
 const qualityRows = [
   { row: 2, email: "dup@example.com", name: "First" },
@@ -420,6 +421,104 @@ const concurrent = await Promise.all([
 ]);
 assert.deepEqual(concurrent.sort(), ["first", "second"]);
 assert.deepEqual(lockOrder, ["lock", "read", "write", "lock", "read"]);
+
+const inventoryRows = [
+  { row: 2, email: "kept@example.com", name: "Kept", consent: "" },
+  { row: 3, email: "kept@example.com", name: "Duplicate", consent: "" },
+  { row: 4, email: "yes@example.com", name: "Yes", consent: "yes" },
+  { row: 5, email: "not-an-email", name: "Bad", consent: "" },
+  { row: 6, email: "blocked@example.com", name: "Blocked", consent: "yes" },
+  { row: 7, email: "mystery@example.com", name: "Mystery", consent: "maybe" },
+];
+const inventoryPort = {
+  providerType: "GOOGLE_SHEETS",
+  async streamRows() {
+    return {
+      headers: ["Customer Name", "MAILINGEMAIL", "Consent"],
+      rows: inventoryRows.map((row) => ({
+        "Customer Name": row.name,
+        MAILINGEMAIL: row.email,
+        Consent: row.consent,
+      })),
+      sourceRowNumbers: inventoryRows.map((row) => row.row),
+    };
+  },
+};
+const inventory = await analyseMarketingMasterSource({
+  port: inventoryPort,
+  bindingId: "binding-salaried-2",
+  datasetId: "sheet-gid-salaried-2",
+  columnMap: { email: "MAILINGEMAIL", name: "Customer Name", consent: "Consent" },
+  inclusion,
+  exclusion: inclusion,
+  lookups: {
+    isSuppressed: ({ normalizedEmail }) => normalizedEmail === "blocked@example.com",
+    isPreviouslyContacted: () => false,
+  },
+});
+assert.equal(inventory.complete, true);
+assert.equal(inventory.counts.sourceRecordsExamined, 6);
+assert.equal(inventory.counts.duplicates, 1);
+assert.equal(inventory.counts.missingOrInvalidEmail, 1);
+assert.equal(inventory.counts.suppressedOrUnsubscribed, 1);
+assert.equal(inventory.counts.permissionGranted, 2);
+assert.equal(inventory.counts.permissionMissing, 3);
+assert.equal(inventory.counts.permissionUnknown, 1);
+assert.equal(inventory.counts.authorisedForSending, 1);
+assert.equal(marketingMissingConsentIsGranted(), false);
+
+const permissionFreeze = await freezeApprovedAudienceSnapshot(
+  freezeInput(createMemoryMarketingDurabilityPorts(), {
+    ...sheetPort([
+      { row: 2, email: "open@example.com", name: "Open" },
+      { row: 3, email: "yes@example.com", name: "Yes" },
+    ].map((row) => row)),
+    async streamRows() {
+      return {
+        headers: ["Customer Name", "MAILINGEMAIL", "Consent"],
+        rows: [
+          { "Customer Name": "Open", MAILINGEMAIL: "open@example.com", Consent: "" },
+          { "Customer Name": "Yes", MAILINGEMAIL: "yes@example.com", Consent: "yes" },
+        ],
+        sourceRowNumbers: [2, 3],
+      };
+    },
+  }, "camp-permission", {
+    ...inclusion,
+    segment: { mode: "next_unassigned", eligibleCap: 10 },
+  }, {
+    mapping: {
+      ...mapping,
+      map: { ...mapping.map, consent: "Consent" },
+    },
+    headers: ["Customer Name", "MAILINGEMAIL", "Consent"],
+    eligibilityRules: {
+      requireIdentity: true,
+      requireValidEmailIfPresent: true,
+      excludeDuplicatesInScan: true,
+      requireVerifiableMarketingPermission: true,
+    },
+  }),
+);
+assert.deepEqual(permissionFreeze.recipients.map((row) => row.normalizedEmail), ["yes@example.com"]);
+
+const interruptedInventoryPort = {
+  providerType: "GOOGLE_SHEETS",
+  async streamRows() {
+    throw Object.assign(new Error("quota"), { code: "SHEETS_QUOTA_EXCEEDED", statusCode: 429 });
+  },
+};
+const interruptedInventory = await analyseMarketingMasterSource({
+  port: interruptedInventoryPort,
+  bindingId: "binding-salaried-2",
+  datasetId: "sheet-gid-salaried-2",
+  columnMap: mapping.map,
+  inclusion,
+  exclusion: inclusion,
+});
+assert.equal(interruptedInventory.complete, false);
+assert.equal(interruptedInventory.code, "SHEETS_QUOTA_EXCEEDED");
+assert.equal(interruptedInventory.counts.sourceRecordsExamined, 0);
 
 console.log(JSON.stringify({
   ok: true,

@@ -11,6 +11,7 @@ import {
   suggestMarketingColumnMap,
 } from "@/lib/enterprise-marketing-engine/column-mapping";
 import { scanMarketingAudienceEligibility } from "@/lib/enterprise-marketing-engine/eligibility-scan";
+import { analyseMarketingMasterSource } from "@/lib/enterprise-marketing-engine/master-inventory";
 import {
   isCompleteFreezeWorkingSet,
   rememberCompleteAudienceWorkingSet,
@@ -386,6 +387,62 @@ export const marketingAudienceService = {
       detail: { audienceId },
     });
     return { deleted: true };
+  },
+
+  async analyseMaster(
+    actor: { userId?: string; organizationId?: string | null },
+    input: {
+      bindingId: string;
+      datasetId: string;
+      filterDefinition: MarketingFilterDefinition;
+      exclusionDefinition?: MarketingFilterDefinition;
+      columnMap?: MarketingColumnMap | null;
+      mapping?: MarketingConfirmedColumnMapping | null;
+      mappingConfirmed?: boolean;
+      refreshSource?: boolean;
+      resumeCursor?: string | null;
+    },
+  ) {
+    assertAudienceStaysNonOperational();
+    const organizationId = orgId(actor.organizationId);
+    const port = marketingDataSourceService.getPort(organizationId);
+    const suggestion = input.columnMap?.email
+      ? input.columnMap
+      : input.mapping?.map;
+    if (!suggestion?.email) {
+      throw Object.assign(new Error("Confirm an email column before analysing the master worksheet"), {
+        statusCode: 400,
+        code: "EMAIL_COLUMN_REQUIRED",
+      });
+    }
+    const inventory = await analyseMarketingMasterSource({
+      port,
+      bindingId: input.bindingId,
+      datasetId: input.datasetId,
+      columnMap: input.mapping?.map ?? suggestion,
+      mapping: input.mapping,
+      inclusion: input.filterDefinition,
+      exclusion: input.exclusionDefinition ?? emptyFilterDefinition(),
+      lookups: suppressionLookups(organizationId, true),
+      bypassCache: input.refreshSource,
+      resumeCursor: input.resumeCursor,
+    });
+    recordMarketingAuditEvent({
+      kind: "audience.preview",
+      actorUserId: actor.userId ?? null,
+      organizationId,
+      detail: {
+        bindingId: input.bindingId,
+        datasetId: input.datasetId,
+        masterInventory: true,
+        complete: inventory.complete,
+        examined: inventory.counts.sourceRecordsExamined,
+        technicallyEligible: inventory.counts.technicallyEligible,
+        authorisedForSending: inventory.counts.authorisedForSending,
+        permissionGranted: inventory.counts.permissionGranted,
+      },
+    });
+    return inventory;
   },
 
   async previewDraft(

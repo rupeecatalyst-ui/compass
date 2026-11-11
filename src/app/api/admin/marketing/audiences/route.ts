@@ -74,7 +74,8 @@ export async function POST(request: Request) {
     const ctx = await actorCtx(actor);
     assertMarketingPermission(ctx, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const body = (await request.json().catch(() => ({}))) as {
-      action?: "upsert" | "preview" | "delete" | "freeze";
+      action?: "upsert" | "preview" | "delete" | "freeze" | "analyse_master";
+      resumeCursor?: string | null;
       id?: string;
       name?: string;
       description?: string | null;
@@ -133,6 +134,28 @@ export async function POST(request: Request) {
           sourceTabId: frozen.snapshot.sourceTabId,
         },
       });
+    }
+
+    if (action === "analyse_master") {
+      if (!body.bindingId || !body.datasetId || !body.filterDefinition) {
+        return errorResponse(
+          400,
+          "INVALID_INPUT",
+          "analyse_master requires bindingId, datasetId, and filterDefinition",
+        );
+      }
+      const inventory = await marketingAudienceService.analyseMaster(ctx, {
+        bindingId: body.bindingId,
+        datasetId: body.datasetId,
+        filterDefinition: body.filterDefinition,
+        exclusionDefinition: body.exclusionDefinition,
+        columnMap: body.columnMap,
+        mapping: body.mapping,
+        mappingConfirmed: body.mappingConfirmed,
+        refreshSource: body.refreshSource,
+        resumeCursor: body.resumeCursor,
+      });
+      return successResponse({ inventory });
     }
 
     if (action === "preview") {

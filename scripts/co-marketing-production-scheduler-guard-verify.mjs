@@ -40,7 +40,7 @@ const consent = await import(
 );
 
 assert.equal(cron.isMarketingPacingCronActivated(), false);
-assert.equal(ceilings.MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 2000);
+assert.equal(ceilings.MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 15000);
 assert.equal(batch.MARKETING_DEFAULT_BATCH_POLICY.batchSize, 100);
 assert.equal(batch.MARKETING_DEFAULT_BATCH_POLICY.dailyMax, 500);
 assert.equal(consent.defaultMarketingConsentPolicy("org-scheduler").requireExplicitConsent, false);

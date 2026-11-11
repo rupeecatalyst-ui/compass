@@ -4,7 +4,7 @@
  */
 
 /** Maximum frozen recipients on one approved campaign. Never truncate; reject above this. */
-export const MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING = 2000 as const;
+export const MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING = 15000 as const;
 /** Compatibility name: campaign audience, not a single-batch limit. */
 export const MARKETING_PHASE1_LIVE_RECIPIENT_CEILING = MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING;
 

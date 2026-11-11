@@ -109,7 +109,7 @@ assert.equal(liveReadiness.emailMode, "dry_run");
 assert.equal(liveReadiness.canLiveSend, false);
 assert.equal(liveReadiness.canConnect, true);
 assert.equal(liveReadiness.selectedProvider, "smtp");
-assert.equal(liveReadiness.phase1LiveRecipientCeiling, 2000);
+assert.equal(liveReadiness.phase1LiveRecipientCeiling, 15000);
 
 assert.equal(
   senderMod.isMarketingPhase1Sender({
@@ -128,10 +128,10 @@ assert.throws(() =>
 );
 
 assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(50).ok, true);
-assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2000).ok, true);
-assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2001).ok, false);
-assert.throws(() => ceilingMod.assertMarketingPhase1LiveAudienceCeiling(2001));
-ceilingMod.assertMarketingPhase1LiveAudienceCeiling(2000);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(15000).ok, true);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(15001).ok, false);
+assert.throws(() => ceilingMod.assertMarketingPhase1LiveAudienceCeiling(15001));
+ceilingMod.assertMarketingPhase1LiveAudienceCeiling(15000);
 
 const audienceMod = await import(ts("src/lib/enterprise-marketing-engine/audience-live-certification.ts"));
 const oversizeAudience = audienceMod.assessMarketingAudienceLiveCertification({
@@ -142,11 +142,11 @@ const oversizeAudience = audienceMod.assessMarketingAudienceLiveCertification({
   mappingConfirmed: true,
   snapshotHash: "abc",
   frozenAt: new Date().toISOString(),
-  eligibleCount: 2001,
+  eligibleCount: 15001,
   invalidCount: 0,
   duplicateCount: 0,
   suppressedCount: 0,
-  frozenRecipientCount: 2001,
+  frozenRecipientCount: 15001,
   certificationStatus: "CERTIFIED",
 });
 assert.equal(oversizeAudience.certified, false);

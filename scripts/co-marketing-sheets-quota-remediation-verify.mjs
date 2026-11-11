@@ -52,7 +52,7 @@ assert.equal(
     audienceLimitStatus: "over_limit",
     eligible: null,
   }),
-  "Exceeds the 2,000 limit. The final eligible count was not calculated.",
+  "Exceeds the 15,000 limit. The final eligible count was not calculated.",
 );
 assert.doesNotMatch(scanMod.MARKETING_INCOMPLETE_AUDIENCE_COUNT_LABEL, /2001|2,001/);
 
@@ -360,7 +360,7 @@ assert.ok(afterRepeat.total <= 3, `repeated schema/stream should stay low, got $
 assert.ok(afterSecondPage.total <= afterRepeat.total + 1, "page 2 should not re-fetch metadata");
 assert.equal(afterConcurrent.total, afterSecondPage.total, "concurrent schema/estimate must coalesce");
 
-const oversizeRows = Array.from({ length: 2001 }, (_, i) => ({
+const oversizeRows = Array.from({ length: 15001 }, (_, i) => ({
   Email: `over${i + 1}@example.com`,
   Name: `Over ${i + 1}`,
 }));
@@ -405,8 +405,8 @@ await assert.rejects(
   (err) =>
     err.code === "marketing.phase1.audience_limit_exceeded" &&
     err.statusCode === 403 &&
-    err.ceiling === 2000 &&
-    err.recipientCount === 2001,
+    err.ceiling === 15000 &&
+    err.recipientCount === 15001,
 );
 const snapshotsAfterCeiling = await ports.snapshots.listByCampaign(keyInput.organizationId, "camp-oversize");
 assert.equal(snapshotsBeforeCeiling.length, 0);
@@ -424,8 +424,8 @@ const completeOversize = await scanMod.scanMarketingAudienceEligibility({
 });
 assert.equal(completeOversize.scanComplete, true);
 assert.equal(completeOversize.audienceLimitStatus, "over_limit");
-assert.equal(completeOversize.counts.eligible, 2001);
-assert.equal(completeOversize.counts.scannedRows, 2001);
+assert.equal(completeOversize.counts.eligible, 15001);
+assert.equal(completeOversize.counts.scannedRows, 15001);
 
 const exactRows = Array.from({ length: 2000 }, (_, i) => ({
   Email: `exact${i + 1}@example.com`,
@@ -474,7 +474,7 @@ const exactFrozen = await freezeMod.freezeApprovedAudienceSnapshot({
 assert.equal(exactFrozen.eligibleCount, 2000);
 assert.equal((await ports.snapshots.listByCampaign(keyInput.organizationId, "camp-exact")).length, 1);
 
-const wideRows = Array.from({ length: 6000 }, (_, i) => ({
+const wideRows = Array.from({ length: 16000 }, (_, i) => ({
   Email: `wide${i + 1}@example.com`,
   Name: `Wide ${i + 1}`,
 }));
@@ -517,13 +517,13 @@ const wideScan = await scanMod.scanMarketingAudienceEligibility({
   eligibilityRules: keyInput.eligibilityRules,
   purpose: "approval",
 });
-assert.equal(wideScan.counts.eligible, 2001);
-assert.equal(wideScan.counts.scannedRows, 2001);
+assert.equal(wideScan.counts.eligible, 15001);
+assert.equal(wideScan.counts.scannedRows, 15001);
 assert.equal(wideScan.scanComplete, false);
 assert.equal(wideScan.audienceLimitStatus, "over_limit");
 assert.equal(wideScan.eligibleRecipients.length, 0);
-assert.equal(wideCalls, 21);
-assert.ok(wideCalls < 60, "approval must not page through the unread remainder");
+assert.equal(wideCalls, 151);
+assert.ok(wideCalls < 160, "approval must not page through the unread remainder");
 await assert.rejects(
   () =>
     freezeMod.freezeApprovedAudienceSnapshot({

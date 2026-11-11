@@ -49,6 +49,12 @@ export type MarketingEligibilityRules = {
   excludeDuplicatesInScan: boolean;
   /** When true, skip identities already sent/delivered on a prior campaign in this org. */
   excludePreviouslyContacted?: boolean;
+  /**
+   * When true, only a verifiable granted consent value is eligible.
+   * Missing or unknown permission is excluded. It is never treated as granted.
+   * Absent or false preserves the current organisation consent policy.
+   */
+  requireVerifiableMarketingPermission?: boolean;
 };
 
 export type MarketingAudienceDefinition = {

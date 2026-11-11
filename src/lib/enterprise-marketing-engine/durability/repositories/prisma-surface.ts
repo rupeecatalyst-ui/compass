@@ -10,6 +10,7 @@ export type MarketingPrismaDelegate = {
   findFirst: (args: Record<string, unknown>) => Promise<unknown | null>;
   findUnique?: (args: Record<string, unknown>) => Promise<unknown | null>;
   create: (args: Record<string, unknown>) => Promise<unknown>;
+  createMany?: (args: { data: unknown[]; skipDuplicates?: boolean }) => Promise<{ count: number }>;
   update: (args: Record<string, unknown>) => Promise<unknown>;
   updateMany: (args: Record<string, unknown>) => Promise<PrismaWriteCount>;
   upsert: (args: Record<string, unknown>) => Promise<unknown>;

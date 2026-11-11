@@ -24,8 +24,8 @@ const durability = await import(ts("src/lib/enterprise-marketing-engine/durabili
 const executionDefaults = await import(ts("src/constants/enterprise-marketing-engine/execution.ts"));
 const smtp = await import(ts("src/constants/enterprise-marketing-engine/hostinger-smtp.ts"));
 
-assert.equal(smtp.MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 2000);
-assert.equal(smtp.MARKETING_PHASE1_LIVE_RECIPIENT_CEILING, 2000);
+assert.equal(smtp.MARKETING_PHASE1_CAMPAIGN_AUDIENCE_CEILING, 15000);
+assert.equal(smtp.MARKETING_PHASE1_LIVE_RECIPIENT_CEILING, 15000);
 assert.equal(smtp.MARKETING_PHASE1_BATCH_RECIPIENT_CEILING, 100);
 assert.equal(smtp.MARKETING_PHASE1_DAILY_RECIPIENT_CEILING, 500);
 assert.equal(executionDefaults.MARKETING_DEFAULT_BATCH_POLICY.batchSize, 100);
@@ -34,10 +34,10 @@ assert.equal(executionDefaults.MARKETING_DEFAULT_BATCH_POLICY.sendWindowStart, "
 assert.equal(executionDefaults.MARKETING_DEFAULT_BATCH_POLICY.sendWindowEnd, "19:00");
 assert.equal(executionDefaults.MARKETING_DEFAULT_BATCH_POLICY.timezone, "Asia/Kolkata");
 
-assert.equal(ceiling.assessMarketingPhase1CampaignAudienceCeiling(2000).ok, true);
+assert.equal(ceiling.assessMarketingPhase1CampaignAudienceCeiling(15000).ok, true);
 assert.equal(ceiling.assessMarketingPhase1CampaignAudienceCeiling(50).ok, true);
-assert.equal(ceiling.assessMarketingPhase1CampaignAudienceCeiling(2001).ok, false);
-assert.throws(() => ceiling.assertMarketingPhase1CampaignAudienceCeiling(2001), {
+assert.equal(ceiling.assessMarketingPhase1CampaignAudienceCeiling(15001).ok, false);
+assert.throws(() => ceiling.assertMarketingPhase1CampaignAudienceCeiling(15001), {
   code: "marketing.phase1.audience_limit_exceeded",
 });
 assert.throws(() => ceiling.assertMarketingPhase1BatchCeiling(101), {
@@ -229,7 +229,7 @@ await seedSnapshot(tooBig, {
   organizationId: "org-p0",
   campaignId: "camp-2001",
   snapshotId: "snap-2001",
-  emails: [...twoThousand, "too.many@example.com"],
+  emails: Array.from({ length: 15001 }, (_, i) => `over.${String(i + 1).padStart(5, "0")}@example.com`),
 });
 await assert.rejects(() => tick(tooBig, "camp-2001", "w-2001"), {
   code: "marketing.phase1.audience_limit_exceeded",

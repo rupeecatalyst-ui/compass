@@ -300,8 +300,8 @@ assert.equal(
   false,
 );
 
-assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2001).ok, false);
-assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(2000).ok, true);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(15001).ok, false);
+assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(15000).ok, true);
 assert.equal(ceilingMod.assessMarketingPhase1LiveAudienceCeiling(50).ok, true);
 
 const html =
