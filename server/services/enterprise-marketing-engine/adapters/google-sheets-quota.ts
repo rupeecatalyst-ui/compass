@@ -6,6 +6,7 @@ import {
   MARKETING_SHEETS_QUOTA_ERROR_CODE,
   MARKETING_SHEETS_QUOTA_MAX_RETRIES,
   MARKETING_SHEETS_QUOTA_USER_MESSAGE,
+  MARKETING_SHEETS_READS_PER_MINUTE,
 } from "@/constants/enterprise-marketing-engine/data-source";
 import { getLastSuccessfulSheetsSyncAt } from "./google-sheets-read-cache";
 
@@ -25,14 +26,34 @@ export function isGoogleSheetsQuotaError(err: unknown): boolean {
   return /429|quota exceeded|rate limit/i.test(message);
 }
 
+const recentSheetReads: number[] = [];
+
+function quotaFastRetry(): boolean {
+  return process.env.MARKETING_SHEETS_QUOTA_FAST_RETRY === "true";
+}
+
+/** Keep a full-sheet scan inside the per-user per-minute read budget. */
+export async function paceGoogleSheetsRead(): Promise<void> {
+  if (quotaFastRetry()) return;
+  const now = Date.now();
+  while (recentSheetReads.length > 0 && now - recentSheetReads[0]! >= 60_000) {
+    recentSheetReads.shift();
+  }
+  if (recentSheetReads.length >= MARKETING_SHEETS_READS_PER_MINUTE) {
+    const wait = 60_000 - (now - recentSheetReads[0]!) + 50;
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+  recentSheetReads.push(Date.now());
+}
+
 function retryAfterMs(err: unknown, fallback: number): number {
   const named = err as { response?: { headers?: Record<string, string | string[] | undefined> } };
   const raw = named?.response?.headers?.["retry-after"] ?? named?.response?.headers?.["Retry-After"];
   const header = Array.isArray(raw) ? raw[0] : raw;
   const seconds = header ? Number.parseInt(String(header), 10) : Number.NaN;
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, 20_000);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, 65_000);
   const jitter = 0.5 + Math.random();
-  return Math.round(fallback * jitter);
+  return Math.min(Math.round(fallback * jitter), 65_000);
 }
 
 export function createSheetsQuotaExceededError(cause?: unknown): Error {
@@ -49,11 +70,12 @@ export function createSheetsQuotaExceededError(cause?: unknown): Error {
 }
 
 export async function withSheetsQuota<T>(read: () => Promise<T>): Promise<T> {
-  let waitMs = 600;
+  let waitMs = 15_000;
   let lastErr: unknown;
   const attempts = MARKETING_SHEETS_QUOTA_MAX_RETRIES + 1;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
+      await paceGoogleSheetsRead();
       return await read();
     } catch (err) {
       lastErr = err;
@@ -61,12 +83,9 @@ export async function withSheetsQuota<T>(read: () => Promise<T>): Promise<T> {
         if (isGoogleSheetsQuotaError(err)) throw createSheetsQuotaExceededError(err);
         throw err;
       }
-      const delay =
-        process.env.MARKETING_SHEETS_QUOTA_FAST_RETRY === "true"
-          ? 0
-          : retryAfterMs(err, waitMs);
+      const delay = quotaFastRetry() ? 0 : retryAfterMs(err, waitMs);
       await new Promise((resolve) => setTimeout(resolve, delay));
-      waitMs *= 2;
+      waitMs = Math.min(waitMs * 2, 65_000);
     }
   }
   throw createSheetsQuotaExceededError(lastErr);

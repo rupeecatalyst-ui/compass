@@ -91,6 +91,7 @@ export async function analyseMarketingMasterSource(input: {
   const counts = emptyCounts();
   let cursor = input.resumeCursor || undefined;
   let lastSourceRowNumber: number | null = null;
+  let refreshThisPage = input.bypassCache === true;
   const streamRows = input.port.streamRows.bind(input.port);
 
   try {
@@ -100,8 +101,9 @@ export async function analyseMarketingMasterSource(input: {
         datasetId: input.datasetId,
         cursor,
         limit: MARKETING_SHEETS_PAGE_MAX_ROWS,
-        bypassCache: input.bypassCache,
+        bypassCache: refreshThisPage,
       });
+      refreshThisPage = false;
       if (page.rows.length === 0) break;
       for (let i = 0; i < page.rows.length; i += 1) {
         const row = page.rows[i]!;

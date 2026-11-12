@@ -418,7 +418,7 @@ export function createGoogleSheetsMarketingDataSourcePort(
 
     async streamRows({ bindingId, datasetId, cursor, limit, bypassCache }): Promise<MarketingRowPage> {
       const binding = await requireBinding(bindingId, organizationId);
-      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId, bypassCache);
+      const sheet = await resolveSheetTitle(binding.spreadsheetId, datasetId, false);
       const capped = Math.min(Math.max(1, limit), MARKETING_SHEETS_PAGE_MAX_ROWS);
       const { page } = await readHeaderAndPage({
         spreadsheetId: binding.spreadsheetId,

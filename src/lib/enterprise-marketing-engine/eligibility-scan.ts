@@ -218,6 +218,7 @@ export async function scanMarketingAudienceEligibility(input: {
   const sampleRecipients: MarketingPersonalisationSampleRecipient[] = [];
   const sampleDiagnostics: MarketingEligibilityScanResult["sampleDiagnostics"] = [];
   let cursor: string | undefined;
+  let refreshThisPage = input.bypassCache === true;
   let scanCapped = false;
   let ceilingExceeded = false;
   let sourceRemainder = false;
@@ -243,8 +244,9 @@ export async function scanMarketingAudienceEligibility(input: {
       datasetId: input.datasetId,
       cursor,
       limit: Math.max(1, remaining),
-      bypassCache: input.bypassCache,
+      bypassCache: refreshThisPage,
     });
+    refreshThisPage = false;
     if (page.rows.length === 0) break;
 
     for (let i = 0; i < page.rows.length; i += 1) {

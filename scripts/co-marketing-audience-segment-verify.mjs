@@ -249,7 +249,7 @@ const interruptedPorts = createMemoryMarketingDurabilityPorts();
 await assert.rejects(
   () =>
     freezeApprovedAudienceSnapshot(
-      freezeInput(interruptedPorts, sheetPort(people(150, "fail"), { failOnCall: 2 }), "camp-fail", segmentInclusion),
+      freezeInput(interruptedPorts, sheetPort(people(1500, "fail"), { failOnCall: 2 }), "camp-fail", segmentInclusion),
     ),
   (error) => error.code === "SHEETS_QUOTA_EXCEEDED",
 );

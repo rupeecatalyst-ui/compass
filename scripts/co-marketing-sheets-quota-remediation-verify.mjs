@@ -101,7 +101,7 @@ await assert.rejects(
       attempts += 1;
       throw quotaErr;
     }),
-  (err) => err.code === "SHEETS_QUOTA_EXCEEDED" && attempts === 3,
+  (err) => err.code === "SHEETS_QUOTA_EXCEEDED" && attempts === 4,
 );
 
 const previewScan = {
@@ -522,8 +522,16 @@ assert.equal(wideScan.counts.scannedRows, 15001);
 assert.equal(wideScan.scanComplete, false);
 assert.equal(wideScan.audienceLimitStatus, "over_limit");
 assert.equal(wideScan.eligibleRecipients.length, 0);
-assert.equal(wideCalls, 151);
-assert.ok(wideCalls < 160, "approval must not page through the unread remainder");
+const audienceConstants = await import(ts("src/constants/enterprise-marketing-engine/audience.ts"));
+const dataSourceConstants = await import(ts("src/constants/enterprise-marketing-engine/data-source.ts"));
+const expectedWideCalls = Math.ceil(15001 / audienceConstants.MARKETING_AUDIENCE_SCAN_PAGE_SIZE);
+assert.equal(wideCalls, expectedWideCalls);
+assert.ok(wideCalls < 40, "a 15,001-row approval must stay inside the per-minute Sheets read budget");
+assert.ok(
+  Math.ceil(70000 / dataSourceConstants.MARKETING_SHEETS_PAGE_MAX_ROWS) <=
+    dataSourceConstants.MARKETING_SHEETS_READS_PER_MINUTE,
+  "a full master page size must stay inside the per-minute Sheets read budget",
+);
 await assert.rejects(
   () =>
     freezeMod.freezeApprovedAudienceSnapshot({

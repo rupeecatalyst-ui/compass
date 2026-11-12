@@ -10,8 +10,11 @@
  */
 export const MARKETING_AUDIENCE_SCAN_MAX_ROWS = 2000 as const;
 
-/** Page size when streaming source rows for audience evaluation. */
-export const MARKETING_AUDIENCE_SCAN_PAGE_SIZE = 100 as const;
+/**
+ * Page size when streaming source rows for audience evaluation.
+ * Sized so a 15,000-recipient approval stays under the Sheets per-minute read quota.
+ */
+export const MARKETING_AUDIENCE_SCAN_PAGE_SIZE = 1000 as const;
 
 /** Sentinel: approval calculations must not apply MARKETING_AUDIENCE_SCAN_MAX_ROWS. */
 export const MARKETING_AUDIENCE_APPROVAL_SCAN_UNLIMITED = true as const;
