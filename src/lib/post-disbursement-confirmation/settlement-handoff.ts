@@ -122,20 +122,14 @@ export function assessSettlementHandoff(input: SettlementDealFacts): SettlementE
   };
 }
 
-export function actorMayInitiateSettlement(input: {
-  role?: string | null;
-  actorUserId: string;
-  primaryOwnerUserId?: string | null;
-  relationshipManagerUserId?: string | null;
-}): boolean {
-  const role = String(input.role ?? "");
-  if (role === "ADMIN" || role === "SUPER_ADMIN") return true;
-  const actor = input.actorUserId.trim();
-  if (!actor) return false;
-  return (
-    actor === String(input.primaryOwnerUserId ?? "").trim() ||
-    actor === String(input.relationshipManagerUserId ?? "").trim()
-  );
+/**
+ * Any authenticated internal user may hand off an eligible Deal.
+ * The route rejects a missing or partner token. This check only requires
+ * the actor id that is written to the audit trail.
+ * It does not allow confirmation, invoicing, or payout.
+ */
+export function actorMayInitiateSettlement(actorUserId: string | null | undefined): boolean {
+  return String(actorUserId ?? "").trim().length > 0;
 }
 
 /**

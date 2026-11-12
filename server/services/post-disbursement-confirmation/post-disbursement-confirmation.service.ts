@@ -406,7 +406,7 @@ export class PostDisbursementConfirmationService {
 
   async initiateSettlement(
     dealId: string,
-    input: { rowVersion: number; role?: string | null },
+    input: { rowVersion: number },
     actorUserId: string,
   ) {
     if (!Number.isInteger(input.rowVersion) || input.rowVersion < 1) {
@@ -428,14 +428,7 @@ export class PostDisbursementConfirmationService {
           code: "DEAL_NOT_FOUND",
         });
       }
-      if (
-        !actorMayInitiateSettlement({
-          role: input.role,
-          actorUserId,
-          primaryOwnerUserId: deal.primaryOwnerUserId,
-          relationshipManagerUserId: deal.relationshipManagerUserId,
-        })
-      ) {
+      if (!actorMayInitiateSettlement(actorUserId)) {
         throw Object.assign(new Error("You are not authorised to initiate settlement for this Deal"), {
           statusCode: 403,
           code: "FORBIDDEN",

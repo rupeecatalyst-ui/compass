@@ -50,7 +50,7 @@ export async function POST(request: Request, context: Ctx) {
     const body = (await request.json()) as { rowVersion?: number };
     const result = await postDisbursementConfirmationService.initiateSettlement(
       dealId,
-      { rowVersion: Number(body.rowVersion), role: actor.role },
+      { rowVersion: Number(body.rowVersion) },
       actor.userId,
     );
     return successResponse(result);

@@ -46,24 +46,11 @@ const amountFull = assessSettlementHandoff({
 });
 assert.equal(amountFull.eligible, true);
 
-assert.equal(
-  actorMayInitiateSettlement({
-    role: "RM",
-    actorUserId: "stranger",
-    primaryOwnerUserId: "owner",
-    relationshipManagerUserId: "rm",
-  }),
-  false,
-);
-assert.equal(
-  actorMayInitiateSettlement({
-    role: "RM",
-    actorUserId: "owner",
-    primaryOwnerUserId: "owner",
-  }),
-  true,
-);
-assert.equal(actorMayInitiateSettlement({ role: "ADMIN", actorUserId: "any" }), true);
+assert.equal(actorMayInitiateSettlement("colleague-not-owner"), true);
+assert.equal(actorMayInitiateSettlement("viewer"), true);
+assert.equal(actorMayInitiateSettlement(""), false);
+assert.equal(actorMayInitiateSettlement("   "), false);
+assert.equal(actorMayInitiateSettlement(null), false);
 
 const replay = assessSettlementHandoff({
   ...full,
@@ -188,13 +175,42 @@ const invoice = readFileSync(
 );
 assert.ok(invoice.includes("CONFIRMATION_NOT_RECEIVED"));
 assert.ok(invoice.includes("ACCOUNTING_CASE_ELIGIBLE_SUB_STAGE"));
+assert.ok(handoff.includes("actorMayInitiateSettlement(actorUserId)"));
+assert.ok(!handoff.includes("primaryOwnerUserId"));
+assert.ok(!handoff.includes("relationshipManagerUserId"));
+
+const route = readFileSync(
+  new URL(
+    "../src/app/api/enterprise-deals/[dealId]/post-disbursement-confirmation/route.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const patch = route.slice(route.indexOf("export async function PATCH"), route.indexOf("export async function POST"));
+const post = route.slice(route.indexOf("export async function POST"));
+assert.ok(patch.includes("requireAccessToken"));
+assert.ok(patch.includes("requireAdministrator"));
+assert.ok(post.includes("requireAccessToken"));
+assert.ok(!post.includes("requireAdministrator"));
+
+const presentation = readFileSync(
+  new URL(
+    "../src/lib/post-disbursement-confirmation/settlement-handoff-presentation.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+assert.ok(presentation.includes("Settlement Handed Off · WON ·"));
+assert.ok(presentation.includes("Open Accounting Case") === false);
+assert.ok(presentation.includes("showInitiateSettlement: !won"));
 
 console.log(
   JSON.stringify({
     ok: true,
     immediateFullHandoff: true,
     partialBlocked: true,
-    unauthorisedBlocked: true,
+    authenticatedNonOwnerAllowed: true,
+    blankActorBlocked: true,
     duplicateIsReplay: true,
     wonOnlyAfterCaseUpsert: true,
     wonLeavesActiveQueue: true,

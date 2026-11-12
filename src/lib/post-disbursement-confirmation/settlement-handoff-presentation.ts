@@ -71,6 +71,8 @@ export function lenderSettlementActions(input: {
     stage === POST_DISBURSEMENT_CONFIRMATION_STAGE &&
     sub === POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending;
   const caseId = String(input.accountingCaseId ?? "").trim() || null;
+  // Any signed-in user who can see an eligible card may initiate.
+  // Ownership and role do not hide the action. The server uses the same rule.
   return {
     showInitiateSettlement: !won && !partial && (fullyDisbursed || confirmationPending),
     partialDisbursement: partial,
