@@ -48,6 +48,16 @@ export function MyDealsKanbanBoard({
 }) {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const boardScrollRef = useRef(boardScrollLeft);
+  const columnScrollRef = useRef(columnScrollTops);
+  const onScrollPersistRef = useRef(onScrollPersist);
+  const pendingScroll = useRef<{
+    boardScrollLeft?: number;
+    columnScrollTops?: Record<string, number>;
+  } | null>(null);
+  const scrollTimer = useRef<number | null>(null);
+  const stageKey = selectedStageIds.join("|");
+  onScrollPersistRef.current = onScrollPersist;
   const [composer, setComposer] = useState<{
     kind: MyDealsKanbanComposerKind;
     row: DealRegistryRow;
@@ -61,29 +71,53 @@ export function MyDealsKanbanBoard({
 
   useEffect(() => {
     const el = boardRef.current;
-    if (!el) return;
-    el.scrollLeft = boardScrollLeft;
-  }, [boardScrollLeft, selectedStageIds.join("|")]);
+    if (el && Math.abs(el.scrollLeft - boardScrollRef.current) > 1) {
+      el.scrollLeft = boardScrollRef.current;
+    }
+    for (const [id, top] of Object.entries(columnScrollRef.current)) {
+      const column = columnRefs.current[id];
+      if (!column || Math.abs(column.scrollTop - top) <= 1) continue;
+      column.scrollTop = top;
+    }
+  }, [stageKey]);
 
   useEffect(() => {
-    for (const [id, top] of Object.entries(columnScrollTops)) {
-      const el = columnRefs.current[id];
-      if (el) el.scrollTop = top;
-    }
-  }, [columnScrollTops, selectedStageIds.join("|")]);
+    return () => {
+      if (scrollTimer.current != null) window.clearTimeout(scrollTimer.current);
+      if (pendingScroll.current) onScrollPersistRef.current(pendingScroll.current);
+    };
+  }, []);
+
+  const scheduleScrollPersist = (patch: {
+    boardScrollLeft?: number;
+    columnScrollTops?: Record<string, number>;
+  }) => {
+    pendingScroll.current = { ...pendingScroll.current, ...patch };
+    if (scrollTimer.current != null) window.clearTimeout(scrollTimer.current);
+    scrollTimer.current = window.setTimeout(() => {
+      scrollTimer.current = null;
+      const next = pendingScroll.current;
+      pendingScroll.current = null;
+      if (next) onScrollPersistRef.current(next);
+    }, 180);
+  };
 
   const persistBoardScroll = () => {
     const el = boardRef.current;
     if (!el) return;
-    onScrollPersist({ boardScrollLeft: el.scrollLeft });
+    if (Math.abs(el.scrollLeft - boardScrollRef.current) < 1) return;
+    boardScrollRef.current = el.scrollLeft;
+    scheduleScrollPersist({ boardScrollLeft: el.scrollLeft });
   };
 
   const persistColumnScroll = (id: string) => {
     const el = columnRefs.current[id];
     if (!el) return;
-    onScrollPersist({
-      columnScrollTops: { ...columnScrollTops, [id]: el.scrollTop },
-    });
+    const previous = columnScrollRef.current[id] ?? 0;
+    if (Math.abs(el.scrollTop - previous) < 1) return;
+    const next = { ...columnScrollRef.current, [id]: el.scrollTop };
+    columnScrollRef.current = next;
+    scheduleScrollPersist({ columnScrollTops: next });
   };
 
   const onBoardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -138,7 +172,7 @@ export function MyDealsKanbanBoard({
           aria-label="Loan Deal Kanban"
           onScroll={persistBoardScroll}
           onKeyDown={onBoardKeyDown}
-          className="flex min-h-0 flex-1 touch-pan-x gap-2 overflow-x-auto overflow-y-hidden px-2 py-1 outline-none"
+          className="flex min-h-0 flex-1 touch-pan-x gap-2 overflow-x-auto overflow-y-hidden px-2 py-1 outline-none [overflow-anchor:none]"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {columns.map((col) => (
@@ -166,7 +200,7 @@ export function MyDealsKanbanBoard({
                 }}
                 onScroll={() => persistColumnScroll(col.column.id)}
                 className={cn(
-                  "min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden p-1.5",
+                  "min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden p-1.5 [overflow-anchor:none] [scrollbar-gutter:stable]",
                 )}
               >
                 {col.deals.length === 0 ? (

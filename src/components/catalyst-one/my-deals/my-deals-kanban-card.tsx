@@ -193,7 +193,7 @@ export function MyDealsKanbanCard({
         <OptionalLine show={has("paymentStatus")} label="Payment" value={row.paymentStatus} />
       </div>
 
-      <div className="mt-1 flex flex-nowrap gap-1 overflow-x-auto">
+      <div className="mt-1 flex min-w-0 flex-nowrap gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ActionChip
           label="Call"
           icon={Phone}
