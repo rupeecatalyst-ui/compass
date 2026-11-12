@@ -380,6 +380,8 @@ export interface LoanLenderExecution {
   enterpriseDealId?: string;
   /** Optimistic concurrency for Deal PATCH when enterpriseDealId is set. */
   enterpriseDealRowVersion?: number;
+  /** Display projection of Enterprise Deal lifecycle. WON is the handoff outcome. */
+  lifecycleStatus?: string;
   /** UX-04 — Probability and primary lender signals. */
   probability?: LenderProbability;
   isPrimary?: boolean;

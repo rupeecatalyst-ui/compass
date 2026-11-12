@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, MoreHorizontal } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -67,13 +67,15 @@ import {
   resolveKanbanCardTimestampLines,
 } from "@/constants/lender-pipeline";
 import {
-  FULL_DISBURSEMENT_SUB_STAGE,
   isPostDisbursementConfirmationPending,
   LENDER_CONFIRMATION_PENDING_KANBAN_LABEL,
   POST_DISBURSEMENT_CONFIRMATION_STAGE,
   POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES,
 } from "@/constants/post-disbursement-confirmation";
+import { buildAccountingCaseHref } from "@/lib/accounting-workspace/resolve-workbench";
+import { enterpriseAccountingCaseClient } from "@/lib/enterprise-accounting-case/client";
 import { postDisbursementApiClient } from "@/lib/post-disbursement-confirmation/client";
+import { lenderSettlementActions } from "@/lib/post-disbursement-confirmation/settlement-handoff-presentation";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import type {
   LenderCaseStage,
@@ -164,6 +166,8 @@ export function LenderPipelineBoard({
   onRemoveDeal?: (dealId: string, card: LoanLenderExecution) => Promise<void>;
 }) {
   const router = useRouter();
+  const linkedCaseIdsRef = useRef<Record<string, string>>({});
+  const [linkedCaseIds, setLinkedCaseIds] = useState<Record<string, string>>({});
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [addOpenInternal, setAddOpenInternal] = useState(false);
@@ -255,6 +259,53 @@ export function LenderPipelineBoard({
     });
     return map;
   }, [cases]);
+
+  const rememberAccountingCase = (dealId: string, accountingCaseId: string) => {
+    const id = accountingCaseId.trim();
+    const key = dealId.trim();
+    if (!key || !id) return;
+    linkedCaseIdsRef.current = { ...linkedCaseIdsRef.current, [key]: id };
+    setLinkedCaseIds({ ...linkedCaseIdsRef.current });
+  };
+
+  const wonDealKey = cases
+    .filter((c) => String(c.lifecycleStatus ?? "").trim().toLowerCase() === "won")
+    .map((c) => (c.enterpriseDealId || c.id).trim())
+    .filter(Boolean)
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    const missing = wonDealKey
+      .split(",")
+      .filter((dealId) => dealId && !linkedCaseIdsRef.current[dealId]);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const found: Record<string, string> = {};
+      await Promise.all(
+        missing.map(async (dealId) => {
+          try {
+            const page = await enterpriseAccountingCaseClient.list({
+              dealId,
+              pageSize: 1,
+            });
+            const match =
+              page.items.find((item) => item.dealId === dealId) ?? page.items[0];
+            if (match?.id) found[dealId] = match.id;
+          } catch {
+            // Keep Open Accounting Case hidden until the linked case can be read.
+          }
+        }),
+      );
+      if (cancelled || Object.keys(found).length === 0) return;
+      linkedCaseIdsRef.current = { ...linkedCaseIdsRef.current, ...found };
+      setLinkedCaseIds({ ...linkedCaseIdsRef.current });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wonDealKey]);
 
   const applyMove = (caseId: string, stage: LenderCaseStage, patch?: Partial<LoanLenderExecution>) => {
     const next = cases.map((c) =>
@@ -810,8 +861,9 @@ export function LenderPipelineBoard({
         const result = await postDisbursementApiClient.confirmReceived(dealId, {
           rowVersion,
         });
+        rememberAccountingCase(dealId, result.accountingCaseId);
         applyMove(caseId, POST_DISBURSEMENT_CONFIRMATION_STAGE, {
-          caseSubStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.received,
+          caseSubStage: result.subStage || POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.received,
           enterpriseDealRowVersion: result.rowVersion,
         });
         toast.success(
@@ -845,9 +897,12 @@ export function LenderPipelineBoard({
           return;
         }
         const result = await postDisbursementApiClient.initiateSettlement(dealId, rowVersion);
+        rememberAccountingCase(dealId, result.accountingCaseId);
         applyMove(caseId, POST_DISBURSEMENT_CONFIRMATION_STAGE, {
-          caseSubStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending,
+          caseSubStage:
+            result.subStage || POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending,
           enterpriseDealRowVersion: result.rowVersion,
+          lifecycleStatus: result.lifecycleStatus ?? "won",
         });
         toast.success(
           result.idempotentReplay
@@ -947,6 +1002,12 @@ export function LenderPipelineBoard({
                         onReorderDown={() => reorderIdentified(c.id, "down")}
                         onConfirmReceived={() => confirmPostDisbursementReceived(c.id)}
                         onInitiateSettlement={() => initiateSettlement(c.id)}
+                        accountingCaseId={
+                          linkedCaseIds[(c.enterpriseDealId || c.id).trim()]
+                        }
+                        onOpenAccountingCase={(accountingCaseId) => {
+                          router.push(buildAccountingCaseHref(accountingCaseId));
+                        }}
                       />
                     ))}
                     {colCases.length === 0 && (
@@ -1413,6 +1474,8 @@ function LenderCaseKanbanCard({
   onReorderDown,
   onConfirmReceived,
   onInitiateSettlement,
+  accountingCaseId,
+  onOpenAccountingCase,
 }: {
   context: DealPipelineContext;
   stageLabel: string;
@@ -1433,19 +1496,17 @@ function LenderCaseKanbanCard({
   onReorderDown: () => void;
   onConfirmReceived: () => void;
   onInitiateSettlement: () => void;
+  accountingCaseId?: string | null;
+  onOpenAccountingCase: (accountingCaseId: string) => void;
 }) {
   const stage = normalizeLenderCaseStage(caseExecution.caseStage);
   const identified = stage === "identified";
-  const confirmationPending = isPostDisbursementConfirmationPending({
-    caseStage: caseExecution.caseStage,
+  const settlement = lenderSettlementActions({
+    caseStage: stage,
     caseSubStage: caseExecution.caseSubStage,
+    lifecycleStatus: caseExecution.lifecycleStatus,
+    accountingCaseId,
   });
-  const fullyDisbursed =
-    stage === "disbursed" && caseExecution.caseSubStage === FULL_DISBURSEMENT_SUB_STAGE;
-  const partialDisbursement =
-    stage === "disbursed" &&
-    (caseExecution.caseSubStage === "first_tranche" ||
-      caseExecution.caseSubStage === "final_tranche");
   const product = caseExecution.product ?? loan.loanProduct;
   const loanAmount = caseExecution.expectedLoanAmount ?? loan.requiredAmount ?? 0;
   const loanAmountLabel = loanAmount > 0 ? formatINR(loanAmount) : null;
@@ -1623,7 +1684,14 @@ function LenderCaseKanbanCard({
             {subStage}
           </span>
         </div>
-        {confirmationPending ? (
+        {settlement.statusLabel ? (
+          <p
+            className="mt-1 text-[10px] font-semibold leading-snug text-foreground"
+            title={settlement.statusLabel}
+          >
+            {settlement.statusLabel}
+          </p>
+        ) : settlement.showConfirmationReceived ? (
           <p
             className="mt-1 text-[10px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400"
             title="Lender confirmation is still required before invoicing."
@@ -1708,7 +1776,7 @@ function LenderCaseKanbanCard({
             Start Login
           </Button>
         ) : null}
-        {fullyDisbursed || confirmationPending ? (
+        {settlement.showInitiateSettlement ? (
           <Button
             type="button"
             size="sm"
@@ -1718,17 +1786,28 @@ function LenderCaseKanbanCard({
             Initiate Settlement
           </Button>
         ) : null}
-        {partialDisbursement ? (
+        {settlement.partialDisbursement ? (
           <p className="w-full text-[10px] font-medium text-amber-800 dark:text-amber-200">
             Partial disbursement. Settlement handoff stays closed.
           </p>
         ) : null}
-        {stage === "disbursed" && !fullyDisbursed && !partialDisbursement ? (
+        {settlement.showFullyDisbursedHint ? (
           <p className="w-full text-[10px] font-medium text-muted-foreground">
             Set Fully Disbursed before Initiate Settlement.
           </p>
         ) : null}
-        {confirmationPending ? (
+        {settlement.accountingCaseId ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 px-1.5 text-[9px]"
+            onClick={() => onOpenAccountingCase(settlement.accountingCaseId!)}
+          >
+            Open Accounting Case
+          </Button>
+        ) : null}
+        {settlement.showConfirmationReceived ? (
           <Button
             type="button"
             size="sm"

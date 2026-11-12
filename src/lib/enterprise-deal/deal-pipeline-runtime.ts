@@ -52,6 +52,7 @@ export function dealToLenderExecution(
     id: deal.id,
     enterpriseDealId: deal.id,
     enterpriseDealRowVersion: deal.rowVersion,
+    lifecycleStatus: deal.lifecycleStatus,
     lender: name,
     status: (derived?.status as LoanLenderExecution["status"]) || "active",
     caseStage,

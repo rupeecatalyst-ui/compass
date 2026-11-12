@@ -33,6 +33,7 @@ import { isAccountingInvoiceRaiseRole } from "@/constants/enterprise-accounting-
 import { useAuth } from "@/hooks/use-auth";
 import { AccountingWorkbenchNav } from "./accounting-workbench-nav";
 import { AccountingCasesPanel } from "./accounting-cases-panel";
+import { ACCOUNTING_HANDOFF_EXPLANATION } from "@/lib/post-disbursement-confirmation/settlement-handoff-presentation";
 import {
   AccountingCollectionsWorkbench,
   AccountingDashboardWorkbench,
@@ -176,7 +177,7 @@ export function AccountingWorkspace() {
           tone: "info" as const,
           title: "No Accounting Cases yet",
           message:
-            "Cases appear after Confirmation Received on Post-Disbursement Confirmation. Invoice raise remains a later action.",
+          "An Accounting Case is created or linked at Initiate Settlement. Raise Invoice is not automatic.",
         },
       ];
     }
@@ -186,7 +187,7 @@ export function AccountingWorkspace() {
         tone: "positive" as const,
         title: `${cases.length} Accounting Case${cases.length === 1 ? "" : "s"}`,
         message:
-          "Durable Deal-linked cases ready for commercial capture. Invoice creation is not automatic.",
+          "Accounting Case linked at Initiate Settlement. Confirmation Pending until Confirmation Received. Raise Invoice is not automatic.",
       },
     ];
   }, [cases.length, casesError, casesLoading]);
@@ -211,7 +212,7 @@ export function AccountingWorkspace() {
                     Accounting Workspace
                   </h1>
                   <p className="text-[11px] text-muted-foreground sm:text-xs">
-                    Durable Accounting Cases after Confirmation Received · Raise Invoice is an explicit ADMIN action
+                    {ACCOUNTING_HANDOFF_EXPLANATION}
                   </p>
                 </div>
               }
@@ -242,7 +243,7 @@ export function AccountingWorkspace() {
                   error={casesError}
                   onReload={reloadCases}
                   focusCaseId={focusCaseId}
-                  caption="Created only when Confirmation Pending → Confirmation Received. Commercial capture only — this is not an invoice ledger."
+                  caption={ACCOUNTING_HANDOFF_EXPLANATION}
                 />
                 <AccountingDashboardWorkbench
                   summary={{
@@ -272,7 +273,7 @@ export function AccountingWorkspace() {
                   currentInvoiceByCaseId={currentInvoiceByCaseId}
                   currentInvoiceIdByCaseId={currentInvoiceIdByCaseId}
                   onInvoiceRaised={reloadInvoices}
-                  caption="Cases after Confirmation Received. Raise Invoice is an explicit ADMIN action and does not send the invoice."
+                  caption={ACCOUNTING_HANDOFF_EXPLANATION}
                 />
                 <AccountingInvoiceWorkbench
                   invoices={durableInvoices}

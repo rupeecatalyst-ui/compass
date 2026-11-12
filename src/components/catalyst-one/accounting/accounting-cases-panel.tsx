@@ -214,7 +214,7 @@ export function AccountingCasesPanel(props: {
         <p className="mt-3 text-[11px] text-destructive">{props.error}</p>
       ) : props.cases.length === 0 ? (
         <p className="mt-3 text-[11px] text-muted-foreground">
-          No durable Accounting Cases yet. Cases appear after Confirmation Received.
+          No Accounting Cases yet. A case is created or linked when Initiate Settlement succeeds.
         </p>
       ) : (
         <div className="mt-2 overflow-x-auto">

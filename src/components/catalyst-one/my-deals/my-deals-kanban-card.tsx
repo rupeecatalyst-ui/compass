@@ -14,6 +14,7 @@ import type { MyDealsKanbanFieldId } from "@/constants/my-deals-kanban";
 import { primaryMyDealsKanbanAlert } from "@/lib/my-deals/kanban-alerts";
 import { nextStageLabelForDeal } from "@/lib/my-deals/kanban-board";
 import { resolveMyDealsKanbanCta } from "@/lib/my-deals/kanban-cta";
+import { myDealsWonStatusLabel } from "@/lib/post-disbursement-confirmation/settlement-handoff-presentation";
 import {
   kanbanActionAvailability,
   resolveKanbanDealParticipants,
@@ -70,6 +71,7 @@ export function MyDealsKanbanCard({
   const alert = primaryMyDealsKanbanAlert(row);
   const cta = resolveMyDealsKanbanCta(row, columnId);
   const nextStage = nextStageLabelForDeal(row);
+  const wonStatus = myDealsWonStatusLabel(row);
   const has = (id: MyDealsKanbanFieldId) => visibleFields.has(id);
 
   return (
@@ -192,6 +194,15 @@ export function MyDealsKanbanCard({
         <OptionalLine show={has("invoiceStatus")} label="Invoice" value={row.invoiceStatus} />
         <OptionalLine show={has("paymentStatus")} label="Payment" value={row.paymentStatus} />
       </div>
+
+      {wonStatus ? (
+        <p
+          className="mt-1 truncate text-[10px] font-semibold leading-4 text-teal-200"
+          title={wonStatus}
+        >
+          {wonStatus}
+        </p>
+      ) : null}
 
       <div className="mt-1 flex min-w-0 flex-nowrap gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ActionChip

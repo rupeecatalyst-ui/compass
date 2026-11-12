@@ -159,7 +159,7 @@ export function AccountingInvoiceRegister({
         <p className="mt-3 text-[11px] text-destructive">{error}</p>
       ) : invoices.length === 0 ? (
         <p className="mt-3 text-[11px] text-muted-foreground">
-          No invoices have been raised. Confirmation Received creates an Accounting Case only.
+          No invoices have been raised. Raise Invoice stays unavailable until Confirmation Received and the existing invoice requirements are met.
         </p>
       ) : (
         <div className="mt-2 overflow-x-auto">
