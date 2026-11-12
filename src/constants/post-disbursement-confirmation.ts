@@ -6,7 +6,21 @@ export const POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES = {
   received: "confirmation_received",
 } as const;
 
+/**
+ * Historical schedule clock only. It is not a prerequisite for
+ * Initiate Settlement. A fully disbursed Deal can hand off immediately.
+ */
 export const POST_DISBURSEMENT_CONFIRMATION_DELAY_HOURS = 72;
+
+export const FULL_DISBURSEMENT_SUB_STAGE = "fully_disbursed" as const;
+
+export const PARTIAL_DISBURSEMENT_SUB_STAGES = [
+  "first_tranche",
+  "final_tranche",
+] as const;
+
+/** Accounting Case source for operational handoff. Not lender confirmation. */
+export const SETTLEMENT_HANDOFF_SOURCE = "settlement_handoff" as const;
 
 export const POST_DISBURSEMENT_EVENT_SOURCE =
   "post_disbursement_confirmation" as const;
@@ -35,6 +49,10 @@ export function postDisbursementReceivedEventId(dealId: string): string {
 
 export function postDisbursementAccountingCreatedEventId(dealId: string): string {
   return `deal:${dealId}:accounting_case_created`;
+}
+
+export function postDisbursementSettlementHandoffEventId(dealId: string): string {
+  return `deal:${dealId}:settlement_handoff`;
 }
 
 export function postDisbursementTaskCreatedEventId(dealId: string): string {

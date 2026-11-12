@@ -10,13 +10,19 @@ import {
   POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES,
   POST_DISBURSEMENT_EVENT_SOURCE,
   postDisbursementAccountingCreatedEventId,
-  postDisbursementPendingEventId,
   postDisbursementReceivedEventId,
+  postDisbursementSettlementHandoffEventId,
+  SETTLEMENT_HANDOFF_SOURCE,
   postDisbursementTaskCreatedEventId,
   postDisbursementTaskIdempotencyKey,
 } from "@/constants/post-disbursement-confirmation";
 import type { ConfirmPostDisbursementInput } from "@/types/enterprise-accounting-case";
 import { decideAccountingAdvantageHandoff, serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
+import {
+  actorMayInitiateSettlement,
+  assessSettlementHandoff,
+  decideSettlementCronAction,
+} from "@/lib/post-disbursement-confirmation/settlement-handoff";
 
 function money(value: number | null | undefined, field: string) {
   if (value === undefined) return undefined;
@@ -334,8 +340,24 @@ export class PostDisbursementConfirmationService {
             return "failed";
           }
 
-          // Already pending / received — complete schedule without duplicate work.
-          if (deal.grossStage === POST_DISBURSEMENT_CONFIRMATION_STAGE) {
+          const existingCase = await tx.enterpriseAccountingCase.findUnique({
+            where: { dealId: deal.id },
+            select: { id: true },
+          });
+          const cronAction = decideSettlementCronAction({
+            grossStage: deal.grossStage,
+            subStage: deal.subStage,
+            lifecycleStatus: deal.lifecycleStatus,
+            fulfilledAmount:
+              deal.fulfilledAmount != null ? Number(deal.fulfilledAmount) : null,
+            approvedAmount:
+              deal.approvedAmount != null ? Number(deal.approvedAmount) : null,
+            hasAccountingCase: Boolean(existingCase),
+          });
+
+          // Confirmation follow-up stays inside Accounting. The timer does not
+          // create a case, move a Deal, or reverse WON.
+          if (cronAction === "already_in_confirmation") {
             await ensureOwnerConfirmationTask(tx, {
               organizationId: schedule.organizationId,
               deal,
@@ -343,92 +365,27 @@ export class PostDisbursementConfirmationService {
               scheduleId: schedule.id,
               now,
             });
-            await tx.enterprisePostDisbursementSchedule.update({
-              where: { id: schedule.id },
-              data: {
-                status: "completed",
-                processedAt: now,
-                lastError: `Already in ${deal.subStage ?? "post_disbursement_confirmation"}`,
-              },
-            });
-            return "skipped";
           }
 
-          if (deal.grossStage !== "disbursed") {
-            await tx.enterprisePostDisbursementSchedule.update({
-              where: { id: schedule.id },
-              data: {
-                status: "completed",
-                processedAt: now,
-                lastError: `No transition: Deal stage is ${deal.grossStage}`,
-              },
-            });
-            return "skipped";
-          }
-
-          await tx.enterpriseDeal.update({
-            where: { id: deal.id },
-            data: {
-              grossStage: POST_DISBURSEMENT_CONFIRMATION_STAGE,
-              subStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending,
-              stageEnteredAt: now,
-              daysInStage: 0,
-              rowVersion: { increment: 1 },
-            },
-          });
-          const timeline = await tx.enterpriseDealTimelineEvent.create({
-            data: {
-              organizationId: schedule.organizationId,
-              dealId: deal.id,
-              eventType: "post_disbursement_confirmation_pending",
-              occurredAt: now,
-              summary: `Deal ${deal.dealNumber} entered post-disbursement confirmation`,
-              payload: {
-                fromGrossStage: "disbursed",
-                toGrossStage: POST_DISBURSEMENT_CONFIRMATION_STAGE,
-                toSubStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending,
-                scheduleId: schedule.id,
-              },
-            },
-          });
-          await tx.enterpriseActivityEvent.upsert({
-            where: {
-              organizationId_sourceSystem_sourceEventId: {
-                organizationId: schedule.organizationId,
-                sourceSystem: POST_DISBURSEMENT_EVENT_SOURCE,
-                sourceEventId: postDisbursementPendingEventId(deal.id),
-              },
-            },
-            create: {
-              organizationId: schedule.organizationId,
-              eventKind: "stage_change",
-              sourceSystem: POST_DISBURSEMENT_EVENT_SOURCE,
-              sourceEventId: postDisbursementPendingEventId(deal.id),
-              title: "Post-Disbursement Confirmation Pending",
-              summary: `Deal ${deal.dealNumber} is awaiting lender confirmation`,
-              payload: { timelineEventId: timeline.id, scheduleId: schedule.id },
-              opportunityId: deal.opportunityId,
-              dealId: deal.id,
-              contactId: deal.primaryContactId,
-              occurredAt: now,
-            },
-            update: {},
-          });
-
-          // Action B — automatic owner task (idempotent). No Accounting Case here.
-          await ensureOwnerConfirmationTask(tx, {
-            organizationId: schedule.organizationId,
-            deal,
-            lenderName: deal.lender?.displayName || deal.lender?.legalName,
-            scheduleId: schedule.id,
-            now,
-          });
-
+          const cronNote =
+            cronAction === "skip_partial"
+              ? "Partial disbursement — timer left the Deal unchanged"
+              : cronAction === "skip_handed_off"
+                ? "Settlement already handed off — timer left the Deal unchanged"
+                : cronAction === "await_user_handoff"
+                  ? "Awaiting Initiate Settlement — three-day delay is not a handoff gate"
+                  : cronAction === "already_in_confirmation"
+                    ? `Already in ${deal.subStage ?? "post_disbursement_confirmation"}`
+                    : `No transition: Deal stage is ${deal.grossStage}`;
           await tx.enterprisePostDisbursementSchedule.update({
             where: { id: schedule.id },
-            data: { status: "completed", processedAt: now },
+            data: {
+              status: "completed",
+              processedAt: now,
+              lastError: cronNote,
+            },
           });
-          return "transitioned";
+          return "skipped";
         });
         results.push({ scheduleId: schedule.id, dealId: schedule.dealId, status: result });
       } catch (error) {
@@ -445,6 +402,219 @@ export class PostDisbursementConfirmationService {
       transitioned: results.filter((item) => item.status === "transitioned").length,
       results,
     };
+  }
+
+  async initiateSettlement(
+    dealId: string,
+    input: { rowVersion: number; role?: string | null },
+    actorUserId: string,
+  ) {
+    if (!Number.isInteger(input.rowVersion) || input.rowVersion < 1) {
+      throw Object.assign(new Error("rowVersion must be a positive integer"), {
+        statusCode: 400,
+        code: "INVALID_ROW_VERSION",
+      });
+    }
+    const organizationId = await resolvePilotOrganizationId();
+    const now = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      const deal = await tx.enterpriseDeal.findFirst({
+        where: { id: dealId, organizationId, isDeleted: false },
+      });
+      if (!deal) {
+        throw Object.assign(new Error("Deal not found"), {
+          statusCode: 404,
+          code: "DEAL_NOT_FOUND",
+        });
+      }
+      if (
+        !actorMayInitiateSettlement({
+          role: input.role,
+          actorUserId,
+          primaryOwnerUserId: deal.primaryOwnerUserId,
+          relationshipManagerUserId: deal.relationshipManagerUserId,
+        })
+      ) {
+        throw Object.assign(new Error("You are not authorised to initiate settlement for this Deal"), {
+          statusCode: 403,
+          code: "FORBIDDEN",
+        });
+      }
+
+      const existingCase = await tx.enterpriseAccountingCase.findUnique({
+        where: { dealId: deal.id },
+      });
+      const facts = {
+        grossStage: deal.grossStage,
+        subStage: deal.subStage,
+        lifecycleStatus: deal.lifecycleStatus,
+        fulfilledAmount: deal.fulfilledAmount != null ? Number(deal.fulfilledAmount) : null,
+        approvedAmount: deal.approvedAmount != null ? Number(deal.approvedAmount) : null,
+        hasAccountingCase: Boolean(existingCase),
+      };
+      const eligibility = assessSettlementHandoff(facts);
+      if (eligibility.alreadyHandedOff && existingCase) {
+        return {
+          dealId: deal.id,
+          grossStage: deal.grossStage,
+          subStage: deal.subStage,
+          lifecycleStatus: deal.lifecycleStatus,
+          rowVersion: deal.rowVersion,
+          accountingCaseId: existingCase.id,
+          handedOffAt: existingCase.confirmedAt.toISOString(),
+          idempotentReplay: true,
+        };
+      }
+      if (!eligibility.eligible) {
+        throw Object.assign(new Error(eligibility.message), {
+          statusCode: 409,
+          code: eligibility.code,
+        });
+      }
+
+      const stageChanged = deal.grossStage !== POST_DISBURSEMENT_CONFIRMATION_STAGE;
+      const accountingCase = await tx.enterpriseAccountingCase.upsert({
+        where: { dealId: deal.id },
+        create: {
+          organizationId,
+          dealId: deal.id,
+          status: "open",
+          upstreamSnapshot: {
+            dealSnapshot: deal.snapshot,
+            commercialTerms: deal.commercialTerms,
+            lendingExtension: deal.lendingExtension,
+            settlementHandoff: true,
+            lenderConfirmationAssumed: false,
+          } as Prisma.InputJsonValue,
+          finalAmount: deal.approvedAmount,
+          disbursedAmount: deal.fulfilledAmount,
+          disbursedDate: deal.disbursedAt,
+          confirmationSource: SETTLEMENT_HANDOFF_SOURCE,
+          confirmedBy: actorUserId,
+          confirmedAt: now,
+          createdBy: actorUserId,
+          updatedBy: actorUserId,
+        },
+        update: {},
+      });
+
+      const won = await tx.enterpriseDeal.updateMany({
+        where: {
+          id: deal.id,
+          organizationId,
+          rowVersion: input.rowVersion,
+          isDeleted: false,
+          lifecycleStatus: { not: "won" },
+        },
+        data: {
+          lifecycleStatus: "won",
+          grossStage: POST_DISBURSEMENT_CONFIRMATION_STAGE,
+          subStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending,
+          ...(stageChanged ? { stageEnteredAt: now, daysInStage: 0 } : {}),
+          updatedBy: actorUserId,
+          rowVersion: { increment: 1 },
+        },
+      });
+      if (won.count === 0) {
+        const latest = await tx.enterpriseDeal.findFirst({
+          where: { id: deal.id, organizationId, isDeleted: false },
+        });
+        const latestCase = await tx.enterpriseAccountingCase.findUnique({
+          where: { dealId: deal.id },
+        });
+        if (latest?.lifecycleStatus === "won" && latestCase) {
+          return {
+            dealId: deal.id,
+            grossStage: latest.grossStage,
+            subStage: latest.subStage,
+            lifecycleStatus: latest.lifecycleStatus,
+            rowVersion: latest.rowVersion,
+            accountingCaseId: latestCase.id,
+            handedOffAt: latestCase.confirmedAt.toISOString(),
+            idempotentReplay: true,
+          };
+        }
+        throw Object.assign(new Error("Deal changed; reload and retry"), {
+          statusCode: 409,
+          code: "DEAL_CONFLICT",
+        });
+      }
+
+      await tx.enterprisePostDisbursementSchedule.updateMany({
+        where: { dealId: deal.id, status: "pending" },
+        data: {
+          status: "completed",
+          processedAt: now,
+          lastError: "Initiate Settlement completed before the timer",
+        },
+      });
+
+      await ensureOwnerConfirmationTask(tx, {
+        organizationId,
+        deal,
+        lenderName: null,
+        scheduleId: deal.id,
+        now,
+      });
+
+      await tx.enterpriseDealTimelineEvent.create({
+        data: {
+          organizationId,
+          dealId: deal.id,
+          eventType: "settlement_handoff",
+          occurredAt: now,
+          actorUserId,
+          summary: `Initiate Settlement handed Deal ${deal.dealNumber} to Accounting`,
+          payload: {
+            accountingCaseId: accountingCase.id,
+            lifecycleStatus: "won",
+            confirmationSource: SETTLEMENT_HANDOFF_SOURCE,
+            lenderConfirmationAssumed: false,
+            invoiceGenerated: false,
+          },
+        },
+      });
+      await tx.enterpriseActivityEvent.upsert({
+        where: {
+          organizationId_sourceSystem_sourceEventId: {
+            organizationId,
+            sourceSystem: POST_DISBURSEMENT_EVENT_SOURCE,
+            sourceEventId: postDisbursementSettlementHandoffEventId(deal.id),
+          },
+        },
+        create: {
+          organizationId,
+          eventKind: "accounting",
+          sourceSystem: POST_DISBURSEMENT_EVENT_SOURCE,
+          sourceEventId: postDisbursementSettlementHandoffEventId(deal.id),
+          title: "Initiate Settlement",
+          summary: `Accounting Case ${accountingCase.id} linked for Deal ${deal.dealNumber}. Lender confirmation and invoicing remain outstanding.`,
+          payload: {
+            accountingCaseId: accountingCase.id,
+            actorUserId,
+            lifecycleStatus: "won",
+          },
+          opportunityId: deal.opportunityId,
+          dealId: deal.id,
+          contactId: deal.primaryContactId,
+          actorUserId,
+          occurredAt: now,
+        },
+        update: {},
+      });
+
+      return {
+        dealId: deal.id,
+        grossStage: POST_DISBURSEMENT_CONFIRMATION_STAGE,
+        subStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending,
+        lifecycleStatus: "won" as const,
+        rowVersion: input.rowVersion + 1,
+        accountingCaseId: accountingCase.id,
+        handedOffAt: accountingCase.confirmedAt.toISOString(),
+        idempotentReplay: false,
+      };
+    });
   }
 
   async receiveConfirmation(

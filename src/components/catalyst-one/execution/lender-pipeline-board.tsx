@@ -67,6 +67,7 @@ import {
   resolveKanbanCardTimestampLines,
 } from "@/constants/lender-pipeline";
 import {
+  FULL_DISBURSEMENT_SUB_STAGE,
   isPostDisbursementConfirmationPending,
   LENDER_CONFIRMATION_PENDING_KANBAN_LABEL,
   POST_DISBURSEMENT_CONFIRMATION_STAGE,
@@ -328,7 +329,7 @@ export function LenderPipelineBoard({
 
     if (stage === POST_DISBURSEMENT_CONFIRMATION_STAGE) {
       toast.message(
-        "Post-Disbursement Confirmation opens automatically three days after Disbursed.",
+        "Use Initiate Settlement on a fully disbursed Deal. Lender confirmation stays a separate step.",
       );
       setDragOverStage(null);
       setDraggingId(null);
@@ -347,7 +348,7 @@ export function LenderPipelineBoard({
     // `stage` is already narrowed away from disbursed / post_disbursement_confirmation above.
     if (normalizeLenderCaseStage(c.caseStage) === "disbursed") {
       toast.message(
-        "Disbursed cases advance to Post-Disbursement Confirmation via the server timer.",
+        "Disbursed cases move to Accounting with Initiate Settlement. The three-day timer does not block that handoff.",
       );
       setDragOverStage(null);
       setDraggingId(null);
@@ -819,9 +820,42 @@ export function LenderPipelineBoard({
             : "Confirmation Received — Accounting Case activated.",
         );
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Failed to record confirmation",
+        toast.error(err instanceof Error ? err.message : "Confirmation failed");
+      }
+    })();
+  };
+
+  const initiateSettlement = (caseId: string) => {
+    const c = cases.find((x) => x.id === caseId);
+    if (!c) return;
+    void (async () => {
+      try {
+        const dealId = (c.enterpriseDealId || c.id || "").trim();
+        if (!dealId) {
+          toast.error("Deal id is missing for settlement handoff.");
+          return;
+        }
+        let rowVersion = c.enterpriseDealRowVersion;
+        if (rowVersion == null) {
+          const deal = await enterpriseDealApiClient.getDeal(dealId);
+          rowVersion = deal.rowVersion;
+        }
+        if (rowVersion == null) {
+          toast.error("Deal version is missing — reload the workspace and try again.");
+          return;
+        }
+        const result = await postDisbursementApiClient.initiateSettlement(dealId, rowVersion);
+        applyMove(caseId, POST_DISBURSEMENT_CONFIRMATION_STAGE, {
+          caseSubStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.pending,
+          enterpriseDealRowVersion: result.rowVersion,
+        });
+        toast.success(
+          result.idempotentReplay
+            ? "Settlement already handed off. Accounting already has this Deal."
+            : "Settlement handed off. Deal is WON. Lender confirmation is still required before invoicing.",
         );
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Settlement handoff failed");
       }
     })();
   };
@@ -912,6 +946,7 @@ export function LenderPipelineBoard({
                         onReorderUp={() => reorderIdentified(c.id, "up")}
                         onReorderDown={() => reorderIdentified(c.id, "down")}
                         onConfirmReceived={() => confirmPostDisbursementReceived(c.id)}
+                        onInitiateSettlement={() => initiateSettlement(c.id)}
                       />
                     ))}
                     {colCases.length === 0 && (
@@ -1377,6 +1412,7 @@ function LenderCaseKanbanCard({
   onReorderUp,
   onReorderDown,
   onConfirmReceived,
+  onInitiateSettlement,
 }: {
   context: DealPipelineContext;
   stageLabel: string;
@@ -1396,6 +1432,7 @@ function LenderCaseKanbanCard({
   onReorderUp: () => void;
   onReorderDown: () => void;
   onConfirmReceived: () => void;
+  onInitiateSettlement: () => void;
 }) {
   const stage = normalizeLenderCaseStage(caseExecution.caseStage);
   const identified = stage === "identified";
@@ -1403,6 +1440,12 @@ function LenderCaseKanbanCard({
     caseStage: caseExecution.caseStage,
     caseSubStage: caseExecution.caseSubStage,
   });
+  const fullyDisbursed =
+    stage === "disbursed" && caseExecution.caseSubStage === FULL_DISBURSEMENT_SUB_STAGE;
+  const partialDisbursement =
+    stage === "disbursed" &&
+    (caseExecution.caseSubStage === "first_tranche" ||
+      caseExecution.caseSubStage === "final_tranche");
   const product = caseExecution.product ?? loan.loanProduct;
   const loanAmount = caseExecution.expectedLoanAmount ?? loan.requiredAmount ?? 0;
   const loanAmountLabel = loanAmount > 0 ? formatINR(loanAmount) : null;
@@ -1583,7 +1626,7 @@ function LenderCaseKanbanCard({
         {confirmationPending ? (
           <p
             className="mt-1 text-[10px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400"
-            title="The three-day post-disbursement period has elapsed and lender confirmation is now required."
+            title="Lender confirmation is still required before invoicing."
           >
             {LENDER_CONFIRMATION_PENDING_KANBAN_LABEL}
           </p>
@@ -1664,6 +1707,26 @@ function LenderCaseKanbanCard({
           <Button type="button" size="sm" className="h-6 px-1.5 text-[9px]" onClick={onStartLogin}>
             Start Login
           </Button>
+        ) : null}
+        {fullyDisbursed || confirmationPending ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-6 px-1.5 text-[9px]"
+            onClick={onInitiateSettlement}
+          >
+            Initiate Settlement
+          </Button>
+        ) : null}
+        {partialDisbursement ? (
+          <p className="w-full text-[10px] font-medium text-amber-800 dark:text-amber-200">
+            Partial disbursement. Settlement handoff stays closed.
+          </p>
+        ) : null}
+        {stage === "disbursed" && !fullyDisbursed && !partialDisbursement ? (
+          <p className="w-full text-[10px] font-medium text-muted-foreground">
+            Set Fully Disbursed before Initiate Settlement.
+          </p>
         ) : null}
         {confirmationPending ? (
           <Button

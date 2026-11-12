@@ -23,6 +23,17 @@ async function pdcFetch<T>(url: string, init?: RequestInit): Promise<T> {
   return body.data as T;
 }
 
+export type PostDisbursementSettlementResult = {
+  dealId: string;
+  grossStage: string | null;
+  subStage: string | null;
+  lifecycleStatus: string | null;
+  rowVersion: number;
+  accountingCaseId: string;
+  handedOffAt: string;
+  idempotentReplay?: boolean;
+};
+
 export type PostDisbursementConfirmResult = {
   dealId: string;
   grossStage: string;
@@ -55,6 +66,19 @@ export type OwnerConfirmationTaskDto = {
 };
 
 export const postDisbursementApiClient = {
+  async initiateSettlement(
+    dealId: string,
+    rowVersion: number,
+  ): Promise<PostDisbursementSettlementResult> {
+    return pdcFetch(
+      `/api/enterprise-deals/${encodeURIComponent(dealId)}/post-disbursement-confirmation`,
+      {
+        method: "POST",
+        body: JSON.stringify({ rowVersion }),
+      },
+    );
+  },
+
   async confirmReceived(
     dealId: string,
     body: { rowVersion: number } & Record<string, unknown>,

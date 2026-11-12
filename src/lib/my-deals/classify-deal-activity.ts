@@ -47,6 +47,10 @@ function isCompletedOperationalStatus(status: string | null | undefined): boolea
  * (lifecycle complete). Disbursed remains active until PDC hand-off.
  */
 export function classifyDealActivity(row: DealRegistryRow): DealActivityClassification {
+  if (String(row.lifecycleStatus ?? "").trim().toLowerCase() === "won") {
+    return "inactive";
+  }
+
   const stage = row.lenderCaseStage;
 
   if (INACTIVE_STAGE_SET.has(stage)) {

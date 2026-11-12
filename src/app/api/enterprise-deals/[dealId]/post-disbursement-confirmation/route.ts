@@ -42,3 +42,28 @@ export async function PATCH(request: Request, context: Ctx) {
     );
   }
 }
+
+export async function POST(request: Request, context: Ctx) {
+  try {
+    const actor = requireAccessToken(request);
+    const { dealId } = await context.params;
+    const body = (await request.json()) as { rowVersion?: number };
+    const result = await postDisbursementConfirmationService.initiateSettlement(
+      dealId,
+      { rowVersion: Number(body.rowVersion), role: actor.role },
+      actor.userId,
+    );
+    return successResponse(result);
+  } catch (error) {
+    const auth = error as { status?: number; body?: unknown };
+    if (auth.status && auth.body) {
+      return errorResponse(auth.status, "AUTH_ERROR", "Authentication required");
+    }
+    const status = (error as { statusCode?: number }).statusCode ?? 500;
+    return errorResponse(
+      status,
+      (error as { code?: string }).code ?? "SETTLEMENT_HANDOFF_FAILED",
+      error instanceof Error ? error.message : "Settlement handoff failed",
+    );
+  }
+}
